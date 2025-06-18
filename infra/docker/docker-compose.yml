@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ../../backend
+      dockerfile: ./backend/Dockerfile.backend
+    # env_file:
+    #   - ../../backend/.env
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    networks:
+      - app-network
+    restart: always
+
+  frontend:
+    build:
+      context: ../../frontend
+      dockerfile: ./frontend/Dockerfile.frontend
+    # env_file:
+    #   - ../../.env
+    environment:
+      - VITE_NODE_ENV=production
+      # VITE_API_URL will be picked up from the .env file and passed into the container
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+    restart: always
+
+networks:
+  app-network:
+    driver: bridge 

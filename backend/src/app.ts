@@ -13,6 +13,10 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.get('/api/health', (req: Request, res: Response) => {
+    res.status(200).json({ status: 'UP' });
+});
+
 app.use('/api/metrics', metricsRouter);
 
 app.get('/', (req: Request, res: Response) => {
