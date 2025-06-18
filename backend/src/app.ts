@@ -8,7 +8,12 @@ dotenv.config();
 
 const app: Application = express();
 
-app.use(cors());
+const corsOptions = {
+    origin: 'http://localhost:5173', // Your vite dev server origin
+    optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

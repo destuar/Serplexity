@@ -2,24 +2,13 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY frontend/package*.json ./
-RUN npm ci && \
-    npm cache clean --force && \
-    rm -rf /root/.npm/
+RUN npm ci
 COPY frontend/. ./
 RUN npm run build
-RUN echo '(function(window) { window.ENV = { API_URL: "${VITE_API_URL}", NODE_ENV: "${VITE_NODE_ENV}" }; })(window);' > /app/dist/config.js.template
 
 # ============================= PRODUCTION STAGE ==============================
 FROM nginx:alpine-slim
-RUN apk add --no-cache gettext
-RUN rm -f /etc/nginx/conf.d/default.conf
-COPY infra/docker/frontend/frontend-nginx.conf /etc/nginx/conf.d/default.conf
-COPY infra/docker/frontend/frontend-nginx-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
 COPY --from=builder /app/dist /usr/share/nginx/html
-RUN mkdir -p /etc/nginx/conf.d
-RUN chown -R nginx:nginx /usr/share/nginx/html && \
-    chmod -R 755 /usr/share/nginx/html
+COPY infra/docker/frontend/frontend-nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
-ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["nginx", "-g", "daemon off;"] 
+CMD ["nginx", "-g", "daemon off;"]

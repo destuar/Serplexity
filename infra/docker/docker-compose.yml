@@ -23,11 +23,6 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/frontend/Dockerfile.frontend
-    env_file:
-      - ../../.env
-    environment:
-      - VITE_NODE_ENV=production
-      # VITE_API_URL will be picked up from the .env file and passed into the container
     ports:
       - "80:80"
       - "443:443"
