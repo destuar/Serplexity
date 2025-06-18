@@ -13,10 +13,6 @@ const Header = () => {
             <h1 className="text-xl font-bold">CodeLadder.io</h1>
             <ChevronDown className="ml-2" />
           </div>
-          <div className="flex items-center mt-1">
-            <p className="text-sm text-gray-500">10,7%</p>
-            <p className="ml-2 text-sm text-green-500">+4.5%</p>
-          </div>
         </div>
       </div>
       <div className="flex items-center">
