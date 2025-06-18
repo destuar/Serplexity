@@ -1,0 +1,37 @@
+import { Bell, ChevronDown, Grid3x3, User } from "lucide-react";
+import React from "react";
+
+const Header = () => {
+  return (
+    <header className="flex items-center justify-between px-4 py-4 bg-white">
+      <div className="flex items-center">
+        <div className="p-2 bg-gray-200 rounded-lg">
+          <User size={24} />
+        </div>
+        <div className="ml-4">
+          <div className="flex items-center">
+            <h1 className="text-xl font-bold">CodeLadder.io</h1>
+            <ChevronDown className="ml-2" />
+          </div>
+          <div className="flex items-center mt-1">
+            <p className="text-sm text-gray-500">10,7%</p>
+            <p className="ml-2 text-sm text-green-500">+4.5%</p>
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center">
+        <button className="p-2 rounded-lg hover:bg-gray-100">
+          <Grid3x3 />
+        </button>
+        <button className="p-2 ml-4 rounded-lg hover:bg-gray-100">
+          <Bell />
+        </button>
+        <div className="ml-4 w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+          <User size={20} className="text-gray-600" />
+        </div>
+      </div>
+    </header>
+  );
+};
+
+export default Header; 
