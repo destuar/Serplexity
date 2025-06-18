@@ -14,3 +14,47 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String?
+  password     String?
+  role         Role      @default(USER)
+  provider     String    @default("credentials")
+  providerId   String?
+  tokenVersion Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  companies    Company[] // One user can have multiple companies
+}
+
+model Company {
+  id          String       @id @default(cuid())
+  name        String
+  website     String?
+  industry    String?
+  userId      String       // Foreign key to User
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  competitors Competitor[] // One company can have multiple competitors
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([userId]) // Index for better query performance
+}
+
+model Competitor {
+  id        String   @id @default(cuid())
+  name      String
+  companyId String   // Foreign key to Company
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId]) // Index for better query performance
+}
+
+enum Role {
+  USER
+  ADMIN
+}

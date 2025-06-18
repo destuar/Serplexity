@@ -60,12 +60,14 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <div className={sidebarClasses}>
       <div className="flex items-center h-20 border-b border-gray-200/50 px-4">
-        <img 
-          src="/Serplexity.svg" 
-          alt="Serplexity Logo" 
-          className="w-8 h-8"
-        />
-        {!isDesktopCollapsed && <h1 className="text-2xl font-bold ml-2 text-gray-900">Serplexity</h1>}
+        <Link to="/" className="flex items-center no-underline">
+          <img
+            src="/Serplexity.svg"
+            alt="Serplexity Logo"
+            className="w-8 h-8"
+          />
+          {!isDesktopCollapsed && <h1 className="text-2xl font-bold ml-2 text-gray-900">Serplexity</h1>}
+        </Link>
       </div>
       <div className="flex flex-col p-4">
         <div 
