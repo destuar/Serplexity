@@ -1,10 +1,10 @@
 services:
   backend:
     build:
-      context: ../../backend
-      dockerfile: ../infra/docker/backend/Dockerfile.backend
+      context: ../..
+      dockerfile: infra/docker/backend/Dockerfile.backend
     env_file:
-      - ../../backend/.env
+      - ./backend/.env
     environment:
       - NODE_ENV=production
     ports:
@@ -21,10 +21,10 @@ services:
 
   frontend:
     build:
-      context: ../../frontend
-      dockerfile: ../infra/docker/frontend/Dockerfile.frontend
+      context: ../..
+      dockerfile: infra/docker/frontend/Dockerfile.frontend
     env_file:
-      - ../../.env
+      - ./.env
     environment:
       - VITE_NODE_ENV=production
       # VITE_API_URL will be picked up from the .env file and passed into the container
