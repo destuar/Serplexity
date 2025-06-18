@@ -1,4 +1,4 @@
-import { Calendar, ChevronDown, Lightbulb, RefreshCw } from "lucide-react";
+import { Calendar, ChevronDown, Sparkles, RefreshCw } from "lucide-react";
 import React from "react";
 import BrandShareOfVoiceCard from "../components/dashboard/BrandShareOfVoiceCard";
 import BrandVisibilityCard from "../components/dashboard/BrandVisibilityCard";
@@ -13,28 +13,36 @@ const OverviewPage = () => {
       {/* Header Section - Fixed Height */}
       <div className="flex-shrink-0 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-4">
         <h1 className="text-2xl font-bold text-gray-900">Overview</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <button className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-sm">
-            <Calendar size={16} />
-            <span>Last 30 days</span>
+        <div className="grid grid-cols-2 lg:flex items-center gap-2 w-full lg:w-auto">
+          <button className="flex items-center justify-between w-full lg:w-48 gap-2 px-4 py-2 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-sm">
+            <span className="flex items-center gap-2 truncate">
+              <Calendar size={16} />
+              <span className="truncate">Last 30 days</span>
+            </span>
             <ChevronDown size={16} />
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-sm">
-            <Lightbulb size={16} />
-            <span>Gemini 1.5 Pro</span>
+          <button className="flex items-center justify-between w-full lg:w-48 gap-2 px-4 py-2 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-sm">
+            <span className="flex items-center gap-2 truncate">
+              <Sparkles size={16} />
+              <span className="truncate">Gemini 1.5 Pro</span>
+            </span>
             <ChevronDown size={16} />
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-sm">
-            <span>CodeLadder.io</span>
+          <button className="flex items-center justify-between w-full lg:w-48 gap-2 px-4 py-2 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-sm">
+            <span className="flex items-center gap-2 truncate">
+              <span className="truncate">CodeLadder.io</span>
+            </span>
             <ChevronDown size={16} />
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-sm">
-            <span>Electronics</span>
+          <button className="flex items-center justify-between w-full lg:w-48 gap-2 px-4 py-2 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-sm">
+            <span className="flex items-center gap-2 truncate">
+              <span className="truncate">Electronics</span>
+            </span>
             <ChevronDown size={16} />
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+          <button className="flex items-center justify-center w-full lg:w-auto gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium col-span-2">
             <RefreshCw size={16} />
-            Refresh data
+            <span className="whitespace-nowrap">Refresh data</span>
           </button>
         </div>
       </div>

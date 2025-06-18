@@ -1,17 +1,29 @@
-import { Bell, ChevronDown, Grid3x3, User } from "lucide-react";
+import { Bell, ChevronDown, Grid3x3, User, Menu } from "lucide-react";
 import React from "react";
 
-const Header = () => {
+interface HeaderProps {
+  toggleMobileSidebar: () => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ toggleMobileSidebar }) => {
   return (
-    <header className="flex items-center justify-between px-4 py-4 bg-white">
+    <header className="flex items-center justify-between px-4 py-4 bg-white lg:justify-between">
       <div className="flex items-center">
-        <div className="p-2 bg-gray-200 rounded-lg">
-          <User size={24} />
-        </div>
-        <div className="ml-4">
-          <div className="flex items-center">
-            <h1 className="text-xl font-bold">CodeLadder.io</h1>
-            <ChevronDown className="ml-2" />
+        <button 
+          onClick={toggleMobileSidebar}
+          className="p-2 rounded-lg hover:bg-gray-100 lg:hidden"
+        >
+          <Menu />
+        </button>
+        <div className="hidden lg:flex items-center">
+          <div className="p-2 bg-gray-200 rounded-lg">
+            <User size={24} />
+          </div>
+          <div className="ml-4">
+            <div className="flex items-center">
+              <h1 className="text-xl font-bold">CodeLadder.io</h1>
+              <ChevronDown className="ml-2" />
+            </div>
           </div>
         </div>
       </div>

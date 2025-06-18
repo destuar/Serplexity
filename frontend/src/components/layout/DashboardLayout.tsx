@@ -3,18 +3,34 @@ import Sidebar from "./Sidebar";
 import Header from "./Header";
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  const toggleSidebar = () => {
-    setIsCollapsed(!isCollapsed);
+  const toggleDesktopSidebar = () => {
+    setIsDesktopSidebarCollapsed(!isDesktopSidebarCollapsed);
+  };
+
+  const toggleMobileSidebar = () => {
+    setIsMobileSidebarOpen(!isMobileSidebarOpen);
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar isCollapsed={isCollapsed} toggleSidebar={toggleSidebar} />
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <Sidebar 
+        isDesktopCollapsed={isDesktopSidebarCollapsed} 
+        toggleDesktopSidebar={toggleDesktopSidebar}
+        isMobileOpen={isMobileSidebarOpen}
+        toggleMobileSidebar={toggleMobileSidebar}
+      />
+      {isMobileSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/30 z-20 lg:hidden"
+          onClick={toggleMobileSidebar}
+        ></div>
+      )}
       <div className="flex flex-col flex-1 min-h-0">
-        <Header />
-        <main className="flex-1 overflow-hidden p-4">
+        <Header toggleMobileSidebar={toggleMobileSidebar} />
+        <main className="flex-1 overflow-y-auto lg:overflow-hidden p-4">
           {children}
         </main>
       </div>
