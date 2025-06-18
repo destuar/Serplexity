@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Settings,
   User,
+  Sparkles,
 } from "lucide-react";
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -57,7 +58,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
           onClick={() => toggleSection('aiPerformance')}
         >
           <div className="flex items-center">
-            <LayoutDashboard className="text-gray-600" size={20} />
+            <Sparkles className="text-gray-600" size={20} />
             {!isCollapsed && <span className="ml-2 text-gray-700 font-medium">AI Performance</span>}
           </div>
           {!isCollapsed && (openSections.aiPerformance ? <ChevronDown className="text-gray-500" size={16} /> : <ChevronRight className="text-gray-500" size={16} />)}
@@ -97,12 +98,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
         {(!isCollapsed && openSections.marketAnalysis) && (
           <nav className="flex flex-col space-y-2">
             <Link to="/competitor-rankings" className={getLinkClass('/competitor-rankings')}>
-              <User className="text-gray-600" size={20} />
-              {!isCollapsed && <span className="ml-2">Competitor Rankings</span>}
+              {!isCollapsed && <span className="ml-3">Competitor Rankings</span>}
             </Link>
             <Link to="/model-comparison" className={getLinkClass('/model-comparison')}>
-              <Settings className="text-gray-600" size={20} />
-              {!isCollapsed && <span className="ml-2">Model Comparison</span>}
+              {!isCollapsed && <span className="ml-3">Model Comparison</span>}
             </Link>
           </nav>
         )}
