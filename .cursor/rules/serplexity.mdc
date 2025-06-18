@@ -1,0 +1,109 @@
+---
+description: This rule describes the CodeLadder project requirements, tech stack, build process, and outline
+globs: 
+alwaysApply: false
+---
+# YOU ARE A 10X DEVELOPER / 10X ENGINEER
+
+# Important Rules
+
+- Think thoroughly before coding with reasoning paragraphs. 
+- ALWAYS ask follow up questions to clarify the prompt and then break each task down into its atomic components.
+- ALWAYS create a task.txt file that includes the task and atomic components and potentail dependencies. Check off subproblems as you complete them.
+- ALWAYS write simple, clean and modular code. 
+
+# CodeLadder Project Rules
+
+# Project Overview
+project:
+  name: "Serplexity"
+  description: "Serplexity is the first agency purpose-built for Generative Engine Optimization (GEO). As generative engines like Google SGE, Perplexity, and ChatGPT reshape how users discover and trust information, traditional SEO is no longer enough. We help brands and publishers stay cited, visible, and relevant—at the sentence level. From AI visibility audits and LLM-driven content rewrites to technical GEO implementation and attribution tracking, we offer full-stack solutions to future-proof your digital presence in the era of generative search."
+
+## Metric Development
+
+- PAWC = (citation word share × exponential decay by position)
+- AIR = Boolean: was client cited at least once?
+- Gap Index = potential revenue × (1 − PAWC)
+
+# System Requirements
+requirements:
+
+
+# Technical Stack
+stack:
+
+# Authorization
+roles:
+  USER: "Default user role"
+  ADMIN: "Full system access"
+
+# Environment Configuration
+environment:
+  backend:
+    required:
+      - DATABASE_URL
+      - JWT_SECRET
+      - JWT_REFRESH_SECRET
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_REGION
+      - S3_BUCKET
+      - CORS_ORIGIN
+      - NODE_ENV
+
+  frontend:
+    required:
+      - VITE_API_URL
+
+# File Upload
+uploads:
+  images:
+    maxSize: "5MB"
+    types: "image/*"
+    storage: "AWS S3"
+    access: "public-read"
+
+# Development
+development:
+  structure: "Feature-based directories (features/)"
+  frontend:
+    commands:
+      - "npm install"
+      - "npm run dev"
+    ports: 5173
+    
+  backend:
+    commands:
+      - "npm install"
+      - "npm run dev"
+    ports: 8000
+
+# Fundamental Principles
+- Write clean, simple, readable code
+- Implement features in the simplest possible way
+- Keep files small and focused (<200 lines)
+- Test after every meaningful change
+- Use clear, consistent naming
+- Think thoroughly before coding with reasoning paragraphs. 
+- ALWAYS ask follow up questions to clarify the prompt and then break each task down into its atomic components.
+- ALWAYS create a task.txt file that includes the task and atomic components and potentail dependencies. Check off subproblems as you complete them.
+- ALWAYS write simple, clean and modular code. 
+
+# Error Fixing
+- DO NOT JUMP TO CONCLUSIONS! Consider multiple possible causes before deciding.
+- Make only the minimal necessary changes
+- in case of strange errors, ask the user to perform a Perplexity web search to find the latest up-to-date information
+
+# Building Process
+- ALWAYS ask follow up questions to clarify the prompt and then break each task down into its atomic components.
+- ALWAYS create a task.txt file that includes the task and atomic components and potentail dependencies. Check off subproblems as you complete them.
+- DO NOT write complicated and confusing code. Opt for the simple & modular approach.
+- When not sure what to do, tell the user to perform a web search
+
+# Comments
+- ALWAYS try to add more helpful and explanatory comments into our code
+- NEVER delete old comments - unless they are obviously wrong / obsolete
+- Include LOTS of explanatory comments in your code. ALWAYS write well-documented code.
+- Document all changes and their reasoning IN THE COMMENTS YOU WRITE
+- when writing comments, use clear and easy-to-understand language and write in short sentences.
+  
