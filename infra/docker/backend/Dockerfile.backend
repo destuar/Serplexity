@@ -1,35 +1,51 @@
 # ============================= BUILD STAGE =====================================
 FROM node:20-alpine AS builder
+RUN echo "------ Build Stage Started ------"
 WORKDIR /app
 COPY backend/package*.json ./
+RUN echo "Dependencies - Installing..."
 RUN npm ci && npm cache clean --force
+RUN echo "Dependencies - Installed"
 COPY backend/tsconfig.json ./tsconfig.json
 COPY backend/prisma/ ./prisma/
 COPY backend/src/ ./src/
+RUN echo "Prisma - Generating client..."
 RUN npx prisma generate
+RUN echo "Prisma - Client generated"
+RUN echo "TypeScript - Compiling..."
 RUN npm run build || { \
         echo "Build failed. Check the logs above for errors."; \
         exit 1; \
     }
+RUN echo "TypeScript - Compiled"
+RUN echo "------ Build Stage Finished ------"
 
 # ============================= PRODUCTION STAGE ==============================
 FROM node:20-alpine
+RUN echo "------ Production Stage Started ------"
 RUN addgroup -S nodejs && \
     adduser -S nodejs -G nodejs
 WORKDIR /app
+RUN echo "System dependencies - Installing..."
 RUN apk add --no-cache \
     postgresql-client \
     openssl \
     curl
+RUN echo "System dependencies - Installed"
 COPY backend/package*.json ./
+RUN echo "Dependencies - Installing for production..."
 RUN npm ci --production && \
     npm cache clean --force
+RUN echo "Dependencies - Installed"
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nodejs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+RUN echo "Prisma - Generating client for production..."
 RUN npx prisma generate
+RUN echo "Prisma - Client generated"
 USER nodejs
 HEALTHCHECK --interval=30s --timeout=3s --start-period=30s \
     CMD curl -f http://localhost:8000/api/health || exit 1
 EXPOSE 8000
-CMD ["node", "dist/server.js"] 
+CMD ["node", "dist/server.js"]
+RUN echo "------ Production Stage Finished ------" 

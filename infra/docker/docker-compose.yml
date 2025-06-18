@@ -3,6 +3,12 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/backend/Dockerfile.backend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "backend"
     env_file:
       - ../../backend/.env
     environment:
@@ -23,6 +29,12 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/frontend/Dockerfile.frontend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "frontend"
     ports:
       - "3000:80"
     depends_on:
