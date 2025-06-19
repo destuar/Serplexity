@@ -105,7 +105,7 @@ const LandingPage: React.FC = () => {
             </h1>
             <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto mb-8 leading-relaxed">
               <span className="md:hidden">We are the first agency purpose-built for the generative era of SEO. Stay cited, visible, and relevant across industries.</span>
-              <span className="hidden md:inline">We are the first agency purpose-built for the generative era of SEO. Stay cited, visible, and relevant in Google SGE, Perplexity, ChatGPT, and beyond.</span>
+              <span className="hidden md:inline">We are the first agency purpose-built for the generative era of SEO. Enhance your visibility with Google SGE, Perplexity, ChatGPT, and beyond.</span>
             </p>
             
             {/* CTA Buttons */}
