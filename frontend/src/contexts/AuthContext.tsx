@@ -3,7 +3,7 @@ import axios from 'axios';
 import { z } from 'zod';
 import { jwtDecode } from 'jwt-decode';
 
-const API_URL = '/api/auth';
+const API_URL = `${import.meta.env.VITE_API_URL || '/api'}/auth`;
 
 const UserSchema = z.object({
   id: z.string(),

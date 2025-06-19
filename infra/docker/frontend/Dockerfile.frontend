@@ -7,6 +7,8 @@ RUN echo "Dependencies - Installing..."
 RUN npm ci
 RUN echo "Dependencies - Installed"
 COPY frontend/. ./
+# Set production environment variables for build
+ENV VITE_API_URL=/api
 RUN echo "Application - Building..."
 RUN npm run build
 RUN echo "Application - Built"
