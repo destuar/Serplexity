@@ -31,8 +31,8 @@ export function Navbar() {
 
   // Navigation items for landing page
   const landingNavItems = [
-    { label: 'Product', sectionId: 'features' },
-    { label: 'About', sectionId: 'comparison' },
+    { label: 'Product', sectionId: 'product-preview' },
+    { label: 'About', sectionId: 'solutions' },
     { label: 'Pricing', sectionId: 'pricing' },
     { label: 'Resources', sectionId: 'faq' },
   ];
@@ -72,20 +72,27 @@ export function Navbar() {
         className={cn(
           "fixed left-0 right-0 top-0 z-50",
           isLandingPage
-            ? "bg-black/20 backdrop-blur-xl border-b border-white/10 lg:bg-transparent lg:border-none lg:transition-[top] lg:duration-700 lg:ease-in-out"
+            ? "bg-black/20 backdrop-blur-xl border-b border-white/10 lg:bg-transparent lg:border-none lg:backdrop-blur-none lg:transition-[top] lg:duration-700 lg:ease-in-out"
             : "border-b bg-white/80 backdrop-blur-sm dark:border-transparent lg:relative",
           { "lg:top-4": shouldApplyScrollStyles }
         )}
       >
+        {/* Backdrop blur element that's properly clipped */}
+        {shouldApplyScrollStyles && (
+          <div className="absolute inset-0 lg:flex lg:justify-center lg:items-center pointer-events-none">
+            <div className="lg:w-full lg:max-w-5xl lg:h-full lg:rounded-full lg:backdrop-blur-xl lg:bg-black/5"></div>
+          </div>
+        )}
+        
         <div
           className={cn(
-            "mx-auto max-w-full",
+            "mx-auto max-w-full relative z-10",
             isLandingPage
-              ? "lg:transition-[background-color,max-width,box-shadow,backdrop-filter,border-radius] lg:duration-700 lg:ease-in-out"
+              ? "lg:transition-[background-color,max-width,box-shadow,border-radius] lg:duration-700 lg:ease-in-out"
               : "",
             { 
-              "lg:max-w-5xl lg:rounded-full lg:shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] lg:bg-black/5 lg:backdrop-blur-xl": shouldApplyScrollStyles,
-              "lg:bg-transparent lg:backdrop-blur-none": isLandingPage && !isScrolled,
+              "lg:max-w-5xl lg:rounded-full lg:shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)]": shouldApplyScrollStyles,
+              "lg:bg-transparent": isLandingPage,
             }
           )}
         >
