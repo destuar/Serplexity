@@ -1,7 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '../../lib/utils';
-import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { Menu } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
