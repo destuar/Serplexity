@@ -243,7 +243,7 @@ const LandingPage: React.FC = () => {
           {/* Dashboard Preview */}
           <div id="product-preview" className="w-full max-w-6xl mx-auto mt-8 mb-16 px-4">
             <div className="bg-black backdrop-blur-xl rounded-3xl aspect-[16/10] flex items-center justify-center">
-              <div className="text-gray-400 text-lg">Dashboard Preview Coming Soon</div>
+              <img src="/Dashboard.svg" alt="Dashboard Preview" className="w-full h-full object-contain rounded-3xl shadow-2xl drop-shadow-2xl" />
             </div>
           </div>
 
