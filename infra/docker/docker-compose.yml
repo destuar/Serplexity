@@ -13,12 +13,10 @@ services:
       - ../../backend/.env
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=${DATABASE_URL:-postgresql://user:password@postgres:5432/serplexity?schema=public}
-      # IMPORTANT: Set these to your actual production domain
-      # Replace 'yourdomain.com' with your actual domain
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
-      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL:-http://localhost:8001/api/auth/google/callback}
-      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:5173}
+      - DATABASE_URL=${DATABASE_URL}
+      - FRONTEND_URL=${FRONTEND_URL}
+      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL}
+      - CORS_ORIGIN=${CORS_ORIGIN}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       # OpenTelemetry Configuration

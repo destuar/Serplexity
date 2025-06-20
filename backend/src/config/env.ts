@@ -1,6 +1,17 @@
 import dotenv from 'dotenv';
 
-dotenv.config();
+const dotenvResult = dotenv.config();
+
+if (dotenvResult.error) {
+  console.error('[dotenv] Error loading .env file:', dotenvResult.error);
+} else {
+  console.log('[dotenv] .env file loaded successfully. Parsed variables:', dotenvResult.parsed);
+}
+
+console.log('[env.ts] Reading GOOGLE_CALLBACK_URL:', process.env.GOOGLE_CALLBACK_URL);
+console.log('[env.ts] Reading FRONTEND_URL:', process.env.FRONTEND_URL);
+console.log('[env.ts] Reading CORS_ORIGIN:', process.env.CORS_ORIGIN);
+console.log('[env.ts] Reading NODE_ENV:', process.env.NODE_ENV);
 
 const env = {
   NODE_ENV: process.env.NODE_ENV || 'development',
