@@ -13,10 +13,6 @@ services:
       - ../../backend/.env
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=${DATABASE_URL}
-      - FRONTEND_URL=${FRONTEND_URL}
-      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL}
-      - CORS_ORIGIN=${CORS_ORIGIN}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       # OpenTelemetry Configuration
