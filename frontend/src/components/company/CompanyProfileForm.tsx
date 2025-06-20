@@ -100,9 +100,6 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
     },
   });
 
-  // Watch the competitors array to sync with state
-  const watchedCompetitors = watch('competitors');
-
   // Update competitor value
   const updateCompetitor = (index: number, value: string) => {
     const newCompetitors = [...competitors];

@@ -1,5 +1,3 @@
-import React from 'react';
-
 const ConceptsAnalysisPage = () => {
   return (
     <div className="p-8">

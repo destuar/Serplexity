@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Building } from 'lucide-react';
 
 interface CompanyLogoProps {
   company: {

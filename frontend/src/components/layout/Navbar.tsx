@@ -16,7 +16,6 @@ export function Navbar() {
   const isLandingPage = location.pathname === '/';
   const isLandingStylePage = location.pathname === '/' || location.pathname === '/terms' || location.pathname === '/privacy';
   const shouldApplyScrollStyles = isLandingStylePage && isScrolled;
-  const shouldApplyDesktopScrollStyles = isDesktop && shouldApplyScrollStyles;
 
   // Smooth scroll function
   const scrollToSection = (sectionId: string) => {

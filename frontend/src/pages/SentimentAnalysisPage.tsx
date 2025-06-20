@@ -1,5 +1,3 @@
-import React from 'react';
-
 const SentimentAnalysisPage = () => {
   return (
     <div className="p-8">

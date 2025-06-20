@@ -1,4 +1,4 @@
-import { Bell, ChevronDown, Grid3x3, User, Menu } from "lucide-react";
+import { Bell, Grid3x3, User, Menu } from "lucide-react";
 import React, { useState } from "react";
 import { useCompany } from "../../contexts/CompanyContext";
 import CompanySelector from "../company/CompanySelector";

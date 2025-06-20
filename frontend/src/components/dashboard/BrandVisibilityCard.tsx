@@ -1,5 +1,4 @@
 import { Eye } from "lucide-react";
-import React from "react";
 import Card from "../ui/Card";
 
 const BrandVisibilityCard = () => {

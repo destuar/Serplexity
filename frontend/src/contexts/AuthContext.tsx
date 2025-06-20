@@ -1,6 +1,5 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { z } from 'zod';
-import { jwtDecode } from 'jwt-decode';
 import apiClient from '../lib/apiClient';
 
 const CompetitorSchema = z.object({

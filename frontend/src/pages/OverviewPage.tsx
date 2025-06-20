@@ -1,5 +1,5 @@
-import { Calendar, Sparkles, RefreshCw, Building, Loader } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import { Calendar, Sparkles, RefreshCw, Loader } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useCompany } from "../contexts/CompanyContext";
 import { useDashboard } from "../contexts/DashboardContext";
 import { triggerReportGeneration, getReportStatus } from '../services/reportService';
@@ -60,11 +60,6 @@ const OverviewPage = () => {
     { value: 'gpt-4', label: 'GPT-4' },
     { value: 'claude-3', label: 'Claude 3' },
   ];
-
-  const competitorOptions = selectedCompany?.competitors.map(competitor => ({
-    value: competitor.name,
-    label: competitor.name,
-  })) || [];
 
   const handleRefresh = async () => {
     await refreshData();

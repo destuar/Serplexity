@@ -1,4 +1,3 @@
-import React from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import Card from "../ui/Card";
 
@@ -29,7 +28,7 @@ const SentimentCard = () => {
                 dataKey="value"
                 stroke="none"
               >
-                {data.map((entry, index) => (
+                {data.map((_, index) => (
                   <Cell
                     key={`cell-${index}`}
                     fill={COLORS[index % COLORS.length]}

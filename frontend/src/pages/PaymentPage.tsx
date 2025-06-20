@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Button } from '../components/ui/Button';
 import { Check, ArrowRight } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { createCheckoutSession } from '../services/paymentService';
@@ -171,7 +170,7 @@ const PaymentPage: React.FC = () => {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {pricingTiers.map((tier, i) => (
+              {pricingTiers.map((tier) => (
                 <div key={tier.name} className={`bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-8 group flex flex-col ${tier.popular ? 'shadow-[0_0_20px_rgba(119,98,255,0.5)] relative' : ''}`}>
                   {tier.popular && (
                     <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">

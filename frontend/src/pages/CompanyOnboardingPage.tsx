@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building, Sparkles, TrendingUp, Users } from 'lucide-react';
+import { Sparkles, TrendingUp, Users } from 'lucide-react';
 import CompanyProfileForm from '../components/company/CompanyProfileForm';
 
 const CompanyOnboardingPage: React.FC = () => {

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Building, Plus, Check } from 'lucide-react';
+import { ChevronDown, Plus, Check } from 'lucide-react';
 import { useCompany } from '../../contexts/CompanyContext';
 import { cn } from '../../lib/utils';
 import CompanyLogo from './CompanyLogo';

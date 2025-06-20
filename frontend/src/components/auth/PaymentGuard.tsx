@@ -1,5 +1,4 @@
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface PaymentGuardProps {
@@ -7,8 +6,7 @@ interface PaymentGuardProps {
 }
 
 const PaymentGuard: React.FC<PaymentGuardProps> = ({ children }) => {
-  const { user, isLoading } = useAuth();
-  const location = useLocation();
+  const { isLoading } = useAuth();
 
   if (isLoading) {
     return (

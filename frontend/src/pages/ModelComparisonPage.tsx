@@ -1,5 +1,3 @@
-import React from 'react';
-
 const ModelComparisonPage = () => {
   return (
     <div className="p-8">

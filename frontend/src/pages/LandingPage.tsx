@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Navbar } from '../components/layout/Navbar';
-import { BarChart2, Sparkles, Target, Users, Star, Check, X, ArrowRight } from 'lucide-react';
+import { BarChart2, Sparkles, Target, Check, X, ArrowRight } from 'lucide-react';
 import { FaLinkedin } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
 import { useAuth } from '../contexts/AuthContext';
@@ -17,7 +17,6 @@ const LandingPage: React.FC = () => {
   const timeoutIdRef = useRef<number | null>(null);
 
   const handleGetStarted = () => navigate('/register');
-  const handleLogin = () => navigate('/login');
   const handleDashboard = () => navigate('/overview');
 
   const handleCheckout = async (priceId: string) => {

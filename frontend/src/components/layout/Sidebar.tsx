@@ -4,9 +4,6 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  LayoutDashboard,
-  Settings,
-  User,
   Sparkles,
 } from "lucide-react";
 import React, { useState } from "react";
