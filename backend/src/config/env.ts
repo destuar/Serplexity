@@ -19,10 +19,26 @@ const env = {
   // Google OAuth
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+  // IMPORTANT: Set this to your production domain in production
+  // Example: https://yourdomain.com/api/auth/google/callback
   GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:8001/api/auth/google/callback',
 
-  // Frontend URL
-  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
+  // Frontend URL - CRITICAL: Must be set to production domain in production
+  // Example: https://yourdomain.com
+  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
+
+  // Redis
+  REDIS_HOST: process.env.REDIS_HOST || 'localhost',
+  REDIS_PORT: process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT, 10) : 6379,
+
+  // Stripe
+  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+  STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+  STRIPE_MONTHLY_PRICE_ID: process.env.STRIPE_MONTHLY_PRICE_ID,
+  STRIPE_ANNUAL_PRICE_ID: process.env.STRIPE_ANNUAL_PRICE_ID,
+
+  // OpenAI
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY,
 };
 
 // Validate that essential variables are set
@@ -31,6 +47,25 @@ if (!env.DATABASE_URL) {
 }
 if (!env.JWT_SECRET || !env.JWT_REFRESH_SECRET) {
   throw new Error('FATAL ERROR: JWT secrets are not defined.');
+}
+if (!env.STRIPE_SECRET_KEY || !env.STRIPE_WEBHOOK_SECRET || !env.STRIPE_MONTHLY_PRICE_ID || !env.STRIPE_ANNUAL_PRICE_ID) {
+    throw new Error('FATAL ERROR: Stripe environment variables are not fully configured.');
+}
+if (!env.OPENAI_API_KEY) {
+    throw new Error('FATAL ERROR: OPENAI_API_KEY is not defined.');
+}
+
+// Production warnings
+if (env.NODE_ENV === 'production') {
+  if (env.FRONTEND_URL.includes('localhost')) {
+    console.warn('WARNING: FRONTEND_URL still contains localhost in production!');
+  }
+  if (env.GOOGLE_CALLBACK_URL?.includes('localhost')) {
+    console.warn('WARNING: GOOGLE_CALLBACK_URL still contains localhost in production!');
+  }
+  if (env.CORS_ORIGIN.includes('localhost')) {
+    console.warn('WARNING: CORS_ORIGIN still contains localhost in production!');
+  }
 }
 
 export default env; 

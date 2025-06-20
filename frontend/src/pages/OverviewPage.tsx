@@ -1,7 +1,8 @@
 import { Calendar, Sparkles, RefreshCw, Building, Loader } from "lucide-react";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useCompany } from "../contexts/CompanyContext";
 import { useDashboard } from "../contexts/DashboardContext";
+import { triggerReportGeneration, getReportStatus } from '../services/reportService';
 import FilterDropdown from "../components/dashboard/FilterDropdown";
 import BrandShareOfVoiceCard from "../components/dashboard/BrandShareOfVoiceCard";
 import BrandVisibilityCard from "../components/dashboard/BrandVisibilityCard";
@@ -13,6 +14,37 @@ import SourceChangesCard from "../components/dashboard/SourceChangesCard";
 const OverviewPage = () => {
   const { selectedCompany } = useCompany();
   const { data, filters, loading, refreshing, updateFilters, refreshData, lastUpdated } = useDashboard();
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState<string | null>(null);
+  const [runId, setRunId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isGenerating || !runId) {
+      return;
+    }
+
+    const poll = setInterval(async () => {
+      try {
+        const statusRes = await getReportStatus(runId);
+        setGenerationStatus(`Step: ${statusRes.stepStatus || 'N/A'}`);
+        if (statusRes.status === 'COMPLETED' || statusRes.status === 'FAILED') {
+          setIsGenerating(false);
+          setRunId(null);
+          setGenerationStatus(statusRes.status === 'COMPLETED' ? 'Report ready!' : 'Generation failed.');
+          if (statusRes.status === 'COMPLETED') {
+            await refreshData();
+          }
+        }
+      } catch (pollError) {
+        console.error("Status polling failed:", pollError);
+        setIsGenerating(false);
+        setRunId(null);
+        setGenerationStatus('Error fetching status.');
+      }
+    }, 3000); // Poll every 3 seconds
+
+    return () => clearInterval(poll); // Cleanup on unmount or when dependencies change
+  }, [isGenerating, runId, refreshData]);
 
   // Filter options
   const dateRangeOptions = [
@@ -36,6 +68,21 @@ const OverviewPage = () => {
 
   const handleRefresh = async () => {
     await refreshData();
+  };
+
+  const handleGenerateReport = async () => {
+    if (!selectedCompany) return;
+
+    setIsGenerating(true);
+    setGenerationStatus('Queued...');
+    try {
+      const { runId: newRunId } = await triggerReportGeneration(selectedCompany.id);
+      setRunId(newRunId);
+    } catch (error) {
+        console.error("Failed to start report generation:", error);
+        setIsGenerating(false);
+        setGenerationStatus('Failed to start generation.');
+    }
   };
 
   return (
@@ -71,7 +118,7 @@ const OverviewPage = () => {
           
           <button 
             onClick={handleRefresh}
-            disabled={loading || refreshing}
+            disabled={loading || refreshing || isGenerating}
             className="flex items-center justify-center w-full lg:w-auto gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2"
           >
             {refreshing ? (
@@ -83,6 +130,24 @@ const OverviewPage = () => {
               <>
                 <RefreshCw size={16} />
                 <span className="whitespace-nowrap">Refresh data</span>
+              </>
+            )}
+          </button>
+
+          <button 
+            onClick={handleGenerateReport}
+            disabled={loading || refreshing || isGenerating}
+            className="flex items-center justify-center w-full lg:w-auto gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2"
+          >
+            {isGenerating ? (
+              <>
+                <Loader size={16} className="animate-spin" />
+                <span className="whitespace-nowrap">{generationStatus || 'Generating...'}</span>
+              </>
+            ) : (
+              <>
+                <Sparkles size={16} />
+                <span className="whitespace-nowrap">Generate Report</span>
               </>
             )}
           </button>

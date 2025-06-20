@@ -24,6 +24,8 @@ model User {
   provider     String    @default("credentials")
   providerId   String?
   tokenVersion Int       @default(0)
+  stripeCustomerId   String?   @unique
+  subscriptionStatus String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   companies    Company[] // One user can have multiple companies
@@ -37,6 +39,7 @@ model Company {
   userId      String       // Foreign key to User
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   competitors Competitor[] // One company can have multiple competitors
+  runs        ReportRun[]  // A company can have multiple report runs
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
@@ -57,4 +60,75 @@ model Competitor {
 enum Role {
   USER
   ADMIN
+}
+
+model ReportRun {
+  id          String     @id @default(cuid())
+  companyId   String
+  company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  status      String // e.g., PENDING, RUNNING, COMPLETED, FAILED
+  stepStatus  String? // e.g., QUESTION_GENERATION, ANSWER_FETCHING, METRIC_CALCULATION
+  tokensUsed  Int?
+  usdCost     Float?
+  traceId     String? // For observability
+  questions   Question[]
+  answers     Answer[]
+  metrics     Metric[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([companyId])
+}
+
+model Question {
+  id        String    @id @default(cuid())
+  runId     String
+  reportRun ReportRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  version   Int       @default(1)
+  text      String
+  template  String? // To cache question templates by industry
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([runId])
+}
+
+model Answer {
+  id         String    @id @default(cuid())
+  runId      String
+  reportRun  ReportRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  version    Int       @default(1)
+  questionId String // This could be a direct relation to the Question model in the future
+  questionText String
+  answerText String
+  engine     String // e.g., 'gpt-4o', 'claude-3-opus'
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([runId])
+}
+
+model Metric {
+  id        String    @id @default(cuid())
+  runId     String
+  reportRun ReportRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  version   Int       @default(1)
+  name      String // e.g., 'PAWC', 'Competitor SoV', 'Sentiment'
+  value     Json
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([runId])
+}
+
+model Report {
+  id        String   @id @default(cuid())
+  runId     String   @unique // Each report corresponds to a unique run
+  companyId String
+  status    String   // e.g., COMPLETED, FAILED
+  data      Json?    // The final JSON blob of the report
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
 }

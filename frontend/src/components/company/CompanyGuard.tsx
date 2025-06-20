@@ -16,19 +16,26 @@ const CompanyGuard: React.FC<CompanyGuardProps> = ({ children }) => {
   const location = useLocation();
 
   useEffect(() => {
-    // Don't redirect if still loading or already on onboarding page
-    if (loading || location.pathname === '/onboarding') {
-      return;
+    if (loading) {
+      return; // Do nothing while company data is loading
     }
 
-    // Redirect to onboarding if user has no companies
-    if (!hasCompanies) {
+    const isOnboarding = location.pathname === '/onboarding';
+
+    // Case 1: User has no companies and is not on the onboarding page.
+    if (!hasCompanies && !isOnboarding) {
       navigate('/onboarding', { replace: true });
+    }
+
+    // Case 2: User has companies but somehow landed on the onboarding page.
+    if (hasCompanies && isOnboarding) {
+      navigate('/overview', { replace: true });
     }
   }, [hasCompanies, loading, navigate, location.pathname]);
 
-  // Show loading state while checking companies
-  if (loading) {
+  // While loading, or if a redirect is imminent, show a loading screen.
+  // This prevents rendering a page that the user will be navigated away from.
+  if (loading || (!hasCompanies && location.pathname !== '/onboarding') || (hasCompanies && location.pathname === '/onboarding')) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex items-center space-x-3">
@@ -39,13 +46,8 @@ const CompanyGuard: React.FC<CompanyGuardProps> = ({ children }) => {
     );
   }
 
-  // If on onboarding page or user has companies, render children
-  if (location.pathname === '/onboarding' || hasCompanies) {
-    return <>{children}</>;
-  }
-
-  // Return null while redirecting
-  return null;
+  // If we've passed the checks, the user is in the right place.
+  return <>{children}</>;
 };
 
 export default CompanyGuard; 

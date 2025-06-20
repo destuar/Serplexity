@@ -7,6 +7,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { FadeIn } from '../components/ui/FadeIn';
 import { Accordion } from '../components/ui/Accordion';
+import { loadStripe } from '@stripe/stripe-js';
+import { createCheckoutSession } from '../services/paymentService';
 
 const LandingPage: React.FC = () => {
   const { user } = useAuth();
@@ -18,17 +20,42 @@ const LandingPage: React.FC = () => {
   const handleLogin = () => navigate('/login');
   const handleDashboard = () => navigate('/overview');
 
+  const handleCheckout = async (priceId: string) => {
+    if (priceId === 'contact_sales') {
+      // Potentially navigate to a contact page or open a modal
+      console.log('Contacting sales...');
+      return;
+    }
+    try {
+      const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string);
+      if (!stripe) {
+        throw new Error('Stripe.js failed to load.');
+      }
+      const session = await createCheckoutSession(priceId);
+      await stripe.redirectToCheckout({ sessionId: session.sessionId });
+    } catch (error) {
+      console.error('Failed to create checkout session:', error);
+    }
+  };
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    // Load Twitter widgets script
+    const script = document.createElement('script');
+    script.src = 'https://platform.twitter.com/widgets.js';
+    script.async = true;
+    script.charset = 'utf-8';
+    document.head.appendChild(script);
 
     const createStar = () => {
       if (!starContainerRef.current) return;
 
       const starEl = document.createElement('div');
       starEl.className = "absolute h-px bg-gradient-to-r from-transparent via-white to-transparent";
-      starEl.style.width = '80px';
+      starEl.style.width = '120px';
       
-      const duration = (Math.random() * 2 + 2) * 1000; // 2s-4s for subtlety
+      const duration = (Math.random() * 1.5 + 1) * 1000; // 1s-2.5s in ms
 
       let startX_vw = -5, startY_vh = 50, endX_vw = 105, endY_vh = 50;
       const startEdge = Math.floor(Math.random() * 4);
@@ -50,14 +77,14 @@ const LandingPage: React.FC = () => {
       const deltaX_px = (endX_vw - startX_vw) * window.innerWidth;
       const deltaY_px = (endY_vh - startY_vh) * window.innerHeight;
       const angle = Math.atan2(deltaY_px, deltaX_px) * 180 / Math.PI;
-      const opacity = Math.random() * 0.3 + 0.2; // Subtle opacity
+      const opacity = Math.random() * 0.4 + 0.5;
 
       const keyframes = [
         { transform: `translate(${startX_vw}vw, ${startY_vh}vh) rotate(${angle}deg)`, opacity: 0 },
-        { opacity: 0, offset: 0.1 },
-        { opacity: opacity, offset: 0.3 },
-        { opacity: opacity, offset: 0.7 },
-        { opacity: 0, offset: 0.9 },
+        { opacity: 0, offset: 0.05 },
+        { opacity: opacity, offset: 0.15 },
+        { opacity: opacity, offset: 0.75 },
+        { opacity: 0, offset: 0.85 },
         { transform: `translate(${endX_vw}vw, ${endY_vh}vh) rotate(${angle}deg)`, opacity: 0 }
       ];
 
@@ -69,7 +96,7 @@ const LandingPage: React.FC = () => {
 
       starContainerRef.current.appendChild(starEl);
       
-      const randomInterval = Math.random() * 10000 + 5000; // 5-15 seconds
+      const randomInterval = Math.random() * 8000 + 4000; // 4-12 seconds
       timeoutIdRef.current = window.setTimeout(createStar, randomInterval);
     };
 
@@ -148,7 +175,7 @@ const LandingPage: React.FC = () => {
             <li><span className="font-semibold text-white">Citation Position:</span> Where your source is mentioned relative to others (e.g., 1st, 3rd, 5th).</li>
             <li><span className="font-semibold text-white">Click-through Impact:</span> When available, we track clicks from generative answers back to your site using referral paths and UTM tracking.</li>
           </ul>
-          <p>These metrics are visualized in a client dashboard and benchmarked against your competitors.</p>
+          <p>These are just a few of the metrics in the client dashboard and benchmarked against your competitors.</p>
         </>
       )
     },
@@ -237,22 +264,22 @@ const LandingPage: React.FC = () => {
               ].map((logo, i) => (
                 <div
                   key={i}
-                  className={`${
-                    logo === 'redbull-logo-svg-vector.svg'
-                      ? 'h-10'
-                      : logo === 'Mint-mobile_stacked.svg'
-                      ? 'h-10'
-                      : logo === 'Netflix_2015_logo.svg'
-                      ? 'h-7'
-                      : logo === 'Verizon_2024.svg'
-                      ? 'h-6'
-                      : 'h-8'
-                  } flex items-center justify-center`}
+                  className="w-32 h-20 sm:w-36 sm:h-22 md:w-44 md:h-24 flex items-center justify-center"
                 >
                   <img
                     src={`/${logo}`}
                     alt={`logo ${i + 1}`}
-                    className="max-h-full max-w-full"
+                    className={`${
+                      logo === 'redbull-logo-svg-vector.svg'
+                        ? 'h-10 sm:h-12 md:h-14'
+                        : logo === 'Mint-mobile_stacked.svg'
+                        ? 'h-10 sm:h-12 md:h-14'
+                        : logo === 'Netflix_2015_logo.svg'
+                        ? 'h-7 sm:h-8 md:h-10'
+                        : logo === 'Verizon_2024.svg'
+                        ? 'h-7 sm:h-8 md:h-10'
+                        : 'h-8 sm:h-10 md:h-12'
+                    } w-auto object-contain`}
                     style={{ filter: 'brightness(0) invert(1)' }}
                   />
                 </div>
@@ -271,32 +298,32 @@ const LandingPage: React.FC = () => {
                   More than <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">1.5 billion people</span> use AI Overviews.
                 </p>
               </FadeIn>
-              <FadeIn delay={200} direction="left" className="self-end">
+              <FadeIn delay={100} direction="left" className="self-end">
                 <p className="text-3xl font-semibold leading-tight max-w-3xl text-right">
                   Today, they are triggered by <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">13% of Google queries.</span> 
                 </p>
               </FadeIn>
-              <FadeIn delay={400} direction="right" className="self-start">
+              <FadeIn delay={200} direction="right" className="self-start">
                 <p className="text-3xl font-semibold leading-tight max-w-3xl text-left">
                   These visitors are <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">4.4x more valuable</span> than traditional search users. 
                 </p>
               </FadeIn>
-              <FadeIn delay={600} direction="left" className="self-end">
+              <FadeIn delay={300} direction="left" className="self-end">
                 <p className="text-3xl font-semibold leading-tight max-w-3xl text-right">
                   We're not just browsing—we're buying.
                 </p>
               </FadeIn>
-              <FadeIn delay={800} direction="right" className="self-start">
+              <FadeIn delay={400} direction="right" className="self-start">
                 <p className="text-3xl font-semibold leading-tight max-w-3xl text-left">
                   <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">Half of all links from ChatGPT search</span> queries point to businesses or services
                   </p>
               </FadeIn>
-              <FadeIn delay={1000} direction="left" className="self-end">
+              <FadeIn delay={500} direction="left" className="self-end">
                 <p className="text-3xl font-semibold leading-tight max-w-3xl text-right">
                   and only a fraction are optimizing for it.
                 </p>
               </FadeIn>
-              <FadeIn delay={1200} className="self-center">
+              <FadeIn delay={600} className="self-center">
                 <p className="text-3xl font-semibold leading-tight max-w-4xl text-center">
                   The brands showing up will <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">win the next decade.</span>
                 </p>
@@ -304,7 +331,7 @@ const LandingPage: React.FC = () => {
             </div>
 
             {/* Feature Showcase (moved inside story section) */}
-            <FadeIn delay={1400}>
+            <FadeIn delay={200}>
               <div id="solutions" className="mt-48 relative">
                 {/* Liquid Glass Container */}
                 <div className="relative bg-black/5 backdrop-blur-xl rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-8 md:p-12 lg:p-16 overflow-hidden">
@@ -338,6 +365,23 @@ const LandingPage: React.FC = () => {
                           <p className="text-gray-300 leading-relaxed">{feature.desc}</p>
                         </div>
                       ))}
+                    </div>
+                    
+                    {/* Twitter Embed */}
+                    <div className="mt-12 flex justify-center">
+                      <div className="bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-4 md:p-8 hover:bg-black/10 transition-all duration-200 w-full md:max-w-2xl">
+                        <div className="flex justify-center items-center">
+                          <blockquote className="twitter-tweet" data-theme="dark" data-align="center">
+                            <p lang="en" dir="ltr">
+                              SEO is slowly losing its dominance. Welcome to GEO.<br/><br/>
+                              In the age of ChatGPT, Perplexity, and Claude, Generative Engine Optimization is positioned to become the new playbook for brand visibility.<br/><br/>
+                              It&#39;s not about gaming the algorithm — it&#39;s about being cited by it.<br/><br/>
+                              The brands that… <a href="https://t.co/jsjZ4ee8Z6">pic.twitter.com/jsjZ4ee8Z6</a>
+                            </p>
+                            &mdash; a16z (@a16z) <a href="https://twitter.com/a16z/status/1927766844062011834?ref_src=twsrc%5Etfw">May 28, 2025</a>
+                          </blockquote>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -483,79 +527,97 @@ const LandingPage: React.FC = () => {
                 </p>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {[
-                  { 
-                    name: "Serplexity Pro", 
-                    price: "$249", 
-                    pricePeriod: "/mo",
-                    features: [
-                      "Continuous AI Visibility Tracking",
-                      "LLM-Ready Content Analysis",
-                      "Sentence-Level Citation Monitoring",
-                      "Competitor GEO Benchmarking"
-                    ], 
-                    description: "Paid Monthly" 
-                  },
-                  { 
-                    name: "Serplexity Pro (Annual)", 
-                    price: "$149",
-                    pricePeriod: "/mo", 
-                    features: [
-                      "Continuous AI Visibility Tracking",
-                      "LLM-Ready Content Analysis",
-                      "Sentence-Level Citation Monitoring",
-                      "Competitor GEO Benchmarking"
-                    ], 
-                    popular: true, 
-                    description: "Save big with our annual plan." 
-                  },
-                  { 
-                    name: "Serplexity Enterprise", 
-                    price: "By Request",
-                    pricePeriod: "",
-                    features: [
-                      "Everything in Pro, plus:",
-                      "Custom GEO Implementations",
-                      "Dedicated Account Manager",
-                      "API Access & Integrations"
-                    ], 
-                    description: "For large-scale or custom needs." 
-                  }
-                ].map((plan, i) => (
-                  <div key={i} className={`bg-white/5 backdrop-blur-xl p-8 rounded-3xl hover:bg-white/10 transition-all duration-200 flex flex-col ${plan.popular ? 'shadow-[0_0_20px_rgba(119,98,255,0.5)] relative' : ''}`}>
-                    {plan.popular && (
-                      <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                        <span className="bg-gradient-to-r from-[#5271ff] to-[#9e52ff] text-white px-4 py-1 rounded-full text-sm font-medium">
-                          Most Popular
-                        </span>
+              {/* Enhanced Liquid Glass Container */}
+              <div className="relative bg-black/5 backdrop-blur-xl rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-6 md:p-8 overflow-hidden">
+                {/* Glass morphism border glow */}
+                <div className="absolute inset-0 bg-gradient-to-r from-[#5271ff]/10 via-[#7662ff]/10 to-[#9e52ff]/10 rounded-3xl blur-xl"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/5 rounded-3xl"></div>
+                
+                {/* Inner content with relative positioning */}
+                <div className="relative z-10">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {[
+                      { 
+                        name: "Serplexity Pro", 
+                        price: "$249", 
+                        pricePeriod: "/mo",
+                        priceId: import.meta.env.VITE_STRIPE_MONTHLY_PRICE_ID,
+                        features: [
+                          "Continuous AI Visibility Tracking",
+                          "LLM-Ready Content Analysis",
+                          "Sentence-Level Citation Monitoring",
+                          "Competitor GEO Benchmarking",
+                          "AI Content Rewriting Tool"
+                        ], 
+                        description: "Paid Monthly" 
+                      },
+                      { 
+                        name: "Serplexity Pro (Annual)", 
+                        price: "$149",
+                        pricePeriod: "/mo", 
+                        priceId: import.meta.env.VITE_STRIPE_ANNUAL_PRICE_ID,
+                        features: [
+                          "Continuous AI Visibility Tracking",
+                          "LLM-Ready Content Analysis",
+                          "Sentence-Level Citation Monitoring",
+                          "Competitor GEO Benchmarking",
+                          "AI Content Rewriting Tool"
+                        ], 
+                        popular: true, 
+                        description: "Paid Annually" 
+                      },
+                      { 
+                        name: "Serplexity Enterprise", 
+                        price: "By Request",
+                        pricePeriod: "",
+                        priceId: "contact_sales",
+                        features: [
+                          "Everything in Pro, plus:",
+                          "Custom GEO Implementations",
+                          "Dedicated Account Manager",
+                          "API Access & Integrations"
+                        ], 
+                        description: "For large-scale or custom needs" 
+                      }
+                    ].map((plan, i) => (
+                      <div key={i} className={`bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-8 group flex flex-col ${plan.popular ? 'shadow-[0_0_20px_rgba(119,98,255,0.5)] relative' : ''}`}>
+                        {plan.popular && (
+                          <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                            <span className="bg-gradient-to-r from-[#5271ff] to-[#9e52ff] text-white px-3 py-1 rounded-full text-xs font-medium">
+                              Most Popular
+                            </span>
+                          </div>
+                        )}
+                        <div className="text-center mb-6">
+                          <h3 className="text-lg font-semibold text-white mb-2">{plan.name}</h3>
+                          <div className="text-3xl font-bold text-white mb-2">
+                            {plan.price}
+                            {plan.pricePeriod && <span className="text-sm font-medium text-gray-400">{plan.pricePeriod}</span>}
+                          </div>
+                          <p className="text-xs text-gray-400">{plan.description}</p>
+                        </div>
+                        <ul className="space-y-3 mb-8 flex-grow">
+                          {plan.features.map((feature, j) => (
+                            <li key={j} className="flex items-start text-gray-300 text-sm">
+                              <Check className="w-4 h-4 text-green-400 mr-2 mt-0.5 flex-shrink-0" />
+                              <span>{feature}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        <button 
+                          onClick={() => handleCheckout(plan.priceId as string)}
+                          className={`w-full py-3 px-6 rounded-full font-semibold transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer ${
+                          plan.popular 
+                            ? 'bg-[#7762ff] hover:bg-[#6650e6] text-white shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]' 
+                            : 'bg-white/10 text-white hover:bg-white/20 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]'
+                        }`}>
+                          {plan.price === 'By Request' ? 'Contact Sales' : 'Get Started'}
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
                       </div>
-                    )}
-                    <div className="text-center mb-6">
-                      <h3 className="text-xl font-semibold text-white mb-2">{plan.name}</h3>
-                      <div className="text-4xl font-bold text-white mb-2">
-                        {plan.price}
-                        {plan.pricePeriod && <span className="text-base font-medium text-gray-400">{plan.pricePeriod}</span>}
-                      </div>
-                      <p className="text-sm text-gray-400">{plan.name === 'Serplexity Pro (Annual)' ? 'Paid Annually' : plan.description}</p>
-                    </div>
-                    <ul className="space-y-3 mb-8 flex-grow">
-                      {plan.features.map((feature, j) => (
-                        <li key={j} className="flex items-start text-gray-300">
-                          <Check className="w-5 h-5 text-green-400 mr-3 mt-1 flex-shrink-0" />
-                          <span>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <button className={`w-full py-3 px-4 rounded-full font-semibold transition-all duration-200 ${
-                      plan.popular 
-                        ? 'bg-[#7762ff] hover:bg-[#6650e6] text-white shadow-lg hover:shadow-xl' 
-                        : 'bg-white/10 text-white hover:bg-white/15'
-                    }`}>
-                      Get Started
-                    </button>
+                    ))}
                   </div>
-                ))}
+                </div>
               </div>
             </div>
           </section>

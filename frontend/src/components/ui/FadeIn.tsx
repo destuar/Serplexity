@@ -20,10 +20,10 @@ export const FadeIn: React.FC<FadeInProps> = ({
   const ref = useRef<HTMLDivElement>(null);
 
   const directionClasses = {
-    up: 'translate-y-5',
-    down: '-translate-y-5',
-    left: 'translate-x-5',
-    right: '-translate-x-5',
+    up: 'translate-y-6',
+    down: '-translate-y-6',
+    left: 'translate-x-6',
+    right: '-translate-x-6',
   };
 
   useEffect(() => {
@@ -31,7 +31,10 @@ export const FadeIn: React.FC<FadeInProps> = ({
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            setIsVisible(true);
+            // Apply delay only when element becomes visible
+            setTimeout(() => {
+              setIsVisible(true);
+            }, delay);
             if (once) {
               observer.unobserve(entry.target);
             }
@@ -40,7 +43,10 @@ export const FadeIn: React.FC<FadeInProps> = ({
           }
         });
       },
-      { threshold: 0.1 } // Trigger when 10% of the element is visible
+      { 
+        threshold: 0.2, // Trigger when 20% of the element is visible
+        rootMargin: '0px 0px -50px 0px' // Start animation 50px before element enters viewport
+      }
     );
 
     const currentRef = ref.current;
@@ -53,20 +59,16 @@ export const FadeIn: React.FC<FadeInProps> = ({
         observer.unobserve(currentRef);
       }
     };
-  }, [once]);
+  }, [delay, once]);
 
   return (
     <div
       ref={ref}
       className={cn(
-        'transition-all ease-out',
+        'transition-all duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]',
         isVisible ? 'opacity-100 translate-y-0 translate-x-0' : `opacity-0 ${directionClasses[direction]}`,
         className
       )}
-      style={{ 
-        transitionDuration: '800ms',
-        transitionDelay: `${delay}ms` 
-      }}
     >
       {children}
     </div>

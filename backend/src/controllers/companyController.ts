@@ -1,8 +1,6 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../config/db';
 
 // Validation schemas
 const createCompanySchema = z.object({
@@ -24,7 +22,6 @@ const updateCompanySchema = z.object({
  */
 export const createCompany = async (req: Request, res: Response) => {
   try {
-    // @ts-ignore
     const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
@@ -76,7 +73,6 @@ export const createCompany = async (req: Request, res: Response) => {
  */
 export const getCompanies = async (req: Request, res: Response) => {
   try {
-    // @ts-ignore
     const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
@@ -104,7 +100,6 @@ export const getCompanies = async (req: Request, res: Response) => {
  */
 export const getCompany = async (req: Request, res: Response) => {
   try {
-    // @ts-ignore
     const userId = req.user?.id;
     const { id } = req.params;
 
@@ -138,7 +133,6 @@ export const getCompany = async (req: Request, res: Response) => {
  */
 export const updateCompany = async (req: Request, res: Response) => {
   try {
-    // @ts-ignore
     const userId = req.user?.id;
     const { id } = req.params;
 
@@ -212,7 +206,6 @@ export const updateCompany = async (req: Request, res: Response) => {
  */
 export const deleteCompany = async (req: Request, res: Response) => {
   try {
-    // @ts-ignore
     const userId = req.user?.id;
     const { id } = req.params;
 

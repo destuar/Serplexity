@@ -1,11 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Check } from 'lucide-react';
+import React, { useState, useRef, useEffect, ComponentType } from 'react';
+import { ChevronDown, Check, LucideProps } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface FilterOption {
   value: string;
   label: string;
-  icon?: React.ComponentType<{ size?: number; className?: string }>;
+  icon?: ComponentType<LucideProps>;
 }
 
 interface FilterDropdownProps {
@@ -13,7 +13,7 @@ interface FilterDropdownProps {
   value: string;
   options: FilterOption[];
   onChange: (value: string) => void;
-  icon?: React.ComponentType<{ size?: number; className?: string }>;
+  icon?: ComponentType<LucideProps>;
   className?: string;
   disabled?: boolean;
 }

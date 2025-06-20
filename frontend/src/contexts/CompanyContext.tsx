@@ -1,9 +1,7 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback, useMemo } from 'react';
-import axios from 'axios';
 import { z } from 'zod';
-
-// API URL
-const API_URL = '/api/companies';
+import apiClient from '../lib/apiClient';
+import { useAuth } from './AuthContext';
 
 // Company and Competitor schemas
 const CompetitorSchema = z.object({
@@ -55,57 +53,73 @@ interface CompanyProviderProps {
 
 const CompanyContext = createContext<CompanyContextType | undefined>(undefined);
 
-// Create axios instance with auth interceptor
-const apiClient = axios.create({
-  baseURL: API_URL,
-});
-
-// Add auth token to requests
-apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
 export const CompanyProvider: React.FC<CompanyProviderProps> = ({ children }) => {
+  const { user, isLoading: authLoading } = useAuth();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Get companies from API
+  // Get companies from API - now primarily from AuthContext
   const fetchCompanies = useCallback(async () => {
+    // This function can be used for explicit refresh
+    if (authLoading || !user) {
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
-      const response = await apiClient.get('/');
-      const { companies } = response.data;
-      setCompanies(companies);
+      const response = await apiClient.get<{ companies: Company[] }>('/companies');
+      const { companies: newCompanies } = response.data;
+      setCompanies(newCompanies);
       
-      // Auto-select the first company if none is selected and companies exist
-      if (companies.length > 0 && !selectedCompany) {
-        setSelectedCompany(companies[0]);
+      if (newCompanies.length > 0) {
+        // If there's a selected company, try to find it in the new list
+        const currentSelectedId = selectedCompany?.id;
+        const updatedSelected = currentSelectedId ? newCompanies.find(c => c.id === currentSelectedId) : null;
+        
+        // If the selected company no longer exists or wasn't set, default to the first one
+        setSelectedCompany(updatedSelected || newCompanies[0]);
+      } else {
+        setSelectedCompany(null);
       }
+
     } catch (err: any) {
       console.error('Failed to fetch companies:', err);
       setError(err.response?.data?.error || 'Failed to fetch companies');
     } finally {
       setLoading(false);
     }
-  }, [selectedCompany]);
+  }, [selectedCompany, authLoading, user]);
 
-  // Load companies on mount
+  // Load companies from AuthContext on initial load and user change
   useEffect(() => {
-    fetchCompanies();
-  }, [fetchCompanies]);
+    if (authLoading) {
+      setLoading(true);
+      return;
+    }
+
+    if (user) {
+      const userCompanies = user.companies || [];
+      setCompanies(userCompanies);
+      if (userCompanies.length > 0 && !selectedCompany) {
+        setSelectedCompany(userCompanies[0]);
+      } else if (userCompanies.length === 0) {
+        setSelectedCompany(null);
+      }
+    } else {
+      setCompanies([]);
+      setSelectedCompany(null);
+    }
+    setLoading(false);
+  }, [user, authLoading]);
 
   // Create a new company
   const createCompany = useCallback(async (data: CompanyFormData): Promise<Company> => {
     try {
       setError(null);
-      const response = await apiClient.post('/', data);
+      const response = await apiClient.post('/companies', data);
       const { company } = response.data;
       
       setCompanies(prev => [company, ...prev]);
@@ -123,7 +137,7 @@ export const CompanyProvider: React.FC<CompanyProviderProps> = ({ children }) =>
   const updateCompany = useCallback(async (id: string, data: Partial<CompanyFormData>): Promise<Company> => {
     try {
       setError(null);
-      const response = await apiClient.put(`/${id}`, data);
+      const response = await apiClient.put(`/companies/${id}`, data);
       const { company } = response.data;
       
       setCompanies(prev => prev.map(c => c.id === id ? company : c));
@@ -145,7 +159,7 @@ export const CompanyProvider: React.FC<CompanyProviderProps> = ({ children }) =>
   const deleteCompany = useCallback(async (id: string): Promise<void> => {
     try {
       setError(null);
-      await apiClient.delete(`/${id}`);
+      await apiClient.delete(`/companies/${id}`);
       
       setCompanies(prev => prev.filter(c => c.id !== id));
       
@@ -170,8 +184,6 @@ export const CompanyProvider: React.FC<CompanyProviderProps> = ({ children }) =>
   const refreshCompanies = useCallback(async () => {
     await fetchCompanies();
   }, [fetchCompanies]);
-
-
 
   // Check if user has any companies
   const hasCompanies = companies.length > 0;

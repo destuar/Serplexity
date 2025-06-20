@@ -1,27 +1,41 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const OAuthCallbackPage: React.FC = () => {
-  const location = useLocation();
+  const { search } = useLocation();
   const navigate = useNavigate();
-  const { handleOAuthToken } = useAuth();
+  const { handleOAuthToken, user } = useAuth();
+  const tokenHandled = useRef(false);
 
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
+    // This effect should only run once to process the token.
+    if (tokenHandled.current) return;
+
+    const params = new URLSearchParams(search);
     const token = params.get('token');
 
     if (token) {
+      tokenHandled.current = true;
       handleOAuthToken(token);
-      navigate('/overview');
     } else {
-      navigate('/login?error=oauth-failed');
+      // If there's no token, something went wrong.
+      navigate('/login?error=oauth-failed', { replace: true });
     }
-  }, [location, navigate, handleOAuthToken]);
+  }, [search, navigate, handleOAuthToken]);
+
+  useEffect(() => {
+    // This effect triggers once the user object is populated by handleOAuthToken.
+    if (user) {
+      navigate('/overview', { replace: true });
+    }
+  }, [user, navigate]);
 
   return (
-    <div className="min-h-screen">
-      {/* Blank page during OAuth processing */}
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="flex items-center space-x-3">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
     </div>
   );
 };

@@ -1,10 +1,8 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy, Profile } from 'passport-google-oauth20';
-import { PrismaClient } from '@prisma/client';
+import prisma from './db'; // Use the singleton prisma instance
 import { VerifyCallback } from 'passport-google-oauth20';
 import env from './env';
-
-const prisma = new PrismaClient();
 
 const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_CALLBACK_URL } = env;
 
@@ -28,6 +26,7 @@ passport.use(
 
         let user = await prisma.user.findUnique({
           where: { email },
+          include: { companies: { include: { competitors: true } } },
         });
 
         if (user) {
@@ -36,6 +35,7 @@ passport.use(
             user = await prisma.user.update({
               where: { id: user.id },
               data: { provider: 'google', providerId: profile.id },
+              include: { companies: { include: { competitors: true } } },
             });
           }
         } else {
@@ -47,6 +47,7 @@ passport.use(
               provider: 'google',
               providerId: profile.id,
             },
+            include: { companies: { include: { competitors: true } } },
           });
         }
         
@@ -67,7 +68,7 @@ passport.serializeUser((user: any, done) => {
 
 passport.deserializeUser(async (id: string, done) => {
     try {
-        const user = await prisma.user.findUnique({ where: { id } });
+        const user = await prisma.user.findUnique({ where: { id }, include: { companies: { include: { competitors: true } } } });
         done(null, user);
     } catch (error) {
         done(error, null);

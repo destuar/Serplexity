@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { PrismaClient, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
 import env from '../config/env';
+import prisma from '../config/db';
 
-const prisma = new PrismaClient();
 const { JWT_SECRET } = env;
 
 interface JwtPayload {
@@ -25,14 +25,13 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, email: true, name: true, role: true, tokenVersion: true }
+      select: { id: true, email: true, name: true, role: true, tokenVersion: true, subscriptionStatus: true, stripeCustomerId: true, companies: { include: { competitors: true } } }
     });
 
     if (!user || user.tokenVersion !== payload.tokenVersion) {
       return res.status(401).json({ error: 'Invalid token' });
     }
     
-    // @ts-ignore
     req.user = user;
     next();
   } catch (error) {
@@ -42,7 +41,6 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 
 export const authorize = (...roles: Role[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
-    // @ts-ignore
     if (!req.user || !roles.includes(req.user.role)) {
       return res.status(403).json({ error: 'Forbidden: You do not have the required role' });
     }

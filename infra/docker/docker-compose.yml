@@ -13,17 +13,29 @@ services:
       - ../../backend/.env
     environment:
       - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL:-postgresql://user:password@postgres:5432/serplexity?schema=public}
+      # IMPORTANT: Set these to your actual production domain
+      # Replace 'yourdomain.com' with your actual domain
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL:-http://localhost:8001/api/auth/google/callback}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:5173}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      # OpenTelemetry Configuration
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://jaeger:4318/v1/traces
     ports:
       - "8001:8000"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/deep"]
       interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 30s
+      timeout: 10s
+      retries: 5
     networks:
       - app-network
     restart: always
+    depends_on:
+      - postgres
+      - redis
 
   frontend:
     build:
@@ -43,6 +55,46 @@ services:
       - app-network
     restart: always
 
+  redis:
+    image: redis:7-alpine
+    container_name: serplexity-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - app-network
+    restart: always
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: serplexity-jaeger
+    ports:
+      - "16686:16686" # Jaeger UI
+      - "4318:4318"   # OTLP HTTP receiver
+    networks:
+      - app-network
+    restart: always
+
+  postgres:
+    image: postgres:14-alpine
+    container_name: serplexity-postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: serplexity
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    restart: always
+
 networks:
   app-network:
-    driver: bridge 
+    driver: bridge
+
+volumes:
+  redis-data:
+  postgres-data: 

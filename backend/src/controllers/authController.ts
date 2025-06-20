@@ -2,10 +2,9 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import jwt, { SignOptions } from 'jsonwebtoken';
-import { PrismaClient, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
 import env from '../config/env';
-
-const prisma = new PrismaClient();
+import prisma from '../config/db';
 
 const { JWT_SECRET, JWT_REFRESH_SECRET } = env;
 
@@ -46,7 +45,7 @@ export const register = async (req: Request, res: Response) => {
         password: hashedPassword,
         name,
       },
-      select: { id: true, email: true, name: true, role: true, tokenVersion: true },
+      select: { id: true, email: true, name: true, role: true, tokenVersion: true, subscriptionStatus: true, stripeCustomerId: true, companies: { include: { competitors: true } } },
     });
 
     const payload: JwtPayload = { 
@@ -66,7 +65,7 @@ export const register = async (req: Request, res: Response) => {
     });
 
     res.status(201).json({ 
-      user: { id: user.id, email: user.email, name: user.name, role: user.role }, 
+      user: { id: user.id, email: user.email, name: user.name, role: user.role, subscriptionStatus: user.subscriptionStatus, stripeCustomerId: user.stripeCustomerId, companies: user.companies }, 
       accessToken 
     });
   } catch (error) {
@@ -82,7 +81,20 @@ export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = loginSchema.parse(req.body);
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        password: true,
+        email: true,
+        name: true,
+        role: true,
+        tokenVersion: true,
+        subscriptionStatus: true,
+        stripeCustomerId: true,
+        companies: { include: { competitors: true } },
+      },
+    });
     
     if (!user || !user.password) {
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -111,7 +123,7 @@ export const login = async (req: Request, res: Response) => {
     });
 
     res.json({
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+      user: { id: user.id, email: user.email, name: user.name, role: user.role, subscriptionStatus: user.subscriptionStatus, stripeCustomerId: user.stripeCustomerId, companies: user.companies },
       accessToken,
     });
   } catch (error) {
@@ -131,12 +143,9 @@ export const logout = async (req: Request, res: Response) => {
     path: '/',
   });
   
-  // @ts-ignore
   if (req.user?.id) {
     try {
-        // @ts-ignore
       await prisma.user.update({
-          // @ts-ignore
         where: { id: req.user.id },
         data: { tokenVersion: { increment: 1 } },
       });
@@ -161,22 +170,38 @@ export const refresh = async (req: Request, res: Response) => {
 
         const user = await prisma.user.findUnique({
             where: { id: payload.userId },
-            select: { id: true, email: true, name: true, role: true, tokenVersion: true },
+            select: { id: true, email: true, name: true, role: true, tokenVersion: true, subscriptionStatus: true, stripeCustomerId: true, companies: { include: { competitors: true } } },
         });
 
         if (!user || user.tokenVersion !== payload.tokenVersion) {
             return res.status(401).json({ error: 'Invalid refresh token' });
         }
         
+        // Increment token version to invalidate the used refresh token
+        const updatedUser = await prisma.user.update({
+            where: { id: user.id },
+            data: { tokenVersion: { increment: 1 } },
+            select: { id: true, email: true, name: true, role: true, tokenVersion: true, subscriptionStatus: true, stripeCustomerId: true, companies: { include: { competitors: true } } },
+        });
+
         const newPayload: JwtPayload = { 
-            userId: user.id, 
-            role: user.role,
-            tokenVersion: user.tokenVersion
+            userId: updatedUser.id, 
+            role: updatedUser.role,
+            tokenVersion: updatedUser.tokenVersion
         };
         const newAccessToken = jwt.sign(newPayload, JWT_SECRET, accessTokenOptions);
+        const newRefreshToken = jwt.sign(newPayload, JWT_REFRESH_SECRET, refreshTokenOptions);
+
+        res.cookie('refreshToken', newRefreshToken, {
+            httpOnly: true,
+            secure: env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            path: '/',
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        });
 
         res.json({
-            user: { id: user.id, email: user.email, name: user.name, role: user.role },
+            user: { id: updatedUser.id, email: updatedUser.email, name: updatedUser.name, role: updatedUser.role, subscriptionStatus: updatedUser.subscriptionStatus, stripeCustomerId: updatedUser.stripeCustomerId, companies: updatedUser.companies },
             accessToken: newAccessToken,
         });
 
@@ -187,11 +212,8 @@ export const refresh = async (req: Request, res: Response) => {
 
 export const getMe = async (req: Request, res: Response) => {
     // The user object is attached to the request by the authenticate middleware
-    // @ts-ignore
     if (req.user) {
-        // @ts-ignore
-        const { password, ...userWithoutPassword } = req.user;
-        res.status(200).json({ user: userWithoutPassword });
+        res.status(200).json({ user: req.user });
     } else {
         res.status(401).json({ error: 'Not authenticated' });
     }

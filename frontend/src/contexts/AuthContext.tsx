@@ -1,15 +1,35 @@
-import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback, useMemo } from 'react';
-import axios from 'axios';
+import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { z } from 'zod';
 import { jwtDecode } from 'jwt-decode';
+import apiClient from '../lib/apiClient';
 
-const API_URL = `${import.meta.env.VITE_API_URL || '/api'}/auth`;
+const CompetitorSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  companyId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+const CompanySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  website: z.string().nullable(),
+  industry: z.string().nullable(),
+  userId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  competitors: z.array(CompetitorSchema),
+});
 
 const UserSchema = z.object({
   id: z.string(),
   email: z.string(),
   name: z.string().nullable(),
   role: z.enum(['USER', 'ADMIN']),
+  subscriptionStatus: z.string().nullable().optional(),
+  stripeCustomerId: z.string().nullable().optional(),
+  companies: z.array(CompanySchema).optional(),
 });
 
 type User = z.infer<typeof UserSchema>;
@@ -31,68 +51,75 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-const apiClient = axios.create({
-    baseURL: API_URL,
-    withCredentials: true,
-});
-
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasInitialized = useRef(false);
+  const isAuthenticated = useRef(false);
 
-  const logout = useCallback(() => {
+  useEffect(() => {
+    if (accessToken) {
+      apiClient.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+    } else {
+      delete apiClient.defaults.headers.common['Authorization'];
+    }
+  }, [accessToken]);
+
+  const clearAuth = useCallback(() => {
     setUser(null);
-    localStorage.removeItem('accessToken');
-    delete apiClient.defaults.headers.common['Authorization'];
-    apiClient.post('/api/auth/logout');
+    setAccessToken(null);
   }, []);
 
-  const getMe = useCallback(async () => {
+  const logout = useCallback(async () => {
     try {
-        const { data } = await apiClient.get('/me');
-        setUser(data.user);
+      await apiClient.post('/auth/logout');
     } catch (error) {
-        console.error("Failed to fetch user", error);
-        logout(); // Token is likely invalid or expired
+      // It's okay if this fails, user might already be logged out.
+      console.error("Logout API call failed, proceeding to clear client state.", error);
+    } finally {
+      clearAuth();
     }
-  }, [logout]);
+  }, [clearAuth]);
+  
+  const refreshToken = useCallback(async () => {
+    try {
+        const response = await apiClient.post('/auth/refresh');
+        const { accessToken: newAccessToken, user: newUser } = response.data;
+        setAccessToken(newAccessToken);
+        setUser(newUser);
+        return true;
+    } catch (err) {
+        // This is expected if the user has no valid refresh token
+        clearAuth();
+        return false;
+    }
+  }, [clearAuth]);
+
 
   useEffect(() => {
     const initializeAuth = async () => {
-      const token = localStorage.getItem('accessToken');
-      if (token) {
-        apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        await getMe();
-      }
+      if (hasInitialized.current) return;
+      hasInitialized.current = true;
+      
+      setIsLoading(true);
+      await refreshToken();
       setIsLoading(false);
     };
     initializeAuth();
-  }, [getMe]);
+  }, [refreshToken]);
 
-  const refreshToken = useCallback(async () => {
-    try {
-        const response = await apiClient.post('/refresh');
-        const { accessToken, user } = response.data;
-        localStorage.setItem('accessToken', accessToken);
-        apiClient.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
-        setUser(user);
-        return accessToken;
-    } catch (err) {
-        logout();
-        throw new Error("Session expired. Please log in again.");
-    }
-  }, [logout]);
 
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await apiClient.post('/login', { email, password });
-      const { user, accessToken } = response.data;
-      setUser(user);
-      localStorage.setItem('accessToken', accessToken);
-      apiClient.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+      const response = await apiClient.post('/auth/login', { email, password });
+      const { user: newUser, accessToken: newAccessToken } = response.data;
+      setUser(newUser);
+      setAccessToken(newAccessToken);
+      isAuthenticated.current = true;
     } catch (err: any) {
       setError(err.response?.data?.error || 'Login failed');
       throw err;
@@ -101,15 +128,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, []);
 
-  const register = useCallback(async (email: string, password: string, name?: string) => {
+  const register = useCallback(async (email: string, password:string, name?: string) => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await apiClient.post('/register', { email, password, name });
-      const { user, accessToken } = response.data;
-      setUser(user);
-      localStorage.setItem('accessToken', accessToken);
-       apiClient.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+      const response = await apiClient.post('/auth/register', { email, password, name });
+      const { user: newUser, accessToken: newAccessToken } = response.data;
+      setUser(newUser);
+      setAccessToken(newAccessToken);
+      isAuthenticated.current = true;
     } catch (err: any) {
       setError(err.response?.data?.error || 'Registration failed');
       throw err;
@@ -120,33 +147,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const loginWithGoogle = useCallback(async () => {
     try {
-      const { data } = await apiClient.get('/google/url');
+      const { data } = await apiClient.get('/auth/google/url');
       window.location.href = data.url;
     } catch (err: any) {
        setError(err.response?.data?.error || 'Google login failed');
        throw err;
     }
   }, []);
-
-  const handleOAuthToken = useCallback((token: string) => {
+  
+  const handleOAuthToken = useCallback(async (token: string) => {
+    setIsLoading(true);
     try {
-      const decoded: any = jwtDecode(token);
-      localStorage.setItem('accessToken', token);
-      apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      setAccessToken(token);
       
-      const user = {
-        id: decoded.userId,
-        email: decoded.email,
-        name: decoded.name,
-        role: decoded.role,
-      };
+      const response = await apiClient.get('/auth/me');
+      setUser(response.data.user);
       
-      setUser(user);
+      isAuthenticated.current = true;
     } catch (error) {
       console.error("Failed to handle OAuth token", error);
-      logout();
+      clearAuth();
+    } finally {
+      setIsLoading(false);
     }
-  }, [logout]);
+  }, [clearAuth]);
+
 
   const value = useMemo(() => ({
     user,

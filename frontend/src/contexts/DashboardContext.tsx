@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback, useMemo } from 'react';
 import { DashboardData, DashboardFilters } from '../types/dashboard';
-import { MockDataService } from '../services/mockDataService';
+import { getLatestReport } from '../services/reportService';
 import { useCompany } from './CompanyContext';
 
 interface DashboardContextType {
@@ -55,12 +55,12 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
         competitors: selectedCompany.competitors.map(c => c.name),
       };
 
-      const dashboardData = isRefresh 
-        ? await MockDataService.refreshData(currentFilters, selectedCompany.name)
-        : await MockDataService.getDashboardData(currentFilters, selectedCompany.name);
+      const dashboardData = await getLatestReport(selectedCompany.id, currentFilters);
 
       setData(dashboardData);
-      setLastUpdated(dashboardData.lastUpdated);
+      if (dashboardData?.lastUpdated) {
+        setLastUpdated(dashboardData.lastUpdated);
+      }
     } catch (err: any) {
       console.error('Failed to fetch dashboard data:', err);
       setError(err.message || 'Failed to fetch dashboard data');

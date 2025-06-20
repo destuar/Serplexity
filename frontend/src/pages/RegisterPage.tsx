@@ -111,11 +111,11 @@ const RegisterPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-black via-[#0a0a1a] to-[#050510]">
       {/* Blurred Background Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-black/98 via-[#0a0a1a]/95 to-[#050510]/98 backdrop-blur-xl">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#9e52ff]/25 via-[#7662ff]/15 to-[#5271ff]/25"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,rgba(158,82,255,0.08),transparent_50%)]"></div>
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#5271ff]/15 via-[#7662ff]/8 to-[#9e52ff]/15"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(82,113,255,0.08),transparent_50%)]"></div>
         
         {/* Shooting Stars */}
         <div ref={starContainerRef} className="absolute inset-0 overflow-hidden" />
