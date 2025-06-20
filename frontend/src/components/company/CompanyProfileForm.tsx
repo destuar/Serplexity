@@ -88,7 +88,6 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
     register,
     handleSubmit,
     formState: { errors },
-    watch,
     setValue,
   } = useForm<FormData>({
     resolver: zodResolver(companyFormSchema),

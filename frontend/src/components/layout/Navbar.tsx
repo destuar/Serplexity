@@ -10,7 +10,6 @@ export function Navbar() {
   const { user, logout } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const isDesktop = useMediaQuery('(min-width: 1024px)');
   const navRef = useRef<HTMLElement>(null);
   
   const isLandingPage = location.pathname === '/';
