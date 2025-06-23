@@ -26,7 +26,7 @@ passport.use(
 
         let user = await prisma.user.findUnique({
           where: { email },
-          include: { companies: { include: { competitors: true } } },
+          include: { companies: { include: { competitors: true, products: true, benchmarkingQuestions: true } } },
         });
 
         if (user) {
@@ -35,7 +35,7 @@ passport.use(
             user = await prisma.user.update({
               where: { id: user.id },
               data: { provider: 'google', providerId: profile.id },
-              include: { companies: { include: { competitors: true } } },
+              include: { companies: { include: { competitors: true, products: true, benchmarkingQuestions: true } } },
             });
           }
         } else {
@@ -47,7 +47,7 @@ passport.use(
               provider: 'google',
               providerId: profile.id,
             },
-            include: { companies: { include: { competitors: true } } },
+            include: { companies: { include: { competitors: true, products: true, benchmarkingQuestions: true } } },
           });
         }
         
@@ -68,7 +68,7 @@ passport.serializeUser((user: any, done) => {
 
 passport.deserializeUser(async (id: string, done) => {
     try {
-        const user = await prisma.user.findUnique({ where: { id }, include: { companies: { include: { competitors: true } } } });
+        const user = await prisma.user.findUnique({ where: { id }, include: { companies: { include: { competitors: true, products: true, benchmarkingQuestions: true } } } });
         done(null, user);
     } catch (error) {
         done(error, null);

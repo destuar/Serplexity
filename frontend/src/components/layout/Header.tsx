@@ -1,21 +1,27 @@
-import { Bell, Grid3x3, User, Menu } from "lucide-react";
+import { Bell, Settings, User, Menu } from "lucide-react";
 import React, { useState } from "react";
 import { useCompany } from "../../contexts/CompanyContext";
 import CompanySelector from "../company/CompanySelector";
 import CompanyProfileForm from "../company/CompanyProfileForm";
 import CompanyLogo from "../company/CompanyLogo";
+import SettingsModal from "./SettingsModal";
+import ProfileModal from "./ProfileModal";
 
 interface HeaderProps {
   toggleMobileSidebar: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ toggleMobileSidebar }) => {
-  const { selectedCompany } = useCompany();
+  const { selectedCompany, canCreateMore } = useCompany();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   // Handle creating new company
   const handleCreateNew = () => {
-    setShowCreateModal(true);
+    if (canCreateMore) {
+      setShowCreateModal(true);
+    }
   };
 
   const handleCreateSuccess = () => {
@@ -24,7 +30,8 @@ const Header: React.FC<HeaderProps> = ({ toggleMobileSidebar }) => {
 
   return (
     <>
-      <header className="flex items-center justify-between px-4 py-4 bg-white lg:justify-between">
+      {/* Header height (py-2.5) must match sidebar logo section height for visual alignment */}
+      <header className="flex items-center justify-between px-4 py-2.5 bg-white lg:justify-between">
         <div className="flex items-center">
           <button 
             onClick={toggleMobileSidebar}
@@ -48,15 +55,21 @@ const Header: React.FC<HeaderProps> = ({ toggleMobileSidebar }) => {
           </div>
         </div>
         <div className="flex items-center">
-          <button className="p-2 rounded-lg hover:bg-gray-100">
-            <Grid3x3 />
+          <button 
+            onClick={() => setShowSettingsModal(true)}
+            className="p-2 rounded-lg hover:bg-gray-100"
+          >
+            <Settings />
           </button>
           <button className="p-2 ml-4 rounded-lg hover:bg-gray-100">
             <Bell />
           </button>
-          <div className="ml-4 w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+          <button 
+            onClick={() => setShowProfileModal(true)}
+            className="ml-4 w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center hover:bg-gray-300 transition-colors"
+          >
             <User size={20} className="text-gray-600" />
-          </div>
+          </button>
         </div>
       </header>
 
@@ -70,6 +83,18 @@ const Header: React.FC<HeaderProps> = ({ toggleMobileSidebar }) => {
           />
         </div>
       )}
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+      />
+
+      {/* Profile Modal */}
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+      />
     </>
   );
 };

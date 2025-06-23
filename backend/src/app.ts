@@ -4,7 +4,6 @@ import morgan from 'morgan';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import passport from './config/passport'; 
-import metricsRouter from './routes/metrics';
 import authRouter from './routes/authRoutes';
 import companyRouter from './routes/companyRoutes';
 import paymentRouter from './routes/paymentRoutes';
@@ -58,7 +57,6 @@ app.get('/api/health/deep', async (req: Request, res: Response) => {
 app.use('/api/auth', authRouter);
 
 // Protected routes
-app.use('/api/metrics', authenticate, metricsRouter);
 app.use('/api/companies', companyRouter);
 app.use('/api/payments', paymentRouter);
 app.use('/api/reports', reportRouter);

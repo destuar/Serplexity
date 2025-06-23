@@ -6,6 +6,7 @@ interface FilterOption {
   value: string;
   label: string;
   icon?: ComponentType<LucideProps>;
+  logoUrl?: string;
 }
 
 interface FilterDropdownProps {
@@ -59,14 +60,24 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
         className={cn(
-          "flex items-center justify-between w-full lg:w-48 gap-2 px-4 py-2 bg-white rounded-lg border border-gray-200 text-sm transition-colors",
+          "flex items-center justify-between w-full lg:w-48 gap-2 px-4 py-2 bg-white rounded-lg shadow-md text-sm transition-colors",
           disabled 
             ? "opacity-50 cursor-not-allowed" 
-            : "hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            : "hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
         )}
       >
         <span className="flex items-center gap-2 truncate">
           {Icon && <Icon size={16} />}
+          {selectedOption?.logoUrl && (
+            <img 
+              src={selectedOption.logoUrl} 
+              alt={selectedOption.label}
+              className="w-5 h-5 rounded-sm"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          )}
           <span className="truncate">{displayLabel}</span>
         </span>
         <ChevronDown 
@@ -81,7 +92,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
 
       {/* Dropdown Menu */}
       {isOpen && !disabled && (
-        <div className="absolute top-full left-0 mt-1 w-full min-w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 max-h-64 overflow-y-auto">
+        <div className="absolute top-full left-0 mt-1 w-full min-w-48 bg-white rounded-lg shadow-lg z-50 py-1 max-h-64 overflow-y-auto">
           {options.map((option) => {
             const OptionIcon = option.icon;
             const isSelected = option.value === value;
@@ -94,6 +105,16 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
               >
                 <div className="flex items-center gap-3">
                   {OptionIcon && <OptionIcon size={16} className="text-gray-400" />}
+                  {option.logoUrl && (
+                    <img 
+                      src={option.logoUrl} 
+                      alt={option.label}
+                      className="w-4 h-4 rounded-sm"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  )}
                   <span className={cn(
                     "text-sm truncate",
                     isSelected ? "font-medium text-gray-900" : "text-gray-700"

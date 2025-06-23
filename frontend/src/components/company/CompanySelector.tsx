@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Plus, Check } from 'lucide-react';
-import { useCompany } from '../../contexts/CompanyContext';
+import { useCompany, Company } from '../../contexts/CompanyContext';
 import { cn } from '../../lib/utils';
 import CompanyLogo from './CompanyLogo';
 
@@ -13,7 +13,7 @@ const CompanySelector: React.FC<CompanySelectorProps> = ({
   onCreateNew,
   className = ''
 }) => {
-  const { companies, selectedCompany, selectCompany, loading } = useCompany();
+  const { companies, selectedCompany, selectCompany, loading, canCreateMore, maxCompanies } = useCompany();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -32,7 +32,7 @@ const CompanySelector: React.FC<CompanySelectorProps> = ({
   }, []);
 
   // Handle company selection
-  const handleSelectCompany = (company: any) => {
+  const handleSelectCompany = (company: Company) => {
     selectCompany(company);
     setIsOpen(false);
   };
@@ -103,7 +103,7 @@ const CompanySelector: React.FC<CompanySelectorProps> = ({
                   </div>
                 </div>
                 {selectedCompany?.id === company.id && (
-                  <Check size={16} className="text-blue-600" />
+                  <Check size={16} className="text-[#7762ff]" />
                 )}
               </button>
             ))}
@@ -114,15 +114,35 @@ const CompanySelector: React.FC<CompanySelectorProps> = ({
 
           {/* Create New Company Option */}
           <button
-            onClick={handleCreateNew}
-            className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors flex items-center gap-3 group"
+            onClick={canCreateMore ? handleCreateNew : undefined}
+            disabled={!canCreateMore}
+            className={`w-full px-4 py-3 text-left transition-colors flex items-center gap-3 group ${
+              canCreateMore 
+                ? 'hover:bg-[#7762ff]/10 cursor-pointer' 
+                : 'cursor-not-allowed opacity-50'
+            }`}
           >
-            <div className="flex items-center justify-center w-4 h-4 bg-blue-100 rounded">
-              <Plus size={12} className="text-blue-600" />
+            <div className={`flex items-center justify-center w-4 h-4 rounded ${
+              canCreateMore 
+                ? 'bg-[#7762ff]/20' 
+                : 'bg-gray-100'
+            }`}>
+              <Plus size={12} className={canCreateMore ? 'text-[#7762ff]' : 'text-gray-400'} />
             </div>
-            <span className="text-sm font-medium text-blue-600 group-hover:text-blue-700">
-              Create New +
-            </span>
+            <div className="flex flex-col">
+              <span className={`text-sm font-medium ${
+                canCreateMore 
+                  ? 'text-[#7762ff] group-hover:text-[#6650e6]' 
+                  : 'text-gray-400'
+              }`}>
+                {canCreateMore ? 'Create New +' : 'Create New'}
+              </span>
+              {!canCreateMore && (
+                <span className="text-xs text-gray-400">
+                  Maximum {maxCompanies} companies reached
+                </span>
+              )}
+            </div>
           </button>
         </div>
       )}

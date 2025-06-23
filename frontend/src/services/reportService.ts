@@ -4,6 +4,7 @@ import { DashboardData, DashboardFilters } from '../types/dashboard';
 interface TriggerReportResponse {
   message: string;
   runId: string;
+  status?: string;
 }
 
 /**

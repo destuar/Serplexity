@@ -24,11 +24,13 @@ const CompanyGuard: React.FC<CompanyGuardProps> = ({ children }) => {
 
     // Case 1: User has no companies and is not on the onboarding page.
     if (!hasCompanies && !isOnboarding) {
+      console.log('CompanyGuard: No companies, redirecting to onboarding');
       navigate('/onboarding', { replace: true });
     }
 
     // Case 2: User has companies but somehow landed on the onboarding page.
     if (hasCompanies && isOnboarding) {
+      console.log('CompanyGuard: Has companies, redirecting to overview');
       navigate('/overview', { replace: true });
     }
   }, [hasCompanies, loading, navigate, location.pathname]);

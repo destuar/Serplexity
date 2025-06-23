@@ -1,5 +1,18 @@
 import { Request, Response } from 'express';
+import { z } from 'zod';
+import bcrypt from 'bcrypt';
 import prisma from '../config/db';
+
+// Validation schemas
+const updateProfileSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100, 'Name too long').optional(),
+  email: z.string().email('Invalid email address').optional(),
+});
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+});
 
 export const exportUserData = async (req: Request, res: Response) => {
     const userId = req.user?.id;
@@ -24,10 +37,10 @@ export const exportUserData = async (req: Request, res: Response) => {
                 companies: {
                     include: {
                         competitors: true,
+                        benchmarkingQuestions: true,
+                        products: true,
                         runs: {
                             include: {
-                                questions: true,
-                                answers: true,
                                 metrics: true
                             }
                         }
@@ -66,10 +79,10 @@ export const deleteUserData = async (req: Request, res: Response) => {
 
             // Explicitly delete all data related to the user in the correct order
             await tx.metric.deleteMany({ where: { reportRun: { companyId: { in: companyIds } } } });
-            await tx.answer.deleteMany({ where: { reportRun: { companyId: { in: companyIds } } } });
-            await tx.question.deleteMany({ where: { reportRun: { companyId: { in: companyIds } } } });
             await tx.reportRun.deleteMany({ where: { companyId: { in: companyIds } } });
             await tx.competitor.deleteMany({ where: { companyId: { in: companyIds } } });
+            await tx.benchmarkingQuestion.deleteMany({ where: { companyId: { in: companyIds } } });
+            await tx.product.deleteMany({ where: { companyId: { in: companyIds } } });
             await tx.company.deleteMany({ where: { userId: userId } });
             
             // Finally, delete the user
@@ -91,8 +104,138 @@ export const deleteUserData = async (req: Request, res: Response) => {
 
 export const getUserProfile = async (req: Request, res: Response) => {
   try {
-    // ... existing code ...
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        provider: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.status(200).json({ user });
   } catch (error) {
-    // ... existing code ...
+    console.error('[GET USER PROFILE ERROR]', error);
+    res.status(500).json({ error: 'Failed to get user profile' });
+  }
+};
+
+export const updateUserProfile = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { name, email } = updateProfileSchema.parse(req.body);
+
+    // Check if email is already taken by another user
+    if (email) {
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          email,
+          id: { not: userId }
+        }
+      });
+
+      if (existingUser) {
+        return res.status(400).json({ error: 'Email already in use' });
+      }
+    }
+
+    // Build update data object
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (email !== undefined) updateData.email = email;
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        provider: true,
+        subscriptionStatus: true,
+        stripeCustomerId: true,
+        companies: { include: { competitors: true, products: true, benchmarkingQuestions: true } },
+      },
+    });
+
+    res.status(200).json({ user: updatedUser });
+  } catch (error) {
+    console.error('[UPDATE USER PROFILE ERROR]', error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors });
+    }
+    res.status(500).json({ error: 'Failed to update user profile' });
+  }
+};
+
+export const changePassword = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { currentPassword, newPassword } = changePasswordSchema.parse(req.body);
+
+    // Get user with password
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, password: true, provider: true },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if user signed up with OAuth (no password)
+    if (user.provider !== 'credentials' || !user.password) {
+      return res.status(400).json({ 
+        error: 'Cannot change password for OAuth accounts' 
+      });
+    }
+
+    // Verify current password
+    const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+    if (!isValidPassword) {
+      return res.status(400).json({ error: 'Current password is incorrect' });
+    }
+
+    // Hash new password
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password and increment token version to invalidate existing tokens
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedNewPassword,
+        tokenVersion: { increment: 1 },
+      },
+    });
+
+    res.status(200).json({ message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('[CHANGE PASSWORD ERROR]', error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors });
+    }
+    res.status(500).json({ error: 'Failed to change password' });
   }
 }; 

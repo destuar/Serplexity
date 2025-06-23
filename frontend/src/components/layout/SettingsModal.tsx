@@ -1,0 +1,322 @@
+import React, { useState } from 'react';
+import { X, Building, CreditCard, HelpCircle, Trash2, Edit, Mail } from 'lucide-react';
+import { useCompany } from '../../contexts/CompanyContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { Button } from '../ui/Button';
+import CompanyProfileForm from '../company/CompanyProfileForm';
+import { useNavigate } from 'react-router-dom';
+
+interface SettingsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
+  const { user } = useAuth();
+  const { companies, deleteCompany } = useCompany();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('companies');
+  const [editingCompany, setEditingCompany] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+
+  if (!isOpen) return null;
+
+  const handleDeleteCompany = async (companyId: string) => {
+    try {
+      await deleteCompany(companyId);
+      setDeleteConfirm(null);
+    } catch (error) {
+      console.error('Failed to delete company:', error);
+    }
+  };
+
+  const handleManageSubscription = () => {
+    // If user has active subscription, redirect to customer portal
+    if (user?.subscriptionStatus === 'active') {
+      // This would typically be a customer portal link from Stripe
+      window.open('https://billing.stripe.com/p/login/test_XXXXXX', '_blank');
+    } else {
+      // Navigate to the payment page to choose a plan
+      navigate('/payment');
+    }
+  };
+
+  const handleSubmitFeedback = async () => {
+    try {
+      // In a real app, this would send feedback to your API
+      console.log('Submitting feedback:', feedbackText);
+      setFeedbackSubmitted(true);
+      setFeedbackText('');
+      setTimeout(() => setFeedbackSubmitted(false), 3000);
+    } catch (error) {
+      console.error('Failed to submit feedback:', error);
+    }
+  };
+
+  const tabs = [
+    { id: 'companies', label: 'Company Profiles', icon: Building },
+    { id: 'subscription', label: 'Subscription', icon: CreditCard },
+    { id: 'help', label: 'Help & Feedback', icon: HelpCircle },
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl max-w-4xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <h2 className="text-2xl font-bold text-gray-900">Settings</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="flex h-[calc(90vh-120px)]">
+          {/* Sidebar */}
+          <div className="w-64 bg-gray-50 border-r border-gray-200 p-4">
+            <nav className="space-y-2">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+                      activeTab === tab.id
+                        ? 'bg-[#7762ff] text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5 mr-3" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+
+          {/* Main Content */}
+          <div className="flex-1 overflow-y-auto p-6">
+            {activeTab === 'companies' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Company Profiles</h3>
+                  <p className="text-gray-600 mb-4">
+                    Manage your company profiles. You can have up to 3 companies.
+                  </p>
+                </div>
+
+                {companies.map((company) => (
+                  <div
+                    key={company.id}
+                    className="border border-gray-200 rounded-lg p-4 space-y-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-semibold text-gray-900">{company.name}</h4>
+                        <p className="text-sm text-gray-600">{company.website}</p>
+                        <p className="text-xs text-gray-500">{company.industry}</p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditingCompany(company.id)}
+                        >
+                          <Edit className="w-4 h-4 mr-1" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setDeleteConfirm(company.id)}
+                          className="text-red-600 border-red-200 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Delete Confirmation */}
+                    {deleteConfirm === company.id && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <p className="text-sm text-red-800 mb-3">
+                          Are you sure you want to delete "{company.name}"? This action cannot be undone.
+                        </p>
+                        <div className="flex space-x-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleDeleteCompany(company.id)}
+                            className="bg-red-600 hover:bg-red-700"
+                          >
+                            Yes, Delete
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDeleteConfirm(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Edit Form */}
+                    {editingCompany === company.id && (
+                      <div className="border-t border-gray-200 pt-4">
+                                                 <CompanyProfileForm
+                           isModal={true}
+                           initialData={company}
+                           mode="edit"
+                           onSuccess={() => setEditingCompany(null)}
+                           onCancel={() => setEditingCompany(null)}
+                         />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === 'subscription' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Subscription Management</h3>
+                  <p className="text-gray-600 mb-4">
+                    Manage your Serplexity Pro subscription.
+                  </p>
+                </div>
+
+                <div className="border border-gray-200 rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h4 className="font-semibold text-gray-900">Current Plan</h4>
+                      <p className="text-sm text-gray-600">
+                        {user?.subscriptionStatus === 'active' ? 'Serplexity Pro' : 'Free Plan'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600">Status</p>
+                      <span
+                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          user?.subscriptionStatus === 'active'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {user?.subscriptionStatus === 'active' ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <Button onClick={handleManageSubscription} className="w-full">
+                      <CreditCard className="w-4 h-4 mr-2" />
+                      {user?.subscriptionStatus === 'active'
+                        ? 'Manage Subscription'
+                        : 'Upgrade to Pro'}
+                    </Button>
+
+                    {user?.subscriptionStatus === 'active' && (
+                      <div className="text-sm text-gray-600">
+                        <p>• Update payment method</p>
+                        <p>• Download invoices</p>
+                        <p>• Cancel subscription</p>
+                        <p>• Change billing frequency</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'help' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Help & Feedback</h3>
+                  <p className="text-gray-600 mb-4">
+                    Get help or send us your feedback to improve Serplexity.
+                  </p>
+                </div>
+
+                {/* Contact Support */}
+                <div className="border border-gray-200 rounded-lg p-6">
+                  <h4 className="font-semibold text-gray-900 mb-3">Contact Support</h4>
+                  <p className="text-gray-600 mb-4">
+                    Need help with your account or have questions? Reach out to our support team.
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => window.open('mailto:support@serplexity.com', '_blank')}
+                  >
+                    <Mail className="w-4 h-4 mr-2" />
+                    support@serplexity.com
+                  </Button>
+                </div>
+
+                {/* Feedback Form */}
+                <div className="border border-gray-200 rounded-lg p-6">
+                  <h4 className="font-semibold text-gray-900 mb-3">Send Feedback</h4>
+                  <p className="text-gray-600 mb-4">
+                    Help us improve Serplexity by sharing your thoughts and suggestions.
+                  </p>
+                  
+                  {feedbackSubmitted ? (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <p className="text-green-800">
+                        Thank you for your feedback! We'll review it and get back to you if needed.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <textarea
+                        value={feedbackText}
+                        onChange={(e) => setFeedbackText(e.target.value)}
+                        placeholder="Tell us what you think about Serplexity, report a bug, or suggest a feature..."
+                        className="w-full h-32 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#7762ff] focus:border-[#7762ff] resize-none"
+                      />
+                      <Button
+                        onClick={handleSubmitFeedback}
+                        disabled={!feedbackText.trim()}
+                        className="w-full"
+                      >
+                        Submit Feedback
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Resources */}
+                <div className="border border-gray-200 rounded-lg p-6">
+                  <h4 className="font-semibold text-gray-900 mb-3">Resources</h4>
+                  <div className="space-y-2">
+                    <a
+                      href="/privacy"
+                      className="block text-[#7762ff] hover:text-[#6650e6] text-sm"
+                    >
+                      Privacy Policy
+                    </a>
+                    <a
+                      href="/terms"
+                      className="block text-[#7762ff] hover:text-[#6650e6] text-sm"
+                    >
+                      Terms of Service
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default SettingsModal; 

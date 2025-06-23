@@ -13,7 +13,7 @@ export const archiveQueue = new Queue('archive-jobs', { connection });
 
 // --- Repeatable Job Scheduling ---
 const scheduleArchiveJob = async () => {
-  await archiveQueue.add('archive-old-answers', {}, {
+  await archiveQueue.add('archive-old-metrics', {}, {
     repeat: {
       pattern: '0 2 * * *', // Every day at 2 AM UTC
     },
@@ -21,25 +21,40 @@ const scheduleArchiveJob = async () => {
     removeOnComplete: true,
     removeOnFail: 10,
   });
-  console.log('Daily answer archive job scheduled.');
+  console.log('Daily metrics archive job scheduled.');
 };
 
 scheduleArchiveJob().catch(err => console.error('Failed to schedule archive job', err));
 
 // --- Worker Implementation ---
 const processArchiveJob = async (job: Job) => {
-  if (job.name === 'archive-old-answers') {
-    console.log('[ARCHIVE WORKER] Starting job to archive old answers...');
+  if (job.name === 'archive-old-metrics') {
+    console.log('[ARCHIVE WORKER] Starting job to archive old metrics...');
     
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-    const oldAnswers = await prisma.answer.findMany({
-      where: { createdAt: { lt: ninetyDaysAgo } },
+    // Archive old metrics from completed report runs
+    const oldMetrics = await prisma.metric.findMany({
+      where: { 
+        createdAt: { lt: ninetyDaysAgo },
+        reportRun: {
+          status: 'COMPLETED'
+        }
+      },
+      include: {
+        reportRun: {
+          select: {
+            id: true,
+            status: true,
+            companyId: true
+          }
+        }
+      }
     });
 
-    if (oldAnswers.length > 0) {
-      console.log(`[ARCHIVE WORKER] Found ${oldAnswers.length} answers to archive.`);
+    if (oldMetrics.length > 0) {
+      console.log(`[ARCHIVE WORKER] Found ${oldMetrics.length} metrics to archive.`);
       
       try {
         // 1. Archive to S3 (placeholder)
@@ -51,13 +66,13 @@ const processArchiveJob = async (job: Job) => {
         
         console.log('[ARCHIVE WORKER] Finished archiving job successfully.');
       } catch (error) {
-        console.error('[ARCHIVE WORKER] Failed to archive or delete answers.', error);
+        console.error('[ARCHIVE WORKER] Failed to archive or delete metrics.', error);
         // Do not re-throw the error, to prevent the job from being retried,
         // as a partial success might have occurred. A more robust implementation
         // would use a transactional approach or a dead-letter queue.
       }
     } else {
-      console.log('[ARCHIVE WORKER] No old answers found to archive.');
+      console.log('[ARCHIVE WORKER] No old metrics found to archive.');
     }
   }
 };

@@ -6,13 +6,14 @@ import CompanyGuard from './components/company/CompanyGuard';
 import PaymentGuard from './components/auth/PaymentGuard';
 import DashboardLayout from './components/layout/DashboardLayout';
 import OverviewPage from './pages/OverviewPage';
-import AIRankingsPage from './pages/AIRankingsPage';
-import TagAnalysisPage from './pages/TagAnalysisPage';
+import BenchmarkResultsPage from './pages/BenchmarkResultsPage';
+import VisibilityReportPage from './pages/VisibilityReportPage';
 import SentimentAnalysisPage from './pages/SentimentAnalysisPage';
-import ConceptsAnalysisPage from './pages/ConceptsAnalysisPage';
-import SourceAnalysisPage from './pages/SourceAnalysisPage';
+import ResponseDetailsPage from './pages/ResponseDetailsPage';
 import CompetitorRankingsPage from './pages/CompetitorRankingsPage';
 import ModelComparisonPage from './pages/ModelComparisonPage';
+import JsonTranslationToolPage from './pages/JsonTranslationToolPage';
+import AiOptimizationToolPage from './pages/AiOptimizationToolPage';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -24,20 +25,19 @@ import TermsOfServicePage from './pages/TermsOfServicePage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 
 const DashboardRoutes: React.FC = () => (
-  <DashboardProvider>
-    <DashboardLayout>
-      <Routes>
-        <Route path="/overview" element={<OverviewPage />} />
-        <Route path="/ai-rankings" element={<AIRankingsPage />} />
-        <Route path="/tag-analysis" element={<TagAnalysisPage />} />
-        <Route path="/sentiment-analysis" element={<SentimentAnalysisPage />} />
-        <Route path="/concepts-analysis" element={<ConceptsAnalysisPage />} />
-        <Route path="/source-analysis" element={<SourceAnalysisPage />} />
-        <Route path="/competitor-rankings" element={<CompetitorRankingsPage />} />
-        <Route path="/model-comparison" element={<ModelComparisonPage />} />
-      </Routes>
-    </DashboardLayout>
-  </DashboardProvider>
+  <DashboardLayout>
+    <Routes>
+      <Route path="/overview" element={<OverviewPage />} />
+      <Route path="/benchmark-results" element={<BenchmarkResultsPage />} />
+      <Route path="/visibility-report" element={<VisibilityReportPage />} />
+      <Route path="/sentiment-analysis" element={<SentimentAnalysisPage />} />
+      <Route path="/response-details" element={<ResponseDetailsPage />} />
+      <Route path="/competitor-rankings" element={<CompetitorRankingsPage />} />
+      <Route path="/model-comparison" element={<ModelComparisonPage />} />
+      <Route path="/json-translation-tool" element={<JsonTranslationToolPage />} />
+      <Route path="/ai-optimization-tool" element={<AiOptimizationToolPage />} />
+    </Routes>
+  </DashboardLayout>
 );
 
 const ProtectedArea: React.FC = () => (
@@ -50,7 +50,9 @@ const ProtectedArea: React.FC = () => (
           path="/*"
           element={
             <PaymentGuard>
-              <DashboardRoutes />
+              <DashboardProvider>
+                <DashboardRoutes />
+              </DashboardProvider>
             </PaymentGuard>
           }
         />

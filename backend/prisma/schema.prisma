@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider      = "prisma-client-js"
   output        = "../node_modules/.prisma/client"
@@ -16,119 +10,220 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  name         String?
-  password     String?
-  role         Role      @default(USER)
-  provider     String    @default("credentials")
-  providerId   String?
-  tokenVersion Int       @default(0)
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  name               String?
+  password           String?
+  role               Role      @default(USER)
+  provider           String    @default("credentials")
+  providerId         String?
+  tokenVersion       Int       @default(0)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
   stripeCustomerId   String?   @unique
   subscriptionStatus String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  companies    Company[] // One user can have multiple companies
+  companies          Company[]
 }
 
 model Company {
-  id          String       @id @default(cuid())
-  name        String
-  website     String?
-  industry    String?
-  userId      String       // Foreign key to User
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  competitors Competitor[] // One company can have multiple competitors
-  runs        ReportRun[]  // A company can have multiple report runs
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id                    String                 @id @default(cuid())
+  name                  String
+  website               String
+  industry              String?
+  userId                String
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  benchmarkingQuestions BenchmarkingQuestion[]
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  competitors           Competitor[]
+  products              Product[]
+  runs                  ReportRun[]
+  mentions              VisibilityMention[]
+  benchmarkMentions     BenchmarkMention[]
 
-  @@index([userId]) // Index for better query performance
+  @@index([userId])
 }
 
 model Competitor {
-  id        String   @id @default(cuid())
-  name      String
-  companyId String   // Foreign key to Company
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([companyId]) // Index for better query performance
-}
-
-enum Role {
-  USER
-  ADMIN
-}
-
-model ReportRun {
-  id          String     @id @default(cuid())
-  companyId   String
-  company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  status      String // e.g., PENDING, RUNNING, COMPLETED, FAILED
-  stepStatus  String? // e.g., QUESTION_GENERATION, ANSWER_FETCHING, METRIC_CALCULATION
-  tokensUsed  Int?
-  usdCost     Float?
-  traceId     String? // For observability
-  questions   Question[]
-  answers     Answer[]
-  metrics     Metric[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id                   String               @id @default(cuid())
+  name                 String
+  companyId            String
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  website              String
+  isGenerated          Boolean              @default(false)
+  company              Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  mentions             VisibilityMention[]
+  benchmarkMentions    BenchmarkMention[]
 
   @@index([companyId])
 }
 
-model Question {
-  id        String    @id @default(cuid())
-  runId     String
-  reportRun ReportRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-  version   Int       @default(1)
-  text      String
-  template  String? // To cache question templates by industry
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+model BenchmarkingQuestion {
+  id                 String                 @id @default(cuid())
+  text               String
+  companyId          String
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  isGenerated        Boolean                @default(false)
+  originalQuestionId String?
+  company            Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  originalQuestion   BenchmarkingQuestion?  @relation("Variations", fields: [originalQuestionId], references: [id], onDelete: NoAction)
+  variations         BenchmarkingQuestion[] @relation("Variations")
+  benchmarkResponses BenchmarkResponse[]
 
-  @@index([runId])
+  @@index([companyId])
+  @@index([originalQuestionId])
 }
 
-model Answer {
-  id         String    @id @default(cuid())
-  runId      String
-  reportRun  ReportRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-  version    Int       @default(1)
-  questionId String // This could be a direct relation to the Question model in the future
-  questionText String
-  answerText String
-  engine     String // e.g., 'gpt-4o', 'claude-3-opus'
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+model Product {
+  id                  String               @id @default(cuid())
+  name                String
+  companyId           String
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  company             Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  visibilityQuestions VisibilityQuestion[]
+
+  @@index([companyId])
+}
+
+model VisibilityQuestion {
+  id        String   @id @default(cuid())
+  question  String   @db.Text
+  productId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  responses VisibilityResponse[]
+
+  @@index([productId])
+}
+
+model ReportRun {
+  id                    String                 @id @default(cuid())
+  companyId             String
+  status                String
+  stepStatus            String?
+  tokensUsed            Int?
+  usdCost               Float?
+  traceId               String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  metrics               Metric[]
+  company               Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  visibilityResponses   VisibilityResponse[]
+  benchmarkResponses    BenchmarkResponse[]
+  dashboardData         DashboardData?
+
+  @@index([companyId])
+}
+
+model DashboardData {
+  id                    String    @id @default(cuid())
+  runId                 String    @unique
+  companyId             String
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  // Storing complex, nested data as JSON is efficient for this use case.
+  brandShareOfVoice     Json
+  shareOfVoiceHistory   Json
+  averagePosition       Json
+  averageInclusionRate  Json
+  competitorRankings    Json
+  topQuestions          Json
+  sentimentOverTime     Json
+
+  run                   ReportRun @relation(fields: [runId], references: [id], onDelete: Cascade)
 
   @@index([runId])
+  @@index([companyId])
 }
 
 model Metric {
   id        String    @id @default(cuid())
   runId     String
-  reportRun ReportRun @relation(fields: [runId], references: [id], onDelete: Cascade)
   version   Int       @default(1)
-  name      String // e.g., 'PAWC', 'Competitor SoV', 'Sentiment'
+  name      String
   value     Json
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+  engine    String?
+  reportRun ReportRun @relation(fields: [runId], references: [id], onDelete: Cascade)
 
   @@index([runId])
 }
 
-model Report {
-  id        String   @id @default(cuid())
-  runId     String   @unique // Each report corresponds to a unique run
-  companyId String
-  status    String   // e.g., COMPLETED, FAILED
-  data      Json?    // The final JSON blob of the report
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model VisibilityResponse {
+  id                   String    @id @default(cuid())
+  visibilityQuestionId String
+  engine               String
+  model                String
+  content              String    @db.Text
+  runId                String
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  mentions             VisibilityMention[]
+  question             VisibilityQuestion @relation(fields: [visibilityQuestionId], references: [id], onDelete: Cascade)
+  run                  ReportRun @relation(fields: [runId], references: [id], onDelete: Cascade)
 
+  @@index([visibilityQuestionId])
+  @@index([runId])
+}
+
+model BenchmarkResponse {
+  id                    String             @id @default(cuid())
+  benchmarkQuestionId   String
+  engine                String
+  model                 String
+  content               String             @db.Text
+  runId                 String
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  benchmarkQuestion     BenchmarkingQuestion @relation(fields: [benchmarkQuestionId], references: [id], onDelete: Cascade)
+  run                   ReportRun          @relation(fields: [runId], references: [id], onDelete: Cascade)
+  benchmarkMentions     BenchmarkMention[]
+
+  @@index([benchmarkQuestionId])
+  @@index([runId])
+}
+
+model VisibilityMention {
+  id                   String             @id @default(cuid())
+  visibilityResponseId String
+  position             Int
+  competitorId         String?
+  companyId            String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  visibilityResponse   VisibilityResponse @relation(fields: [visibilityResponseId], references: [id], onDelete: Cascade)
+  competitor           Competitor?        @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  company              Company?           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([visibilityResponseId])
+  @@index([competitorId])
   @@index([companyId])
+}
+
+model BenchmarkMention {
+  id                  String             @id @default(cuid())
+  benchmarkResponseId String
+  position            Int
+  competitorId        String?
+  companyId           String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  benchmarkResponse   BenchmarkResponse  @relation(fields: [benchmarkResponseId], references: [id], onDelete: Cascade)
+  competitor          Competitor?        @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  company             Company?           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([benchmarkResponseId])
+  @@index([competitorId])
+  @@index([companyId])
+}
+
+enum Role {
+  USER
+  ADMIN
 }

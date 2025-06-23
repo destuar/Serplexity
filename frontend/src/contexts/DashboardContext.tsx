@@ -1,24 +1,16 @@
-import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { DashboardData, DashboardFilters } from '../types/dashboard';
-import { getLatestReport } from '../services/reportService';
-import { useCompany } from './CompanyContext';
+import { getDashboardData } from '../services/dashboardService';
+import { useCompany } from '../hooks/useCompany';
+import { DashboardContext } from '../hooks/useDashboard';
 
-interface DashboardContextType {
-  data: DashboardData | null;
-  filters: DashboardFilters;
-  loading: boolean;
-  error: string | null;
-  refreshing: boolean;
-  updateFilters: (newFilters: Partial<DashboardFilters>) => void;
-  refreshData: () => Promise<void>;
-  lastUpdated: string | null;
+interface ApiError {
+  message: string;
 }
 
 interface DashboardProviderProps {
   children: ReactNode;
 }
-
-const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
 
 export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }) => {
   const { selectedCompany } = useCompany();
@@ -36,6 +28,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Fetch dashboard data
   const fetchData = useCallback(async (isRefresh: boolean = false) => {
@@ -55,38 +48,40 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
         competitors: selectedCompany.competitors.map(c => c.name),
       };
 
-      const dashboardData = await getLatestReport(selectedCompany.id, currentFilters);
+      const dashboardData = await getDashboardData(selectedCompany.id, currentFilters);
 
       setData(dashboardData);
       if (dashboardData?.lastUpdated) {
         setLastUpdated(dashboardData.lastUpdated);
       }
-    } catch (err: any) {
-      console.error('Failed to fetch dashboard data:', err);
-      setError(err.message || 'Failed to fetch dashboard data');
+    } catch (err) {
+      const apiErr = err as ApiError;
+      console.error('Failed to fetch dashboard data:', apiErr);
+      setError(apiErr.message || 'Failed to fetch dashboard data');
+      // Keep existing data on error to avoid blanking the screen
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [selectedCompany, filters]);
 
-  // Load data when company changes, but not on filter changes
+  // Unified effect to fetch data whenever company, filters, or refresh trigger change
   useEffect(() => {
     if (selectedCompany) {
       fetchData();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCompany]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCompany, filters, refreshTrigger]);
 
-  // Update filters
+  // Update filters, which will trigger the effect above
   const updateFilters = useCallback((newFilters: Partial<DashboardFilters>) => {
     setFilters(prev => ({ ...prev, ...newFilters }));
   }, []);
 
-  // Refresh data
+  // Refresh data by bumping the trigger
   const refreshData = useCallback(async () => {
-    await fetchData(true);
-  }, [fetchData]);
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   const value = useMemo(() => ({
     data,
@@ -94,6 +89,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
     loading,
     error,
     refreshing,
+    refreshTrigger,
     updateFilters,
     refreshData,
     lastUpdated,
@@ -103,6 +99,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
     loading,
     error,
     refreshing,
+    refreshTrigger,
     updateFilters,
     refreshData,
     lastUpdated,
@@ -115,13 +112,6 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
   );
 };
 
-// Hook to use the DashboardContext
-export const useDashboard = (): DashboardContextType => {
-  const context = useContext(DashboardContext);
-  if (context === undefined) {
-    throw new Error('useDashboard must be used within a DashboardProvider');
-  }
-  return context;
-};
-
-export default DashboardContext; 
+// Re-export the useDashboard hook for convenience
+// eslint-disable-next-line react-refresh/only-export-components
+export { useDashboard } from '../hooks/useDashboard'; 

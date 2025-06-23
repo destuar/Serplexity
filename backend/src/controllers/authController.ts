@@ -45,7 +45,7 @@ export const register = async (req: Request, res: Response) => {
         password: hashedPassword,
         name,
       },
-      select: { id: true, email: true, name: true, role: true, tokenVersion: true, subscriptionStatus: true, stripeCustomerId: true, companies: { include: { competitors: true } } },
+      select: { id: true, email: true, name: true, role: true, tokenVersion: true, subscriptionStatus: true, stripeCustomerId: true, companies: { include: { competitors: true, products: true, benchmarkingQuestions: true } } },
     });
 
     const payload: JwtPayload = { 
@@ -92,7 +92,7 @@ export const login = async (req: Request, res: Response) => {
         tokenVersion: true,
         subscriptionStatus: true,
         stripeCustomerId: true,
-        companies: { include: { competitors: true } },
+        companies: { include: { competitors: true, products: true, benchmarkingQuestions: true } },
       },
     });
     
@@ -170,7 +170,7 @@ export const refresh = async (req: Request, res: Response) => {
 
         const user = await prisma.user.findUnique({
             where: { id: payload.userId },
-            select: { id: true, email: true, name: true, role: true, tokenVersion: true, subscriptionStatus: true, stripeCustomerId: true, companies: { include: { competitors: true } } },
+            select: { id: true, email: true, name: true, role: true, tokenVersion: true, subscriptionStatus: true, stripeCustomerId: true, companies: { include: { competitors: true, products: true, benchmarkingQuestions: true } } },
         });
 
         if (!user || user.tokenVersion !== payload.tokenVersion) {
@@ -181,7 +181,7 @@ export const refresh = async (req: Request, res: Response) => {
         const updatedUser = await prisma.user.update({
             where: { id: user.id },
             data: { tokenVersion: { increment: 1 } },
-            select: { id: true, email: true, name: true, role: true, tokenVersion: true, subscriptionStatus: true, stripeCustomerId: true, companies: { include: { competitors: true } } },
+            select: { id: true, email: true, name: true, role: true, tokenVersion: true, subscriptionStatus: true, stripeCustomerId: true, companies: { include: { competitors: true, products: true, benchmarkingQuestions: true } } },
         });
 
         const newPayload: JwtPayload = { 

@@ -1,29 +1,27 @@
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-import { TrendingUp, TrendingDown } from "lucide-react";
-import Card from "../ui/Card";
-import { useDashboard } from "../../contexts/DashboardContext";
 
-const COLORS = ["#22c55e", "#e5e7eb"]; // green-500, gray-200
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import Card from '../ui/Card';
+import { useCompany } from '../../contexts/CompanyContext';
+import { useDashboard } from '../../contexts/DashboardContext';
+
+const COLORS = ['#7762ff', '#e5e7eb']; // primary purple, gray-200
 
 const BrandShareOfVoiceCard = () => {
-  const { data, loading } = useDashboard();
-  
-  const brandData = data?.brandShareOfVoice;
-  const value = brandData?.value || 0;
-  const change = brandData?.change || 0;
-  const changeType = brandData?.changeType || 'increase';
-  
+  const { selectedCompany } = useCompany();
+  const { data, loading, error } = useDashboard();
+
+  const shareOfVoice = data?.brandShareOfVoice?.shareOfVoice || 0;
+  const hasData = !loading && !error && data?.brandShareOfVoice;
+
   const chartData = [
-    { name: "Current", value: value },
-    { name: "Other", value: Math.max(0, 100 - value) },
+    { name: 'Your Company', value: shareOfVoice },
+    { name: 'Others', value: Math.max(0, 100 - shareOfVoice) },
   ];
 
   if (loading) {
     return (
       <Card>
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">
-          Brand Share of Voice
-        </h2>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Share of Voice</h3>
         <div className="flex items-center justify-center h-24">
           <div className="animate-pulse text-gray-400">Loading...</div>
         </div>
@@ -31,59 +29,83 @@ const BrandShareOfVoiceCard = () => {
     );
   }
 
-  return (
-    <Card>
-      <h2 className="text-lg font-semibold text-gray-800 mb-3">
-        Brand Share of Voice
-      </h2>
-      <div className="flex items-center justify-between">
-        <div className="relative w-24 h-24">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={chartData}
-                cx="50%"
-                cy="50%"
-                innerRadius={35}
-                outerRadius={48}
-                fill="#8884d8"
-                paddingAngle={2}
-                dataKey="value"
-                stroke="none"
-              >
-                {chartData.map((_, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={COLORS[index % COLORS.length]}
-                  />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-2xl font-bold text-gray-800">{value}%</span>
-          </div>
+  if (error) {
+    return (
+      <Card>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Share of Voice</h3>
+        <div className="flex items-center justify-center h-24">
+          <p className="text-red-500 text-sm">{error}</p>
         </div>
-        <div className="flex flex-col space-y-2 ml-3">
-          <div className="flex items-center space-x-2">
-            {changeType === 'increase' ? (
-              <TrendingUp className="w-4 h-4 text-green-500" />
-            ) : (
-              <TrendingDown className="w-4 h-4 text-red-500" />
-            )}
-            <span className={`text-sm font-medium ${
-              changeType === 'increase' ? 'text-green-600' : 'text-red-600'
-            }`}>
-              {Math.abs(change)}%
-            </span>
+      </Card>
+    );
+  }
+
+  if (!hasData) {
+    return (
+      <Card>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Share of Voice</h3>
+        <div className="flex items-center justify-center h-24">
+          <p className="text-gray-400 text-sm">No data available</p>
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="h-full flex flex-col">
+      <h3 className="text-lg font-semibold text-gray-800 mb-3">Share of Voice</h3>
+      <div className="flex-1 flex items-start justify-center pt-2">
+        <div className="flex items-center gap-4">
+          <div className="w-32 h-32 flex items-center justify-center">
+            <ResponsiveContainer width={128} height={142}>
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  cx={64}
+                  cy={64}
+                  innerRadius={35}
+                  outerRadius={58}
+                  paddingAngle={2}
+                  dataKey="value"
+                  stroke="none"
+                  style={{ outline: 'none' }}
+                >
+                  {chartData.map((_, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[index % COLORS.length]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  }}
+                  formatter={(value: number, name: string) => {
+                    const displayName = name === 'Your Company' ? (selectedCompany?.name || 'Your Company') : 'Others';
+                    return [
+                      <span style={{ color: '#7762ff' }}>{displayName}: {value.toFixed(1)}%</span>,
+                      <span style={{ fontWeight: '600' }}>Share</span>
+                    ];
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
           </div>
-          <div className="flex items-center">
-            <div className="w-2.5 h-2.5 rounded-full bg-green-500 mr-2"></div>
-            <span className="text-xs text-gray-600">Your Brand</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-2.5 h-2.5 rounded-full bg-gray-200 mr-2"></div>
-            <span className="text-xs text-gray-600">Others</span>
+                     <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#7762ff' }}></div>
+              <span className="text-sm text-gray-600 truncate">{selectedCompany?.name || 'Your Company'}</span>
+              <span className="text-sm font-semibold text-gray-800">{shareOfVoice.toFixed(1)}%</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-gray-200 flex-shrink-0"></div>
+              <span className="text-sm text-gray-600">Others</span>
+              <span className="text-sm font-semibold text-gray-800">{(100 - shareOfVoice).toFixed(1)}%</span>
+            </div>
           </div>
         </div>
       </div>

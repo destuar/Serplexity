@@ -50,6 +50,14 @@ const env = {
 
   // OpenAI
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  
+  // Additional LLM Providers
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+  PERPLEXITY_API_KEY: process.env.PERPLEXITY_API_KEY,
+
+  // Logging
+  LOG_LEVEL: process.env.LOG_LEVEL || 'INFO',
 };
 
 // Validate that essential variables are set
@@ -65,6 +73,18 @@ if (!env.STRIPE_SECRET_KEY || !env.STRIPE_WEBHOOK_SECRET || !env.STRIPE_MONTHLY_
 if (!env.OPENAI_API_KEY) {
     throw new Error('FATAL ERROR: OPENAI_API_KEY is not defined.');
 }
+
+// For now, let's make the new keys optional and add warnings if they are missing
+if (!env.ANTHROPIC_API_KEY) {
+  console.warn('WARNING: ANTHROPIC_API_KEY is not defined. Anthropic models will not be available.');
+}
+if (!env.GEMINI_API_KEY) {
+  console.warn('WARNING: GEMINI_API_KEY is not defined. Gemini models will not be available.');
+}
+if (!env.PERPLEXITY_API_KEY) {
+  console.warn('WARNING: PERPLEXITY_API_KEY is not defined. Perplexity models will not be available.');
+}
+
 
 // Production warnings
 if (env.NODE_ENV === 'production') {

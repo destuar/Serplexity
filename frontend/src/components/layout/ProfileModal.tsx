@@ -1,0 +1,394 @@
+import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { X, User, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { Button } from '../ui/Button';
+import apiClient from '../../lib/apiClient';
+
+interface ProfileModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+// Validation schemas
+const profileUpdateSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
+  email: z.string().email('Invalid email address'),
+});
+
+const passwordChangeSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+  confirmPassword: z.string().min(1, 'Please confirm your new password'),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+interface ApiError {
+  response?: {
+    data?: {
+      error?: string;
+    };
+  };
+  message: string;
+}
+
+type ProfileFormData = z.infer<typeof profileUpdateSchema>;
+type PasswordFormData = z.infer<typeof passwordChangeSchema>;
+
+const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
+  const { user, updateUser } = useAuth();
+  const [activeTab, setActiveTab] = useState('profile');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+
+  // Profile form
+  const {
+    register: registerProfile,
+    handleSubmit: handleSubmitProfile,
+    formState: { errors: profileErrors },
+    reset: resetProfile,
+  } = useForm<ProfileFormData>({
+    resolver: zodResolver(profileUpdateSchema),
+    defaultValues: {
+      name: user?.name || '',
+      email: user?.email || '',
+    },
+  });
+
+  // Password form
+  const {
+    register: registerPassword,
+    handleSubmit: handleSubmitPassword,
+    formState: { errors: passwordErrors },
+    reset: resetPassword,
+  } = useForm<PasswordFormData>({
+    resolver: zodResolver(passwordChangeSchema),
+  });
+
+  if (!isOpen) return null;
+
+  const onUpdateProfile = async (data: ProfileFormData) => {
+    setIsUpdatingProfile(true);
+    setProfileError(null);
+    setProfileSuccess(false);
+
+    try {
+      const response = await apiClient.put('/users/me/profile', data);
+      
+      // Update the user context with new data
+      updateUser(response.data.user);
+      setProfileSuccess(true);
+      setTimeout(() => setProfileSuccess(false), 3000);
+    } catch (error) {
+      const apiError = error as ApiError;
+      setProfileError(apiError.response?.data?.error || 'Failed to update profile');
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
+  const onChangePassword = async (data: PasswordFormData) => {
+    setIsChangingPassword(true);
+    setPasswordError(null);
+    setPasswordSuccess(false);
+
+    try {
+      await apiClient.put('/users/me/password', {
+        currentPassword: data.currentPassword,
+        newPassword: data.newPassword,
+      });
+      
+      setPasswordSuccess(true);
+      resetPassword();
+      setTimeout(() => setPasswordSuccess(false), 3000);
+    } catch (error) {
+      const apiError = error as ApiError;
+      setPasswordError(apiError.response?.data?.error || 'Failed to change password');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  const handleClose = () => {
+    resetProfile({
+      name: user?.name || '',
+      email: user?.email || '',
+    });
+    resetPassword();
+    setProfileError(null);
+    setPasswordError(null);
+    setProfileSuccess(false);
+    setPasswordSuccess(false);
+    setActiveTab('profile');
+    onClose();
+  };
+
+  const isOAuthUser = user?.provider !== 'credentials';
+
+  const tabs = [
+    { id: 'profile', label: 'Profile Info', icon: User },
+    { id: 'password', label: 'Change Password', icon: Lock, disabled: isOAuthUser },
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <h2 className="text-2xl font-bold text-gray-900">Profile Settings</h2>
+          <button
+            onClick={handleClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="flex h-[calc(90vh-120px)]">
+          {/* Sidebar */}
+          <div className="w-64 bg-gray-50 border-r border-gray-200 p-4">
+            <nav className="space-y-2">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => !tab.disabled && setActiveTab(tab.id)}
+                    disabled={tab.disabled}
+                    className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+                      activeTab === tab.id
+                        ? 'bg-[#7762ff] text-white'
+                        : tab.disabled
+                        ? 'text-gray-400 cursor-not-allowed'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5 mr-3" />
+                    {tab.label}
+                    {tab.disabled && (
+                      <span className="ml-auto text-xs text-gray-400">OAuth</span>
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+
+          {/* Main Content */}
+          <div className="flex-1 overflow-y-auto p-6">
+            {activeTab === 'profile' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Profile Information</h3>
+                  <p className="text-gray-600 mb-4">
+                    Update your account details below.
+                  </p>
+                </div>
+
+                <form onSubmit={handleSubmitProfile(onUpdateProfile)} className="space-y-4">
+                  <div>
+                    <label htmlFor="name" className="flex items-center text-sm font-medium text-gray-700 mb-1">
+                      <User className="w-4 h-4 mr-2" />
+                      Full Name
+                    </label>
+                    <input
+                      id="name"
+                      type="text"
+                      {...registerProfile('name')}
+                      className="flex h-11 w-full rounded-lg bg-gray-50 border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#7762ff] focus:border-[#7762ff] disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
+                      placeholder="Enter your full name"
+                    />
+                    {profileErrors.name && (
+                      <p className="mt-1 text-xs text-red-600">{profileErrors.name.message}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label htmlFor="email" className="flex items-center text-sm font-medium text-gray-700 mb-1">
+                      <Mail className="w-4 h-4 mr-2" />
+                      Email Address
+                    </label>
+                    <input
+                      id="email"
+                      type="email"
+                      {...registerProfile('email')}
+                      className="flex h-11 w-full rounded-lg bg-gray-50 border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#7762ff] focus:border-[#7762ff] disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
+                      placeholder="Enter your email address"
+                    />
+                    {profileErrors.email && (
+                      <p className="mt-1 text-xs text-red-600">{profileErrors.email.message}</p>
+                    )}
+                  </div>
+
+                  {profileError && (
+                    <div className="flex items-center p-3 text-sm text-red-700 bg-red-50 rounded-lg">
+                      <AlertCircle className="w-4 h-4 mr-2" />
+                      {profileError}
+                    </div>
+                  )}
+
+                  {profileSuccess && (
+                    <div className="flex items-center p-3 text-sm text-green-700 bg-green-50 rounded-lg">
+                      <AlertCircle className="w-4 h-4 mr-2" />
+                      Profile updated successfully!
+                    </div>
+                  )}
+
+                  <div className="flex justify-end space-x-3 pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleClose}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isUpdatingProfile}
+                    >
+                      {isUpdatingProfile ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {activeTab === 'password' && !isOAuthUser && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Change Password</h3>
+                  <p className="text-gray-600 mb-4">
+                    Update your password to keep your account secure.
+                  </p>
+                </div>
+
+                <form onSubmit={handleSubmitPassword(onChangePassword)} className="space-y-4">
+                  <div>
+                    <label htmlFor="currentPassword" className="flex items-center text-sm font-medium text-gray-700 mb-1">
+                      <Lock className="w-4 h-4 mr-2" />
+                      Current Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="currentPassword"
+                        type={showCurrentPassword ? 'text' : 'password'}
+                        {...registerPassword('currentPassword')}
+                        className="flex h-11 w-full rounded-lg bg-gray-50 border border-gray-300 px-4 py-3 pr-10 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#7762ff] focus:border-[#7762ff] disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
+                        placeholder="Enter your current password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {passwordErrors.currentPassword && (
+                      <p className="mt-1 text-xs text-red-600">{passwordErrors.currentPassword.message}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label htmlFor="newPassword" className="flex items-center text-sm font-medium text-gray-700 mb-1">
+                      <Lock className="w-4 h-4 mr-2" />
+                      New Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="newPassword"
+                        type={showNewPassword ? 'text' : 'password'}
+                        {...registerPassword('newPassword')}
+                        className="flex h-11 w-full rounded-lg bg-gray-50 border border-gray-300 px-4 py-3 pr-10 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#7762ff] focus:border-[#7762ff] disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
+                        placeholder="Enter your new password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {passwordErrors.newPassword && (
+                      <p className="mt-1 text-xs text-red-600">{passwordErrors.newPassword.message}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label htmlFor="confirmPassword" className="flex items-center text-sm font-medium text-gray-700 mb-1">
+                      <Lock className="w-4 h-4 mr-2" />
+                      Confirm New Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="confirmPassword"
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        {...registerPassword('confirmPassword')}
+                        className="flex h-11 w-full rounded-lg bg-gray-50 border border-gray-300 px-4 py-3 pr-10 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#7762ff] focus:border-[#7762ff] disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
+                        placeholder="Confirm your new password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {passwordErrors.confirmPassword && (
+                      <p className="mt-1 text-xs text-red-600">{passwordErrors.confirmPassword.message}</p>
+                    )}
+                  </div>
+
+                  {passwordError && (
+                    <div className="flex items-center p-3 text-sm text-red-700 bg-red-50 rounded-lg">
+                      <AlertCircle className="w-4 h-4 mr-2" />
+                      {passwordError}
+                    </div>
+                  )}
+
+                  {passwordSuccess && (
+                    <div className="flex items-center p-3 text-sm text-green-700 bg-green-50 rounded-lg">
+                      <AlertCircle className="w-4 h-4 mr-2" />
+                      Password changed successfully!
+                    </div>
+                  )}
+
+                  <div className="flex justify-end space-x-3 pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleClose}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isChangingPassword}
+                    >
+                      {isChangingPassword ? 'Changing...' : 'Change Password'}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ProfileModal; 

@@ -3,7 +3,7 @@ import { Navbar } from '../components/layout/Navbar';
 import { BarChart2, Sparkles, Target, Check, X, ArrowRight } from 'lucide-react';
 import { FaLinkedin } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { FadeIn } from '../components/ui/FadeIn';
 import { Accordion } from '../components/ui/Accordion';
@@ -332,8 +332,8 @@ const LandingPage: React.FC = () => {
             {/* Feature Showcase (moved inside story section) */}
             <FadeIn delay={200}>
               <div id="solutions" className="mt-48 relative">
-                {/* Liquid Glass Container */}
-                <div className="relative bg-black/5 backdrop-blur-xl rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-8 md:p-12 lg:p-16 overflow-hidden">
+                {/* Liquid Glass Container - Made wider */}
+                <div className="relative bg-black/5 backdrop-blur-xl rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-8 md:p-12 lg:p-16 overflow-hidden max-w-7xl mx-auto">
                   {/* Glass morphism border glow */}
                   <div className="absolute inset-0 bg-gradient-to-r from-[#5271ff]/10 via-[#7662ff]/10 to-[#9e52ff]/10 rounded-3xl blur-xl"></div>
                   <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/5 rounded-3xl"></div>
@@ -344,41 +344,45 @@ const LandingPage: React.FC = () => {
                       <h2 className="text-4xl font-bold tracking-tight text-white mb-4">
                         Full-Stack GEO Solutions
                       </h2>
-                      <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+                      <p className="text-xl text-gray-300 max-w-4xl mx-auto">
                         From AI visibility audits to technical implementation, we future-proof your digital presence in the era of generative search.
                       </p>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                      {[
-                        { icon: Sparkles, title: "AI Visibility & Audits Dashboard", desc: "Comprehensive analysis of how your brand appears in generative engines like Google SGE, Perplexity, and ChatGPT." },
-                        { icon: BarChart2, title: "LLM-Driven Content Rewrites", desc: "Strategic content optimization engineered for maximum citation and visibility at the sentence level." },
-                        { icon: Target, title: "Technical GEO Implementation", desc: "End-to-end technical implementation with attribution tracking to measure your generative search performance." }
-                      ].map((feature, i) => (
-                        <div key={i} className="bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-8 hover:bg-black/10 transition-all duration-200 group">
-                          {/* Icon with gradient background */}
-                          <div className="flex items-center justify-center h-12 w-12 rounded-full bg-gradient-to-r from-[#5271ff] to-[#9e52ff] mb-6 group-hover:shadow-lg transition-all duration-200">
-                            <feature.icon className="h-6 w-6 text-white" />
+                    {/* Two-column layout: Features on left, Tweet on right */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+                      {/* Left column - Features stacked vertically */}
+                      <div className="space-y-8">
+                        {[
+                          { icon: Sparkles, title: "Real-Time GEO Analytics Dashboard", desc: "Track your brand's share of voice, visibility index, and citation performance across Google Gemini, GPT-4, and Claude with live competitor benchmarking." },
+                          { icon: BarChart2, title: "AI Content Optimization Tools", desc: "Advanced rewriting tools and sentiment analysis to enhance your content's citation-worthiness and improve your visibility scores." },
+                          { icon: Target, title: "Automated Report Generation", desc: "Scheduled visibility reports with keyword trend analysis, source attribution tracking, and concept-level performance insights across all major LLMs." }
+                        ].map((feature, i) => (
+                          <div key={i} className="bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-8 hover:bg-black/10 transition-all duration-200 group">
+                            {/* Icon with gradient background */}
+                            <div className="flex items-center justify-center h-12 w-12 rounded-full bg-gradient-to-r from-[#5271ff] to-[#9e52ff] mb-6 group-hover:shadow-lg transition-all duration-200">
+                              <feature.icon className="h-6 w-6 text-white" />
+                            </div>
+                            <h3 className="text-xl font-semibold text-white mb-3">{feature.title}</h3>
+                            <p className="text-gray-300 leading-relaxed">{feature.desc}</p>
                           </div>
-                          <h3 className="text-xl font-semibold text-white mb-3">{feature.title}</h3>
-                          <p className="text-gray-300 leading-relaxed">{feature.desc}</p>
-                        </div>
-                      ))}
-                    </div>
-                    
-                    {/* Twitter Embed */}
-                    <div className="mt-12 flex justify-center">
-                      <div className="bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-4 md:p-8 hover:bg-black/10 transition-all duration-200 w-full md:max-w-2xl">
-                        <div className="flex justify-center items-center">
-                          <blockquote className="twitter-tweet" data-theme="dark" data-align="center">
-                            <p lang="en" dir="ltr">
-                              SEO is slowly losing its dominance. Welcome to GEO.<br/><br/>
-                              In the age of ChatGPT, Perplexity, and Claude, Generative Engine Optimization is positioned to become the new playbook for brand visibility.<br/><br/>
-                              It&#39;s not about gaming the algorithm — it&#39;s about being cited by it.<br/><br/>
-                              The brands that… <a href="https://t.co/jsjZ4ee8Z6">pic.twitter.com/jsjZ4ee8Z6</a>
-                            </p>
-                            &mdash; a16z (@a16z) <a href="https://twitter.com/a16z/status/1927766844062011834?ref_src=twsrc%5Etfw">May 28, 2025</a>
-                          </blockquote>
+                        ))}
+                      </div>
+                      
+                      {/* Right column - Twitter Embed */}
+                      <div className="flex justify-center lg:justify-end">
+                        <div className="bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-4 md:p-8 hover:bg-black/10 transition-all duration-200 w-full max-w-md">
+                          <div className="flex justify-center items-center">
+                            <blockquote className="twitter-tweet" data-theme="dark" data-align="center">
+                              <p lang="en" dir="ltr">
+                                SEO is slowly losing its dominance. Welcome to GEO.<br/><br/>
+                                In the age of ChatGPT, Perplexity, and Claude, Generative Engine Optimization is positioned to become the new playbook for brand visibility.<br/><br/>
+                                It&#39;s not about gaming the algorithm — it&#39;s about being cited by it.<br/><br/>
+                                The brands that… <a href="https://t.co/jsjZ4ee8Z6">pic.twitter.com/jsjZ4ee8Z6</a>
+                              </p>
+                              &mdash; a16z (@a16z) <a href="https://twitter.com/a16z/status/1927766844062011834?ref_src=twsrc%5Etfw">May 28, 2025</a>
+                            </blockquote>
+                          </div>
                         </div>
                       </div>
                     </div>

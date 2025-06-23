@@ -1,23 +1,60 @@
 import { Calendar, Sparkles, RefreshCw, Loader } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useCompany } from "../contexts/CompanyContext";
-import { useDashboard } from "../contexts/DashboardContext";
+import { useDashboard } from "../hooks/useDashboard";
 import { triggerReportGeneration, getReportStatus } from '../services/reportService';
 import FilterDropdown from "../components/dashboard/FilterDropdown";
 import BrandShareOfVoiceCard from "../components/dashboard/BrandShareOfVoiceCard";
-import BrandVisibilityCard from "../components/dashboard/BrandVisibilityCard";
-import ConceptSourceCard from "../components/dashboard/ConceptSourceCard";
-import KeywordTrendCard from "../components/dashboard/KeywordTrendCard";
-import SentimentCard from "../components/dashboard/SentimentCard";
-import SourceChangesCard from "../components/dashboard/SourceChangesCard";
+import VisibilityOverTimeCard from "../components/dashboard/VisibilityOverTimeCard";
+import SentimentScoreCard from "../components/dashboard/SentimentScoreCard";
+import AverageInclusionRateCard from "../components/dashboard/AverageInclusionRateCard";
+import AveragePositionCard from "../components/dashboard/AveragePositionCard";
+import TopRankingQuestionsCard from "../components/dashboard/TopRankingQuestionsCard";
+import RankingsCard from "../components/dashboard/RankingsCard";
+import WelcomePrompt from "../components/ui/WelcomePrompt";
+import { getModelFilterOptions } from "../types/dashboard";
 
 const OverviewPage = () => {
   const { selectedCompany } = useCompany();
   const { data, filters, loading, refreshing, updateFilters, refreshData, lastUpdated } = useDashboard();
+  
+  // State for the WelcomePrompt's on-demand generation
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStatus, setGenerationStatus] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
+  
+  const handleFilterChange = (filterUpdates: { [key: string]: string | string[] }) => {
+    updateFilters(filterUpdates);
+  };
 
+  const handleRefresh = async () => {
+    await refreshData();
+  };
+
+  // This function is now only used by the WelcomePrompt for the initial report generation
+  const handleGenerateReport = async () => {
+    if (!selectedCompany) return;
+
+    setIsGenerating(true);
+    setGenerationStatus('Connecting to report pipeline...');
+    try {
+      const { runId: newRunId, status, message } = await triggerReportGeneration(selectedCompany.id);
+
+      if (message && (status === 'COMPLETED' || status === 'RUNNING' || status === 'PENDING')) {
+        setGenerationStatus('A recent report is already available or in progress...');
+      } else {
+        setGenerationStatus('Initializing report generation pipeline...');
+      }
+      
+      setRunId(newRunId);
+    } catch (error) {
+        console.error("Failed to start report generation:", error);
+        setIsGenerating(false);
+        setGenerationStatus('Failed to start report generation.');
+    }
+  };
+  
+  // Polling logic for the initial report generation from WelcomePrompt
   useEffect(() => {
     if (!isGenerating || !runId) {
       return;
@@ -26,11 +63,32 @@ const OverviewPage = () => {
     const poll = setInterval(async () => {
       try {
         const statusRes = await getReportStatus(runId);
-        setGenerationStatus(`Step: ${statusRes.stepStatus || 'N/A'}`);
+        
+        // Map technical status to user-friendly messages
+        const getUserFriendlyStatus = (stepStatus: string) => {
+          if (!stepStatus || stepStatus === 'N/A') return 'Processing data...';
+          
+          const statusMap: { [key: string]: string } = {
+            'QUEUED': 'Queued for processing...',
+            'RUNNING': 'Analyzing market data...',
+            'SCRAPING': 'Gathering competitive intelligence...',
+            'ANALYZING': 'Processing search results...',
+            'SENTIMENT_ANALYSIS': 'Analyzing sentiment and positioning...',
+            'RANKING_ANALYSIS': 'Calculating ranking positions...',
+            'GENERATING_INSIGHTS': 'Generating strategic insights...',
+            'FINALIZING': 'Finalizing report data...',
+            'COMPLETED': 'Report generation complete'
+          };
+          
+          return statusMap[stepStatus.toUpperCase()] || `Processing: ${stepStatus}...`;
+        };
+
+        setGenerationStatus(getUserFriendlyStatus(statusRes.stepStatus));
+        
         if (statusRes.status === 'COMPLETED' || statusRes.status === 'FAILED') {
           setIsGenerating(false);
           setRunId(null);
-          setGenerationStatus(statusRes.status === 'COMPLETED' ? 'Report ready!' : 'Generation failed.');
+          setGenerationStatus(statusRes.status === 'COMPLETED' ? 'Report generated successfully' : 'Report generation failed');
           if (statusRes.status === 'COMPLETED') {
             await refreshData();
           }
@@ -39,14 +97,13 @@ const OverviewPage = () => {
         console.error("Status polling failed:", pollError);
         setIsGenerating(false);
         setRunId(null);
-        setGenerationStatus('Error fetching status.');
+        setGenerationStatus('Connection error during generation');
       }
-    }, 3000); // Poll every 3 seconds
+    }, 2000); // Poll every 2 seconds for more responsive updates
 
     return () => clearInterval(poll); // Cleanup on unmount or when dependencies change
   }, [isGenerating, runId, refreshData]);
 
-  // Filter options
   const dateRangeOptions = [
     { value: '7d', label: 'Last 7 days' },
     { value: '30d', label: 'Last 30 days' },
@@ -54,100 +111,60 @@ const OverviewPage = () => {
     { value: '1y', label: 'Last year' },
   ];
 
-  const aiModelOptions = [
-    { value: 'all', label: 'All Models' },
-    { value: 'gemini-pro', label: 'Gemini 1.5 Pro' },
-    { value: 'gpt-4', label: 'GPT-4' },
-    { value: 'claude-3', label: 'Claude 3' },
-  ];
-
-  const handleRefresh = async () => {
-    await refreshData();
-  };
-
-  const handleGenerateReport = async () => {
-    if (!selectedCompany) return;
-
-    setIsGenerating(true);
-    setGenerationStatus('Queued...');
-    try {
-      const { runId: newRunId } = await triggerReportGeneration(selectedCompany.id);
-      setRunId(newRunId);
-    } catch (error) {
-        console.error("Failed to start report generation:", error);
-        setIsGenerating(false);
-        setGenerationStatus('Failed to start generation.');
-    }
-  };
+  const aiModelOptions = getModelFilterOptions();
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header Section - Fixed Height */}
-      <div className="flex-shrink-0 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Overview</h1>
-          {lastUpdated && (
-            <p className="text-sm text-gray-500 mt-1">
-              Last updated: {new Date(lastUpdated).toLocaleString()}
-            </p>
-          )}
-        </div>
-        <div className="grid grid-cols-2 lg:flex items-center gap-2 w-full lg:w-auto">
-          <FilterDropdown
-            label="Date Range"
-            value={filters.dateRange}
-            options={dateRangeOptions}
-            onChange={(value) => updateFilters({ dateRange: value as any })}
-            icon={Calendar}
-            disabled={loading}
-          />
-          
-          <FilterDropdown
-            label="AI Model"
-            value={filters.aiModel}
-            options={aiModelOptions}
-            onChange={(value) => updateFilters({ aiModel: value as any })}
-            icon={Sparkles}
-            disabled={loading}
-          />
-          
-          <button 
-            onClick={handleRefresh}
-            disabled={loading || refreshing || isGenerating}
-            className="flex items-center justify-center w-full lg:w-auto gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2"
-          >
-            {refreshing ? (
-              <>
-                <Loader size={16} className="animate-spin" />
-                <span className="whitespace-nowrap">Refreshing...</span>
-              </>
-            ) : (
-              <>
-                <RefreshCw size={16} />
-                <span className="whitespace-nowrap">Refresh data</span>
-              </>
+    <div className="h-full flex flex-col relative">
+      {/* Header Section - Only show when there's existing data */}
+      {data && (
+        <div className="flex-shrink-0 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-2">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Overview</h1>
+            {lastUpdated && (
+              <p className="text-sm text-gray-500 mt-1">
+                Last updated: {new Date(lastUpdated).toLocaleString()}
+              </p>
             )}
-          </button>
-
-          <button 
-            onClick={handleGenerateReport}
-            disabled={loading || refreshing || isGenerating}
-            className="flex items-center justify-center w-full lg:w-auto gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2"
-          >
-            {isGenerating ? (
-              <>
-                <Loader size={16} className="animate-spin" />
-                <span className="whitespace-nowrap">{generationStatus || 'Generating...'}</span>
-              </>
-            ) : (
-              <>
-                <Sparkles size={16} />
-                <span className="whitespace-nowrap">Generate Report</span>
-              </>
-            )}
-          </button>
+          </div>
+          <div className="grid grid-cols-2 lg:flex items-center gap-2 w-full lg:w-auto">
+            <FilterDropdown
+              label="Date Range"
+              value={filters.dateRange}
+              options={dateRangeOptions}
+              onChange={(value) => handleFilterChange({ dateRange: value as string })}
+              icon={Calendar}
+              disabled={loading || refreshing}
+            />
+            
+            <FilterDropdown
+              label="AI Model"
+              value={filters.aiModel}
+              options={aiModelOptions}
+              onChange={(value) => handleFilterChange({ aiModel: value as string })}
+              icon={filters.aiModel === 'all' ? Sparkles : undefined}
+              disabled={loading || refreshing}
+            />
+            
+            <button 
+              onClick={handleRefresh}
+              disabled={loading || refreshing}
+              className="flex items-center justify-center w-full lg:w-auto gap-2 px-4 py-2 bg-[#7762ff] text-white rounded-lg hover:bg-[#6650e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2"
+            >
+              {refreshing ? (
+                <>
+                  <Loader size={16} className="animate-spin" />
+                  <span className="whitespace-nowrap">Refreshing...</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw size={16} />
+                  <span className="whitespace-nowrap">Refresh data</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
       
       {/* Dashboard Grid - Dynamic Height with Custom Rows */}
       {loading && !data ? (
@@ -157,17 +174,93 @@ const OverviewPage = () => {
             <p className="text-gray-600">Loading dashboard data...</p>
           </div>
         </div>
+      ) : !data || Object.keys(data).length === 0 ? (
+        <WelcomePrompt
+          onGenerateReport={handleGenerateReport}
+          isGenerating={isGenerating}
+          generationStatus={generationStatus}
+        />
       ) : (
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 grid-rows-[min-content_1fr] gap-4 min-h-0">
-          <BrandShareOfVoiceCard />
-          <BrandVisibilityCard />
-          <KeywordTrendCard />
-          <SentimentCard />
-          <div className="col-span-1 md:col-span-2 flex">
-            <SourceChangesCard />
-          </div>
-          <div className="col-span-1 md:col-span-2 flex">
-            <ConceptSourceCard />
+        <div className="flex-1 min-h-0 p-1">
+          {/* Dashboard Grid - Responsive Layout */}
+          <div className="h-full w-full">
+            {/* Mobile: Stack all cards vertically */}
+            <div className="lg:hidden h-full overflow-y-auto space-y-4">
+              <div className="grid grid-cols-2 gap-4 min-h-[200px]">
+                <BrandShareOfVoiceCard />
+                <VisibilityOverTimeCard />
+              </div>
+              <div className="grid grid-cols-2 gap-4 min-h-[200px]">
+                <AverageInclusionRateCard />
+                <AveragePositionCard />
+              </div>
+              <div className="min-h-[300px]">
+                <SentimentScoreCard key={`sentiment-overview-mobile-${filters.aiModel}`} />
+              </div>
+              <div className="min-h-[00px]">
+                <TopRankingQuestionsCard />
+              </div>
+              <div className="min-h-[200px]">
+                <RankingsCard />
+              </div>
+            </div>
+
+            {/* Desktop: Grid Template Areas Layout - 48 columns × 24 rows for maximum control */}
+            <div className="hidden lg:grid h-full w-full gap-4" style={{
+              gridTemplateColumns: 'repeat(48, 1fr)',
+              gridTemplateRows: 'repeat(14, minmax(30px, 1fr))',
+              gridTemplateAreas: `
+                "m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+                "m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+                "m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+                "m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+                "m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+                "m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+                "m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+                "m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+                "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
+                "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
+                "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
+                "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
+                "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
+                "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
+              `
+            }}>
+              {/* Top-left metric (Share of Voice) */}
+              <div style={{ gridArea: 'm1' }}>
+                <BrandShareOfVoiceCard />
+              </div>
+              
+              {/* Top-right metric (Visibility) */}
+              <div style={{ gridArea: 'm2' }}>
+                <VisibilityOverTimeCard />
+              </div>
+              
+              {/* Bottom-left metric (Inclusion Rate) */}
+              <div style={{ gridArea: 'm3' }}>
+                <AverageInclusionRateCard />
+              </div>
+              
+              {/* Bottom-right metric (Position) */}
+              <div style={{ gridArea: 'm4' }}>
+                <AveragePositionCard />
+              </div>
+              
+              {/* Sentiment card - spans right side, 8 rows */}
+              <div style={{ gridArea: 's1' }}>
+                <SentimentScoreCard key={`sentiment-overview-${filters.aiModel}`} />
+              </div>
+
+              {/* Questions card - spans left bottom, 4 rows */}
+              <div style={{ gridArea: 'q1' }}>
+                <TopRankingQuestionsCard />
+              </div>
+              
+              {/* Rankings card - spans right bottom, 4 rows */}
+              <div style={{ gridArea: 'r1' }}>
+                <RankingsCard />
+              </div>
+            </div>
           </div>
         </div>
       )}
