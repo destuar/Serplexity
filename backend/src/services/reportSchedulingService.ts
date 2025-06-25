@@ -54,6 +54,8 @@ const schedulingLog = (context: SchedulingLogContext, message: string, level: 'I
     }
 };
 
+const reportQueueLocks = new Set<string>();
+
 interface QueueResult {
     isNew: boolean;
     runId: string;
@@ -70,14 +72,42 @@ interface QueueResult {
 export async function queueReport(companyId: string, force = false): Promise<QueueResult> {
     const startTime = Date.now();
     
-    schedulingLog({ 
-        companyId, 
-        force, 
-        step: 'START',
-        metadata: { timestamp: new Date().toISOString() }
-    }, `Report queue request received - Force mode: ${force}`);
+    if (reportQueueLocks.has(companyId)) {
+        schedulingLog({
+            companyId,
+            step: 'LOCK_CHECK',
+            metadata: { locked: true }
+        }, 'Report queuing already in progress for this company.', 'WARN');
+
+        // A report is already being queued. Find the most recent run to return its status.
+        const recentRun = await prisma.reportRun.findFirst({
+            where: { companyId },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        if (recentRun) {
+            return {
+                isNew: false,
+                runId: recentRun.id,
+                status: recentRun.status
+            };
+        }
+        
+        // This case is unlikely, but as a fallback, we indicate a locked state.
+        // The client should interpret this as "a process is running, please wait".
+        throw new Error("A report for this company is already being processed. Please wait a moment.");
+    }
+
+    reportQueueLocks.add(companyId);
     
     try {
+        schedulingLog({ 
+            companyId, 
+            force, 
+            step: 'START',
+            metadata: { timestamp: new Date().toISOString() }
+        }, `Report queue request received - Force mode: ${force}`);
+        
         // Check for existing runs first (unless forced)
         if (!force) {
             const checkTimer = Date.now();
@@ -248,16 +278,23 @@ export async function queueReport(companyId: string, force = false): Promise<Que
         const totalDuration = Date.now() - startTime;
         schedulingLog({ 
             companyId, 
-            force, 
+            force,
             step: 'ERROR',
             duration: totalDuration,
-            error,
-            metadata: { 
-                errorType: error instanceof Error ? error.name : 'Unknown'
-            }
-        }, `Failed to queue report generation`, 'ERROR');
+            error
+        }, `Failed to queue report generation: ${error instanceof Error ? error.message : String(error)}`, 'ERROR');
         
         // Re-throw the error to be handled by the calling controller
         throw error;
+    } finally {
+        reportQueueLocks.delete(companyId);
+        schedulingLog({ companyId, step: 'LOCK_RELEASED' }, 'Report queue lock released.');
     }
+}
+
+/**
+ * Schedules a report for a specific company if it has a schedule.
+ */
+export async function scheduleReport(companyId: string) {
+    // Implementation of scheduleReport function
 } 

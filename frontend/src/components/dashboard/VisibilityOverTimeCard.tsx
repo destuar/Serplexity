@@ -1,7 +1,6 @@
-
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Scatter } from 'recharts';
 import Card from '../ui/Card';
-import { useDashboard } from '../../contexts/DashboardContext';
+import { useDashboard } from '../../hooks/useDashboard';
 
 const VisibilityOverTimeCard = () => {
   const { data, loading, error } = useDashboard();

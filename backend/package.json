@@ -5,7 +5,11 @@
   "main": "src/server.ts",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "migrate": "npx prisma migrate dev",
+    "generate": "npx prisma generate",
+    "test-mentions": "ts-node src/scripts/test-mention-detection.ts"
   },
   "keywords": [],
   "author": "",
@@ -19,8 +23,10 @@
     "@opentelemetry/sdk-node": "^0.202.0",
     "@prisma/client": "^6.10.0",
     "aws-sdk": "^2.1692.0",
+    "axios": "^1.10.0",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.54.3",
+    "cheerio": "^1.1.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -37,6 +43,7 @@
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
+    "@types/cheerio": "^0.22.35",
     "@types/cookie-parser": "^1.4.9",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",

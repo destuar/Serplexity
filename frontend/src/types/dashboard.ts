@@ -10,8 +10,8 @@ export interface ModelConfig {
 }
 
 export const MODEL_CONFIGS: Record<string, ModelConfig> = {
-  'gpt-4.1': {
-    id: 'gpt-4.1',
+  'gpt-4.1-mini': {
+    id: 'gpt-4.1-mini',
     engine: 'openai',
     displayName: 'ChatGPT 4.1',
     company: 'OpenAI',
@@ -121,7 +121,7 @@ export interface ConceptSourceData {
 
 export interface DashboardFilters {
   dateRange: '7d' | '30d' | '90d' | '1y';
-  aiModel: 'all' | 'gpt-4.1' | 'claude-3-5-haiku-20241022' | 'gemini-2.5-flash' | 'sonar';
+  aiModel: 'all' | 'gpt-4.1-mini' | 'claude-3-5-haiku-20241022' | 'gemini-2.5-flash' | 'sonar';
   company: string;
   competitors: string[];
 }

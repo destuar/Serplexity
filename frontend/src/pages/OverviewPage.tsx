@@ -16,7 +16,7 @@ import { getModelFilterOptions } from "../types/dashboard";
 
 const OverviewPage = () => {
   const { selectedCompany } = useCompany();
-  const { data, filters, loading, refreshing, updateFilters, refreshData, lastUpdated } = useDashboard();
+  const { data, filters, loading, refreshing, updateFilters, refreshData, lastUpdated, refreshTrigger } = useDashboard();
   
   // State for the WelcomePrompt's on-demand generation
   const [isGenerating, setIsGenerating] = useState(false);
@@ -64,32 +64,15 @@ const OverviewPage = () => {
       try {
         const statusRes = await getReportStatus(runId);
         
-        // Map technical status to user-friendly messages
-        const getUserFriendlyStatus = (stepStatus: string) => {
-          if (!stepStatus || stepStatus === 'N/A') return 'Processing data...';
-          
-          const statusMap: { [key: string]: string } = {
-            'QUEUED': 'Queued for processing...',
-            'RUNNING': 'Analyzing market data...',
-            'SCRAPING': 'Gathering competitive intelligence...',
-            'ANALYZING': 'Processing search results...',
-            'SENTIMENT_ANALYSIS': 'Analyzing sentiment and positioning...',
-            'RANKING_ANALYSIS': 'Calculating ranking positions...',
-            'GENERATING_INSIGHTS': 'Generating strategic insights...',
-            'FINALIZING': 'Finalizing report data...',
-            'COMPLETED': 'Report generation complete'
-          };
-          
-          return statusMap[stepStatus.toUpperCase()] || `Processing: ${stepStatus}...`;
-        };
-
-        setGenerationStatus(getUserFriendlyStatus(statusRes.stepStatus));
+        // Keep the original stepStatus for percentage extraction
+        setGenerationStatus(statusRes.stepStatus || 'Processing data...');
         
         if (statusRes.status === 'COMPLETED' || statusRes.status === 'FAILED') {
           setIsGenerating(false);
           setRunId(null);
           setGenerationStatus(statusRes.status === 'COMPLETED' ? 'Report generated successfully' : 'Report generation failed');
           if (statusRes.status === 'COMPLETED') {
+            // Refresh the dashboard data
             await refreshData();
           }
         }
@@ -112,6 +95,14 @@ const OverviewPage = () => {
   ];
 
   const aiModelOptions = getModelFilterOptions();
+
+  // Debug logging for the data state
+  console.log('[OverviewPage] Current data state:', data);
+  console.log('[OverviewPage] Data is null?', data === null);
+  console.log('[OverviewPage] Data is undefined?', data === undefined);
+  console.log('[OverviewPage] Data keys length:', data ? Object.keys(data).length : 'N/A');
+  console.log('[OverviewPage] Loading state:', loading);
+  console.log('[OverviewPage] Should show welcome?', !data || Object.keys(data).length === 0);
 
   return (
     <div className="h-full flex flex-col relative">
@@ -195,7 +186,7 @@ const OverviewPage = () => {
                 <AveragePositionCard />
               </div>
               <div className="min-h-[300px]">
-                <SentimentScoreCard key={`sentiment-overview-mobile-${filters.aiModel}`} />
+                <SentimentScoreCard key={`sentiment-overview-mobile-${filters.aiModel}-${filters.dateRange}-${refreshTrigger}`} />
               </div>
               <div className="min-h-[00px]">
                 <TopRankingQuestionsCard />
@@ -248,7 +239,7 @@ const OverviewPage = () => {
               
               {/* Sentiment card - spans right side, 8 rows */}
               <div style={{ gridArea: 's1' }}>
-                <SentimentScoreCard key={`sentiment-overview-${filters.aiModel}`} />
+                <SentimentScoreCard key={`sentiment-overview-${filters.aiModel}-${filters.dateRange}-${refreshTrigger}`} />
               </div>
 
               {/* Questions card - spans left bottom, 4 rows */}

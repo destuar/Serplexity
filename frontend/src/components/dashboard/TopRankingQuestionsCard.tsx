@@ -1,9 +1,51 @@
 import React, { useState } from 'react';
 import Card from '../ui/Card';
-import { useCompany } from '../../contexts/CompanyContext';
-import { useDashboard } from '../../contexts/DashboardContext';
+import { useDashboard } from '../../hooks/useDashboard';
 import { TopRankingQuestion } from '../../services/companyService';
 import { getModelDisplayName } from '../../types/dashboard';
+
+/**
+ * Removes <brand> tags from a string, returning the clean text.
+ * e.g., "Check out <brand>Apple</brand>." -> "Check out Apple."
+ */
+const stripBrandTags = (text: string): string => {
+    if (!text) return '';
+    return text.replace(/<\/?brand>/g, '');
+};
+
+/**
+ * A component to format and display response text.
+ * It handles markdown bolding.
+ */
+const FormattedResponseViewer: React.FC<{ text: string }> = ({ text }) => {
+    // The text prop should come in pre-cleaned of <brand> tags.
+    const renderFormattedText = (str: string): React.ReactNode => {
+        if (!str) return null;
+
+        const boldPattern = '(\\*\\*.*?\\*\\*)';
+        const combinedRegex = new RegExp(boldPattern, 'gi');
+        const parts = str.split(combinedRegex);
+
+        return (
+            <>
+                {parts.filter(Boolean).map((part, index) => {
+                    if (part.startsWith('**') && part.endsWith('**')) {
+                        return <strong key={index}>{part.slice(2, -2)}</strong>;
+                    }
+                    return <React.Fragment key={index}>{part}</React.Fragment>;
+                })}
+            </>
+        );
+    };
+
+    return (
+        <div className="bg-gray-50 rounded-lg p-4 border-l-4 border-green-500">
+            <p className="text-sm text-gray-800 leading-relaxed">
+                {renderFormattedText(text)}
+            </p>
+        </div>
+    );
+};
 
 interface TooltipProps {
   question: TopRankingQuestion;
@@ -13,7 +55,6 @@ interface TooltipProps {
 const Tooltip: React.FC<TooltipProps> = ({ question, children }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
-  const { selectedCompany } = useCompany();
 
   const handleMouseEnter = (e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -31,28 +72,6 @@ const Tooltip: React.FC<TooltipProps> = ({ question, children }) => {
   // Using centralized model display name function
   const formatModelName = (model: string) => {
     return getModelDisplayName(model);
-  };
-
-  // Function to highlight company name in the response
-  const highlightCompanyName = (text: string) => {
-    if (!selectedCompany?.name) return text;
-    
-    const companyName = selectedCompany.name;
-    const regex = new RegExp(`\\b${companyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
-    
-    const parts = text.split(regex);
-    const matches = text.match(regex) || [];
-    
-    return parts.map((part, index) => (
-      <React.Fragment key={index}>
-        {part}
-        {index < matches.length && (
-          <span className="font-bold text-[#7762ff]">
-            {matches[index]}
-          </span>
-        )}
-      </React.Fragment>
-    ));
   };
 
   return (
@@ -95,11 +114,7 @@ const Tooltip: React.FC<TooltipProps> = ({ question, children }) => {
                   </span>
                 </div>
               </div>
-              <div className="bg-gray-50 rounded-lg p-4 border-l-4 border-green-500">
-                <p className="text-sm text-gray-800 leading-relaxed">
-                  {highlightCompanyName(question.bestResponse)}
-                </p>
-              </div>
+              <FormattedResponseViewer text={stripBrandTags(question.bestResponse)} />
             </div>
 
             {question.productName && (
@@ -129,6 +144,11 @@ const TopRankingQuestionsCard = () => {
   const { data, loading, error } = useDashboard();
 
   const questions = data?.topQuestions || [];
+  
+  // Debug logging to understand the data structure
+  console.log('[TopRankingQuestionsCard] Raw data:', data);
+  console.log('[TopRankingQuestionsCard] Top questions:', questions);
+  console.log('[TopRankingQuestionsCard] First question structure:', questions[0]);
 
   if (loading) {
     return (

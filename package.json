@@ -2,6 +2,7 @@
   "dependencies": {
     "autoprefixer": "^10.4.21",
     "lucide-react": "^0.516.0",
+    "p-limit": "^6.2.0",
     "postcss": "^8.5.6",
     "recharts": "^2.15.3",
     "tailwindcss": "^4.1.10",

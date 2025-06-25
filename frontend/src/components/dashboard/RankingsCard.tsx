@@ -1,4 +1,3 @@
-
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import Card from '../ui/Card';
 import { useDashboard } from '../../hooks/useDashboard';
@@ -137,7 +136,8 @@ const RankingsCard = () => {
       );
     }
 
-    if (!rankingsData || !rankingsData.competitors || rankingsData.competitors.length === 0) {
+    // Use chartCompetitors instead of competitors to include the user's company
+    if (!rankingsData || !rankingsData.chartCompetitors || rankingsData.chartCompetitors.length === 0) {
       return (
         <div className="flex-1 flex items-center justify-center">
           <p className="text-gray-400 text-sm">No competitor mentions found</p>
@@ -145,72 +145,97 @@ const RankingsCard = () => {
       );
     }
 
+    // Show only top 3 entities (including user company), then "X+ others" if there are more
+    const allCompetitors = rankingsData.chartCompetitors;
+    const topCompetitors = allCompetitors.slice(0, 3);
+    const remainingCompetitors = allCompetitors.slice(3);
+    const remainingCount = remainingCompetitors.length;
+    
+    // Calculate combined share of voice for remaining competitors
+    const remainingShareOfVoice = remainingCompetitors.reduce((total, competitor) => total + competitor.shareOfVoice, 0);
+    
+    // Create the display list
+    const displayCompetitors = [...topCompetitors];
+    if (remainingCount > 0) {
+      // Add "X+ others" entry with combined percentage
+      displayCompetitors.push({
+        name: `${remainingCount}+ others`,
+        shareOfVoice: remainingShareOfVoice,
+        change: 0,
+        changeType: 'stable' as const,
+        isUserCompany: false,
+        website: undefined
+      });
+    }
+
     return (
       <div className="flex-1 space-y-2">
-                 {rankingsData.competitors.map((competitor: CompetitorRanking, index: number) => {
-           const logoResult = competitor.website ? getCompanyLogo(competitor.website) : null;
-           const isUserCompany = competitor.isUserCompany;
-           const isOthers = competitor.name.includes('others');
-           
-           return (
-             <div key={`${competitor.name}-${index}`} className="flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-gray-50">
-               <div className="flex items-center space-x-3 flex-1 min-w-0">
-                 <span className={`text-sm font-medium w-4 ${
-                   isUserCompany ? 'text-[#7762ff]' : 'text-gray-600'
-                 }`}>{index + 1}.</span>
-                 
-                 {/* Company Logo - don't show for Others */}
-                 {!isOthers && (
-                   <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-100 flex-shrink-0">
-                     {logoResult ? (
-                       <img
-                         src={logoResult.url}
-                         alt={`${competitor.name} logo`}
-                         className="w-full h-full object-cover"
-                         onError={(e) => {
-                           // Fallback to first letter if logo fails to load
-                           e.currentTarget.style.display = 'none';
-                           e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
-                         }}
-                       />
-                     ) : null}
-                     <div 
-                       className="w-full h-full bg-gray-200 flex items-center justify-center text-xs font-semibold text-gray-600"
-                       style={{ display: logoResult ? 'none' : 'flex' }}
-                     >
-                       {competitor.name.charAt(0).toUpperCase()}
-                     </div>
-                   </div>
-                 )}
-                 
-                 {/* Add spacing for Others entry to align with other entries */}
-                 {isOthers && <div className="w-6 h-6 flex-shrink-0"></div>}
+        {displayCompetitors.map((competitor: CompetitorRanking | { name: string; shareOfVoice: number; change: number; changeType: 'stable'; isUserCompany: boolean; website?: string }, index: number) => {
+          const logoResult = competitor.website ? getCompanyLogo(competitor.website) : null;
+          const isUserCompany = competitor.isUserCompany;
+          const isOthers = competitor.name.includes('others');
+          
+          return (
+            <div key={`${competitor.name}-${index}`} className="flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-gray-50">
+              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                <span className={`text-sm font-medium w-4 ${
+                  isUserCompany ? 'text-[#7762ff]' : 'text-gray-600'
+                }`}>{index + 1}.</span>
+                
+                {/* Company Logo - don't show for Others */}
+                {!isOthers && (
+                  <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-100 flex-shrink-0">
+                    {logoResult ? (
+                      <img
+                        src={logoResult.url}
+                        alt={`${competitor.name} logo`}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          // Fallback to first letter if logo fails to load
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
+                        }}
+                      />
+                    ) : null}
+                    <div 
+                      className="w-full h-full bg-gray-200 flex items-center justify-center text-xs font-semibold text-gray-600"
+                      style={{ display: logoResult ? 'none' : 'flex' }}
+                    >
+                      {competitor.name.charAt(0).toUpperCase()}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Add spacing for Others entry to align with other entries */}
+                {isOthers && <div className="w-6 h-6 flex-shrink-0"></div>}
 
-                 {/* Company Name */}
-                 <span className="text-sm font-medium text-gray-800 truncate">
-                   {competitor.name}
-                 </span>
-               </div>
+                {/* Company Name */}
+                <span className={`text-sm font-medium truncate ${
+                  isOthers ? 'text-gray-500 italic' : isUserCompany ? 'text-[#7762ff]' : 'text-gray-800'
+                }`}>
+                  {competitor.name}
+                </span>
+              </div>
 
-               {/* Share of Voice and Change */}
-               <div className="flex items-center space-x-2 flex-shrink-0">
-                 {competitor.change !== 0 && (
-                   <div className={`flex items-center text-xs ${
-                     competitor.changeType === 'increase' ? 'text-green-600' : 'text-red-600'
-                   }`}>
-                     {competitor.changeType === 'increase' ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                     {Math.abs(competitor.change).toFixed(1)}%
-                   </div>
-                 )}
-                 <span className={`text-sm font-semibold ${
-                   isUserCompany ? 'text-[#7762ff]' : 'text-gray-700'
-                 }`}>
-                   {competitor.shareOfVoice.toFixed(0)}%
-                 </span>
-               </div>
-             </div>
-           );
-         })}
+              {/* Share of Voice and Change - don't show change for Others */}
+              <div className="flex items-center space-x-2 flex-shrink-0">
+                {competitor.change !== 0 && !isOthers && (
+                  <div className={`flex items-center text-xs ${
+                    competitor.changeType === 'increase' ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {competitor.changeType === 'increase' ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                    {Math.abs(competitor.change).toFixed(1)}%
+                  </div>
+                )}
+                <span className={`text-sm font-semibold ${
+                  isUserCompany ? 'text-[#7762ff]' : isOthers ? 'text-gray-500' : 'text-gray-700'
+                }`}>
+                  {competitor.shareOfVoice.toFixed(0)}%
+                </span>
+              </div>
+            </div>
+          );
+        })}
       </div>
     );
   };

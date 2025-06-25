@@ -1,10 +1,9 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import prisma from '../config/db';
-import OpenAI from 'openai';
+
 import env from '../config/env';
 
-const openaiClient = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
 // Type for sentiment score values
 interface SentimentScoreValue {
@@ -18,35 +17,7 @@ interface SentimentScoreValue {
   }>;
 }
 
-// This logic is specific to company onboarding, so it's better here than in a generic LLM service.
-async function generateCompetitorsFromAI_Service(companyName: string, exampleCompetitor: string, industry: string | null): Promise<any[]> {
-  const industryText = industry;
-  const prompt = `Generate a list of 20+ potential competitor companies to my company, ${companyName}, such as ${exampleCompetitor}. Do a thorough search and identify as many competitors as you can in the ${industryText} industry. Output in structured JSON. This JSON should include my company, ${companyName}, and all the competitors you find when you search.
-  
-  Ex. [ { "name": "Competitor 1", "website": "competitor1.com" } ]`;
 
-  try {
-    const response = await openaiClient.chat.completions.create({
-      model: 'gpt-4.1',
-      messages: [
-        { role: 'system', content: 'You are an expert in market research...' },
-        { role: 'user', content: prompt },
-      ],
-      response_format: { type: 'json_object' },
-    });
-
-    const content = response.choices[0].message.content;
-    if (!content) {
-      throw new Error('OpenAI returned empty content');
-    }
-    const parsedContent = JSON.parse(content);
-    const key = Object.keys(parsedContent)[0];
-    return parsedContent[key] as any[];
-  } catch (error) {
-    console.error('Error generating competitors with OpenAI:', error);
-    throw new Error('Failed to generate competitor list from OpenAI.');
-  }
-}
 
 
 // Validation schemas
@@ -78,76 +49,9 @@ const updateCompanySchema = z.object({
   products: z.array(z.string().min(1, "Product name cannot be empty")).min(1, 'At least one product is required').optional(),
 });
 
-const generateCompetitorsSchema = z.object({
-  exampleCompetitor: z.string().min(1, 'Example competitor is required'),
-});
 
-/**
- * Generate a list of competitors using AI
- */
-export const generateCompetitorsFromAI = async (req: Request, res: Response) => {
-    try {
-        const userId = req.user?.id;
-        const { id } = req.params;
 
-        if (!userId) {
-            return res.status(401).json({ error: 'User not authenticated' });
-        }
 
-        const { exampleCompetitor } = generateCompetitorsSchema.parse(req.body);
-
-        const company = await prisma.company.findFirst({
-            where: { id, userId },
-        });
-
-        if (!company) {
-            return res.status(404).json({ error: 'Company not found' });
-        }
-
-        const competitors = await generateCompetitorsFromAI_Service(company.name, exampleCompetitor, company.industry);
-
-        // Filter out the company itself from the list
-        const filteredCompetitors = competitors.filter(c => c.name.toLowerCase() !== company.name.toLowerCase());
-
-        await prisma.$transaction(async (tx) => {
-            // Delete existing AI-generated competitors, preserving user-added ones
-            await tx.competitor.deleteMany({
-                where: {
-                    companyId: id,
-                    isGenerated: true,
-                },
-            });
-
-            // Create new competitors, marked as generated
-            await tx.competitor.createMany({
-                data: filteredCompetitors.map(c => ({
-                    name: c.name,
-                    website: c.website,
-                    companyId: id,
-                    isGenerated: true,
-                })),
-            });
-        });
-
-        const updatedCompany = await prisma.company.findUnique({
-            where: { id },
-            include: {
-                competitors: { where: { isGenerated: false } },
-                benchmarkingQuestions: { where: { isGenerated: false } },
-                products: true,
-            },
-        });
-
-        res.json({ company: updatedCompany });
-
-    } catch (error) {
-        console.error('[GENERATE COMPETITORS ERROR]', error);
-        if (error instanceof z.ZodError) {
-            return res.status(400).json({ error: error.errors });
-        }
-        res.status(500).json({ error: 'Internal server error' });
-    }
-};
 
 /**
  * Create a new company profile with competitors
@@ -187,8 +91,18 @@ export const createCompany = async (req: Request, res: Response) => {
 
       // Create competitors
       if (competitors && competitors.length > 0) {
+        // Normalize website URLs for deduplication check
+        const normalizeWebsite = (website: string) => 
+          website.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '');
+        
+        // Remove duplicates based on website within the submitted list
+        const uniqueCompetitors = competitors.filter((competitor, index) => {
+          const normalizedWebsite = normalizeWebsite(competitor.website);
+          return competitors.findIndex(c => normalizeWebsite(c.website) === normalizedWebsite) === index;
+        });
+
         await tx.competitor.createMany({
-          data: competitors.map(competitor => ({
+          data: uniqueCompetitors.map(competitor => ({
             name: competitor.name,
             website: competitor.website,
             companyId: newCompany.id,
@@ -231,6 +145,19 @@ export const createCompany = async (req: Request, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors });
     }
+    
+    // Handle Prisma unique constraint violations
+    if (error && typeof error === 'object' && 'code' in error) {
+      if (error.code === 'P2002' && 'meta' in error && error.meta) {
+        const meta = error.meta as { target?: string[] };
+        if (meta.target?.includes('website') && meta.target?.includes('companyId')) {
+          return res.status(400).json({ 
+            error: 'A competitor with this website already exists for your company. Please use a different website or update the existing competitor.' 
+          });
+        }
+      }
+    }
+    
     res.status(500).json({ error: 'Internal server error' });
   }
 };
@@ -1289,9 +1216,19 @@ export const updateCompany = async (req: Request, res: Response) => {
           where: { companyId: id, isGenerated: false },
         });
 
+        // Normalize website URLs for deduplication check
+        const normalizeWebsite = (website: string) => 
+          website.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '');
+        
+        // Remove duplicates based on website within the submitted list
+        const uniqueCompetitors = updateData.competitors.filter((competitor, index) => {
+          const normalizedWebsite = normalizeWebsite(competitor.website);
+          return updateData.competitors!.findIndex(c => normalizeWebsite(c.website) === normalizedWebsite) === index;
+        });
+
         // Then, create the new list of user-added competitors
         await tx.competitor.createMany({
-          data: updateData.competitors.map(c => ({
+          data: uniqueCompetitors.map(c => ({
             name: c.name,
             website: c.website,
             companyId: id,
@@ -1302,7 +1239,17 @@ export const updateCompany = async (req: Request, res: Response) => {
 
       // Handle Benchmarking Questions
       if (updateData.benchmarkingQuestions) {
-        // Similarly, delete only user-added questions
+        // First, delete generated variations that reference user-added questions
+        // This prevents foreign key constraint violations
+        await tx.benchmarkingQuestion.deleteMany({
+          where: { 
+            companyId: id, 
+            isGenerated: true,
+            originalQuestionId: { not: null }
+          },
+        });
+
+        // Then, delete only user-added questions (originalQuestionId is null)
         await tx.benchmarkingQuestion.deleteMany({
           where: { companyId: id, isGenerated: false },
         });
@@ -1347,6 +1294,19 @@ export const updateCompany = async (req: Request, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors });
     }
+    
+    // Handle Prisma unique constraint violations
+    if (error && typeof error === 'object' && 'code' in error) {
+      if (error.code === 'P2002' && 'meta' in error && error.meta) {
+        const meta = error.meta as { target?: string[] };
+        if (meta.target?.includes('website') && meta.target?.includes('companyId')) {
+          return res.status(400).json({ 
+            error: 'A competitor with this website already exists for your company. Please use a different website or update the existing competitor.' 
+          });
+        }
+      }
+    }
+    
     res.status(500).json({ error: 'Internal server error' });
   }
 };

@@ -1,66 +1,40 @@
 import { getLatestReport } from './reportService';
-import { getShareOfVoice, getCompetitorRankings, getTopRankingQuestions, getShareOfVoiceHistory, getAverageInclusionRate, getAveragePosition, getSentimentOverTime } from './companyService';
 import { DashboardData, DashboardFilters } from '../types/dashboard';
 
-export const getDashboardData = async (companyId: string, filters: DashboardFilters): Promise<DashboardData | null> => {
-  // This is a temporary solution to consolidate data fetching on the frontend.
-  // Ideally, the backend should provide a single endpoint for all dashboard data.
+export const getDashboardData = async (companyId: string, filters: Partial<DashboardFilters>): Promise<DashboardData | null> => {
+  console.log(`[Dashboard] Fetching consolidated data for company ${companyId} with filters:`, filters);
 
   try {
-    const [reportData, shareOfVoiceData, competitorRankingsData, topQuestionsData, shareOfVoiceHistoryData, averageInclusionRateData, averagePositionData, sentimentOverTimeData] = await Promise.all([
-      getLatestReport(companyId, filters),
-      getShareOfVoice(companyId, filters),
-      getCompetitorRankings(companyId, filters),
-      getTopRankingQuestions(companyId, { aiModel: filters.aiModel }),
-      getShareOfVoiceHistory(companyId, filters),
-      getAverageInclusionRate(companyId, filters),
-      getAveragePosition(companyId, filters),
-      getSentimentOverTime(companyId, filters),
-    ]);
+    const dashboardData = await getLatestReport(companyId, filters);
+    console.log(`[Dashboard] Consolidated data received:`, dashboardData);
+    console.log(`[Dashboard] Data type:`, typeof dashboardData);
+    console.log(`[Dashboard] Data keys:`, dashboardData ? Object.keys(dashboardData) : 'null');
+    console.log(`[Dashboard] Has metrics:`, dashboardData?.metrics?.length || 0);
 
-    // Combine the data into a single object with proper type handling
-    const combinedData: DashboardData = {
-      ...reportData,
-      brandShareOfVoice: { shareOfVoice: shareOfVoiceData.shareOfVoice ?? 0 },
-      competitorRankings: competitorRankingsData,
-      topQuestions: topQuestionsData.questions,
-      shareOfVoiceHistory: shareOfVoiceHistoryData.history || [],
-      averageInclusionRate: { 
-        averageInclusionRate: averageInclusionRateData.averageInclusionRate ?? 0, 
-        change: averageInclusionRateData.change ?? 0 
-      },
-      averagePosition: { 
-        averagePosition: averagePositionData.averagePosition ?? 0, 
-        change: averagePositionData.change ?? 0 
-      },
-      sentimentOverTime: sentimentOverTimeData.history || [],
-      lastUpdated: reportData.lastUpdated || new Date().toISOString(),
-      metrics: reportData.metrics || [],
-    };
-
-    return combinedData;
-  } catch (error: unknown) {
-    // If the main report endpoint returns 404, it means no report exists yet
-    // In this case, return null so the WelcomePrompt shows
-    const apiError = error as { response?: { status?: number }; message?: string };
-    if (apiError?.response?.status === 404 || apiError?.message?.includes('404')) {
-      console.log('No report data found for new company, showing welcome prompt');
+    if (!dashboardData) {
+      console.log(`[Dashboard] No data returned, showing welcome prompt`);
       return null;
     }
     
-    // For other errors, return fallback data to prevent crashes
-    console.warn('Dashboard API calls failed with non-404 error, returning fallback data:', error);
+    return dashboardData;
+
+  } catch (error: unknown) {
+    console.error(`[Dashboard] Error fetching data:`, error);
     
-    return {
-      brandShareOfVoice: { shareOfVoice: 0 },
-      competitorRankings: { competitors: [], chartCompetitors: [], industryRanking: null, userCompany: null },
-      topQuestions: [],
-      shareOfVoiceHistory: [],
-      averageInclusionRate: { averageInclusionRate: 0, change: 0 },
-      averagePosition: { averagePosition: 0, change: 0 },
-      sentimentOverTime: [],
-      lastUpdated: new Date().toISOString(),
-      metrics: [],
+    const isAxios404 = (err: any): boolean => {
+      if (err?.response?.status === 404) return true;
+      if (err?.status === 404) return true;
+      if (typeof err?.message === 'string' && err.message.includes('404')) return true;
+      if (typeof err?.message === 'string' && err.message.includes('No completed report')) return true;
+      return false;
     };
+
+    if (isAxios404(error)) {
+      console.log('No report data found for company (404), returning null for welcome prompt.');
+      return null;
+    }
+    
+    console.error('Dashboard data fetch failed with a non-404 error:', error);
+    throw error;
   }
 }; 

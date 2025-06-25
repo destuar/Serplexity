@@ -14,6 +14,65 @@ const categoryMapping: { [key: string]: string } = {
     customerService: 'Customer Service',
 };
 
+/**
+ * Renders text containing <brand> tags, highlighting the user's brand
+ * and stripping tags from competitor brands.
+ * @param text The text to be parsed.
+ * @param brandName The user's brand name to highlight.
+ * @returns A ReactNode with appropriate styling.
+ */
+const renderBrandText = (text: string | undefined, brandName: string | undefined): React.ReactNode => {
+    if (!text) {
+        return '';
+    }
+    // If we don't have a brand name to highlight, just strip all tags for a clean view.
+    if (!brandName) {
+        return text.replace(/<\/?brand>/g, '');
+    }
+
+    // Split the string by the <brand> tags, but keep the tags as delimiters.
+    // This allows us to know which segments were inside tags.
+    const parts = text.split(/(<\/?brand>)/g);
+
+    const elements: React.ReactNode[] = [];
+    let isBrand = false;
+    let key = 0;
+
+    for (const part of parts) {
+        if (part === '<brand>') {
+            isBrand = true;
+            continue;
+        }
+        if (part === '</brand>') {
+            isBrand = false;
+            continue;
+        }
+        if (!part) {
+            continue;
+        }
+
+        if (isBrand) {
+            const isUserBrand = part.toLowerCase() === brandName.toLowerCase();
+            elements.push(
+                <span
+                    key={key++}
+                    className={
+                        isUserBrand
+                            ? "text-[#7762ff] font-semibold transition-colors duration-200 hover:bg-purple-100 rounded px-1 -mx-1"
+                            : "" // No special styling for competitors
+                    }
+                >
+                    {part}
+                </span>
+            );
+        } else {
+            elements.push(<span key={key++}>{part}</span>);
+        }
+    }
+
+    return <>{elements}</>;
+};
+
 // Removed hardcoded engineMapping - now using centralized getModelDisplayName
 
 /*
@@ -79,6 +138,8 @@ const MetricDetailsView: React.FC<{ value: SentimentScoreValue }> = ({ value }) 
 const SentimentDetailsCard: React.FC<SentimentDetailsCardProps> = ({ selectedModel }) => {
     const { data } = useDashboard();
     
+    const userBrandName = data?.competitorRankings?.userCompany?.name;
+
     const sentimentMetrics: Metric[] = data?.metrics.filter((m: Metric) => m.name === 'Detailed Sentiment Scores') || [];
 
     const title = selectedModel === 'all'
@@ -99,7 +160,7 @@ const SentimentDetailsCard: React.FC<SentimentDetailsCardProps> = ({ selectedMod
     };
 
     return (
-        <Card className="h-full overflow-hidden p-0">
+        <Card className="h-full p-0">
             <div className="h-full flex min-w-0">
                 {/* Left side with title and description */}
                 <div className="flex-[3] p-4 flex flex-col min-w-0">
@@ -107,7 +168,7 @@ const SentimentDetailsCard: React.FC<SentimentDetailsCardProps> = ({ selectedMod
                     <div className="flex-1 min-h-0 overflow-y-auto pr-1 sentiment-details-scroll">
                         {metricToShow ? (
                             <p className="text-base text-gray-700 leading-relaxed pl-4 break-words pr-2">
-                                {(metricToShow.value as SentimentScoreValue).ratings[0].summaryDescription}
+                                {renderBrandText((metricToShow.value as SentimentScoreValue).ratings[0].summaryDescription, userBrandName)}
                             </p>
                         ) : (
                             <div className="text-center py-12">
@@ -124,13 +185,13 @@ const SentimentDetailsCard: React.FC<SentimentDetailsCardProps> = ({ selectedMod
                 </div>
                 
                 {/* Right side with metric cards - full height */}
-                <div className="flex-[2] p-4 flex items-start min-w-0">
+                <div className="flex-[2] p-6 flex items-start min-w-0">
                     {metricToShow && (
-                        <div className="flex flex-wrap gap-2 w-full mt-5 overflow-hidden">
+                        <div className="flex flex-wrap gap-3 w-full">
                             {Object.entries((metricToShow.value as SentimentScoreValue).ratings[0]).map(([key, score]) => {
                                 if (typeof score === 'number' && categoryMapping[key]) {
                                     return (
-                                        <div key={key} className={`flex-[0_0_calc(50%-4px)] rounded-lg p-2 ${getScoreColor(score)}`}>
+                                        <div key={key} className={`flex-[0_0_calc(50%-6px)] rounded-lg p-2 ${getScoreColor(score)}`}>
                                             <div className="text-xs font-semibold mb-1 leading-tight uppercase tracking-wide">{categoryMapping[key]}</div>
                                             <div className="text-sm font-bold">
                                                 {(score as number).toFixed(1)}<span className="text-xs font-medium opacity-70">/10</span>
@@ -141,7 +202,7 @@ const SentimentDetailsCard: React.FC<SentimentDetailsCardProps> = ({ selectedMod
                                 return null;
                             })}
                             {/* Average Score Card */}
-                            <div className={`flex-[0_0_calc(50%-4px)] rounded-lg p-2 ${(() => {
+                            <div className={`flex-[0_0_calc(50%-6px)] rounded-lg p-2 ${(() => {
                                 const categoryScores = Object.entries((metricToShow.value as SentimentScoreValue).ratings[0])
                                     .filter(([, score]) => typeof score === 'number')
                                     .map(([, score]) => score as number);

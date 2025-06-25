@@ -6,14 +6,25 @@ interface WelcomePromptProps {
   onGenerateReport: () => void;
   isGenerating: boolean;
   generationStatus?: string | null;
+  progressPercentage?: number;
 }
 
 const WelcomePrompt: React.FC<WelcomePromptProps> = ({
   onGenerateReport,
   isGenerating,
-  generationStatus
+  generationStatus,
+  progressPercentage = 0
 }) => {
   const { selectedCompany } = useCompany();
+
+  // Extract percentage from status string if available
+  const getProgressFromStatus = (status: string | null | undefined): number => {
+    if (!status) return 0;
+    const match = status.match(/\((\d+)%\)/);
+    return match ? parseInt(match[1], 10) : progressPercentage;
+  };
+
+  const currentProgress = isGenerating ? getProgressFromStatus(generationStatus) : 0;
 
   return (
     <div className="flex-1 flex items-center justify-center">
@@ -71,18 +82,30 @@ const WelcomePrompt: React.FC<WelcomePromptProps> = ({
             <button 
               onClick={onGenerateReport}
               disabled={isGenerating || !selectedCompany?.competitors?.length}
-              className="w-full flex items-center justify-center gap-3 px-6 py-3 bg-gradient-to-r from-[#7762ff] to-[#9e52ff] text-white rounded-lg hover:from-[#6650e6] hover:to-[#8a47e6] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-lg font-medium shadow-lg hover:shadow-xl"
+              className="w-full flex flex-col gap-2 px-6 py-3 bg-gradient-to-r from-[#7762ff] to-[#9e52ff] text-white rounded-lg hover:from-[#6650e6] hover:to-[#8a47e6] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-lg font-medium shadow-lg hover:shadow-xl relative overflow-hidden"
             >
               {isGenerating ? (
                 <>
-                  <Loader size={20} className="animate-spin" />
-                  <span>{generationStatus || 'Generating your first report...'}</span>
+                  <div className="flex items-center justify-center gap-3">
+                    <Loader size={20} className="animate-spin" />
+                    <span>{generationStatus || 'Generating your first report...'}</span>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  {currentProgress > 0 && (
+                    <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
+                      <div 
+                        className="bg-white/80 h-full rounded-full transition-all duration-500 ease-out"
+                        style={{ width: `${currentProgress}%` }}
+                      ></div>
+                    </div>
+                  )}
                 </>
               ) : (
-                <>
+                <div className="flex items-center justify-center gap-3">
                   <Sparkles size={20} />
                   <span>Generate Your First Report</span>
-                </>
+                </div>
               )}
             </button>
 

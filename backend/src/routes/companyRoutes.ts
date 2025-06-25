@@ -6,7 +6,6 @@ import {
   getCompany,
   updateCompany,
   deleteCompany,
-  generateCompetitorsFromAI,
   getAverageInclusionRate,
   getAveragePosition,
   getShareOfVoice,
@@ -39,7 +38,6 @@ router.get('/:id/metrics/sentiment', getSentimentData); // GET /api/companies/:i
 router.get('/:id/top-ranking-questions', getTopRankingQuestions); // GET /api/companies/:id/top-ranking-questions
 router.get('/:id/metrics/sentiment-over-time', getSentimentOverTime);
 
-// AI-powered features
-router.post('/:id/generate-competitors', generateCompetitorsFromAI); // POST /api/companies/:id/generate-competitors
+// AI-powered features (competitor generation removed - competitors are now discovered from responses)
 
 export default router; 

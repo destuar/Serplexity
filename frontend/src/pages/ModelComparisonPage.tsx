@@ -25,32 +25,15 @@ const ModelComparisonPage = () => {
       try {
         const statusRes = await getReportStatus(runId);
         
-        // Map technical status to user-friendly messages
-        const getUserFriendlyStatus = (stepStatus: string) => {
-          if (!stepStatus || stepStatus === 'N/A') return 'Processing data...';
-          
-          const statusMap: { [key: string]: string } = {
-            'QUEUED': 'Queued for processing...',
-            'RUNNING': 'Analyzing market data...',
-            'SCRAPING': 'Gathering competitive intelligence...',
-            'ANALYZING': 'Processing search results...',
-            'SENTIMENT_ANALYSIS': 'Analyzing sentiment and positioning...',
-            'RANKING_ANALYSIS': 'Calculating ranking positions...',
-            'GENERATING_INSIGHTS': 'Generating strategic insights...',
-            'FINALIZING': 'Finalizing report data...',
-            'COMPLETED': 'Report generation complete'
-          };
-          
-          return statusMap[stepStatus.toUpperCase()] || `Processing: ${stepStatus}...`;
-        };
-
-        setGenerationStatus(getUserFriendlyStatus(statusRes.stepStatus));
+        // Keep the original stepStatus for percentage extraction
+        setGenerationStatus(statusRes.stepStatus || 'Processing data...');
         
         if (statusRes.status === 'COMPLETED' || statusRes.status === 'FAILED') {
           setIsGenerating(false);
           setRunId(null);
           setGenerationStatus(statusRes.status === 'COMPLETED' ? 'Report generated successfully' : 'Report generation failed');
           if (statusRes.status === 'COMPLETED') {
+            // Refresh the dashboard data
             await refreshData();
           }
         }

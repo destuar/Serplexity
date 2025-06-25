@@ -1,6 +1,5 @@
-
 import Card from '../ui/Card';
-import { useDashboard } from '../../contexts/DashboardContext';
+import { useDashboard } from '../../hooks/useDashboard';
 import { FiArrowUp, FiArrowDown } from 'react-icons/fi';
 
 const AverageInclusionRateCard = () => {

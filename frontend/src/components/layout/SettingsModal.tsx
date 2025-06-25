@@ -27,6 +27,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     try {
       await deleteCompany(companyId);
       setDeleteConfirm(null);
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
     } catch (error) {
       console.error('Failed to delete company:', error);
     }

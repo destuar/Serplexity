@@ -42,13 +42,18 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
       }
       setError(null);
 
+      // Only pass essential filters, not the massive competitor list
       const currentFilters = {
-        ...filters,
-        company: selectedCompany.name,
-        competitors: selectedCompany.competitors.map(c => c.name),
+        dateRange: filters.dateRange,
+        aiModel: filters.aiModel,
       };
 
       const dashboardData = await getDashboardData(selectedCompany.id, currentFilters);
+
+      console.log('[DashboardContext] Data received from service:', dashboardData);
+      console.log('[DashboardContext] Data type:', typeof dashboardData);
+      console.log('[DashboardContext] Data is null?', dashboardData === null);
+      console.log('[DashboardContext] Data keys count:', dashboardData ? Object.keys(dashboardData).length : 0);
 
       setData(dashboardData);
       if (dashboardData?.lastUpdated) {
