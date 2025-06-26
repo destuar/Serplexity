@@ -1032,13 +1032,23 @@ const processJob = async (job: Job) => {
             await prisma.reportRun.update({ where: { id: runId }, data: { stepStatus: 'Analyzing Competitors (75%)' } });
 
             // --- Step 2.3: Save new competitors to the database ---
+            const standardizeWebsite = (website: string | null | undefined): string => {
+                if (!website) return '';
+                // Normalize to lowercase, remove protocol and www., and remove any path.
+                return website.toLowerCase()
+                    .replace(/^https?:\/\//, '')
+                    .replace(/^www\./, '')
+                    .split('/')[0];
+            };
+
             const newCompetitorsToSave = enrichedCompetitors.filter(
                 (newComp: CompetitorInfo) => {
+                    const standardizedNewCompWebsite = standardizeWebsite(newComp.website);
+
                     // Check if the discovered competitor is the user's own company
                     const isUserCompanyByName = fullCompany.name.toLowerCase() === newComp.name.toLowerCase();
-                    const isUserCompanyByWebsite = newComp.website &&
-                        fullCompany.website.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '') ===
-                        newComp.website.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '');
+                    const isUserCompanyByWebsite = standardizedNewCompWebsite &&
+                        standardizeWebsite(fullCompany.website) === standardizedNewCompWebsite;
 
                     if (isUserCompanyByName || isUserCompanyByWebsite) {
                         log({
@@ -1056,10 +1066,8 @@ const processJob = async (job: Job) => {
                     );
                     
                     // Check for website duplicates (new logic)
-                    const websiteExists = newComp.website && fullCompany.competitors.some(
-                        (existing) => existing.website && 
-                        existing.website.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '') === 
-                        newComp.website.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '')
+                    const websiteExists = standardizedNewCompWebsite && fullCompany.competitors.some(
+                        (existing) => standardizeWebsite(existing.website) === standardizedNewCompWebsite
                     );
                     
                     // Only add if neither name nor website exists

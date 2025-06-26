@@ -1,11 +1,26 @@
 import dotenv from 'dotenv';
 
-const dotenvResult = dotenv.config();
+// SECURITY: Never load .env file in test environment or when disabled
+if (process.env.NODE_ENV !== 'test' && !process.env.DISABLE_DOTENV) {
+  console.log(`[dotenv] Loading .env file for environment: ${process.env.NODE_ENV}`);
+  const dotenvResult = dotenv.config();
 
-if (dotenvResult.error) {
-  console.error('[dotenv] Error loading .env file:', dotenvResult.error);
-} else {
-  console.log('[dotenv] .env file loaded successfully. Parsed variables:', dotenvResult.parsed);
+  if (dotenvResult.error) {
+    const error = dotenvResult.error as NodeJS.ErrnoException;
+    // In development, a missing .env file might not be a fatal error,
+    // as developers might set variables manually.
+    if (process.env.NODE_ENV !== 'production' && error.code === 'ENOENT') {
+      console.warn('[dotenv] .env file not found. Set environment variables manually or create a .env file.');
+    } else {
+      console.error('[dotenv] Error loading .env file:', dotenvResult.error);
+    }
+  } else {
+    console.log('[dotenv] .env file loaded successfully. Parsed variables:', Object.keys(dotenvResult.parsed || {}));
+  }
+} else if (process.env.NODE_ENV === 'test') {
+  console.log('[dotenv] SKIPPED loading .env file in test environment for security');
+} else if (process.env.DISABLE_DOTENV) {
+  console.log('[dotenv] DISABLED by DISABLE_DOTENV flag');
 }
 
 console.log('[env.ts] Reading GOOGLE_CALLBACK_URL:', process.env.GOOGLE_CALLBACK_URL);

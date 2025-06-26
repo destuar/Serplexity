@@ -12,7 +12,7 @@ import { DashboardFilters, getModelFilterOptions } from '../types/dashboard';
 
 const SentimentAnalysisPage = () => {
   const { selectedCompany } = useCompany();
-  const { data, filters, updateFilters, refreshing, refreshData, loading } = useDashboard();
+  const { data, filters, updateFilters, refreshing, refreshData, loading, lastUpdated } = useDashboard();
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStatus, setGenerationStatus] = useState<string | null>(null);
 
@@ -66,9 +66,16 @@ const SentimentAnalysisPage = () => {
         />
       ) : (
         <>
-          <div className="flex-shrink-0 mb-6 flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900">Sentiment Analysis</h1>
-            <div className="flex items-center gap-2 ml-auto">
+          <div className="flex-shrink-0 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-2">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Sentiment Analysis</h1>
+              {lastUpdated && (
+                <p className="text-sm text-gray-500 mt-1">
+                  Last updated: {new Date(lastUpdated).toLocaleString()}
+                </p>
+              )}
+            </div>
+            <div className="grid grid-cols-2 lg:flex items-center gap-2 w-full lg:w-auto">
               <FilterDropdown
                 label="Date Range"
                 value={filters.dateRange}
@@ -88,7 +95,7 @@ const SentimentAnalysisPage = () => {
               <button 
                 onClick={handleRefresh}
                 disabled={loading || refreshing || isGenerating}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-[#7762ff] text-white rounded-lg hover:bg-[#6650e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-[#7762ff] text-white rounded-lg hover:bg-[#6650e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2"
               >
                 {refreshing ? (
                   <>

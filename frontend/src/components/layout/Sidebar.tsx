@@ -85,9 +85,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             <Link to="/overview" className={getLinkClass('/overview')}>
               {!isDesktopCollapsed && <span className="ml-3 font-medium">Overview</span>}
             </Link>
-            <Link to="/benchmark-results" className={getLinkClass('/benchmark-results')}>
-              {!isDesktopCollapsed && <span className="ml-3">Benchmark Results</span>}
-            </Link>
             <Link to="/visibility-report" className={getLinkClass('/visibility-report')}>
               {!isDesktopCollapsed && <span className="ml-3">Visibility Report</span>}
             </Link>
@@ -131,11 +128,14 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
         {(!isDesktopCollapsed && openSections.aiContentTools) && (
           <nav className="flex flex-col space-y-2">
-            <Link to="/json-translation-tool" className={getLinkClass('/json-translation-tool')}>
-              {!isDesktopCollapsed && <span className="ml-3">JSON Translation Tool</span>}
+            <Link to="/experimental-search" className={getLinkClass('/experimental-search')}>
+              {!isDesktopCollapsed && <span className="ml-3">Experimental Search</span>}
             </Link>
             <Link to="/ai-optimization-tool" className={getLinkClass('/ai-optimization-tool')}>
               {!isDesktopCollapsed && <span className="ml-3">AI Optimization Tool</span>}
+            </Link>
+            <Link to="/json-translation-tool" className={getLinkClass('/json-translation-tool')}>
+              {!isDesktopCollapsed && <span className="ml-3">JSON Translation Tool</span>}
             </Link>
           </nav>
         )}

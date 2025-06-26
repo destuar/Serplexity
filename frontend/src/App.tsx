@@ -6,7 +6,6 @@ import CompanyGuard from './components/company/CompanyGuard';
 import PaymentGuard from './components/auth/PaymentGuard';
 import DashboardLayout from './components/layout/DashboardLayout';
 import OverviewPage from './pages/OverviewPage';
-import BenchmarkResultsPage from './pages/BenchmarkResultsPage';
 import VisibilityReportPage from './pages/VisibilityReportPage';
 import SentimentAnalysisPage from './pages/SentimentAnalysisPage';
 import ResponseDetailsPage from './pages/ResponseDetailsPage';
@@ -23,12 +22,12 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import PaymentPage from './pages/PaymentPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import ExperimentalSearchPage from './pages/ExperimentalSearchPage';
 
 const DashboardRoutes: React.FC = () => (
   <DashboardLayout>
     <Routes>
       <Route path="/overview" element={<OverviewPage />} />
-      <Route path="/benchmark-results" element={<BenchmarkResultsPage />} />
       <Route path="/visibility-report" element={<VisibilityReportPage />} />
       <Route path="/sentiment-analysis" element={<SentimentAnalysisPage />} />
       <Route path="/response-details" element={<ResponseDetailsPage />} />
@@ -36,6 +35,7 @@ const DashboardRoutes: React.FC = () => (
       <Route path="/model-comparison" element={<ModelComparisonPage />} />
       <Route path="/json-translation-tool" element={<JsonTranslationToolPage />} />
       <Route path="/ai-optimization-tool" element={<AiOptimizationToolPage />} />
+      <Route path="/experimental-search" element={<ExperimentalSearchPage />} />
     </Routes>
   </DashboardLayout>
 );

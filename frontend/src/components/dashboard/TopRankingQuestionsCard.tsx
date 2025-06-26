@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Card from '../ui/Card';
 import { useDashboard } from '../../hooks/useDashboard';
+import { useCompany } from '../../contexts/CompanyContext';
 import { TopRankingQuestion } from '../../services/companyService';
 import { getModelDisplayName } from '../../types/dashboard';
 
@@ -15,22 +16,49 @@ const stripBrandTags = (text: string): string => {
 
 /**
  * A component to format and display response text.
- * It handles markdown bolding.
+ * It handles markdown bolding and highlights brand mentions.
  */
 const FormattedResponseViewer: React.FC<{ text: string }> = ({ text }) => {
-    // The text prop should come in pre-cleaned of <brand> tags.
+    const { selectedCompany } = useCompany();
+    // Get company name from the selected company context
+    const companyName = selectedCompany?.name;
+    
     const renderFormattedText = (str: string): React.ReactNode => {
         if (!str) return null;
 
+        // First handle markdown bolding
         const boldPattern = '(\\*\\*.*?\\*\\*)';
-        const combinedRegex = new RegExp(boldPattern, 'gi');
-        const parts = str.split(combinedRegex);
+        const parts = str.split(new RegExp(boldPattern, 'gi'));
 
         return (
             <>
                 {parts.filter(Boolean).map((part, index) => {
                     if (part.startsWith('**') && part.endsWith('**')) {
-                        return <strong key={index}>{part.slice(2, -2)}</strong>;
+                        const boldText = part.slice(2, -2);
+                        return <strong key={index}>{highlightBrandName(boldText)}</strong>;
+                    }
+                    return <React.Fragment key={index}>{highlightBrandName(part)}</React.Fragment>;
+                })}
+            </>
+        );
+    };
+
+    const highlightBrandName = (text: string): React.ReactNode => {
+        if (!companyName || !text) return text;
+
+        // Create case-insensitive regex for the brand name
+        const brandRegex = new RegExp(`(${companyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        const parts = text.split(brandRegex);
+
+        return (
+            <>
+                {parts.map((part, index) => {
+                    if (part.toLowerCase() === companyName.toLowerCase()) {
+                        return (
+                            <span key={index} className="font-bold text-[#7762ff]">
+                                {part}
+                            </span>
+                        );
                     }
                     return <React.Fragment key={index}>{part}</React.Fragment>;
                 })}

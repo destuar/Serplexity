@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import prisma from '../config/db';
 import { queueReport } from '../services/reportSchedulingService';
+import { MODELS } from '../config/models';
 
 // Enhanced logging system for the report controller
 interface ControllerLogContext {
@@ -419,6 +420,65 @@ export const getLatestReport = async (req: Request, res: Response) => {
       sentimentOverTime,
     };
 
+    /***** Add per-model metrics dynamically for dashboard comparison *****/
+    try {
+      const modelIds: string[] = Object.keys(MODELS);
+      for (const modelId of modelIds) {
+        // Skip if aggregated or if user filtered aiModel and it does not match
+        if (aiModel && aiModel !== 'all' && modelId !== aiModel) continue;
+
+        const modelFilters = { aiModel: modelId };
+        const [modelSOV, modelAvgPos, modelAIR, modelSOVHistory] = await Promise.all([
+          calculateBrandShareOfVoice(latestRun.id, companyId, modelFilters),
+          calculateAveragePosition(latestRun.id, companyId, modelFilters),
+          calculateAverageInclusionRate(latestRun.id, companyId, modelFilters),
+          calculateShareOfVoiceHistory(latestRun.id, companyId, modelFilters),
+        ]);
+
+        // Push virtual metrics so frontend can consume
+        responseData.metrics.push(
+          {
+            id: `${latestRun.id}-${modelId}-sov`,
+            runId: latestRun.id,
+            name: 'brandShareOfVoice',
+            value: modelSOV,
+            engine: modelId,
+            createdAt: latestRun.updatedAt,
+            updatedAt: latestRun.updatedAt,
+          } as any,
+          {
+            id: `${latestRun.id}-${modelId}-avgpos`,
+            runId: latestRun.id,
+            name: 'averagePosition',
+            value: modelAvgPos,
+            engine: modelId,
+            createdAt: latestRun.updatedAt,
+            updatedAt: latestRun.updatedAt,
+          } as any,
+          {
+            id: `${latestRun.id}-${modelId}-air`,
+            runId: latestRun.id,
+            name: 'averageInclusionRate',
+            value: modelAIR,
+            engine: modelId,
+            createdAt: latestRun.updatedAt,
+            updatedAt: latestRun.updatedAt,
+          } as any,
+          {
+            id: `${latestRun.id}-${modelId}-sovhist`,
+            runId: latestRun.id,
+            name: 'shareOfVoiceHistory',
+            value: { history: modelSOVHistory },
+            engine: modelId,
+            createdAt: latestRun.updatedAt,
+            updatedAt: latestRun.updatedAt,
+          } as any,
+        );
+      }
+    } catch (modelMetricErr) {
+      controllerLog({ endpoint, userId, companyId, reportId: latestRun.id, error: modelMetricErr }, 'Failed to compute per-model metrics', 'WARN');
+    }
+
     const duration = Date.now() - startTime;
     controllerLog({ 
       endpoint, 
@@ -722,15 +782,24 @@ async function calculateCompetitorRankings(runId: string, companyId: string, fil
 }
 
 async function calculateTopQuestions(runId: string, companyId: string, filters?: { aiModel?: string }) {
-    // Get questions where the company has mentions, ranked by position
+    // Helper to group responses by engine
+    const groupByEngine = <T extends { engine: string }>(items: T[]) => {
+        const map = new Map<string, T[]>();
+        items.forEach(item => {
+            if (!map.has(item.engine)) map.set(item.engine, []);
+            map.get(item.engine)!.push(item);
+        });
+        return Array.from(map.entries());
+    };
+
+    // Fetch questions with their responses (optionally filtered by engine)
     const [visibilityQuestions, benchmarkQuestions, personalQuestions] = await Promise.all([
         prisma.visibilityQuestion.findMany({
             where: {
                 responses: {
                     some: {
                         runId,
-                        ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {}),
-                        mentions: { some: { companyId } }
+                        ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
                     }
                 }
             },
@@ -739,13 +808,10 @@ async function calculateTopQuestions(runId: string, companyId: string, filters?:
                 responses: {
                     where: {
                         runId,
-                        ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {}),
-                        mentions: { some: { companyId } }
+                        ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
                     },
                     include: {
-                        mentions: {
-                            where: { companyId }
-                        }
+                        mentions: { where: { companyId } }
                     }
                 }
             }
@@ -755,8 +821,7 @@ async function calculateTopQuestions(runId: string, companyId: string, filters?:
                 benchmarkResponses: {
                     some: {
                         runId,
-                        ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {}),
-                        benchmarkMentions: { some: { companyId } }
+                        ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
                     }
                 }
             },
@@ -764,13 +829,10 @@ async function calculateTopQuestions(runId: string, companyId: string, filters?:
                 benchmarkResponses: {
                     where: {
                         runId,
-                        ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {}),
-                        benchmarkMentions: { some: { companyId } }
+                        ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
                     },
                     include: {
-                        benchmarkMentions: {
-                            where: { companyId }
-                        }
+                        benchmarkMentions: { where: { companyId } }
                     }
                 }
             }
@@ -780,8 +842,7 @@ async function calculateTopQuestions(runId: string, companyId: string, filters?:
                 responses: {
                     some: {
                         runId,
-                        ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {}),
-                        mentions: { some: { companyId } }
+                        ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
                     }
                 }
             },
@@ -789,94 +850,96 @@ async function calculateTopQuestions(runId: string, companyId: string, filters?:
                 responses: {
                     where: {
                         runId,
-                        ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {}),
-                        mentions: { some: { companyId } }
+                        ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
                     },
                     include: {
-                        mentions: {
-                            where: { companyId }
-                        }
+                        mentions: { where: { companyId } }
                     }
                 }
             }
         })
     ]);
 
-    // Calculate detailed question data with best responses
-    const questionsWithDetails = [
-        ...visibilityQuestions.map(q => {
-            // Find best mention (lowest position)
-            const allMentions = q.responses.flatMap(r => r.mentions);
-            const bestMention = allMentions.reduce((best, current) => 
-                current.position < best.position ? current : best, allMentions[0]);
-            
-            // Find the response containing the best mention
-            const bestResponse = q.responses.find(r => 
-                r.mentions.some(m => m.id === bestMention.id));
-            
-            const averagePosition = allMentions.reduce((sum, m) => sum + m.position, 0) / allMentions.length;
-            
-            return {
-                id: q.id,
-                question: q.question,
-                averagePosition,
-                bestPosition: bestMention.position,
-                type: 'visibility' as const,
-                productName: q.product?.name,
-                bestResponse: bestResponse?.content || '',
-                bestResponseModel: bestResponse?.engine || 'unknown'
-            };
-        }),
-        ...benchmarkQuestions.map(q => {
-            // Find best mention (lowest position)
-            const allMentions = q.benchmarkResponses.flatMap(r => r.benchmarkMentions);
-            const bestMention = allMentions.reduce((best, current) => 
-                current.position < best.position ? current : best, allMentions[0]);
-            
-            // Find the response containing the best mention
-            const bestResponse = q.benchmarkResponses.find(r => 
-                r.benchmarkMentions.some(m => m.id === bestMention.id));
-            
-            const averagePosition = allMentions.reduce((sum, m) => sum + m.position, 0) / allMentions.length;
-            
-            return {
-                id: q.id,
-                question: q.text,
-                averagePosition,
-                bestPosition: bestMention.position,
-                type: 'benchmark' as const,
-                productName: undefined,
-                bestResponse: bestResponse?.content || '',
-                bestResponseModel: bestResponse?.engine || 'unknown'
-            };
-        }),
-        ...personalQuestions.map(q => {
-            // Find best mention (lowest position)
-            const allMentions = q.responses.flatMap(r => r.mentions);
-            const bestMention = allMentions.reduce((best, current) => 
-                current.position < best.position ? current : best, allMentions[0]);
-            
-            // Find the response containing the best mention
-            const bestResponse = q.responses.find(r => 
-                r.mentions.some(m => m.id === bestMention.id));
-            
-            const averagePosition = allMentions.reduce((sum, m) => sum + m.position, 0) / allMentions.length;
-            
-            return {
-                id: q.id,
-                question: q.question,
-                averagePosition,
-                bestPosition: bestMention.position,
-                type: 'personal' as const,
-                productName: undefined,
-                bestResponse: bestResponse?.content || '',
-                bestResponseModel: bestResponse?.engine || 'unknown'
-            };
-        })
-    ].sort((a, b) => a.averagePosition - b.averagePosition) // Lower position is better
-     .slice(0, 10); // Top 10 questions
+    const details: any[] = [];
 
-    return questionsWithDetails;
+    // Utility to build record for a given response group
+    const buildRecord = (
+        baseId: string,
+        questionText: string,
+        type: 'visibility' | 'benchmark' | 'personal',
+        productName: string | undefined,
+        engine: string,
+        mentions: any[],
+        sampleResponse: { content?: string; engine?: string }
+    ) => {
+        if (mentions.length === 0) {
+            return {
+                id: `${baseId}-${engine}`,
+                question: questionText,
+                averagePosition: 999,
+                bestPosition: 999,
+                type,
+                productName,
+                totalMentions: 0,
+                bestResponse: sampleResponse?.content || 'No response available',
+                bestResponseModel: engine || 'unknown'
+            };
+        }
+
+        const bestMention = mentions.reduce((best, current) =>
+            current.position < best.position ? current : best, mentions[0]);
+        const averagePosition = mentions.reduce((sum, m) => sum + m.position, 0) / mentions.length;
+
+        return {
+            id: `${baseId}-${engine}`,
+            question: questionText,
+            averagePosition,
+            bestPosition: bestMention.position,
+            type,
+            productName,
+            totalMentions: mentions.length,
+            bestResponse: sampleResponse?.content || '',
+            bestResponseModel: engine
+        };
+    };
+
+    // Process visibility questions
+    visibilityQuestions.forEach(q => {
+        const byEngine = groupByEngine(q.responses);
+        byEngine.forEach(([engine, engineResponses]) => {
+            const mentions = engineResponses.flatMap(r => r.mentions);
+            const sampleResp = engineResponses.find(r => true) as any;
+            details.push(buildRecord(q.id, q.question, 'visibility', q.product?.name, engine, mentions, sampleResp));
+        });
+    });
+
+    // Process benchmarking questions
+    benchmarkQuestions.forEach(q => {
+        const byEngine = groupByEngine(q.benchmarkResponses);
+        byEngine.forEach(([engine, engineResponses]) => {
+            const mentions = engineResponses.flatMap(r => r.benchmarkMentions);
+            const sampleResp = engineResponses.find(r => true) as any;
+            details.push(buildRecord(q.id, q.text, 'benchmark', undefined, engine, mentions, sampleResp));
+        });
+    });
+
+    // Process personal questions
+    personalQuestions.forEach(q => {
+        const byEngine = groupByEngine(q.responses);
+        byEngine.forEach(([engine, engineResponses]) => {
+            const mentions = engineResponses.flatMap(r => r.mentions);
+            const sampleResp = engineResponses.find(r => true) as any;
+            details.push(buildRecord(q.id, q.question, 'personal', undefined, engine, mentions, sampleResp));
+        });
+    });
+
+    // If a specific model is requested (not 'all'), Prisma already filtered responses, so grouping may include unrelated engines; safeguard:
+    const filteredDetails = (filters?.aiModel && filters.aiModel !== 'all')
+        ? details.filter(d => d.bestResponseModel === filters.aiModel)
+        : details;
+
+    // Sort by average position (lower is better)
+    return filteredDetails.sort((a, b) => a.averagePosition - b.averagePosition);
 }
 
 async function calculateSentimentOverTime(runId: string, companyId: string, filters?: { aiModel?: string }) {

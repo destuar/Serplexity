@@ -310,7 +310,7 @@ const CompetitorRankingsPage = () => {
   return (
     <div className="h-full flex flex-col">
       {/* Header Section - Consistent with other pages */}
-      <div className="flex-shrink-0 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-6">
+      <div className="flex-shrink-0 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-2">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Competitor Rankings</h1>
           {lastUpdated && (
@@ -320,7 +320,7 @@ const CompetitorRankingsPage = () => {
           )}
         </div>
         
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex items-center gap-2 w-full lg:w-auto">
           <FilterDropdown
             label="Show"
             value={displayLimit === 0 ? 'all' : displayLimit.toString()}
@@ -348,7 +348,7 @@ const CompetitorRankingsPage = () => {
           <button 
             onClick={handleRefresh}
             disabled={loading || refreshing}
-            className="flex items-center justify-center w-full md:w-auto gap-2 px-4 py-2 bg-[#7762ff] text-white rounded-lg hover:bg-[#6650e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+            className="flex items-center justify-center w-full md:w-auto gap-2 px-4 py-2 bg-[#7762ff] text-white rounded-lg hover:bg-[#6650e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2 sm:col-span-1"
           >
             {refreshing ? (
               <>

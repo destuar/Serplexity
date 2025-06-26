@@ -1324,4 +1324,12 @@ Find the official websites for the ${companyBatch.length} companies listed above
         
         throw new Error(`Batch ${batchNumber} failed: ${error instanceof Error ? error.message : String(error)}`);
     }
+}
+
+// Quickly generate a plain text answer to a question without any additional instructions.
+export async function generatePlainAnswer(questionText: string, model: Model): Promise<ChatCompletionResponse<string>> {
+    const prompt = `Answer "${questionText}" and return back a response in normal text. Do not return in markdown or JSON.`;
+    const { content, usage } = await generateChatCompletion(model, prompt);
+    if (!content) throw new Error('LLM returned empty content');
+    return { data: content, usage };
 } 

@@ -245,6 +245,10 @@ export async function queueReport(companyId: string, force = false): Promise<Que
             backoff: { type: 'exponential' as const, delay: 5000 },
         };
 
+        if (!reportGenerationQueue) {
+            throw new Error('Report generation queue is not available in test environment');
+        }
+
         await reportGenerationQueue.add('generate-report', {
             runId: reportRun.id,
             company: company,

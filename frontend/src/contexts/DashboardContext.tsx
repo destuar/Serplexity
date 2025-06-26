@@ -1,8 +1,9 @@
-import React, { useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { DashboardData, DashboardFilters } from '../types/dashboard';
 import { getDashboardData } from '../services/dashboardService';
 import { useCompany } from '../hooks/useCompany';
 import { DashboardContext } from '../hooks/useDashboard';
+import { useLocation } from 'react-router-dom';
 
 interface ApiError {
   message: string;
@@ -14,14 +15,34 @@ interface DashboardProviderProps {
 
 export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }) => {
   const { selectedCompany } = useCompany();
+  const location = useLocation();
   
-  // Default filters
-  const [filters, setFilters] = useState<DashboardFilters>({
+  /**
+   * Global filters shared across pages (currently only dateRange is global).
+   * Model filter (aiModel) is stored per-page to prevent cross-page interference.
+   */
+  const [globalFilters, setGlobalFilters] = useState<Omit<DashboardFilters, 'aiModel'>>({
     dateRange: '30d',
-    aiModel: 'all',
     company: '',
     competitors: [],
   });
+
+  /**
+   * Map of pathname -> aiModel selection.
+   * Using pathname ensures separate filter state for each page/route.
+   */
+  const [aiModelByPath, setAiModelByPath] = useState<Record<string, DashboardFilters['aiModel']>>({});
+
+  /**
+   * Helper to derive the effective filters for the current page.
+   */
+  const filters: DashboardFilters = useMemo(() => {
+    const currentPath = location.pathname;
+    return {
+      ...globalFilters,
+      aiModel: aiModelByPath[currentPath] ?? 'all',
+    };
+  }, [globalFilters, aiModelByPath, location.pathname]);
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -29,6 +50,9 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // Keep previous filters to detect meaningful changes (ignore path changes that keep same values)
+  const prevFiltersRef = useRef<DashboardFilters | null>(null);
 
   // Fetch dashboard data
   const fetchData = useCallback(async (isRefresh: boolean = false) => {
@@ -70,18 +94,48 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
     }
   }, [selectedCompany, filters]);
 
-  // Unified effect to fetch data whenever company, filters, or refresh trigger change
+  // Fetch on meaningful filter changes (dateRange/aiModel) or company switch
   useEffect(() => {
-    if (selectedCompany) {
+    if (!selectedCompany) return;
+
+    const prev = prevFiltersRef.current;
+    const filtersChanged =
+      !prev ||
+      prev.dateRange !== filters.dateRange ||
+      prev.aiModel !== filters.aiModel;
+
+    if (filtersChanged) {
       fetchData();
     }
+    // Always sync the ref to current filters so future comparisons are accurate
+    prevFiltersRef.current = filters;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCompany, filters, refreshTrigger]);
+  }, [selectedCompany, filters]);
+
+  // Fetch when user explicitly triggers a refresh
+  useEffect(() => {
+    if (!selectedCompany) return;
+    if (refreshTrigger > 0) {
+      fetchData(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTrigger, selectedCompany]);
 
   // Update filters, which will trigger the effect above
   const updateFilters = useCallback((newFilters: Partial<DashboardFilters>) => {
-    setFilters(prev => ({ ...prev, ...newFilters }));
-  }, []);
+    const currentPath = location.pathname;
+
+    // Separate handling for aiModel which should be scoped per-page
+    if (newFilters.aiModel !== undefined) {
+      setAiModelByPath(prev => ({ ...prev, [currentPath]: newFilters.aiModel! }));
+    }
+
+    // Handle global filters (currently only dateRange). Ignore aiModel here.
+    const { aiModel: _ignored, ...rest } = newFilters;
+    if (Object.keys(rest).length > 0) {
+      setGlobalFilters(prev => ({ ...prev, ...rest }));
+    }
+  }, [location.pathname]);
 
   // Refresh data by bumping the trigger
   const refreshData = useCallback(async () => {

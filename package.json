@@ -1,4 +1,14 @@
 {
+  "scripts": {
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd backend && npm test",
+    "test:frontend": "cd frontend && npm run test:run",
+    "test:watch": "npm run test:backend:watch",
+    "test:backend:watch": "cd backend && npm run test:watch",
+    "test:coverage": "npm run test:backend:coverage && npm run test:frontend:coverage",
+    "test:backend:coverage": "cd backend && npm run test:coverage",
+    "test:frontend:coverage": "cd frontend && npm run test:coverage"
+  },
   "dependencies": {
     "autoprefixer": "^10.4.21",
     "lucide-react": "^0.516.0",

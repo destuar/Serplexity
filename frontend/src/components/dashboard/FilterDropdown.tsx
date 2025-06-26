@@ -17,6 +17,8 @@ interface FilterDropdownProps {
   icon?: ComponentType<LucideProps>;
   className?: string;
   disabled?: boolean;
+  noShadow?: boolean;
+  autoWidth?: boolean;
 }
 
 const FilterDropdown: React.FC<FilterDropdownProps> = ({
@@ -27,6 +29,8 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
   icon: Icon,
   className = '',
   disabled = false,
+  noShadow = false,
+  autoWidth = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -60,7 +64,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
         className={cn(
-          "flex items-center justify-between w-full lg:w-48 gap-2 px-4 py-2 bg-white rounded-lg shadow-md text-sm transition-colors",
+          `flex items-center justify-between ${autoWidth ? 'w-auto' : 'w-full lg:w-48'} gap-2 px-4 py-2 bg-white rounded-lg ${noShadow ? 'shadow-none' : 'shadow-md'} text-sm transition-colors`,
           disabled 
             ? "opacity-50 cursor-not-allowed" 
             : "hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"

@@ -91,9 +91,13 @@ export const createCompany = async (req: Request, res: Response) => {
 
       // Create competitors
       if (competitors && competitors.length > 0) {
-        // Normalize website URLs for deduplication check
-        const normalizeWebsite = (website: string) => 
-          website.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '');
+        // Enhanced normalization: lowercase, strip protocol & www, and remove any trailing path or slash
+        const normalizeWebsite = (website: string) =>
+          website
+            .toLowerCase()
+            .replace(/^https?:\/\//, '')  // Remove protocol
+            .replace(/^www\./, '')         // Remove leading www.
+            .split('/')[0];                // Keep only the hostname (drops trailing '/' or paths)
         
         // Remove duplicates based on website within the submitted list
         const uniqueCompetitors = competitors.filter((competitor, index) => {
@@ -203,21 +207,29 @@ export const getCompany = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    const company = await prisma.company.findFirst({
-      where: {
-        id,
-        userId, // Ensure user owns this company
-      },
+    // First check if company exists at all
+    const companyExists = await prisma.company.findUnique({
+      where: { id },
+    });
+
+    if (!companyExists) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+
+    // Then check if user owns this company
+    if (companyExists.userId !== userId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Get company with relations
+    const company = await prisma.company.findUnique({
+      where: { id },
       include: {
         competitors: { where: { isGenerated: false } },
         benchmarkingQuestions: { where: { isGenerated: false } },
         products: true,
       },
     });
-
-    if (!company) {
-      return res.status(404).json({ error: 'Company not found' });
-    }
 
     res.json({ company });
   } catch (error) {
@@ -709,18 +721,13 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
       responseModelFilter = { model: aiModel as string };
     }
 
-    // Get visibility questions where the company is mentioned, ordered by best position
+    // Get ALL visibility questions for this run
     const visibilityQuestions = await prisma.visibilityQuestion.findMany({
       where: {
         responses: {
           some: {
             runId: reportRun.id,
             ...responseModelFilter,
-            mentions: {
-              some: {
-                companyId: companyId,
-              },
-            },
           },
         },
       },
@@ -729,11 +736,6 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
           where: {
             runId: reportRun.id,
             ...responseModelFilter,
-            mentions: {
-              some: {
-                companyId: companyId,
-              },
-            },
           },
           include: {
             mentions: {
@@ -751,7 +753,7 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
       },
     });
 
-    // Get benchmark questions where the company is mentioned, ordered by best position
+    // Get ALL benchmark questions for this company
     const benchmarkQuestions = await prisma.benchmarkingQuestion.findMany({
       where: {
         companyId: companyId,
@@ -759,11 +761,6 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
           some: {
             runId: reportRun.id,
             ...responseModelFilter,
-            benchmarkMentions: {
-              some: {
-                companyId: companyId,
-              },
-            },
           },
         },
       },
@@ -772,11 +769,6 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
           where: {
             runId: reportRun.id,
             ...responseModelFilter,
-            benchmarkMentions: {
-              some: {
-                companyId: companyId,
-              },
-            },
           },
           include: {
             benchmarkMentions: {
@@ -802,10 +794,12 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
       bestResponseModel: string;
     }> = [];
 
-    // Process visibility questions
+    // Process visibility questions (including ones where company is not mentioned)
     visibilityQuestions.forEach(vq => {
       const allMentions = vq.responses.flatMap(r => r.mentions);
+      
       if (allMentions.length > 0) {
+        // Company IS mentioned
         const positions = allMentions.map(m => m.position);
         const bestPosition = Math.min(...positions);
         const averagePosition = positions.reduce((sum, pos) => sum + pos, 0) / positions.length;
@@ -843,13 +837,42 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
           bestResponse,
           bestResponseModel,
         });
+      } else {
+        // Company is NOT mentioned - still show the question
+        const firstResponse = vq.responses[0];
+        let responseContent = 'No response available';
+        let responseModel = 'unknown';
+        
+        if (firstResponse) {
+          responseModel = firstResponse.model;
+          try {
+            const parsedContent = JSON.parse(firstResponse.content);
+            responseContent = parsedContent.answer || firstResponse.content;
+          } catch {
+            responseContent = firstResponse.content;
+          }
+        }
+        
+        questionResults.push({
+          id: vq.id,
+          question: vq.question,
+          type: 'visibility',
+          productName: vq.product.name,
+          bestPosition: 999, // High number to sort non-mentioned questions to bottom
+          totalMentions: 0,
+          averagePosition: 999,
+          bestResponse: responseContent,
+          bestResponseModel: responseModel,
+        });
       }
     });
 
-    // Process benchmark questions
+    // Process benchmark questions (including ones where company is not mentioned)
     benchmarkQuestions.forEach(bq => {
       const allMentions = bq.benchmarkResponses.flatMap(r => r.benchmarkMentions);
+      
       if (allMentions.length > 0) {
+        // Company IS mentioned
         const positions = allMentions.map(m => m.position);
         const bestPosition = Math.min(...positions);
         const averagePosition = positions.reduce((sum, pos) => sum + pos, 0) / positions.length;
@@ -886,6 +909,32 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
           bestResponse,
           bestResponseModel,
         });
+      } else {
+        // Company is NOT mentioned - still show the question
+        const firstResponse = bq.benchmarkResponses[0];
+        let responseContent = 'No response available';
+        let responseModel = 'unknown';
+        
+        if (firstResponse) {
+          responseModel = firstResponse.model;
+          try {
+            const parsedContent = JSON.parse(firstResponse.content);
+            responseContent = parsedContent.answer || firstResponse.content;
+          } catch {
+            responseContent = firstResponse.content;
+          }
+        }
+        
+        questionResults.push({
+          id: bq.id,
+          question: bq.text,
+          type: 'benchmark',
+          bestPosition: 999, // High number to sort non-mentioned questions to bottom
+          totalMentions: 0,
+          averagePosition: 999,
+          bestResponse: responseContent,
+          bestResponseModel: responseModel,
+        });
       }
     });
 
@@ -900,12 +949,9 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
       return b.totalMentions - a.totalMentions;
     });
 
-    // Limit results
-    const limitNum = parseInt(limit as string);
-    const topQuestions = questionResults.slice(0, limitNum);
-
+    // Return all results - let frontend handle filtering and limiting
     res.json({ 
-      questions: topQuestions,
+      questions: questionResults,
       totalCount: questionResults.length,
       runId: reportRun.id,
       runDate: reportRun.createdAt,
@@ -1185,16 +1231,18 @@ export const updateCompany = async (req: Request, res: Response) => {
 
     const updateData = updateCompanySchema.parse(req.body);
 
-    // Check if company exists and belongs to user
-    const existingCompany = await prisma.company.findFirst({
-      where: {
-        id,
-        userId,
-      },
+    // First check if company exists at all
+    const existingCompany = await prisma.company.findUnique({
+      where: { id },
     });
 
     if (!existingCompany) {
       return res.status(404).json({ error: 'Company not found' });
+    }
+
+    // Then check if user owns this company
+    if (existingCompany.userId !== userId) {
+      return res.status(403).json({ error: 'Access denied' });
     }
 
     // Update company with competitors in a transaction
@@ -1216,9 +1264,13 @@ export const updateCompany = async (req: Request, res: Response) => {
           where: { companyId: id, isGenerated: false },
         });
 
-        // Normalize website URLs for deduplication check
-        const normalizeWebsite = (website: string) => 
-          website.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '');
+        // Enhanced normalization: lowercase, strip protocol & www, and remove any trailing path or slash
+        const normalizeWebsite = (website: string) =>
+          website
+            .toLowerCase()
+            .replace(/^https?:\/\//, '')  // Remove protocol
+            .replace(/^www\./, '')         // Remove leading www.
+            .split('/')[0];                // Keep only the hostname (drops trailing '/' or paths)
         
         // Remove duplicates based on website within the submitted list
         const uniqueCompetitors = updateData.competitors.filter((competitor, index) => {
@@ -1323,16 +1375,18 @@ export const deleteCompany = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    // Check if company exists and belongs to user
-    const existingCompany = await prisma.company.findFirst({
-      where: {
-        id,
-        userId,
-      },
+    // First check if company exists at all
+    const existingCompany = await prisma.company.findUnique({
+      where: { id },
     });
 
     if (!existingCompany) {
       return res.status(404).json({ error: 'Company not found' });
+    }
+
+    // Then check if user owns this company
+    if (existingCompany.userId !== userId) {
+      return res.status(403).json({ error: 'Access denied' });
     }
 
     // Delete company (competitors will be deleted due to cascade)

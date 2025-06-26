@@ -98,7 +98,7 @@ export interface CompetitorRankingsResponse {
 export const getTopRankingQuestions = async (companyId: string, filters?: { aiModel?: string; limit?: number }): Promise<TopRankingQuestionsResponse> => {
   const params = new URLSearchParams();
   if (filters?.aiModel) params.append('aiModel', filters.aiModel);
-  if (filters?.limit) params.append('limit', filters.limit.toString());
+  // Note: We don't send limit parameter anymore - fetch all questions and filter on frontend
   
   const { data } = await apiClient.get(`/companies/${companyId}/top-ranking-questions?${params.toString()}`);
   return data;

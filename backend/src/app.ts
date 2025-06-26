@@ -8,6 +8,7 @@ import authRouter from './routes/authRoutes';
 import companyRouter from './routes/companyRoutes';
 import paymentRouter from './routes/paymentRoutes';
 import reportRouter from './routes/reportRoutes';
+import searchRouter from './routes/searchRoutes';
 import userRouter from './routes/userRoutes';
 import { authenticate } from './middleware/authMiddleware';
 import env from './config/env';
@@ -61,6 +62,7 @@ app.use('/api/companies', companyRouter);
 app.use('/api/payments', paymentRouter);
 app.use('/api/reports', reportRouter);
 app.use('/api/users', userRouter);
+app.use('/api/search', searchRouter);
 
 app.get('/', (req: Request, res: Response) => {
     res.send('Hello from the Serplexity backend!');
