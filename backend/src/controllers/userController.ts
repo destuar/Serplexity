@@ -39,11 +39,11 @@ export const exportUserData = async (req: Request, res: Response) => {
                         competitors: true,
                         benchmarkingQuestions: true,
                         products: true,
-                        runs: {
-                            include: {
-                                metrics: true
-                            }
-                        }
+                                    runs: {
+                include: {
+                    sentimentScores: true
+                }
+            }
                     }
                 }
             }
@@ -78,7 +78,7 @@ export const deleteUserData = async (req: Request, res: Response) => {
             const companyIds = userCompanies.map(c => c.id);
 
             // Explicitly delete all data related to the user in the correct order
-            await tx.metric.deleteMany({ where: { reportRun: { companyId: { in: companyIds } } } });
+            await tx.sentimentScore.deleteMany({ where: { reportRun: { companyId: { in: companyIds } } } });
             await tx.reportRun.deleteMany({ where: { companyId: { in: companyIds } } });
             await tx.competitor.deleteMany({ where: { companyId: { in: companyIds } } });
             await tx.benchmarkingQuestion.deleteMany({ where: { companyId: { in: companyIds } } });

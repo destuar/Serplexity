@@ -140,7 +140,7 @@ const SentimentDetailsCard: React.FC<SentimentDetailsCardProps> = ({ selectedMod
     
     const userBrandName = data?.competitorRankings?.userCompany?.name;
 
-    const sentimentMetrics: Metric[] = data?.metrics.filter((m: Metric) => m.name === 'Detailed Sentiment Scores') || [];
+    const sentimentMetrics: Metric[] = data?.sentimentDetails?.filter((m: Metric) => m.name === 'Detailed Sentiment Scores') || [];
 
     const title = selectedModel === 'all'
         ? 'Sentiment Details'

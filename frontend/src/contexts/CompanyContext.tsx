@@ -18,12 +18,37 @@ interface CompanyProviderProps {
   children: ReactNode;
 }
 
+// Key for localStorage
+const SELECTED_COMPANY_KEY = 'selectedCompanyId';
+
 export const CompanyProvider: React.FC<CompanyProviderProps> = ({ children }) => {
   const { user, isLoading: authLoading } = useAuth();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Helper function to get stored company ID
+  const getStoredCompanyId = useCallback((): string | null => {
+    try {
+      return localStorage.getItem(SELECTED_COMPANY_KEY);
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // Helper function to store company ID
+  const storeCompanyId = useCallback((companyId: string | null): void => {
+    try {
+      if (companyId) {
+        localStorage.setItem(SELECTED_COMPANY_KEY, companyId);
+      } else {
+        localStorage.removeItem(SELECTED_COMPANY_KEY);
+      }
+    } catch {
+      // Silently fail if localStorage is not available
+    }
+  }, []);
 
   const fetchCompanies = useCallback(async () => {
     if (authLoading || !user) {
@@ -38,11 +63,30 @@ export const CompanyProvider: React.FC<CompanyProviderProps> = ({ children }) =>
       setCompanies(newCompanies);
       
       if (newCompanies.length > 0) {
-        const currentSelectedId = selectedCompany?.id;
-        const updatedSelected = currentSelectedId ? newCompanies.find(c => c.id === currentSelectedId) : null;
-        setSelectedCompany(updatedSelected || newCompanies[0]);
+        // Try to restore the previously selected company
+        const storedCompanyId = getStoredCompanyId();
+        let companyToSelect: Company | null = null;
+
+        if (storedCompanyId) {
+          // Try to find the stored company
+          companyToSelect = newCompanies.find(c => c.id === storedCompanyId) || null;
+        }
+
+        // If no stored company or stored company not found, fall back to current selection or first company
+        if (!companyToSelect) {
+          const currentSelectedId = selectedCompany?.id;
+          companyToSelect = currentSelectedId ? (newCompanies.find(c => c.id === currentSelectedId) || null) : null;
+          companyToSelect = companyToSelect || newCompanies[0];
+        }
+
+        setSelectedCompany(companyToSelect);
+        // Ensure the localStorage is updated with the actual selected company
+        if (companyToSelect) {
+          storeCompanyId(companyToSelect.id);
+        }
       } else {
         setSelectedCompany(null);
+        storeCompanyId(null);
       }
 
     } catch (err) {
@@ -52,7 +96,7 @@ export const CompanyProvider: React.FC<CompanyProviderProps> = ({ children }) =>
     } finally {
       setLoading(false);
     }
-  }, [selectedCompany, authLoading, user]);
+  }, [selectedCompany, authLoading, user, getStoredCompanyId, storeCompanyId]);
 
   useEffect(() => {
     if (authLoading) {
@@ -65,18 +109,38 @@ export const CompanyProvider: React.FC<CompanyProviderProps> = ({ children }) =>
       // Only update local state if we don't already have companies
       // This prevents overriding locally created companies before the user object is updated
       setCompanies(prev => prev.length === 0 ? userCompanies : prev);
+      
       if (userCompanies.length > 0 && !selectedCompany) {
-        setSelectedCompany(userCompanies[0]);
+        // Try to restore the previously selected company
+        const storedCompanyId = getStoredCompanyId();
+        let companyToSelect: Company | null = null;
+
+        if (storedCompanyId) {
+          // Try to find the stored company
+          companyToSelect = userCompanies.find(c => c.id === storedCompanyId) || null;
+        }
+
+        // If no stored company or stored company not found, default to first company
+        if (!companyToSelect) {
+          companyToSelect = userCompanies[0];
+        }
+
+        setSelectedCompany(companyToSelect);
+        if (companyToSelect) {
+          storeCompanyId(companyToSelect.id);
+        }
       } else if (userCompanies.length === 0 && companies.length === 0) {
         setSelectedCompany(null);
+        storeCompanyId(null);
       }
     } else {
       // Only clear companies if we're sure the user has no companies
       setCompanies(prev => prev.length === 0 ? [] : prev);
       setSelectedCompany(null);
+      storeCompanyId(null);
     }
     setLoading(false);
-  }, [user, authLoading, selectedCompany, companies.length]);
+  }, [user, authLoading, selectedCompany, companies.length, getStoredCompanyId, storeCompanyId]);
 
   const createCompany = useCallback(async (data: CompanyFormData): Promise<Company> => {
     try {
@@ -86,6 +150,7 @@ export const CompanyProvider: React.FC<CompanyProviderProps> = ({ children }) =>
       
       setCompanies(prev => [company, ...prev]);
       setSelectedCompany(company);
+      storeCompanyId(company.id);
       
       return company;
     } catch (err) {
@@ -101,7 +166,7 @@ export const CompanyProvider: React.FC<CompanyProviderProps> = ({ children }) =>
       setError(errorMessage);
       throw new Error(errorMessage);
     }
-  }, []);
+  }, [storeCompanyId]);
 
   const updateCompany = useCallback(async (id: string, data: Partial<CompanyFormData>): Promise<Company> => {
     try {
@@ -113,6 +178,7 @@ export const CompanyProvider: React.FC<CompanyProviderProps> = ({ children }) =>
       
       if (selectedCompany?.id === id) {
         setSelectedCompany(company);
+        storeCompanyId(company.id);
       }
       
       return company;
@@ -122,7 +188,7 @@ export const CompanyProvider: React.FC<CompanyProviderProps> = ({ children }) =>
       setError(errorMessage);
       throw apiErr;
     }
-  }, [selectedCompany]);
+  }, [selectedCompany, storeCompanyId]);
 
   const deleteCompany = useCallback(async (id: string): Promise<void> => {
     try {
@@ -133,7 +199,9 @@ export const CompanyProvider: React.FC<CompanyProviderProps> = ({ children }) =>
       setCompanies(remainingCompanies);
       
       if (selectedCompany?.id === id) {
-        setSelectedCompany(remainingCompanies.length > 0 ? remainingCompanies[0] : null);
+        const newSelectedCompany = remainingCompanies.length > 0 ? remainingCompanies[0] : null;
+        setSelectedCompany(newSelectedCompany);
+        storeCompanyId(newSelectedCompany?.id || null);
       }
     } catch (err) {
       const apiErr = err as ApiError;
@@ -141,11 +209,12 @@ export const CompanyProvider: React.FC<CompanyProviderProps> = ({ children }) =>
       setError(errorMessage);
       throw new Error(errorMessage);
     }
-  }, [selectedCompany, companies]);
+  }, [selectedCompany, companies, storeCompanyId]);
 
   const selectCompany = useCallback((company: Company | null) => {
     setSelectedCompany(company);
-  }, []);
+    storeCompanyId(company?.id || null);
+  }, [storeCompanyId]);
 
   const maxCompanies = 3;
 

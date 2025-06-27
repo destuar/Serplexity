@@ -7,10 +7,10 @@ alwaysApply: false
 
 # Important Rules
 
-- Think thoroughly before coding with reasoning paragraphs. 
-- ALWAYS ask follow up questions to clarify the prompt and then break each task down into its atomic components.
-- ALWAYS create a task.txt file that includes the task and atomic components and potentail dependencies. Check off subproblems as you complete them.
-- ALWAYS write simple, clean and modular code. 
+- Think thoroughly before coding with reasoning paragraphs.
+- ALWAYS ask follow-up questions to clarify the prompt and then break each task down into its atomic components.
+- ALWAYS create a task.txt file that includes the task, atomic components, and potential dependencies. Check off sub-problems as you complete them.
+- ALWAYS write simple, clean, and modular code.
 
 # CodeLadder Project Rules
 
@@ -22,15 +22,38 @@ project:
 ## Metric Development
 
 - PAWC = (citation word share × exponential decay by position)
-- AIR = Boolean: was client cited at least once?
+- AIR  = Boolean: Was the client cited at least once?
 - Gap Index = potential revenue × (1 − PAWC)
+- Avg Inclusion Rate = mean(PAWC across all queries)
 
 # System Requirements
 requirements:
-
+  - Node.js ≥ 20.x (LTS)
+  - PostgreSQL ≥ 15.x
+  - Redis ≥ 7.x
+  - AWS account with S3 bucket (public-read) and IAM user
+  - Stripe account with prices configured (monthly & annual)
+  - Access tokens for: OpenAI, Anthropic, Google Generative AI, Perplexity
 
 # Technical Stack
 stack:
+  backend:
+    language: "TypeScript"
+    framework: "Express"
+    orm: "Prisma"
+    database: "PostgreSQL"
+    queue: "BullMQ (Redis)"
+    tracing: "OpenTelemetry"
+    llm_providers: ["OpenAI", "Anthropic", "Gemini", "Perplexity"]
+  frontend:
+    language: "TypeScript"
+    framework: "React"
+    build_tool: "Vite"
+    styling: "Tailwind CSS + Radix UI"
+    state_management: "React Context + custom hooks"
+  infra:
+    containerization: "Docker & docker-compose"
+    cloud: "AWS (ECR, ECS, S3)"
 
 # Authorization
 roles:
@@ -44,13 +67,27 @@ environment:
       - DATABASE_URL
       - JWT_SECRET
       - JWT_REFRESH_SECRET
+      - CORS_ORIGIN
+      - NODE_ENV
+      - PORT
+      - GOOGLE_CLIENT_ID
+      - GOOGLE_CLIENT_SECRET
+      - GOOGLE_CALLBACK_URL
+      - REDIS_HOST
+      - REDIS_PORT
+      - STRIPE_SECRET_KEY
+      - STRIPE_WEBHOOK_SECRET
+      - STRIPE_MONTHLY_PRICE_ID
+      - STRIPE_ANNUAL_PRICE_ID
+      - OPENAI_API_KEY
+      - ANTHROPIC_API_KEY
+      - GEMINI_API_KEY
+      - PERPLEXITY_API_KEY
+      - LOG_LEVEL
       - AWS_ACCESS_KEY_ID
       - AWS_SECRET_ACCESS_KEY
       - AWS_REGION
       - S3_BUCKET
-      - CORS_ORIGIN
-      - NODE_ENV
-
   frontend:
     required:
       - VITE_API_URL
@@ -71,7 +108,6 @@ development:
       - "npm install"
       - "npm run dev"
     ports: 5173
-    
   backend:
     commands:
       - "npm install"
@@ -84,26 +120,26 @@ development:
 - Keep files small and focused (<200 lines)
 - Test after every meaningful change
 - Use clear, consistent naming
-- Think thoroughly before coding with reasoning paragraphs. 
-- ALWAYS ask follow up questions to clarify the prompt and then break each task down into its atomic components.
-- ALWAYS create a task.txt file that includes the task and atomic components and potentail dependencies. Check off subproblems as you complete them.
-- ALWAYS write simple, clean and modular code. 
+- Think thoroughly before coding with reasoning paragraphs.
+- ALWAYS ask follow-up questions to clarify the prompt and break tasks down.
+- ALWAYS create a task.txt file and track progress.
+- ALWAYS write simple, clean, and modular code.
 
 # Error Fixing
 - DO NOT JUMP TO CONCLUSIONS! Consider multiple possible causes before deciding.
-- Make only the minimal necessary changes
-- in case of strange errors, ask the user to perform a Perplexity web search to find the latest up-to-date information
+- Make only the minimal necessary changes.
+- In case of strange errors, perform a Perplexity web search for up-to-date information.
 
 # Building Process
-- ALWAYS ask follow up questions to clarify the prompt and then break each task down into its atomic components.
-- ALWAYS create a task.txt file that includes the task and atomic components and potentail dependencies. Check off subproblems as you complete them.
-- DO NOT write complicated and confusing code. Opt for the simple & modular approach.
-- When not sure what to do, tell the user to perform a web search
+- ALWAYS ask follow-up questions to clarify the prompt and then break each task down.
+- ALWAYS create a task.txt file with atomic components and dependencies.
+- DO NOT write complicated and confusing code—opt for the simple & modular approach.
+- When unsure what to do, perform a web search.
 
 # Comments
-- ALWAYS try to add more helpful and explanatory comments into our code
-- NEVER delete old comments - unless they are obviously wrong / obsolete
+- ALWAYS add helpful, explanatory comments to our code.
+- NEVER delete old comments unless they are obviously wrong/obsolete.
 - Include LOTS of explanatory comments in your code. ALWAYS write well-documented code.
-- Document all changes and their reasoning IN THE COMMENTS YOU WRITE
-- when writing comments, use clear and easy-to-understand language and write in short sentences.
+- Document all changes and their reasoning IN THE COMMENTS YOU WRITE.
+- When writing comments, use clear, easy-to-understand language and short sentences.
   

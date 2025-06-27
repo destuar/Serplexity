@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Loader, Calendar, RefreshCw, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';
-import { triggerReportGeneration, getReportStatus } from '../services/reportService';
-import { generateCompetitors } from '../services/companyService';
+import { useModelComparison } from '../hooks/useModelComparison';
 import WelcomePrompt from '../components/ui/WelcomePrompt';
+import BlankLoadingState from '../components/ui/BlankLoadingState';
 import Card from '../components/ui/Card';
 import {
   LineChart,
@@ -17,6 +17,7 @@ import {
 } from 'recharts';
 import { MODEL_CONFIGS, getModelDisplayName } from '../types/dashboard';
 import FilterDropdown from '../components/dashboard/FilterDropdown';
+import { useReportGeneration } from '../hooks/useReportGeneration';
 
 // Colors for chart lines (cycled)
 const modelColors = [
@@ -35,21 +36,35 @@ interface ModelMetricRow {
   displayName: string;
   logoUrl?: string;
   shareOfVoice: number | null;
+  shareOfVoiceChange: number | null;
   averagePosition: number | null;
+  averagePositionChange: number | null;
   inclusionRate: number | null;
+  inclusionRateChange: number | null;
 }
-
-const SUMMARY_ENGINE_ID = 'serplexity-summary'; // aggregated value we want to exclude
 
 /*******************************************************************************
  *  Helper utilities
  ******************************************************************************/
-const pickLatestMetricValue = <T,>(metrics: any[], name: string): T | null => {
-  const candidates = metrics
-    .filter((m) => m.name === name)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  if (candidates.length === 0) return null;
-  return candidates[0].value as T;
+const getChangeDisplay = (change: number | null) => {
+  if (change === null) return null;
+  
+  // Show gray dash for 0% change (centered to match "0.0%" width)
+  if (Math.abs(change) < 0.1) {
+    return (
+      <div className="flex items-center justify-center text-xs ml-2 text-gray-400 w-12">
+        <span>—</span>
+      </div>
+    );
+  }
+  
+  const isPositive = change > 0;
+  return (
+    <div className={`flex items-center text-xs ml-2 ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+      {isPositive ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+      <span className="ml-1">{Math.abs(change).toFixed(1)}%</span>
+    </div>
+  );
 };
 
 /*******************************************************************************
@@ -85,7 +100,7 @@ const ModelShareOfVoiceChart: React.FC<{ data: any; modelIds: string[] }> = ({ d
   return (
     <Card className="h-full flex flex-col relative">
       <div className="flex flex-col flex-1">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Share of Voice Over Time</h3>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Visibility Over Time</h3>
         <div className="flex-1">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 5, right: 5, bottom: -15, left: 20 }}>
@@ -237,13 +252,22 @@ const ModelMetricsTable: React.FC<{
                     </div>
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-700">
-                    {row.shareOfVoice !== null ? `${row.shareOfVoice.toFixed(1)}%` : '—'}
+                    <div className="flex items-center">
+                      <span>{row.shareOfVoice !== null ? `${row.shareOfVoice.toFixed(1)}%` : '—'}</span>
+                      {getChangeDisplay(row.shareOfVoiceChange)}
+                    </div>
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-700">
-                    {row.averagePosition !== null ? row.averagePosition.toFixed(1) : '—'}
+                    <div className="flex items-center">
+                      <span>{row.averagePosition !== null ? row.averagePosition.toFixed(1) : '—'}</span>
+                      {getChangeDisplay(row.averagePositionChange)}
+                    </div>
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-700">
-                    {row.inclusionRate !== null ? `${row.inclusionRate.toFixed(1)}%` : '—'}
+                    <div className="flex items-center">
+                      <span>{row.inclusionRate !== null ? `${row.inclusionRate.toFixed(1)}%` : '—'}</span>
+                      {getChangeDisplay(row.inclusionRateChange)}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -261,123 +285,62 @@ const ModelMetricsTable: React.FC<{
 const ModelComparisonPage: React.FC = () => {
   const { selectedCompany } = useCompany();
   const {
-    data,
     filters,
-    loading,
+    loading: dashboardLoading,
     refreshing,
     updateFilters,
-    refreshData,
+    refreshData: refreshDashboard,
     lastUpdated,
+    hasReport,
   } = useDashboard();
 
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generationStatus, setGenerationStatus] = useState<string | null>(null);
-  const [runId, setRunId] = useState<string | null>(null);
+  const { isGenerating, generationStatus, generateReport } = useReportGeneration(selectedCompany);
+  const { data: comparisonData, loading: comparisonLoading, refreshData: refreshComparison } = useModelComparison();
+  
   const [sortBy, setSortBy] = useState<SortField>('shareOfVoice');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-
-  // Determine if dashboard has data
-  const hasExistingData = data && data.metrics && data.metrics.length > 0;
-
-  // Polling for report generation status
-  useEffect(() => {
-    if (!isGenerating || !runId) return;
-
-    const poll = setInterval(async () => {
-      try {
-        const status = await getReportStatus(runId);
-        setGenerationStatus(status.stepStatus || 'Processing data...');
-        if (status.status === 'COMPLETED' || status.status === 'FAILED') {
-          setIsGenerating(false);
-          setRunId(null);
-          if (status.status === 'COMPLETED') await refreshData();
-        }
-      } catch (err) {
-        console.error('Status polling failed:', err);
-        setIsGenerating(false);
-        setRunId(null);
-      }
-    }, 2500);
-
-    return () => clearInterval(poll);
-  }, [isGenerating, runId, refreshData]);
-
-  /**
-   * Kick-off report generation pipeline
-   */
-  const handleGenerateReport = async () => {
-    if (!selectedCompany) return;
-
-    setIsGenerating(true);
-    setGenerationStatus('Initializing report generation pipeline...');
-
-    try {
-      // Ensure at least one competitor exists (same logic as other pages)
-      const sampleCompetitor = selectedCompany.competitors[0]?.name;
-      if (!sampleCompetitor) {
-        setGenerationStatus('Error: add one competitor to seed the list.');
-        setIsGenerating(false);
-        return;
-      }
-      await generateCompetitors(selectedCompany.id, sampleCompetitor);
-
-      const { runId: newRunId } = await triggerReportGeneration(selectedCompany.id);
-      setRunId(newRunId);
-    } catch (err) {
-      console.error('Failed to start report generation:', err);
-        setIsGenerating(false);
-      setGenerationStatus('Failed to start report generation');
-    }
-  };
 
   /***************************************************************************
    *  Derive model-specific metrics & history (memoized)
    ***************************************************************************/
   const { metricRows, historyData, modelIds } = useMemo(() => {
-    if (!hasExistingData) return { metricRows: [], historyData: [], modelIds: [] as string[] };
+    if (!comparisonData || comparisonData.length === 0) {
+      return { metricRows: [], historyData: [], modelIds: [] };
+    }
 
-    // Group metrics by engine/model
-    const metricsByModel: Record<string, any[]> = {};
-    (data!.metrics as any[]).forEach((m) => {
-      if (!m.engine || m.engine === SUMMARY_ENGINE_ID) return; // skip summary
-      if (!metricsByModel[m.engine]) metricsByModel[m.engine] = [];
-      metricsByModel[m.engine].push(m);
-    });
+    const rows: ModelMetricRow[] = comparisonData.map(modelData => ({
+      modelId: modelData.aiModel!,
+      displayName: getModelDisplayName(modelData.aiModel!),
+      logoUrl: MODEL_CONFIGS[modelData.aiModel!]?.logoUrl,
+      shareOfVoice: modelData.shareOfVoice,
+      shareOfVoiceChange: modelData.shareOfVoiceChange,
+      averagePosition: modelData.averagePosition,
+      averagePositionChange: modelData.averagePositionChange,
+      inclusionRate: modelData.averageInclusionRate,
+      inclusionRateChange: modelData.averageInclusionChange,
+    }));
 
-    // Build summary rows
-    const metricRows: ModelMetricRow[] = Object.keys(metricsByModel).map((modelId) => {
-      const group = metricsByModel[modelId];
-      const sov = pickLatestMetricValue<{ shareOfVoice: number }>(group, 'brandShareOfVoice');
-      const pos = pickLatestMetricValue<{ averagePosition: number }>(group, 'averagePosition');
-      const air = pickLatestMetricValue<{ averageInclusionRate: number }>(group, 'averageInclusionRate');
-      return {
-        modelId,
-        displayName: getModelDisplayName(modelId),
-        logoUrl: MODEL_CONFIGS[modelId]?.logoUrl,
-        shareOfVoice: sov ? sov.shareOfVoice : null,
-        averagePosition: pos ? pos.averagePosition : null,
-        inclusionRate: air ? air.averageInclusionRate : null,
-      };
-    });
-
-    // Build share-of-voice history per model
     const historyAccumulator: Record<string, any> = {};
-    (data!.metrics as any[]).forEach((m) => {
-      if (m.name !== 'shareOfVoiceHistory' || m.engine === SUMMARY_ENGINE_ID) return;
-      if (!m.value || !m.value.history) return;
-      m.value.history.forEach((pt: { date: string; shareOfVoice: number }) => {
-        const dateKey = new Date(pt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        if (!historyAccumulator[dateKey]) historyAccumulator[dateKey] = { date: dateKey };
-        historyAccumulator[dateKey][m.engine] = pt.shareOfVoice;
-      });
+    comparisonData.forEach(modelData => {
+      if (modelData.shareOfVoiceHistory) {
+        modelData.shareOfVoiceHistory.forEach(pt => {
+          const dateKey = new Date(pt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          if (!historyAccumulator[dateKey]) {
+            historyAccumulator[dateKey] = { date: dateKey };
+          }
+          historyAccumulator[dateKey][modelData.aiModel!] = pt.shareOfVoice;
+        });
+      }
     });
 
-    const historyData = Object.values(historyAccumulator).sort(
-      (a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+    const history = Object.values(historyAccumulator).sort(
+      (a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()
     );
 
-    return { metricRows, historyData, modelIds: Object.keys(metricsByModel) };
-  }, [data, hasExistingData]);
+    const ids = comparisonData.map(d => d.aiModel!);
+
+    return { metricRows: rows, historyData: history, modelIds: ids };
+  }, [comparisonData]);
 
   const dateRangeOptions = [
     { value: '7d', label: 'Last 7 days' },
@@ -395,53 +358,31 @@ const ModelComparisonPage: React.FC = () => {
     }
   };
 
-  const sortedRows = useMemo(() => {
-    const copy = [...metricRows];
-    copy.sort((a, b) => {
-      let aVal: number | string | null = 0;
-      let bVal: number | string | null = 0;
-      switch (sortBy) {
-        case 'model':
-          aVal = a.displayName.toLowerCase();
-          bVal = b.displayName.toLowerCase();
-          break;
-        case 'shareOfVoice':
-          aVal = a.shareOfVoice ?? -Infinity;
-          bVal = b.shareOfVoice ?? -Infinity;
-          break;
-        case 'averagePosition':
-          aVal = a.averagePosition ?? Infinity;
-          bVal = b.averagePosition ?? Infinity;
-          break;
-        case 'inclusionRate':
-          aVal = a.inclusionRate ?? -Infinity;
-          bVal = b.inclusionRate ?? -Infinity;
-          break;
-      }
+  const refreshData = async () => {
+    await Promise.all([
+      refreshDashboard(),
+      refreshComparison(),
+    ]);
+  };
 
-      if (typeof aVal === 'string' && typeof bVal === 'string') {
-        return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-      }
-      const numA = Number(aVal);
-      const numB = Number(bVal);
-      return sortDir === 'asc' ? numA - numB : numB - numA;
-    });
-    return copy;
-  }, [metricRows, sortBy, sortDir]);
+  const loading = dashboardLoading || comparisonLoading;
 
   /***************************************************************************
    *  Render
    ***************************************************************************/
   return (
     <div className="h-full flex flex-col">
-      {!hasExistingData ? (
+      {dashboardLoading || hasReport === null ? (
+        <BlankLoadingState message="Loading dashboard data..." />
+      ) : hasReport === false ? (
         <WelcomePrompt
-          onGenerateReport={handleGenerateReport}
+          onGenerateReport={generateReport}
           isGenerating={isGenerating}
           generationStatus={generationStatus}
         />
       ) : (
         <>
+          {/* Header Section - Always show when there's a report */}
           <div className="flex-shrink-0 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-2">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Model Comparison</h1>
@@ -465,7 +406,7 @@ const ModelComparisonPage: React.FC = () => {
                 disabled={loading || refreshing}
                 className="flex items-center justify-center gap-2 px-4 py-2 bg-[#7762ff] text-white rounded-lg hover:bg-[#6650e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2"
               >
-                {refreshing ? (
+                {refreshing || loading ? (
                   <><Loader size={16} className="animate-spin" /><span>Refreshing...</span></>
                 ) : (
                   <><RefreshCw size={16} /><span>Refresh data</span></>
@@ -473,14 +414,20 @@ const ModelComparisonPage: React.FC = () => {
               </button>
             </div>
           </div>
-          <div className="flex-1 min-h-0 p-1 flex flex-col gap-4">
-            <div className="h-[350px] flex-shrink-0">
-              <ModelShareOfVoiceChart data={historyData} modelIds={modelIds} />
+          
+          {/* Content Area - Show loading state only here */}
+          {comparisonLoading || !comparisonData || comparisonData.length === 0 ? (
+            <BlankLoadingState message="Processing model comparison data..." />
+          ) : (
+            <div className="flex-1 min-h-0 p-1 flex flex-col gap-4">
+              <div className="h-[350px] flex-shrink-0">
+                <ModelShareOfVoiceChart data={historyData} modelIds={modelIds} />
+              </div>
+              <div className="flex-1 min-h-0">
+                <ModelMetricsTable rows={metricRows} handleSort={handleSort} sortBy={sortBy} sortDir={sortDir} />
+              </div>
             </div>
-            <div className="flex-1 min-h-0">
-              <ModelMetricsTable rows={sortedRows} handleSort={handleSort} sortBy={sortBy} sortDir={sortDir} />
-          </div>
-        </div>
+          )}
         </>
       )}
     </div>

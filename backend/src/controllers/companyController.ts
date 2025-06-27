@@ -681,7 +681,7 @@ export const getSentimentData = async (req: Request, res: Response) => {
         responseModelFilter = { model: aiModel as string };
       }
 
-      const metrics = await prisma.metric.findMany({
+      const metrics = await prisma.sentimentScore.findMany({
         where: {
           runId: runId,
           name: 'sentimentScores',
@@ -792,6 +792,11 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
       averagePosition: number;
       bestResponse: string;
       bestResponseModel: string;
+      responses: Array<{
+        model: string;
+        response: string;
+        position?: number;
+      }>;
     }> = [];
 
     // Process visibility questions (including ones where company is not mentioned)
@@ -836,6 +841,28 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
           averagePosition,
           bestResponse,
           bestResponseModel,
+          responses: (() => {
+            const latestMap = new Map<string, typeof vq.responses[0]>();
+            vq.responses.forEach(r => {
+              const existing = latestMap.get(r.model);
+              if (!existing || existing.createdAt < r.createdAt) {
+                latestMap.set(r.model, r);
+              }
+            });
+            return Array.from(latestMap.values()).map(r => {
+              let respContent = r.content;
+              try {
+                const parsed = JSON.parse(r.content);
+                respContent = parsed.answer || r.content;
+              } catch {}
+              return {
+                model: r.model,
+                response: respContent,
+                position: r.mentions.find(m => m.companyId === companyId)?.position,
+                createdAt: r.createdAt,
+              };
+            });
+          })(),
         });
       } else {
         // Company is NOT mentioned - still show the question
@@ -863,6 +890,23 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
           averagePosition: 999,
           bestResponse: responseContent,
           bestResponseModel: responseModel,
+          responses: (() => {
+            const latestMap = new Map<string, typeof vq.responses[0]>();
+            vq.responses.forEach(r => {
+              const existing = latestMap.get(r.model);
+              if (!existing || existing.createdAt < r.createdAt) {
+                latestMap.set(r.model, r);
+              }
+            });
+            return Array.from(latestMap.values()).map(r => {
+              let respContent = r.content;
+              try {
+                const parsed = JSON.parse(r.content);
+                respContent = parsed.answer || r.content;
+              } catch {}
+              return { model: r.model, response: respContent, createdAt: r.createdAt };
+            });
+          })(),
         });
       }
     });
@@ -908,6 +952,28 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
           averagePosition,
           bestResponse,
           bestResponseModel,
+          responses: (() => {
+            const latestMap = new Map<string, typeof bq.benchmarkResponses[0]>();
+            bq.benchmarkResponses.forEach(r => {
+              const existing = latestMap.get(r.model);
+              if (!existing || existing.createdAt < r.createdAt) {
+                latestMap.set(r.model, r);
+              }
+            });
+            return Array.from(latestMap.values()).map(r => {
+              let respContent = r.content;
+              try {
+                const parsed = JSON.parse(r.content);
+                respContent = parsed.answer || r.content;
+              } catch {}
+              return {
+                model: r.model,
+                response: respContent,
+                position: r.benchmarkMentions.find(m => m.companyId === companyId)?.position,
+                createdAt: r.createdAt,
+              };
+            });
+          })(),
         });
       } else {
         // Company is NOT mentioned - still show the question
@@ -929,11 +995,28 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
           id: bq.id,
           question: bq.text,
           type: 'benchmark',
-          bestPosition: 999, // High number to sort non-mentioned questions to bottom
+          bestPosition: 999,
           totalMentions: 0,
           averagePosition: 999,
           bestResponse: responseContent,
           bestResponseModel: responseModel,
+          responses: (() => {
+            const latestMap = new Map<string, typeof bq.benchmarkResponses[0]>();
+            bq.benchmarkResponses.forEach(r => {
+              const existing = latestMap.get(r.model);
+              if (!existing || existing.createdAt < r.createdAt) {
+                latestMap.set(r.model, r);
+              }
+            });
+            return Array.from(latestMap.values()).map(r => {
+              let respContent = r.content;
+              try {
+                const parsed = JSON.parse(r.content);
+                respContent = parsed.answer || r.content;
+              } catch {}
+              return { model: r.model, response: respContent, createdAt: r.createdAt };
+            });
+          })(),
         });
       }
     });
@@ -992,7 +1075,7 @@ export const getSentimentOverTime = async (req: Request, res: Response) => {
     const engineFilter = (aiModel && aiModel !== 'all') ? (aiModel as string) : 'serplexity-summary';
 
     const historyPromises = reportRuns.map(async (run) => {
-      const sentimentMetric = await prisma.metric.findFirst({
+      const sentimentMetric = await prisma.sentimentScore.findFirst({
         where: {
           runId: run.id,
           name: 'Detailed Sentiment Scores',

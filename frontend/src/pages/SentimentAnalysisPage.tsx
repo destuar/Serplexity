@@ -1,47 +1,19 @@
-import { useState } from 'react';
 import { Sparkles, Calendar, RefreshCw, Loader } from 'lucide-react';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';
-import { triggerReportGeneration } from '../services/reportService';
+import { useReportGeneration } from '../hooks/useReportGeneration';
 import FilterDropdown from '../components/dashboard/FilterDropdown';
 import SentimentScoreCard from '../components/dashboard/SentimentScoreCard';
 import SentimentOverTimeCard from '../components/dashboard/SentimentOverTimeCard';
 import SentimentDetailsCard from '../components/dashboard/SentimentDetailsCard';
 import WelcomePrompt from '../components/ui/WelcomePrompt';
+import BlankLoadingState from '../components/ui/BlankLoadingState';
 import { DashboardFilters, getModelFilterOptions } from '../types/dashboard';
 
 const SentimentAnalysisPage = () => {
   const { selectedCompany } = useCompany();
-  const { data, filters, updateFilters, refreshing, refreshData, loading, lastUpdated } = useDashboard();
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generationStatus, setGenerationStatus] = useState<string | null>(null);
-
-  // Check if we have data to show
-  const hasExistingData = data && Object.keys(data).length > 0;
-
-  const handleGenerateReport = async () => {
-    if (!selectedCompany) return;
-
-    setIsGenerating(true);
-    setGenerationStatus('Analyzing competitor landscape...');
-    try {
-      // Step 1: Generate competitors
-      const exampleCompetitor = selectedCompany.competitors[0]?.name;
-      if (!exampleCompetitor) {
-        setGenerationStatus('Error: Add one competitor to seed the list.');
-        setIsGenerating(false);
-        return;
-      }
-
-      // Step 2: Trigger report generation
-      setGenerationStatus('Initializing report generation pipeline...');
-      await triggerReportGeneration(selectedCompany.id);
-    } catch (error) {
-        console.error("Failed to start report generation:", error);
-        setIsGenerating(false);
-        setGenerationStatus('Failed to start report generation.');
-    }
-  };
+  const { data, filters, updateFilters, refreshing, refreshData, loading, lastUpdated, hasReport, refreshTrigger } = useDashboard();
+  const { isGenerating, generationStatus, generateReport } = useReportGeneration(selectedCompany);
 
   const dateRangeOptions = [
     { value: '7d', label: 'Last 7 days' },
@@ -52,15 +24,19 @@ const SentimentAnalysisPage = () => {
 
   const aiModelOptions = getModelFilterOptions();
 
-  const handleRefresh = async () => {
-    await refreshData();
+  const handleRefresh = () => {
+    refreshData();
   };
+
+  const cardKey = `sentiment-${filters.aiModel}-${filters.dateRange}-${refreshTrigger}`;
 
   return (
     <div className="h-full flex flex-col">
-      {!hasExistingData ? (
+      {loading || hasReport === null ? (
+        <BlankLoadingState message="Loading sentiment analysis data..." />
+      ) : hasReport === false ? (
         <WelcomePrompt
-          onGenerateReport={handleGenerateReport}
+          onGenerateReport={generateReport}
           isGenerating={isGenerating}
           generationStatus={generationStatus}
         />
@@ -112,60 +88,50 @@ const SentimentAnalysisPage = () => {
             </div>
           </div>
           
-          <div className="flex-1 min-h-0 p-1">
-            {/* Dashboard Grid - Responsive Layout */}
-            <div className="h-full w-full">
-              {/* Mobile: Stack all cards vertically */}
-              <div className="lg:hidden h-full overflow-y-auto space-y-4">
-                <div className="min-h-[300px]">
-                  <SentimentScoreCard key={`sentiment-analysis-mobile-${filters.aiModel}`} selectedModel={filters.aiModel} />
+          {!data || Object.keys(data).length === 0 ? (
+            <BlankLoadingState message="Processing sentiment data..." />
+          ) : (
+            <div className="flex-1 min-h-0 p-1">
+              <div className="h-full w-full">
+                <div className="lg:hidden h-full overflow-y-auto space-y-4">
+                  <div className="min-h-[300px]">
+                    <SentimentScoreCard key={`${cardKey}-score-mobile`} />
+                  </div>
+                  <div className="min-h-[300px]">
+                    <SentimentOverTimeCard key={`${cardKey}-sot-mobile`} selectedModel={filters.aiModel} />
+                  </div>
+                  <div className="min-h-[400px]">
+                    <SentimentDetailsCard key={`${cardKey}-sd-mobile`} selectedModel={filters.aiModel} />
+                  </div>
                 </div>
-                <div className="min-h-[300px]">
-                  <SentimentOverTimeCard selectedModel={filters.aiModel} />
-                </div>
-                <div className="min-h-[400px]">
-                  <SentimentDetailsCard selectedModel={filters.aiModel} />
-                </div>
-              </div>
 
-              {/* Desktop: Grid Template Areas Layout - 48 columns × 24 rows for maximum control */}
-              <div className="hidden lg:grid h-full w-full gap-4" style={{
-                gridTemplateColumns: 'repeat(48, 1fr)',
-                gridTemplateRows: 'repeat(24, minmax(30px, 1fr))',
-                gridTemplateAreas: `
-                  "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
-                  "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
-                  "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
-                  "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
-                  "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
-                  "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
-                  "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
-                  "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
-                  "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
-                  "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
-                  "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
-                  "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
-                  "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
-                  "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
-                `
-              }}>
-                {/* Sentiment Score Card - left half, top */}
-                <div style={{ gridArea: 's1' }}>
-                  <SentimentScoreCard key={`sentiment-analysis-${filters.aiModel}`} selectedModel={filters.aiModel} />
-                </div>
-                
-                {/* Sentiment Over Time Card - right half, top */}
-                <div style={{ gridArea: 's2' }}>
-                  <SentimentOverTimeCard selectedModel={filters.aiModel} />
-                </div>
-                
-                {/* Sentiment Details Card - full width, bottom */}
-                <div style={{ gridArea: 'd1' }}>
-                  <SentimentDetailsCard selectedModel={filters.aiModel} />
+                <div className="hidden lg:grid h-full w-full gap-4" style={{
+                  gridTemplateColumns: 'repeat(48, 1fr)',
+                  gridTemplateRows: 'repeat(24, minmax(30px, 1fr))',
+                  gridTemplateAreas: `
+                    "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
+                    "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
+                    "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
+                    "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
+                    "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
+                    "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
+                    "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
+                    "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
+                    "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
+                    "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
+                    "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
+                    "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
+                    "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
+                    "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
+                  `
+                }}>
+                  <div style={{ gridArea: 's1' }}><SentimentScoreCard key={`${cardKey}-score-desk`} /></div>
+                  <div style={{ gridArea: 's2' }}><SentimentOverTimeCard key={`${cardKey}-sot-desk`} selectedModel={filters.aiModel} /></div>
+                  <div style={{ gridArea: 'd1' }}><SentimentDetailsCard key={`${cardKey}-sd-desk`} selectedModel={filters.aiModel} /></div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </>
       )}
     </div>

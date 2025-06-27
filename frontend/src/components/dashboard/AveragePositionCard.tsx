@@ -5,30 +5,27 @@ import { FiArrowUp, FiArrowDown } from 'react-icons/fi';
 const AveragePositionCard = () => {
   const { data, loading, error } = useDashboard();
   
-  const averagePositionData = data?.averagePosition;
-  const averagePosition = averagePositionData?.averagePosition;
-  const change = averagePositionData?.change;
+  const averagePosition = data?.averagePosition;
+  const change = data?.averagePositionChange;
 
   // Check if we have actual data to display
   const hasData = !loading && !error && averagePosition !== null && averagePosition !== undefined;
 
   const renderChange = () => {
     if (change === null || change === undefined) {
-      // No prior data point - show gray arrow up with 0
+      // No prior data point - show gray dash
       return (
-        <span className="flex items-center text-sm font-medium text-gray-400">
-          <FiArrowUp className="mr-1 h-4 w-4" />
-          0
+        <span className="flex items-center justify-center text-sm font-medium text-gray-400 w-12">
+          —
         </span>
       );
     }
 
-    if (change === 0) {
-      // No change - show gray arrow up
+    // Show gray dash for changes less than 0.1 (including 0)
+    if (Math.abs(change) < 0.1) {
       return (
-        <span className="flex items-center text-sm font-medium text-gray-400">
-          <FiArrowUp className="mr-1 h-4 w-4" />
-          0
+        <span className="flex items-center justify-center text-sm font-medium text-gray-400 w-12">
+          —
         </span>
       );
     }

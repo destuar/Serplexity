@@ -43,4 +43,44 @@ export const getReportStatus = async (runId: string): Promise<ReportStatus> => {
 export const getLatestReport = async (companyId: string, filters?: Partial<DashboardFilters>): Promise<DashboardData> => {
   const { data } = await apiClient.get(`/reports/latest/${companyId}`, { params: filters });
   return data;
+};
+
+export interface CompetitorRanking {
+  id: string;
+  name: string;
+  website?: string;
+  shareOfVoice: number;
+  change: number;
+  changeType: 'increase' | 'decrease' | 'stable';
+  isUserCompany: boolean;
+}
+
+export interface CompetitorRankingsResponse {
+  competitors: CompetitorRanking[];
+  chartCompetitors: CompetitorRanking[];
+  industryRanking: number | null;
+  userCompany: CompetitorRanking | null;
+}
+
+export const getCompetitorRankingsForReport = async (runId: string, companyId: string, aiModel?: string): Promise<CompetitorRankingsResponse> => {
+  const { data } = await apiClient.get(`/reports/${runId}/competitor-rankings`, {
+    params: { companyId, aiModel }
+  });
+  return data;
+};
+
+
+
+export interface ReportResponse {
+  question: string;
+  position: number;
+  response: string;
+  model: string;
+}
+
+export const getReportResponses = async (runId: string, companyId: string, aiModel?: string, page?: number, limit?: number): Promise<ReportResponse[]> => {
+  const { data } = await apiClient.get(`/reports/${runId}/responses`, {
+    params: { companyId, aiModel, page, limit }
+  });
+  return data;
 }; 

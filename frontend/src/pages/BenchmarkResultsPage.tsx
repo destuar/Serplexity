@@ -4,16 +4,16 @@ import { useDashboard } from '../hooks/useDashboard';
 import { triggerReportGeneration, getReportStatus } from '../services/reportService';
 import { generateCompetitors } from '../services/companyService';
 import WelcomePrompt from '../components/ui/WelcomePrompt';
+import BlankLoadingState from '../components/ui/BlankLoadingState';
 
 const BenchmarkResultsPage: React.FC = () => {
   const { selectedCompany } = useCompany();
-  const { data, refreshData } = useDashboard();
+  const { data, refreshData, loading, hasReport } = useDashboard();
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStatus, setGenerationStatus] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
 
-  // Check if we have data to show
-  const hasExistingData = data && Object.keys(data).length > 0;
+  // Remove old hasExistingData logic - now using hasReport from context
 
   // Handle report generation polling
   useEffect(() => {
@@ -77,12 +77,16 @@ const BenchmarkResultsPage: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col">
-      {!hasExistingData ? (
+      {loading || hasReport === null ? (
+        <BlankLoadingState message="Loading benchmark results..." />
+      ) : hasReport === false ? (
         <WelcomePrompt
           onGenerateReport={handleGenerateReport}
           isGenerating={isGenerating}
           generationStatus={generationStatus}
         />
+      ) : !data || Object.keys(data).length === 0 ? (
+        <BlankLoadingState message="Processing benchmark data..." />
       ) : (
         <div className="p-4">
           <h1 className="text-2xl font-bold">Benchmark Results</h1>

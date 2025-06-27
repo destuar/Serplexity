@@ -153,8 +153,15 @@ describe('Payment Controller', () => {
           invalidField: 'invalid',
         });
 
-      expect(response.status).toBe(500);
-      expect(response.body.error).toBe('Failed to create checkout session.');
+      expect(response.status).toBe(400);
+      expect(response.body.error).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: expect.any(String),
+            path: expect.any(Array),
+          }),
+        ])
+      );
     });
 
     it('should handle missing priceId', async () => {
@@ -163,8 +170,15 @@ describe('Payment Controller', () => {
         .set('Authorization', `Bearer ${userToken}`)
         .send({});
 
-      expect(response.status).toBe(500);
-      expect(response.body.error).toBe('Failed to create checkout session.');
+      expect(response.status).toBe(400);
+      expect(response.body.error).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: 'Required',
+            path: ['priceId'],
+          }),
+        ])
+      );
     });
 
     it('should handle Stripe customer creation error', async () => {
@@ -362,6 +376,7 @@ describe('Payment Controller', () => {
 
       expect(response.status).toBe(500);
       expect(response.body.error).toBe('Webhook handler failed.');
+      expect(response.body.details).toContain('No record was found for an update.');
     });
   });
 }); 

@@ -63,13 +63,19 @@ export const getSentimentData = async (companyId: string, filters: { dateRange?:
 export interface TopRankingQuestion {
   id: string;
   question: string;
-  type: 'visibility' | 'benchmark';
+  type: 'visibility' | 'benchmark' | 'personal';
   productName?: string;
   bestPosition: number;
   totalMentions: number;
   averagePosition: number;
   bestResponse: string;
   bestResponseModel: string;
+  responses?: Array<{
+    model: string;
+    response: string;
+    position?: number;
+    createdAt?: string;
+  }>;
 }
 
 export interface TopRankingQuestionsResponse {

@@ -218,20 +218,34 @@ const RankingsCard = () => {
               </div>
 
               {/* Share of Voice and Change - don't show change for Others */}
-              <div className="flex items-center space-x-2 flex-shrink-0">
-                {competitor.change !== 0 && !isOthers && (
-                  <div className={`flex items-center text-xs ${
-                    competitor.changeType === 'increase' ? 'text-green-600' : 'text-red-600'
+              <div className="flex items-center flex-shrink-0">
+                {/* Change indicator with fixed width */}
+                <div className="w-12 flex justify-start">
+                  {!isOthers && (
+                    <>
+                      {Math.abs(competitor.change) < 0.1 ? (
+                        <div className="flex items-center justify-center text-xs text-gray-400 w-full">
+                          <span>—</span>
+                        </div>
+                      ) : (
+                        <div className={`flex items-center text-xs ${
+                          competitor.changeType === 'increase' ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {competitor.changeType === 'increase' ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                          <span className="ml-1">{Math.abs(competitor.change).toFixed(1)}%</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+                {/* Share of voice with fixed width for alignment */}
+                <div className="w-10 text-right">
+                  <span className={`text-sm font-semibold ${
+                    isUserCompany ? 'text-[#7762ff]' : isOthers ? 'text-gray-500' : 'text-gray-700'
                   }`}>
-                    {competitor.changeType === 'increase' ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                    {Math.abs(competitor.change).toFixed(1)}%
-                  </div>
-                )}
-                <span className={`text-sm font-semibold ${
-                  isUserCompany ? 'text-[#7762ff]' : isOthers ? 'text-gray-500' : 'text-gray-700'
-                }`}>
-                  {competitor.shareOfVoice.toFixed(0)}%
-                </span>
+                    {competitor.shareOfVoice.toFixed(0)}%
+                  </span>
+                </div>
               </div>
             </div>
           );

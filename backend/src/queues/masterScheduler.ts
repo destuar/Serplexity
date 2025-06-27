@@ -2,7 +2,7 @@ import { Queue } from 'bullmq';
 import env from '../config/env';
 
 export const masterSchedulerQueue = new Queue('master-scheduler', {
-    connection: { host: env.REDIS_HOST, port: env.REDIS_PORT },
+  connection: { host: env.REDIS_HOST, port: env.REDIS_PORT },
 });
 
 /**
@@ -28,4 +28,4 @@ export async function scheduleDailyReportTrigger() {
         }
     );
     console.log('[Scheduler] Daily report trigger job scheduled to run at 5:00 AM UTC.');
-} 
+}

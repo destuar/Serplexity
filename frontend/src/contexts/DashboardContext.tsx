@@ -45,18 +45,39 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
   }, [globalFilters, aiModelByPath, location.pathname]);
 
   const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(false);
+  // Start in a loading state so pages can show a proper spinner until the
+  // first data-fetch attempt completes. This prevents the WelcomePrompt from
+  // flashing while data is still on the way.
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  // Track whether we have ever received a report (even if empty) vs never having a report
+  const [hasReport, setHasReport] = useState<boolean | null>(null);
 
   // Keep previous filters to detect meaningful changes (ignore path changes that keep same values)
   const prevFiltersRef = useRef<DashboardFilters | null>(null);
+  const prevCompanyIdRef = useRef<string | null>(null);
+
+  // Simple in-memory cache for dashboard responses keyed by company & filters
+  const cacheRef = useRef<Record<string, DashboardData | null>>({});
 
   // Fetch dashboard data
   const fetchData = useCallback(async (isRefresh: boolean = false) => {
-    if (!selectedCompany) return;
+    // Skip fetching when on routes that don't rely on dashboard data
+    if (location.pathname === '/experimental-search') {
+      // Nothing to load for this route – immediately clear the loading state.
+      setLoading(false);
+      return;
+    }
+
+    if (!selectedCompany) {
+      // No company selected means we have nothing to fetch. Clear the loading
+      // indicator so downstream components (like CompanyGuard) can take over.
+      setLoading(false);
+      return;
+    }
 
     try {
       if (isRefresh) {
@@ -65,6 +86,17 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
         setLoading(true);
       }
       setError(null);
+
+      // Build cache key and check for warm data
+      const cacheKey = `${selectedCompany.id}|${filters.dateRange}|${filters.aiModel}`;
+
+      if (!isRefresh && cacheRef.current[cacheKey]) {
+        setData(cacheRef.current[cacheKey]!);
+        if (cacheRef.current[cacheKey]?.lastUpdated) {
+          setLastUpdated(cacheRef.current[cacheKey]!.lastUpdated!);
+        }
+        return;
+      }
 
       // Only pass essential filters, not the massive competitor list
       const currentFilters = {
@@ -80,35 +112,52 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
       console.log('[DashboardContext] Data keys count:', dashboardData ? Object.keys(dashboardData).length : 0);
 
       setData(dashboardData);
+      // Track if we have ever received a report - null means no reports exist, anything else means reports exist
+      setHasReport(dashboardData !== null);
+      
       if (dashboardData?.lastUpdated) {
         setLastUpdated(dashboardData.lastUpdated);
       }
+
+      // Persist to cache
+      cacheRef.current[cacheKey] = dashboardData;
     } catch (err) {
       const apiErr = err as ApiError;
       console.error('Failed to fetch dashboard data:', apiErr);
       setError(apiErr.message || 'Failed to fetch dashboard data');
-      // Keep existing data on error to avoid blanking the screen
+      
+      // On error, if current data is null, assume no reports exist (show welcome)
+      // Otherwise, keep existing data to avoid blanking the screen
+      if (data === null) {
+        setHasReport(false);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedCompany, filters]);
+  }, [selectedCompany, filters, location.pathname]);
 
   // Fetch on meaningful filter changes (dateRange/aiModel) or company switch
   useEffect(() => {
     if (!selectedCompany) return;
 
-    const prev = prevFiltersRef.current;
-    const filtersChanged =
-      !prev ||
-      prev.dateRange !== filters.dateRange ||
-      prev.aiModel !== filters.aiModel;
+    const prevFilters = prevFiltersRef.current;
+    const prevCompanyId = prevCompanyIdRef.current;
 
-    if (filtersChanged) {
+    const filtersChanged =
+      !prevFilters ||
+      prevFilters.dateRange !== filters.dateRange ||
+      prevFilters.aiModel !== filters.aiModel;
+
+    const companyChanged = prevCompanyId !== selectedCompany.id;
+
+    if (filtersChanged || companyChanged) {
       fetchData();
     }
-    // Always sync the ref to current filters so future comparisons are accurate
+
+    // Update refs for next comparison
     prevFiltersRef.current = filters;
+    prevCompanyIdRef.current = selectedCompany.id;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCompany, filters]);
 
@@ -152,6 +201,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
     updateFilters,
     refreshData,
     lastUpdated,
+    hasReport,
   }), [
     data,
     filters,
@@ -162,6 +212,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
     updateFilters,
     refreshData,
     lastUpdated,
+    hasReport,
   ]);
 
   return (

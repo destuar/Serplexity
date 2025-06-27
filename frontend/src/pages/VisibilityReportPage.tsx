@@ -4,15 +4,15 @@ import { useDashboard } from '../hooks/useDashboard';
 import { triggerReportGeneration } from '../services/reportService';
 import { generateCompetitors } from '../services/companyService';
 import WelcomePrompt from '../components/ui/WelcomePrompt';
+import BlankLoadingState from '../components/ui/BlankLoadingState';
 
 const VisibilityReportPage: React.FC = () => {
   const { selectedCompany } = useCompany();
-  const { data } = useDashboard();
+  const { data, loading, hasReport } = useDashboard();
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStatus, setGenerationStatus] = useState<string | null>(null);
 
-  // Check if we have data to show
-  const hasExistingData = data && Object.keys(data).length > 0;
+  // Remove old hasExistingData logic - now using hasReport from context
 
   const handleGenerateReport = async () => {
     if (!selectedCompany) return;
@@ -42,12 +42,16 @@ const VisibilityReportPage: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col">
-      {!hasExistingData ? (
+      {loading || hasReport === null ? (
+        <BlankLoadingState message="Loading visibility report..." />
+      ) : hasReport === false ? (
         <WelcomePrompt
           onGenerateReport={handleGenerateReport}
           isGenerating={isGenerating}
           generationStatus={generationStatus}
         />
+      ) : !data || Object.keys(data).length === 0 ? (
+        <BlankLoadingState message="Processing visibility data..." />
       ) : (
         <div className="p-4">
           <h1 className="text-2xl font-bold">Visibility Report</h1>

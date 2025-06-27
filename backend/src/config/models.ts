@@ -36,7 +36,7 @@ export const LLM_CONFIG = {
   
   // Worker parameters
   WORKER_CONCURRENCY: 10,
-  QUESTION_ANSWERING_CONCURRENCY: 25, // Higher concurrency for individual question processing
+  QUESTION_ANSWERING_CONCURRENCY: 8, // Reduced from 25 to prevent overwhelming the database writer
   WORKER_RATE_LIMIT: {
     max: 10,
     duration: 1000, // milliseconds
@@ -57,8 +57,8 @@ export const LLM_CONFIG = {
     MODEL_RESPONSE: 30000,      // 30 seconds
     TRANSACTION_MAX_WAIT: 30000, // 30 seconds
     TRANSACTION_TIMEOUT: 120000,  // 120 seconds (legacy, kept for non-streaming operations)
-    STREAMING_BATCH_TIMEOUT: 30000,  // 30 seconds for streaming batches
-    STREAMING_BATCH_MAX_WAIT: 5000,  // 5 seconds max wait for streaming batches
+    STREAMING_BATCH_TIMEOUT: 90000,  // 90 seconds for streaming batches (increased from 30s)
+    STREAMING_BATCH_MAX_WAIT: 15000,  // 15 seconds max wait for streaming batches (increased from 5s)
   },
   
   // Logging configuration - Simple on/off toggles
@@ -95,7 +95,6 @@ export const MODELS: Record<string, Model> = {
       ModelTask.VISIBILITY,                       // ✅ Used for visibility question generation
       ModelTask.BENCHMARKING,                     // ✅ Used for benchmark question generation  
       ModelTask.SENTIMENT_SUMMARY,                // ✅ Used for sentiment summaries
-      ModelTask.PERSONAL_QUESTION_GENERATION,     // ✅ Used for personal question generation
       ModelTask.QUESTION_ANSWERING                // ✅ Used for answering questions
     ],
   },
@@ -122,7 +121,8 @@ export const MODELS: Record<string, Model> = {
     task: [
         ModelTask.SENTIMENT,                      // ✅ Used for sentiment analysis
         ModelTask.WEBSITE_ANALYSIS,               // ✅ Used for website analysis (has web search)
-        ModelTask.QUESTION_ANSWERING              // ✅ Used for answering questions (has web search)
+        ModelTask.QUESTION_ANSWERING,             // ✅ Used for answering questions (has web search)
+        ModelTask.PERSONAL_QUESTION_GENERATION    // ✅ Used for personal question generation
       ],
   },
 };

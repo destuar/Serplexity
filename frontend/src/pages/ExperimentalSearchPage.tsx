@@ -1,32 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import SearchBar from '../components/experimental/SearchBar';
 import GoogleSerpPane from '../components/experimental/GoogleSerpPane';
 import LlmSerpPane from '../components/experimental/LlmSerpPane';
 import { getModelFilterOptions } from '../types/dashboard';
-import { useDashboard } from '../hooks/useDashboard';
 
 const ExperimentalSearchPage: React.FC = () => {
   const [query, setQuery] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState('');
-  const { filters, updateFilters, loading } = useDashboard();
+
+  const aiModelOptions = getModelFilterOptions().filter((o) => o.value !== 'all');
+
+  // Local model selection state (default to first model)
+  const [selectedModel, setSelectedModel] = useState<string>(aiModelOptions[0].value);
 
   const handleSubmit = () => {
     if (query.trim()) {
       setSubmittedQuery(query.trim());
     }
   };
-
-  const aiModelOptions = getModelFilterOptions().filter((o) => o.value !== 'all');
-
-  const selectedModel = filters.aiModel === 'all' ? aiModelOptions[0].value : (filters.aiModel as string);
-
-  // Ensure "all" is never selected – default to first model
-  useEffect(() => {
-    if (filters.aiModel === 'all') {
-      updateFilters({ aiModel: aiModelOptions[0].value as any });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   return (
     <div className="h-full flex flex-col">
@@ -47,7 +38,11 @@ const ExperimentalSearchPage: React.FC = () => {
       <div className="flex-1 min-h-0 p-1">
         <div className="h-full grid grid-cols-1 lg:grid-cols-2 gap-5">
           <GoogleSerpPane query={submittedQuery} />
-          <LlmSerpPane query={submittedQuery} modelId={selectedModel as string} />
+          <LlmSerpPane
+            query={submittedQuery}
+            modelId={selectedModel}
+            onModelChange={setSelectedModel}
+          />
         </div>
       </div>
     </div>

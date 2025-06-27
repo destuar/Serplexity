@@ -1,16 +1,15 @@
-import React, { useState, useMemo } from 'react';
-import { Calendar, Sparkles, RefreshCw, Loader, MessageSquare, ArrowUpDown, Filter, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { Sparkles, RefreshCw, Loader, MessageSquare, ArrowUpDown, ChevronDown, ChevronUp } from 'lucide-react';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';
-import { triggerReportGeneration } from '../services/reportService';
-import { generateCompetitors } from '../services/companyService';
+import { getTopRankingQuestions, TopRankingQuestion } from '../services/companyService';
 import FilterDropdown from '../components/dashboard/FilterDropdown';
 import WelcomePrompt from '../components/ui/WelcomePrompt';
-import Card from '../components/ui/Card';
+import BlankLoadingState from '../components/ui/BlankLoadingState';
 import { getModelFilterOptions, DashboardFilters } from '../types/dashboard';
-import { TopRankingQuestion } from '../services/companyService';
 import { getModelDisplayName } from '../types/dashboard';
 import { cn } from '../lib/utils';
+import { useReportGeneration } from '../hooks/useReportGeneration';
 
 /**
  * Removes <brand> tags from a string, returning the clean text.
@@ -83,28 +82,10 @@ const FormattedResponseViewer: React.FC<{ text: string }> = ({ text }) => {
 /**
  * Individual response item component - compact with click-to-expand
  */
-interface ResponseItemProps {
-    question: TopRankingQuestion;
-    index: number;
-}
+interface FlattenedResponse { question: string; response: string; model: string; position: number; }
 
-const ResponseItem: React.FC<ResponseItemProps> = ({ question, index }) => {
+const ResponseItem: React.FC<{ item: FlattenedResponse; index: number }> = ({ item, index }) => {
     const [isExpanded, setIsExpanded] = useState(false);
-
-    const getPositionColor = (position: number) => {
-        if (position <= 3) return 'text-green-700 bg-green-100';
-        if (position <= 5) return 'text-yellow-700 bg-yellow-100';
-        return 'text-red-700 bg-red-100';
-    };
-
-    const getQuestionTypeColor = (type: string) => {
-        switch (type) {
-            case 'visibility': return 'text-blue-700 bg-blue-100';
-            case 'benchmark': return 'text-purple-700 bg-purple-100';
-            case 'personal': return 'text-green-700 bg-green-100';
-            default: return 'text-gray-700 bg-gray-100';
-        }
-    };
 
     return (
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200">
@@ -116,43 +97,26 @@ const ResponseItem: React.FC<ResponseItemProps> = ({ question, index }) => {
                 <div className="grid grid-cols-12 gap-3 items-center">
                     {/* Ranking Number */}
                     <div className="col-span-1">
-                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#7762ff] text-white text-sm font-bold">
-                            #{index + 1}
-                        </div>
+                        <p className="text-center text-2xl font-light text-gray-500">
+                            {index + 1}
+                        </p>
                     </div>
                     
-                    {/* Question Text - controlled width */}
-                    <div className="col-span-7 min-w-0">
+                    {/* Question Text */}
+                    <div className="col-span-8 min-w-0">
                         <p className={cn(
                             "text-base text-gray-900 font-medium",
                             !isExpanded && "truncate"
                         )}>
-                            {question.question}
+                            {item.question}
                         </p>
                     </div>
                     
                     {/* Right-aligned badges and expand icon */}
-                    <div className="col-span-4 flex items-center justify-end gap-2">
-                        {question.totalMentions === 0 && (
-                            <span className="bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded text-xs font-medium">
-                                Not Mentioned
-                            </span>
-                        )}
-                        <span className={cn(
-                            "px-1.5 py-0.5 rounded text-xs font-medium capitalize",
-                            getQuestionTypeColor(question.type)
-                        )}>
-                            {question.type}
-                        </span>
+                    <div className="col-span-3 flex items-center justify-end gap-2">
                         <span className="bg-[#7762ff]/10 text-[#7762ff] px-1.5 py-0.5 rounded text-xs font-medium border border-[#7762ff]/20">
-                            {getModelDisplayName(question.bestResponseModel)}
+                            {getModelDisplayName(item.model)}
                         </span>
-                        {question.productName && (
-                            <span className="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-xs font-medium">
-                                {question.productName}
-                            </span>
-                        )}
-                        {/* Expand/Collapse Icon */}
                         {isExpanded ? (
                             <ChevronUp size={20} className="text-gray-400" />
                         ) : (
@@ -166,25 +130,15 @@ const ResponseItem: React.FC<ResponseItemProps> = ({ question, index }) => {
             {isExpanded && (
                 <div className="border-t border-gray-100 p-4 bg-gray-50">
                     <div className="flex items-center gap-2 mb-3">
-                        <div className={cn(
-                            "w-2 h-2 rounded-full",
-                            question.totalMentions === 0 ? "bg-orange-500" : "bg-green-500"
-                        )}></div>
+                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
                         <h4 className="font-semibold text-sm text-gray-600 uppercase tracking-wide">
-                            {question.totalMentions === 0 ? "Sample Response" : "Best Response"}
+                            Response
                         </h4>
                         <span className="text-xs text-gray-500">
-                            from {getModelDisplayName(question.bestResponseModel)}
+                            from {getModelDisplayName(item.model)}
                         </span>
-                        {question.totalMentions === 0 && (
-                            <span className="text-xs text-orange-600 font-medium">
-                                (Your company not mentioned)
-                            </span>
-                        )}
                     </div>
-                    <FormattedResponseViewer 
-                        text={stripBrandTags(question.bestResponse)} 
-                    />
+                    <FormattedResponseViewer text={stripBrandTags(item.response)} />
                 </div>
             )}
         </div>
@@ -194,259 +148,206 @@ const ResponseItem: React.FC<ResponseItemProps> = ({ question, index }) => {
 // Main page component
 const ResponseDetailsPage: React.FC = () => {
     const { selectedCompany } = useCompany();
-    const { data, filters, loading, refreshing, updateFilters, refreshData, lastUpdated } = useDashboard();
+    const { data: dashboardData, filters, loading: dashboardLoading, refreshing, updateFilters, refreshData, lastUpdated, hasReport, refreshTrigger } = useDashboard();
     
-    // Local page state
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [generationStatus, setGenerationStatus] = useState<string | null>(null);
-    const [questionTypeFilter, setQuestionTypeFilter] = useState<string>('all');
-    const [sortBy, setSortBy] = useState<'position' | 'question' | 'model' | 'mentions'>('position');
+    // ---------------------------
+    // Local state
+    // ---------------------------
+    const [questionsRaw, setQuestionsRaw] = useState<TopRankingQuestion[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    // Show limit dropdown (10, 20, 50, all)
+    const [showLimit, setShowLimit] = useState<'10' | '20' | '50' | 'all'>('20');
+
+    // Sort dropdown (position, question)
+    const [sortBy, setSortBy] = useState<'position' | 'question'>('position');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-    const [displayLimit, setDisplayLimit] = useState<number>(20);
 
-    // Check if we have data to show
-    const hasExistingData = data && Object.keys(data).length > 0 && data.topQuestions;
+    // Report generation logic handled by custom hook
+    const { isGenerating, generationStatus, generateReport } = useReportGeneration(selectedCompany);
 
-    // Filter and sort options
-    const aiModelOptions = getModelFilterOptions();
-    
-    const questionTypeOptions = [
-        { value: 'all', label: 'All Types' },
-        { value: 'visibility', label: 'Visibility' },
-        { value: 'benchmark', label: 'Benchmark' },
-        { value: 'personal', label: 'Personal' },
-    ];
+    // Fetch detailed data for this page (all questions at once)
+    const fetchQuestions = useCallback(async () => {
+        if (!selectedCompany?.id) return;
 
-    const displayLimitOptions = [
-        { value: '10', label: 'Show 10' },
-        { value: '20', label: 'Show 20' },
-        { value: '50', label: 'Show 50' },
-        { value: 'all', label: 'Show All' },
-    ];
+        setIsLoading(true);
+        setError(null);
 
-    const sortOptions = [
-        { value: 'position', label: 'Best Position' },
-        { value: 'question', label: 'Question Text' },
-        { value: 'model', label: 'AI Model' },
-        { value: 'mentions', label: 'Total Mentions' },
-    ];
-
-    // Process and filter data
-    const processedQuestions = useMemo(() => {
-        if (!data?.topQuestions) return [];
-
-        let questions = [...data.topQuestions];
-
-        // Filter by question type
-        if (questionTypeFilter !== 'all') {
-            questions = questions.filter(q => q.type === questionTypeFilter);
+        try {
+            const modelParam = filters.aiModel === 'all' ? undefined : filters.aiModel;
+            const data = await getTopRankingQuestions(selectedCompany.id, { aiModel: modelParam });
+            setQuestionsRaw(data.questions);
+        } catch (err) {
+            console.error('Failed to fetch questions:', err);
+            setError('Could not load response details.');
+        } finally {
+            setIsLoading(false);
         }
+    }, [selectedCompany?.id, filters.aiModel]);
 
-        // Filter by AI model (this should already be handled by the dashboard context)
-        // But we can add additional client-side filtering if needed
+    // Initial fetch and re-fetch on filter / limit change
+    useEffect(() => {
+        // Ensure we have both the report id and a selected company before fetching
+        if (dashboardData?.id && selectedCompany?.id) {
+            setQuestionsRaw([]);
+            fetchQuestions();
+        }
+    }, [filters.aiModel, dashboardData?.id, selectedCompany?.id, showLimit, refreshTrigger]);
 
-        // Sort questions
-        questions.sort((a, b) => {
-            let aValue: number | string;
-            let bValue: number | string;
-
-            switch (sortBy) {
-                case 'position':
-                    aValue = a.bestPosition;
-                    bValue = b.bestPosition;
-                    break;
-                case 'question':
-                    aValue = a.question.toLowerCase();
-                    bValue = b.question.toLowerCase();
-                    break;
-                case 'model':
-                    aValue = a.bestResponseModel.toLowerCase();
-                    bValue = b.bestResponseModel.toLowerCase();
-                    break;
-                case 'mentions':
-                    aValue = a.totalMentions;
-                    bValue = b.totalMentions;
-                    break;
-                default:
-                    aValue = a.bestPosition;
-                    bValue = b.bestPosition;
+    // Process and filter data from the new local state
+    const processedResponses = useMemo(() => {
+        // Flatten per model
+        const flat: FlattenedResponse[] = [];
+        questionsRaw.forEach(q => {
+            if (q.responses && q.responses.length > 0) {
+                q.responses.forEach(r => {
+                    flat.push({ question: q.question, response: r.response, model: r.model, position: r.position ?? q.bestPosition });
+                });
+            } else {
+                flat.push({ question: q.question, response: q.bestResponse, model: q.bestResponseModel, position: q.bestPosition });
             }
-
-            if (typeof aValue === 'string' && typeof bValue === 'string') {
-                return sortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
-            }
-
-            const numA = Number(aValue);
-            const numB = Number(bValue);
-            return sortDirection === 'asc' ? numA - numB : numB - numA;
         });
 
-        // Apply display limit
-        if (displayLimit !== 0) {
-            questions = questions.slice(0, displayLimit);
-        }
+        // Sorting logic
+        flat.sort((a, b) => {
+            let comparison = 0;
 
-        return questions;
-    }, [data?.topQuestions, questionTypeFilter, sortBy, sortDirection, displayLimit]);
-
-    const handleGenerateReport = async () => {
-        if (!selectedCompany) return;
-
-        setIsGenerating(true);
-        setGenerationStatus('Analyzing competitor landscape...');
-        try {
-            // Step 1: Generate competitors if needed
-            const exampleCompetitor = selectedCompany.competitors[0]?.name;
-            if (!exampleCompetitor) {
-                setGenerationStatus('Error: Add one competitor to seed the list.');
-                setIsGenerating(false);
-                return;
+            switch (sortBy) {
+                case 'question':
+                    comparison = a.question.localeCompare(b.question);
+                    break;
+                case 'position':
+                    // Lower position number = best position
+                    comparison = (a.position ?? 0) - (b.position ?? 0);
+                    break;
             }
 
-            await generateCompetitors(selectedCompany.id, exampleCompetitor);
+            return sortDirection === 'asc' ? comparison : -comparison;
+        });
 
-            // Step 2: Trigger report generation
-            setGenerationStatus('Initializing report generation pipeline...');
-            await triggerReportGeneration(selectedCompany.id);
-        } catch (error) {
-            console.error("Failed to start report generation:", error);
-            setIsGenerating(false);
-            setGenerationStatus('Failed to start report generation.');
-        }
-    };
+        // Apply display limit if not showing all
+        const limited = showLimit === 'all' ? flat : flat.slice(0, parseInt(showLimit, 10));
+        return limited;
+    }, [questionsRaw, sortBy, sortDirection, showLimit]);
 
-    const handleRefresh = async () => {
-        await refreshData();
-    };
-
-    const handleSort = (newSortBy: typeof sortBy) => {
-        if (sortBy === newSortBy) {
-            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-        } else {
-            setSortBy(newSortBy);
-            setSortDirection(newSortBy === 'question' || newSortBy === 'model' ? 'asc' : 'desc');
-        }
-    };
-
-    if (!hasExistingData) {
-        return (
-            <div className="h-full flex flex-col">
-                <WelcomePrompt
-                    onGenerateReport={handleGenerateReport}
-                    isGenerating={isGenerating}
-                    generationStatus={generationStatus}
-                />
-            </div>
-        );
+    const handleRefresh = () => {
+      refreshData();
     }
 
     return (
         <div className="h-full flex flex-col">
-            {/* Header Section - Consistent with other pages */}
-            <div className="flex-shrink-0 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-2">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Response Details</h1>
-                    {lastUpdated && (
-                        <p className="text-sm text-gray-500 mt-1">
-                            Last updated: {new Date(lastUpdated).toLocaleString()}
-                        </p>
-                    )}
-                </div>
-                
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex items-center gap-2 w-full lg:w-auto">
-                    <FilterDropdown
-                        label="Question Type"
-                        value={questionTypeFilter}
-                        options={questionTypeOptions}
-                        onChange={(value) => setQuestionTypeFilter(value)}
-                        icon={Filter}
-                        disabled={loading || refreshing}
-                    />
-                    <FilterDropdown
-                        label="Show"
-                        value={displayLimit === 0 ? 'all' : displayLimit.toString()}
-                        options={displayLimitOptions}
-                        onChange={(value) => setDisplayLimit(value === 'all' ? 0 : parseInt(value))}
-                        icon={MessageSquare}
-                        disabled={loading || refreshing}
-                    />
-                    <FilterDropdown
-                        label="Sort by"
-                        value={sortBy}
-                        options={sortOptions}
-                        onChange={(value) => handleSort(value as typeof sortBy)}
-                        icon={ArrowUpDown}
-                        disabled={loading || refreshing}
-                    />
-                    <FilterDropdown
-                        label="AI Model"
-                        value={filters.aiModel}
-                        options={aiModelOptions}
-                        onChange={(value) => updateFilters({ aiModel: value as DashboardFilters['aiModel'] })}
-                        icon={filters.aiModel === 'all' ? Sparkles : undefined}
-                        disabled={loading || refreshing}
-                    />
-                    <button 
-                        onClick={handleRefresh}
-                        disabled={loading || refreshing}
-                        className="flex items-center justify-center w-full md:w-auto gap-2 px-4 py-2 bg-[#7762ff] text-white rounded-lg hover:bg-[#6650e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2 sm:col-span-1"
-                    >
-                        {refreshing ? (
-                            <>
-                                <Loader size={16} className="animate-spin" />
-                                <span className="whitespace-nowrap">Refreshing...</span>
-                            </>
-                        ) : (
-                            <>
-                                <RefreshCw size={16} />
-                                <span className="whitespace-nowrap">Refresh data</span>
-                            </>
-                        )}
-                    </button>
-                </div>
-            </div>
-
-            <div className="flex-1 min-h-0 p-1">
-                <div className="h-full w-full">
-                    {loading ? (
-                        <div className="flex items-center justify-center h-64">
-                            <div className="flex flex-col items-center space-y-4">
-                                <Loader className="w-8 h-8 animate-spin text-[#7762ff]" />
-                                <p className="text-gray-600">Loading response data...</p>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="h-full overflow-y-auto">
-                            {/* Removed Stats Summary cards */}
-
-                            {/* Response Cards Grid */}
-                            {processedQuestions.length === 0 ? (
-                                <div className="flex items-center justify-center h-64">
-                                    <div className="text-center">
-                                        <MessageSquare size={48} className="mx-auto text-gray-300 mb-4" />
-                                        <p className="text-gray-500 text-lg">
-                                            No responses found with current filters
-                                        </p>
-                                        <p className="text-gray-400 text-sm mt-2">
-                                            Try adjusting your filter settings
-                                        </p>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="space-y-2 pb-6">
-                                    {processedQuestions.map((question, index) => (
-                                        <ResponseItem
-                                            key={question.id}
-                                            question={question}
-                                            index={index}
-                                        />
-                                    ))}
-                                </div>
+            {dashboardLoading || hasReport === null ? (
+                <BlankLoadingState message="Loading dashboard data..." />
+            ) : hasReport === false ? (
+                <WelcomePrompt
+                    onGenerateReport={generateReport}
+                    isGenerating={isGenerating}
+                    generationStatus={generationStatus}
+                />
+            ) : (
+                <>
+                    {/* Header Section - Always show when there's a report */}
+                    <div className="flex-shrink-0 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-2">
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-900">Response Details</h1>
+                            {lastUpdated && (
+                                <p className="text-sm text-gray-500 mt-1">
+                                    Last updated: {new Date(lastUpdated).toLocaleString()}
+                                </p>
                             )}
                         </div>
+                        
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex items-center gap-2 w-full lg:w-auto">
+                            <FilterDropdown
+                                label="Show"
+                                value={showLimit}
+                                options={[
+                                    { value: '10', label: 'Show 10' },
+                                    { value: '20', label: 'Show 20' },
+                                    { value: '50', label: 'Show 50' },
+                                    { value: 'all', label: 'Show All' },
+                                ]}
+                                onChange={(value) => setShowLimit(value as typeof showLimit)}
+                                icon={MessageSquare}
+                                disabled={dashboardLoading || refreshing || isLoading}
+                            />
+                            <FilterDropdown
+                                label="Sort by"
+                                value={sortBy}
+                                options={[
+                                    { value: 'position', label: 'Best Position' },
+                                    { value: 'question', label: 'Question Text' },
+                                ]}
+                                onChange={(value) => setSortBy(value as typeof sortBy)}
+                                icon={ArrowUpDown}
+                                disabled={dashboardLoading || refreshing || isLoading}
+                            />
+                            <FilterDropdown
+                                label="AI Model"
+                                value={filters.aiModel}
+                                options={getModelFilterOptions()}
+                                onChange={(value) => updateFilters({ aiModel: value as DashboardFilters['aiModel'] })}
+                                icon={filters.aiModel === 'all' ? Sparkles : undefined}
+                                disabled={dashboardLoading || refreshing || isLoading}
+                            />
+                            <button 
+                                onClick={handleRefresh}
+                                disabled={dashboardLoading || refreshing || isLoading}
+                                className="flex items-center justify-center w-full md:w-auto gap-2 px-4 py-2 bg-[#7762ff] text-white rounded-lg hover:bg-[#6650e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2 sm:col-span-1"
+                            >
+                                {refreshing || isLoading ? (
+                                    <>
+                                        <Loader size={16} className="animate-spin" />
+                                        <span className="whitespace-nowrap">Refreshing...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <RefreshCw size={16} />
+                                        <span className="whitespace-nowrap">Refresh data</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Content Area - Show loading state only here */}
+                    {!dashboardData || (isLoading && questionsRaw.length === 0) ? (
+                        <BlankLoadingState message="Processing response data..." />
+                    ) : error ? (
+                        <div className="flex-1 min-h-0 p-1 flex items-center justify-center">
+                            <p className="text-red-500">{error}</p>
+                        </div>
+                    ) : (
+                        <div className="flex-1 min-h-0 p-1">
+                            <div className="h-full w-full">
+                                <div className="h-full overflow-y-auto">
+                                    {/* Response Cards Grid */}
+                                    {processedResponses.length === 0 ? (
+                                        <div className="flex items-center justify-center h-64">
+                                            <div className="text-center">
+                                                <MessageSquare size={48} className="mx-auto text-gray-300 mb-4" />
+                                                <p className="text-gray-500 text-lg">
+                                                    No responses found with current filters
+                                                </p>
+                                                <p className="text-gray-400 text-sm mt-2">
+                                                    Try adjusting your filter settings
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2 pb-6">
+                                            {processedResponses.map((item, index) => (
+                                                <ResponseItem key={`${item.question}-${item.model}-${index}`} item={item} index={index} />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                     )}
-                </div>
-            </div>
+                </>
+            )}
         </div>
     );
 };

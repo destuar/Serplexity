@@ -55,9 +55,18 @@ export class StreamingDatabaseWriter {
   // Configuration
   private config: StreamWriterConfig;
   
-  // Concurrency control
+  // Concurrency control & adaptive batching
   private activeWrites = 0;
   private pendingFlush = false;
+  private dynamicBatchSize: number;
+  private readonly MENTION_CHUNK = 500;
+  
+  // Circuit breaker for database failures
+  private consecutiveFailures = 0;
+  private readonly MAX_CONSECUTIVE_FAILURES = 5;
+  private circuitBreakerOpen = false;
+  private lastFailureTime = 0;
+  private readonly CIRCUIT_BREAKER_TIMEOUT = 30000; // 30 seconds
   
   constructor(
     prisma: PrismaClient,
@@ -73,12 +82,15 @@ export class StreamingDatabaseWriter {
     
     // Default high-performance configuration
     this.config = {
-      maxBatchSize: 50, // Optimal batch size to avoid timeouts
-      flushIntervalMs: 2000, // Flush every 2 seconds
-      maxConcurrentWrites: 3, // Multiple concurrent transactions
-      useParallelMentionWrites: true, // Parallel mention processing
+      maxBatchSize: 25, // Reduced batch size to avoid timeouts (was 50)
+      flushIntervalMs: 3000, // Increased flush interval to reduce pressure (was 2000)
+      maxConcurrentWrites: 1, // Reduced concurrency to avoid deadlocks (was 3)
+      useParallelMentionWrites: false, // Disable parallel mentions to reduce complexity (was true)
       ...config
     };
+    
+    // initialise adaptive batch size with the configured max
+    this.dynamicBatchSize = this.config.maxBatchSize;
     
     this.startFlushTimer();
   }
@@ -110,20 +122,59 @@ export class StreamingDatabaseWriter {
   async finalize(): Promise<WriteStats> {
     this.stopFlushTimer();
 
-    // Final flush of any remaining data
-    while (this.responseBuffer.length > 0) {
-      // Attempt to flush a batch
-      await this.flush();
-
-      // If flush is blocked by concurrency, wait a moment before trying again
-      if (this.activeWrites >= this.config.maxConcurrentWrites && this.responseBuffer.length > 0) {
-        await new Promise(resolve => setTimeout(resolve, 50));
+    // Final flush of any remaining data with timeout protection
+    const maxRetries = 10;
+    let retryCount = 0;
+    
+    while (this.responseBuffer.length > 0 && retryCount < maxRetries) {
+      const bufferLengthBefore = this.responseBuffer.length;
+      
+      try {
+        // Attempt to flush a batch
+        await this.flush();
+        
+        // If flush is blocked by concurrency, wait a moment before trying again
+        if (this.activeWrites >= this.config.maxConcurrentWrites && this.responseBuffer.length > 0) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        // Check if we're making progress
+        if (this.responseBuffer.length === bufferLengthBefore) {
+          retryCount++;
+          console.warn(`[StreamingDatabaseWriter] No progress in finalize, retry ${retryCount}/${maxRetries}`);
+          
+          // Wait longer if no progress is being made
+          await new Promise(resolve => setTimeout(resolve, 500 * retryCount));
+        } else {
+          retryCount = 0; // Reset retry count if we made progress
+        }
+      } catch (error) {
+        console.error(`[StreamingDatabaseWriter] Error during finalize flush:`, error);
+        retryCount++;
+        
+        if (retryCount >= maxRetries) {
+          console.error(`[StreamingDatabaseWriter] Max retries reached, abandoning ${this.responseBuffer.length} responses`);
+          break;
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
       }
     }
 
-    // Wait for the last batch(es) to finish writing
+    // Wait for the last batch(es) to finish writing with timeout
+    const maxWaitTime = 60000; // 60 seconds max wait
+    const startWait = Date.now();
+    
     while (this.activeWrites > 0) {
+      if (Date.now() - startWait > maxWaitTime) {
+        console.error(`[StreamingDatabaseWriter] Timeout waiting for active writes to complete. ${this.activeWrites} writes still active.`);
+        break;
+      }
       await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    if (this.responseBuffer.length > 0) {
+      console.warn(`[StreamingDatabaseWriter] Finalize completed with ${this.responseBuffer.length} responses remaining in buffer`);
     }
 
     return this.stats;
@@ -155,10 +206,24 @@ export class StreamingDatabaseWriter {
       return; // Wait for some writes to complete
     }
     
+    // Check circuit breaker
+    if (this.circuitBreakerOpen) {
+      if (Date.now() - this.lastFailureTime > this.CIRCUIT_BREAKER_TIMEOUT) {
+        console.log('[StreamingDatabaseWriter] Circuit breaker timeout expired, attempting to reset');
+        this.circuitBreakerOpen = false;
+        this.consecutiveFailures = 0;
+      } else {
+        console.warn('[StreamingDatabaseWriter] Circuit breaker is open, skipping flush');
+        return;
+      }
+    }
+    
     this.pendingFlush = true;
     this.activeWrites++;
     
-    const batchToProcess = this.responseBuffer.splice(0, this.config.maxBatchSize);
+    // pick size based on adaptive algorithm
+    const batchSize = Math.min(this.dynamicBatchSize, this.responseBuffer.length);
+    const batchToProcess = this.responseBuffer.splice(0, batchSize);
     const batchStartTime = performance.now();
     
     try {
@@ -169,12 +234,54 @@ export class StreamingDatabaseWriter {
       this.stats.totalWriteTime += batchTime;
       this.stats.avgBatchTime = this.stats.totalWriteTime / this.stats.batchesProcessed;
       
-      console.log(`[StreamingDatabaseWriter] Batch ${this.stats.batchesProcessed} completed in ${batchTime.toFixed(2)}ms (${batchToProcess.length} responses)`);
+      // Reset circuit breaker on success
+      this.consecutiveFailures = 0;
+      this.circuitBreakerOpen = false;
+      
+      // --- adaptive batch tuning ---
+      const TARGET_MS = 3000; // Increased target to 3s per batch (was 1.5s)
+      if (batchTime > TARGET_MS * 1.5 && this.dynamicBatchSize > 5) {
+        this.dynamicBatchSize = Math.max(5, this.dynamicBatchSize - 5); // Smaller adjustments
+      } else if (batchTime < TARGET_MS * 0.5 && this.dynamicBatchSize < 50) {
+        this.dynamicBatchSize += 5; // Smaller adjustments
+      }
+      
+      console.log(`[StreamingDatabaseWriter] Batch ${this.stats.batchesProcessed} completed in ${batchTime.toFixed(2)}ms (${batchToProcess.length} responses) - Dynamic batch size: ${this.dynamicBatchSize}`);
       
     } catch (error) {
       console.error('[StreamingDatabaseWriter] Batch processing failed:', error);
-      // Put failed responses back in buffer for retry
-      this.responseBuffer.unshift(...batchToProcess);
+      
+      // Increment failure counter
+      this.consecutiveFailures++;
+      this.lastFailureTime = Date.now();
+      
+      // Open circuit breaker if too many consecutive failures
+      if (this.consecutiveFailures >= this.MAX_CONSECUTIVE_FAILURES) {
+        this.circuitBreakerOpen = true;
+        console.error(`[StreamingDatabaseWriter] Circuit breaker opened after ${this.consecutiveFailures} consecutive failures`);
+      }
+      
+      // Add detailed error logging
+      if (error instanceof Error) {
+        console.error(`[StreamingDatabaseWriter] Error details: ${error.name}: ${error.message}`);
+        if (error.stack) {
+          console.error(`[StreamingDatabaseWriter] Stack trace: ${error.stack.split('\n').slice(0, 5).join('\n')}`);
+        }
+      }
+      
+      // Put failed responses back in buffer for retry (only if circuit breaker is not open)
+      if (!this.circuitBreakerOpen) {
+        this.responseBuffer.unshift(...batchToProcess);
+      } else {
+        console.warn(`[StreamingDatabaseWriter] Circuit breaker open, dropping ${batchToProcess.length} responses`);
+      }
+      
+      // Adaptive batch size reduction on errors
+      if (this.dynamicBatchSize > 5) {
+        this.dynamicBatchSize = Math.max(5, Math.floor(this.dynamicBatchSize * 0.7));
+        console.warn(`[StreamingDatabaseWriter] Error encountered, reducing batch size to ${this.dynamicBatchSize}`);
+      }
+      
     } finally {
       this.activeWrites--;
       this.pendingFlush = false;
@@ -207,245 +314,154 @@ export class StreamingDatabaseWriter {
   }
   
   private async writeVisibilityResponses(responses: StreamedResponse[]): Promise<void> {
-    const transaction = async (tx: Prisma.TransactionClient) => {
-      // Prepare bulk data for createMany
-      const responseData = responses.map(r => ({
-        visibilityQuestionId: r.questionId,
-        engine: r.engine,
-        model: r.modelId,
-        content: r.answer,
-        runId: this.runId
-      }));
-      
-      // Single bulk insert for all responses
-      const createdResponses = await tx.visibilityResponse.createManyAndReturn({
-        data: responseData
+    // ---------------- Simplified single tx approach ----------------
+    const responseData = responses.map(r => ({
+      visibilityQuestionId: r.questionId,
+      engine: r.engine,
+      model: r.modelId,
+      content: r.answer,
+      runId: this.runId
+    }));
+
+    await this.prisma.$transaction(async tx => {
+      // Set conservative timeouts to prevent hanging
+      await tx.$executeRawUnsafe("SET LOCAL statement_timeout = 60000"); // 60 seconds
+      await tx.$executeRawUnsafe("SET LOCAL deadlock_timeout = '5s'");
+      await tx.$executeRawUnsafe("SET LOCAL lock_timeout = '10s'");
+
+      // Insert responses first
+      const createdResponses = await tx.visibilityResponse.createManyAndReturn({ 
+        data: responseData 
       });
-      
-      // Process mentions in parallel if enabled
-      if (this.config.useParallelMentionWrites) {
-        await this.writeVisibilityMentionsParallel(tx, createdResponses, responses);
-      } else {
-        await this.writeVisibilityMentionsSequential(tx, createdResponses, responses);
+
+      // Then insert mentions sequentially to avoid complexity
+      for (let i = 0; i < createdResponses.length; i++) {
+        const response = createdResponses[i];
+        const originalResponse = responses[i];
+        const compositeKey = `${originalResponse.questionId}-${originalResponse.modelId}`;
+        const mentions = this.mentionBuffer.get(compositeKey) || [];
+        
+        if (mentions.length > 0) {
+          // Process mentions in smaller chunks to avoid large transactions
+          for (let j = 0; j < mentions.length; j += this.MENTION_CHUNK) {
+            const mentionChunk = mentions.slice(j, j + this.MENTION_CHUNK);
+            const mentionData = mentionChunk.map(mention => ({
+              visibilityResponseId: response.id,
+              position: mention.position,
+              ...(mention.isCompany ? { companyId: mention.entityId } : { competitorId: mention.entityId })
+            }));
+            
+            await tx.visibilityMention.createMany({ data: mentionData });
+          }
+          this.stats.mentionsWritten += mentions.length;
+        }
       }
-    };
-    
-    await this.prisma.$transaction(transaction, {
+    }, {
       maxWait: LLM_CONFIG.TIMEOUTS.STREAMING_BATCH_MAX_WAIT,
       timeout: LLM_CONFIG.TIMEOUTS.STREAMING_BATCH_TIMEOUT,
+      isolationLevel: 'ReadCommitted' // Use less strict isolation to reduce deadlocks
     });
   }
   
   private async writeBenchmarkResponses(responses: StreamedResponse[]): Promise<void> {
-    const transaction = async (tx: Prisma.TransactionClient) => {
-      const responseData = responses.map(r => ({
-        benchmarkQuestionId: r.questionId,
-        engine: r.engine,
-        model: r.modelId,
-        content: r.answer,
-        runId: this.runId
-      }));
-      
-      const createdResponses = await tx.benchmarkResponse.createManyAndReturn({
-        data: responseData
+    const responseData = responses.map(r => ({
+      benchmarkQuestionId: r.questionId,
+      engine: r.engine,
+      model: r.modelId,
+      content: r.answer,
+      runId: this.runId
+    }));
+
+    await this.prisma.$transaction(async tx => {
+      // Set conservative timeouts to prevent hanging
+      await tx.$executeRawUnsafe("SET LOCAL statement_timeout = 60000"); // 60 seconds
+      await tx.$executeRawUnsafe("SET LOCAL deadlock_timeout = '5s'");
+      await tx.$executeRawUnsafe("SET LOCAL lock_timeout = '10s'");
+
+      // Insert responses first
+      const createdResponses = await tx.benchmarkResponse.createManyAndReturn({ 
+        data: responseData 
       });
-      
-      if (this.config.useParallelMentionWrites) {
-        await this.writeBenchmarkMentionsParallel(tx, createdResponses, responses);
-      } else {
-        await this.writeBenchmarkMentionsSequential(tx, createdResponses, responses);
+
+      // Then insert mentions sequentially
+      for (let i = 0; i < createdResponses.length; i++) {
+        const response = createdResponses[i];
+        const originalResponse = responses[i];
+        const compositeKey = `${originalResponse.questionId}-${originalResponse.modelId}`;
+        const mentions = this.mentionBuffer.get(compositeKey) || [];
+        
+        if (mentions.length > 0) {
+          for (let j = 0; j < mentions.length; j += this.MENTION_CHUNK) {
+            const mentionChunk = mentions.slice(j, j + this.MENTION_CHUNK);
+            const mentionData = mentionChunk.map(mention => ({
+              benchmarkResponseId: response.id,
+              position: mention.position,
+              ...(mention.isCompany ? { companyId: mention.entityId } : { competitorId: mention.entityId })
+            }));
+            
+            await tx.benchmarkMention.createMany({ data: mentionData });
+          }
+          this.stats.mentionsWritten += mentions.length;
+        }
       }
-    };
-    
-    await this.prisma.$transaction(transaction, {
+    }, {
       maxWait: LLM_CONFIG.TIMEOUTS.STREAMING_BATCH_MAX_WAIT,
       timeout: LLM_CONFIG.TIMEOUTS.STREAMING_BATCH_TIMEOUT,
+      isolationLevel: 'ReadCommitted'
     });
   }
   
   private async writePersonalResponses(responses: StreamedResponse[]): Promise<void> {
-    const transaction = async (tx: Prisma.TransactionClient) => {
-      const responseData = responses.map(r => ({
-        personalQuestionId: r.questionId,
-        engine: r.engine,
-        model: r.modelId,
-        content: r.answer,
-        runId: this.runId
-      }));
-      
-      const createdResponses = await tx.personalResponse.createManyAndReturn({
-        data: responseData
+    const responseData = responses.map(r => ({
+      personalQuestionId: r.questionId,
+      engine: r.engine,
+      model: r.modelId,
+      content: r.answer,
+      runId: this.runId
+    }));
+
+    await this.prisma.$transaction(async tx => {
+      // Set conservative timeouts to prevent hanging
+      await tx.$executeRawUnsafe("SET LOCAL statement_timeout = 60000"); // 60 seconds
+      await tx.$executeRawUnsafe("SET LOCAL deadlock_timeout = '5s'");
+      await tx.$executeRawUnsafe("SET LOCAL lock_timeout = '10s'");
+
+      // Insert responses first
+      const createdResponses = await tx.personalResponse.createManyAndReturn({ 
+        data: responseData 
       });
-      
-      if (this.config.useParallelMentionWrites) {
-        await this.writePersonalMentionsParallel(tx, createdResponses, responses);
-      } else {
-        await this.writePersonalMentionsSequential(tx, createdResponses, responses);
+
+      // Then insert mentions sequentially
+      for (let i = 0; i < createdResponses.length; i++) {
+        const response = createdResponses[i];
+        const originalResponse = responses[i];
+        const compositeKey = `${originalResponse.questionId}-${originalResponse.modelId}`;
+        const mentions = this.mentionBuffer.get(compositeKey) || [];
+        
+        if (mentions.length > 0) {
+          for (let j = 0; j < mentions.length; j += this.MENTION_CHUNK) {
+            const mentionChunk = mentions.slice(j, j + this.MENTION_CHUNK);
+            const mentionData = mentionChunk.map(mention => ({
+              personalResponseId: response.id,
+              position: mention.position,
+              ...(mention.isCompany ? { companyId: mention.entityId } : { competitorId: mention.entityId })
+            }));
+            
+            await tx.personalMention.createMany({ data: mentionData });
+          }
+          this.stats.mentionsWritten += mentions.length;
+        }
       }
-    };
-    
-    await this.prisma.$transaction(transaction, {
+    }, {
       maxWait: LLM_CONFIG.TIMEOUTS.STREAMING_BATCH_MAX_WAIT,
       timeout: LLM_CONFIG.TIMEOUTS.STREAMING_BATCH_TIMEOUT,
+      isolationLevel: 'ReadCommitted'
     });
-  }
-  
-  private async writeVisibilityMentionsParallel(
-    tx: Prisma.TransactionClient, 
-    createdResponses: any[], 
-    originalResponses: StreamedResponse[]
-  ): Promise<void> {
-    const mentionPromises = createdResponses.map(async (response, index) => {
-      const originalResponse = originalResponses[index];
-      const compositeKey = `${originalResponse.questionId}-${originalResponse.modelId}`;
-      const mentions = this.mentionBuffer.get(compositeKey) || [];
-      if (mentions.length === 0) return;
-      
-      const mentionData = mentions.map(mention => ({
-        visibilityResponseId: response.id,
-        position: mention.position,
-        ...(mention.isCompany 
-          ? { companyId: mention.entityId } 
-          : { competitorId: mention.entityId })
-      }));
-      
-      await tx.visibilityMention.createMany({ data: mentionData });
-      this.stats.mentionsWritten += mentionData.length;
-    });
-    
-    await Promise.all(mentionPromises);
-  }
-  
-  private async writeBenchmarkMentionsParallel(
-    tx: Prisma.TransactionClient, 
-    createdResponses: any[], 
-    originalResponses: StreamedResponse[]
-  ): Promise<void> {
-    const mentionPromises = createdResponses.map(async (response, index) => {
-      const originalResponse = originalResponses[index];
-      const compositeKey = `${originalResponse.questionId}-${originalResponse.modelId}`;
-      const mentions = this.mentionBuffer.get(compositeKey) || [];
-      if (mentions.length === 0) return;
-      
-      const mentionData = mentions.map(mention => ({
-        benchmarkResponseId: response.id,
-        position: mention.position,
-        ...(mention.isCompany 
-          ? { companyId: mention.entityId } 
-          : { competitorId: mention.entityId })
-      }));
-      
-      await tx.benchmarkMention.createMany({ data: mentionData });
-      this.stats.mentionsWritten += mentionData.length;
-    });
-    
-    await Promise.all(mentionPromises);
-  }
-  
-  private async writePersonalMentionsParallel(
-    tx: Prisma.TransactionClient, 
-    createdResponses: any[], 
-    originalResponses: StreamedResponse[]
-  ): Promise<void> {
-    const mentionPromises = createdResponses.map(async (response, index) => {
-      const originalResponse = originalResponses[index];
-      const compositeKey = `${originalResponse.questionId}-${originalResponse.modelId}`;
-      const mentions = this.mentionBuffer.get(compositeKey) || [];
-      if (mentions.length === 0) return;
-      
-      const mentionData = mentions.map(mention => ({
-        personalResponseId: response.id,
-        position: mention.position,
-        ...(mention.isCompany 
-          ? { companyId: mention.entityId } 
-          : { competitorId: mention.entityId })
-      }));
-      
-      await tx.personalMention.createMany({ data: mentionData });
-      this.stats.mentionsWritten += mentionData.length;
-    });
-    
-    await Promise.all(mentionPromises);
-  }
-  
-  private async writeVisibilityMentionsSequential(
-    tx: Prisma.TransactionClient, 
-    createdResponses: any[], 
-    originalResponses: StreamedResponse[]
-  ): Promise<void> {
-    for (let i = 0; i < createdResponses.length; i++) {
-      const response = createdResponses[i];
-      const originalResponse = originalResponses[i];
-      const compositeKey = `${originalResponse.questionId}-${originalResponse.modelId}`;
-      const mentions = this.mentionBuffer.get(compositeKey) || [];
-      if (mentions.length === 0) continue;
-      
-      const mentionData = mentions.map(mention => ({
-        visibilityResponseId: response.id,
-        position: mention.position,
-        ...(mention.isCompany 
-          ? { companyId: mention.entityId } 
-          : { competitorId: mention.entityId })
-      }));
-      
-      await tx.visibilityMention.createMany({ data: mentionData });
-      this.stats.mentionsWritten += mentionData.length;
-    }
-  }
-  
-  private async writeBenchmarkMentionsSequential(
-    tx: Prisma.TransactionClient, 
-    createdResponses: any[], 
-    originalResponses: StreamedResponse[]
-  ): Promise<void> {
-    for (let i = 0; i < createdResponses.length; i++) {
-      const response = createdResponses[i];
-      const originalResponse = originalResponses[i];
-      const compositeKey = `${originalResponse.questionId}-${originalResponse.modelId}`;
-      const mentions = this.mentionBuffer.get(compositeKey) || [];
-      if (mentions.length === 0) continue;
-      
-      const mentionData = mentions.map(mention => ({
-        benchmarkResponseId: response.id,
-        position: mention.position,
-        ...(mention.isCompany 
-          ? { companyId: mention.entityId } 
-          : { competitorId: mention.entityId })
-      }));
-      
-      await tx.benchmarkMention.createMany({ data: mentionData });
-      this.stats.mentionsWritten += mentionData.length;
-    }
-  }
-  
-  private async writePersonalMentionsSequential(
-    tx: Prisma.TransactionClient, 
-    createdResponses: any[], 
-    originalResponses: StreamedResponse[]
-  ): Promise<void> {
-    for (let i = 0; i < createdResponses.length; i++) {
-      const response = createdResponses[i];
-      const originalResponse = originalResponses[i];
-      const compositeKey = `${originalResponse.questionId}-${originalResponse.modelId}`;
-      const mentions = this.mentionBuffer.get(compositeKey) || [];
-      if (mentions.length === 0) continue;
-      
-      const mentionData = mentions.map(mention => ({
-        personalResponseId: response.id,
-        position: mention.position,
-        ...(mention.isCompany 
-          ? { companyId: mention.entityId } 
-          : { competitorId: mention.entityId })
-      }));
-      
-      await tx.personalMention.createMany({ data: mentionData });
-      this.stats.mentionsWritten += mentionData.length;
-    }
   }
   
   /**
-   * Enhanced mention extraction with comprehensive entity recognition
-   * Prioritizes <brand> tags and falls back to regex-based detection if they are not present.
+   * Extract mentions based solely on explicit <brand> tags.
+   * If no valid <brand> tags are present, no mentions are recorded.
    */
   private findMentions(text: string, entities: { id: string; name: string }[]): StreamedMention[] {
     const brandTagRegex = /<brand>(.*?)<\/brand>/gi;
@@ -490,269 +506,8 @@ export class StreamingDatabaseWriter {
       }
     }
 
-    // --- Strategy 2: Fallback to Regex if no valid <brand> tags were found ---
-    // This provides backward compatibility and a safety net for non-compliant LLM responses.
-    console.warn(`[StreamingDatabaseWriter] No valid <brand> tags found in response. Falling back to regex-based mention detection. RunID: ${this.runId}`);
-
-    // Step 1: Find all potential mentions with their exact positions
-    const allPossibleMentions: {
-      id: string;
-      originalName: string;
-      matchedName: string;
-      index: number;
-      endIndex: number;
-      variation: string;
-      confidence: number;
-    }[] = [];
-
-    for (const entity of entities) {
-      if (!entity.name || entity.name.length < 2) continue;
-
-      const variations = this.generateComprehensiveNameVariations(entity.name);
-
-      for (const variation of variations) {
-        const trimmedVariation = variation.trim();
-        if (trimmedVariation.length < 2) continue;
-
-        try {
-          // Enhanced regex patterns for different contexts
-          const patterns = [
-            // Standard word boundaries (highest confidence)
-            { pattern: `\\b${this.escapeRegex(trimmedVariation)}\\b`, confidence: 1.0 },
-            // Followed by punctuation (high confidence)
-            { pattern: `${this.escapeRegex(trimmedVariation)}(?=[.,;:!?\\s])`, confidence: 0.9 },
-            // In quotes or parentheses (medium-high confidence)
-            { pattern: `["\\"\\(]\\s*${this.escapeRegex(trimmedVariation)}\\s*["\\"\\)]`, confidence: 0.8 },
-            // After "like" or "such as" (medium confidence)
-            { pattern: `(?:like|such as|including)\\s+${this.escapeRegex(trimmedVariation)}`, confidence: 0.7 }
-          ];
-
-          for (const { pattern, confidence } of patterns) {
-            const regex = new RegExp(pattern, 'gi');
-            let match;
-            while ((match = regex.exec(text))) {
-              if (match !== null) {
-                allPossibleMentions.push({
-                  id: entity.id,
-                  originalName: entity.name,
-                  matchedName: match[0],
-                  index: match.index,
-                  endIndex: match.index + match[0].length,
-                  variation: trimmedVariation,
-                  confidence
-                });
-              }
-            }
-          }
-        } catch (e) {
-          console.error(`Error creating regex for variation: "${variation}"`, e);
-        }
-      }
-    }
-
-    // Step 2: Resolve overlapping mentions using advanced logic
-    const resolvedMentions: {
-      id: string;
-      name: string;
-      index: number;
-      endIndex: number;
-      confidence: number;
-    }[] = [];
-
-    // Group mentions by overlapping positions
-    const mentionsByLocation = new Map<string, typeof allPossibleMentions>();
-    for (const mention of allPossibleMentions) {
-      // Create a more precise key that captures overlaps
-      const key = `${mention.index}-${mention.endIndex}`;
-      if (!mentionsByLocation.has(key)) {
-        mentionsByLocation.set(key, []);
-      }
-      mentionsByLocation.get(key)!.push(mention);
-    }
-
-    // Resolve conflicts within exact same positions
-    for (const candidates of mentionsByLocation.values()) {
-      if (candidates.length === 1) {
-        const mention = candidates[0];
-        resolvedMentions.push({
-          id: mention.id,
-          name: mention.matchedName,
-          index: mention.index,
-          endIndex: mention.endIndex,
-          confidence: mention.confidence
-        });
-      } else {
-        // Multiple candidates at same position - choose best one
-        candidates.sort((a, b) => {
-          // Prioritize: confidence > original name length > matched name length
-          if (a.confidence !== b.confidence) return b.confidence - a.confidence;
-          if (a.originalName.length !== b.originalName.length) return b.originalName.length - a.originalName.length;
-          return b.matchedName.length - a.matchedName.length;
-        });
-        
-        const bestMatch = candidates[0];
-        resolvedMentions.push({
-          id: bestMatch.id,
-          name: bestMatch.matchedName,
-          index: bestMatch.index,
-          endIndex: bestMatch.endIndex,
-          confidence: bestMatch.confidence
-        });
-      }
-    }
-
-    // Step 3: Remove overlapping mentions (prefer longer, higher confidence)
-    resolvedMentions.sort((a, b) => {
-      // Sort by confidence first, then by length
-      if (a.confidence !== b.confidence) return b.confidence - a.confidence;
-      return b.name.length - a.name.length;
-    });
-
-    const finalMentions: typeof resolvedMentions = [];
-    for (const mention of resolvedMentions) {
-      const isOverlapped = finalMentions.some(final => 
-        // Check for any overlap
-        !(mention.endIndex <= final.index || mention.index >= final.endIndex)
-      );
-      
-      if (!isOverlapped) {
-        finalMentions.push(mention);
-      }
-    }
-
-    // Step 4: Sort by position and assign ranking positions
-    finalMentions.sort((a, b) => a.index - b.index);
-
-    // Step 5: Create unique mentions with proper position ranking
-    const uniqueMentions: StreamedMention[] = [];
-    const seenEntities = new Set<string>();
-
-    let currentPosition = 1;
-    for (const mention of finalMentions) {
-      if (!seenEntities.has(mention.id)) {
-        uniqueMentions.push({
-          position: currentPosition++,
-          entityId: mention.id,
-          isCompany: mention.id === this.companyId
-        });
-        seenEntities.add(mention.id);
-      }
-    }
-
-    return uniqueMentions;
-  }
-  
-  /**
-   * Generate comprehensive name variations for robust entity matching
-   * Handles corporate suffixes, common abbreviations, brands, and acronyms
-   */
-  private generateComprehensiveNameVariations(name: string): Set<string> {
-    const variations = new Set<string>();
-    variations.add(name);
-    
-    const lowerCaseName = name.toLowerCase();
-
-    // 1. Remove corporate suffixes (more comprehensive)
-    const corporateSuffixes = [
-      'llc', 'inc', 'corp', 'corporation', 'company', 'co', 'ltd', 'limited',
-      'enterprises', 'group', 'holdings', 'international', 'worldwide', 'global',
-      'solutions', 'systems', 'technologies', 'tech', 'labs', 'laboratory',
-      'stores', 'store', 'shops', 'shop', 'retail', 'mart', 'market', 'depot'
-    ];
-    
-    for (const suffix of corporateSuffixes) {
-      const patterns = [
-        new RegExp(`\\s*,?\\s*${suffix}\\.?$`, 'i'),
-        new RegExp(`\\s+${suffix}\\.?$`, 'i')
-      ];
-      
-      for (const pattern of patterns) {
-        if (pattern.test(name)) {
-          const withoutSuffix = name.replace(pattern, '').trim();
-          if (withoutSuffix && withoutSuffix !== name) {
-            variations.add(withoutSuffix);
-          }
-        }
-      }
-    }
-
-    // 2. Handle location-based names ("Company of Location")
-    if (lowerCaseName.includes(' of ')) {
-      const parts = name.split(/\s+of\s+/i);
-      if (parts.length > 1) {
-        variations.add(parts[0].trim());
-      }
-    }
-
-    // 3. Symbol and punctuation variations
-    const baseVariations = Array.from(variations);
-    for (const base of baseVariations) {
-      // Replace & with "and" and vice versa
-      if (base.includes('&')) {
-        variations.add(base.replace(/&/g, 'and'));
-        variations.add(base.replace(/\s*&\s*/g, ' and '));
-      }
-      if (base.includes(' and ')) {
-        variations.add(base.replace(/\s+and\s+/g, ' & '));
-      }
-      
-      // Remove dots, hyphens, and other punctuation
-      if (/[.\-''""]/.test(base)) {
-        variations.add(base.replace(/[.\-''""/]/g, ''));
-        variations.add(base.replace(/[.\-]/g, ' '));
-      }
-    }
-
-    // 4. Generate acronyms for multi-word companies
-    const words = name.split(/\s+/).filter(word => 
-      word.length > 1 && 
-      !corporateSuffixes.includes(word.toLowerCase().replace(/[.,]/g, ''))
-    );
-    
-    if (words.length >= 2 && words.length <= 5) {
-      const acronym = words.map(word => word[0]).join('').toUpperCase();
-      if (acronym.length >= 2) {
-        variations.add(acronym);
-        // Also add with dots (e.g., "I.B.M.")
-        variations.add(acronym.split('').join('.'));
-      }
-    }
-
-    // 5. Handle common business name patterns
-    const commonPatterns = [
-      // "The Company Name" -> "Company Name"
-      /^the\s+/i,
-      // "Company Name Inc" -> "Company Name"
-      /\s+(inc|llc|corp)\.?$/i
-    ];
-    
-    const currentVariations = Array.from(variations);
-    for (const variation of currentVariations) {
-      for (const pattern of commonPatterns) {
-        if (pattern.test(variation)) {
-          const cleaned = variation.replace(pattern, '').trim();
-          if (cleaned && cleaned !== variation) {
-            variations.add(cleaned);
-          }
-        }
-      }
-    }
-
-    // 6. Filter out variations that are too short or common words
-    const commonWords = new Set(['the', 'and', 'or', 'of', 'for', 'in', 'on', 'at', 'to', 'a', 'an', 'ross', 'gap', 'target', 'best', 'old', 'new']);
-    const filteredVariations = new Set<string>();
-    
-    for (const variation of variations) {
-      const trimmed = variation.trim();
-      // Increase minimum length to 4 for variations without corporate suffixes
-      // This prevents matching very short words like "Ross", "Gap", etc.
-      const minLength = variation === name ? 2 : 4; // Keep original name even if short
-      if (trimmed.length >= minLength && !commonWords.has(trimmed.toLowerCase())) {
-        filteredVariations.add(trimmed);
-      }
-    }
-
-    return filteredVariations;
+    // No <brand> tags found or no matching entities identified; skip mention detection.
+    return [];
   }
   
   private escapeRegex(string: string): string {

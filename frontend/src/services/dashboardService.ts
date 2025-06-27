@@ -1,18 +1,18 @@
 import { getLatestReport } from './reportService';
-import { DashboardData, DashboardFilters } from '../types/dashboard';
+import { DashboardData, DashboardFilters, MODEL_CONFIGS } from '../types/dashboard';
 
 export const getDashboardData = async (companyId: string, filters: Partial<DashboardFilters>): Promise<DashboardData | null> => {
-  console.log(`[Dashboard] Fetching consolidated data for company ${companyId} with filters:`, filters);
+  console.log(`[Dashboard] Fetching data for company ${companyId} with filters:`, filters);
 
   try {
+    // The API now returns the complete, pre-computed data structure that matches what the frontend needs.
+    // No transformation is needed here anymore. We just pass it through.
     const dashboardData = await getLatestReport(companyId, filters);
-    console.log(`[Dashboard] Consolidated data received:`, dashboardData);
-    console.log(`[Dashboard] Data type:`, typeof dashboardData);
-    console.log(`[Dashboard] Data keys:`, dashboardData ? Object.keys(dashboardData) : 'null');
-    console.log(`[Dashboard] Has metrics:`, dashboardData?.metrics?.length || 0);
+    
+    console.log(`[Dashboard] Data received from API:`, dashboardData);
 
     if (!dashboardData) {
-      console.log(`[Dashboard] No data returned, showing welcome prompt`);
+      console.log(`[Dashboard] No data returned from API.`);
       return null;
     }
     
@@ -35,6 +35,47 @@ export const getDashboardData = async (companyId: string, filters: Partial<Dashb
     }
     
     console.error('Dashboard data fetch failed with a non-404 error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch dashboard data for all individual AI models (excluding 'all')
+ * Uses the existing dashboard infrastructure for consistency
+ */
+export const getAllModelsData = async (companyId: string, filters: Omit<DashboardFilters, 'aiModel'>): Promise<DashboardData[]> => {
+  console.log(`[Dashboard] Fetching model comparison data for company ${companyId}`);
+
+  try {
+    // Get all individual model IDs (excluding 'all')
+    const modelIds = Object.keys(MODEL_CONFIGS);
+    
+    // Fetch data for each model in parallel using existing infrastructure
+    const modelDataPromises = modelIds.map(async (modelId) => {
+      try {
+        const data = await getLatestReport(companyId, { ...filters, aiModel: modelId as DashboardFilters['aiModel'] });
+        if (data) {
+          // Ensure aiModel is set on the returned data
+          data.aiModel = modelId;
+        }
+        return data;
+      } catch (error) {
+        console.warn(`[Dashboard] Failed to fetch data for model ${modelId}:`, error);
+        return null;
+      }
+    });
+
+    const results = await Promise.all(modelDataPromises);
+    
+    // Filter out null results (models with no data)
+    const validResults = results.filter((data): data is DashboardData => data !== null);
+    
+    console.log(`[Dashboard] Successfully fetched data for ${validResults.length}/${modelIds.length} models`);
+    
+    return validResults;
+
+  } catch (error) {
+    console.error(`[Dashboard] Error fetching model comparison data:`, error);
     throw error;
   }
 }; 

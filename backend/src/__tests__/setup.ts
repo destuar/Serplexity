@@ -1,5 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import { beforeAll, afterAll, beforeEach } from '@jest/globals';
+// import { masterSchedulerQueue } from '../queues/masterScheduler';
+
+// Mock Redis client
+
 
 // CRITICAL: Override ALL environment variables for testing
 // This prevents tests from accessing production databases and services
@@ -59,11 +63,7 @@ beforeEach(async () => {
   await cleanDatabaseWithRetry();
 });
 
-afterAll(async () => {
-  // Clean up and disconnect
-  await cleanDatabase();
-  await prisma.$disconnect();
-});
+
 
 async function cleanDatabaseWithRetry(maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {

@@ -73,6 +73,13 @@ const env = {
 
   // Logging
   LOG_LEVEL: process.env.LOG_LEVEL || 'INFO',
+
+  // AWS Glacier Archive
+  AWS_REGION: process.env.AWS_REGION || 'us-east-2',
+  AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
+  AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY, 
+  GLACIER_VAULT_NAME: process.env.GLACIER_VAULT_NAME || 'serplexity-s3',
+  GLACIER_ACCOUNT_ID: process.env.GLACIER_ACCOUNT_ID || '354918367492',
 };
 
 // Validate that essential variables are set

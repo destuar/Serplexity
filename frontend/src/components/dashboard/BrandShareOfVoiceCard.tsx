@@ -1,4 +1,3 @@
-
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import Card from '../ui/Card';
 import { useCompany } from '../../contexts/CompanyContext';
@@ -10,8 +9,8 @@ const BrandShareOfVoiceCard = () => {
   const { selectedCompany } = useCompany();
   const { data, loading, error } = useDashboard();
 
-  const shareOfVoice = data?.brandShareOfVoice?.shareOfVoice || 0;
-  const hasData = !loading && !error && data?.brandShareOfVoice;
+  const shareOfVoice = data?.shareOfVoice || 0;
+  const hasData = !loading && !error && data?.shareOfVoice !== undefined && data.shareOfVoice !== null;
 
   const chartData = [
     { name: 'Your Company', value: shareOfVoice },

@@ -23,7 +23,7 @@ module.exports = {
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
   testMatch: [
-    '**/__tests__/**/*.ts',
+    '**/__tests__/**/*.test.ts',
     '**/?(*.)+(spec|test).ts'
   ],
   testPathIgnorePatterns: [
@@ -31,7 +31,7 @@ module.exports = {
     '<rootDir>/src/__tests__/globalSetup.ts'
   ],
   transform: {
-    '^.+\\.ts$': 'ts-jest',
+    '^.+\.ts$': 'ts-jest',
   },
   collectCoverageFrom: [
     'src/**/*.ts',
@@ -41,7 +41,7 @@ module.exports = {
     '!src/__tests__/**',
   ],
   setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
-  testTimeout: 15000,
+  testTimeout: 30000,
   
   // CRITICAL: Run tests serially to prevent database conflicts
   maxWorkers: 1,
@@ -55,8 +55,9 @@ module.exports = {
     }
   },
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1'
+    '^@/(.*)': '<rootDir>/src/$1'
   },
   // Additional security: Clear environment variables that could cause issues
-  globalSetup: '<rootDir>/src/__tests__/globalSetup.ts'
-}; 
+  globalSetup: '<rootDir>/src/__tests__/globalSetup.ts',
+  globalTeardown: '<rootDir>/src/__tests__/teardown.ts'
+};

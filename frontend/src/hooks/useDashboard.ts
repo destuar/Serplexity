@@ -11,6 +11,7 @@ export interface DashboardContextType {
   updateFilters: (newFilters: Partial<DashboardFilters>) => void;
   refreshData: () => Promise<void>;
   lastUpdated: string | null;
+  hasReport: boolean | null;
 }
 
 export const DashboardContext = createContext<DashboardContextType | undefined>(undefined);

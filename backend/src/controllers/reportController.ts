@@ -1,8 +1,14 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import prisma from '../config/db';
+import redis from '../config/redis';
 import { queueReport } from '../services/reportSchedulingService';
 import { MODELS } from '../config/models';
+import { getFullReportMetrics } from '../services/metricsService';
+import {
+    calculateCompetitorRankings,
+    calculateTopQuestions,
+} from '../services/dashboardService';
 
 // Enhanced logging system for the report controller
 interface ControllerLogContext {
@@ -304,198 +310,46 @@ export const getLatestReport = async (req: Request, res: Response) => {
   const endpoint = 'GET_LATEST_REPORT';
   const userId = req.user?.id;
   const companyId = req.params.companyId;
-  
-  // Extract filters from query parameters
-  const { dateRange, aiModel, company, competitors } = req.query;
-
-  controllerLog({ 
-    endpoint, 
-    userId, 
-    companyId,
-    metadata: { 
-      userAgent: req.headers['user-agent'],
-      ip: req.ip,
-      filters: { dateRange, aiModel, company, competitors }
-    }
-  }, 'Latest report request received with filters');
+  const { aiModel } = req.query;
 
   try {
-    controllerLog({ endpoint, userId, companyId }, 'Searching for latest completed report');
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
 
-    // 1. Find the most recent completed ReportRun for the company
     const latestRun = await prisma.reportRun.findFirst({
-      where: {
-        companyId: companyId,
-        status: 'COMPLETED',
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      include: {
-        company: {
-          select: {
-            id: true,
-            name: true
-          }
-        }
-      }
+      where: { companyId, status: 'COMPLETED' },
+      orderBy: { createdAt: 'desc' },
     });
 
     if (!latestRun) {
-      const duration = Date.now() - startTime;
-      controllerLog({ 
-        endpoint, 
-        userId, 
-        companyId, 
-        duration, 
-        statusCode: 404,
-        metadata: { reason: 'no_completed_reports' }
-      }, 'No completed report runs found', 'WARN');
-      
-      return res.status(404).json({ message: 'No completed report run found for this company.' });
+      return res.status(404).json({ error: 'No completed report found for this company.' });
     }
 
-    controllerLog({ 
-      endpoint, 
-      userId, 
-      companyId, 
-      reportId: latestRun.id,
-      metadata: { 
-        reportCreatedAt: latestRun.createdAt,
-        companyName: latestRun.company.name
-      }
-    }, `Latest report found: ${latestRun.id}`);
+    // Fetch all pre-computed metrics for the latest report
+    const metrics = await getFullReportMetrics(latestRun.id, aiModel as string || 'all');
 
-    // 2. Fetch all metrics associated with that run (with optional filtering)
-    controllerLog({ endpoint, userId, companyId, reportId: latestRun.id }, 'Fetching report metrics');
-    
-    const metricsWhere: any = {
-      runId: latestRun.id,
-    };
-    
-    // Apply AI model filter if specified
-    if (aiModel && aiModel !== 'all') {
-      metricsWhere.engine = aiModel;
+    if (!metrics) {
+      // This might happen if metrics haven't been computed yet for this run/model.
+      return res.status(404).json({ error: 'Metrics not available for the latest report.' });
     }
-    
-    const metrics = await prisma.metric.findMany({
-      where: metricsWhere,
-    });
 
-    // 3. Calculate dashboard data from raw database queries
-    controllerLog({ endpoint, userId, companyId, reportId: latestRun.id }, 'Calculating dashboard data from raw queries');
-    
-    const filters = { aiModel: aiModel as string };
-    
-    // Calculate all dashboard metrics in parallel for efficiency
-    const [
-      brandShareOfVoice,
-      averagePosition,
-      averageInclusionRate,
-      competitorRankings,
-      topQuestions,
-      sentimentOverTime,
-      shareOfVoiceHistory
-    ] = await Promise.all([
-      calculateBrandShareOfVoice(latestRun.id, companyId, filters),
-      calculateAveragePosition(latestRun.id, companyId, filters),
-      calculateAverageInclusionRate(latestRun.id, companyId, filters),
-      calculateCompetitorRankings(latestRun.id, companyId, filters),
-      calculateTopQuestions(latestRun.id, companyId, filters),
-      calculateSentimentOverTime(latestRun.id, companyId, filters),
-      calculateShareOfVoiceHistory(latestRun.id, companyId, filters)
-    ]);
-
+    // Construct the final response object
     const responseData = {
+      id: latestRun.id,
       runId: latestRun.id,
+      companyId: latestRun.companyId,
+      createdAt: latestRun.createdAt,
+      updatedAt: latestRun.updatedAt,
       lastUpdated: latestRun.updatedAt.toISOString(),
-      status: latestRun.status,
-      metrics: metrics,
-      brandShareOfVoice,
-      shareOfVoiceHistory,
-      averagePosition,
-      averageInclusionRate,
-      competitorRankings,
-      topQuestions,
-      sentimentOverTime,
+      ...metrics, // Spread all the pre-computed metrics
     };
-
-    /***** Add per-model metrics dynamically for dashboard comparison *****/
-    try {
-      const modelIds: string[] = Object.keys(MODELS);
-      for (const modelId of modelIds) {
-        // Skip if aggregated or if user filtered aiModel and it does not match
-        if (aiModel && aiModel !== 'all' && modelId !== aiModel) continue;
-
-        const modelFilters = { aiModel: modelId };
-        const [modelSOV, modelAvgPos, modelAIR, modelSOVHistory] = await Promise.all([
-          calculateBrandShareOfVoice(latestRun.id, companyId, modelFilters),
-          calculateAveragePosition(latestRun.id, companyId, modelFilters),
-          calculateAverageInclusionRate(latestRun.id, companyId, modelFilters),
-          calculateShareOfVoiceHistory(latestRun.id, companyId, modelFilters),
-        ]);
-
-        // Push virtual metrics so frontend can consume
-        responseData.metrics.push(
-          {
-            id: `${latestRun.id}-${modelId}-sov`,
-            runId: latestRun.id,
-            name: 'brandShareOfVoice',
-            value: modelSOV,
-            engine: modelId,
-            createdAt: latestRun.updatedAt,
-            updatedAt: latestRun.updatedAt,
-          } as any,
-          {
-            id: `${latestRun.id}-${modelId}-avgpos`,
-            runId: latestRun.id,
-            name: 'averagePosition',
-            value: modelAvgPos,
-            engine: modelId,
-            createdAt: latestRun.updatedAt,
-            updatedAt: latestRun.updatedAt,
-          } as any,
-          {
-            id: `${latestRun.id}-${modelId}-air`,
-            runId: latestRun.id,
-            name: 'averageInclusionRate',
-            value: modelAIR,
-            engine: modelId,
-            createdAt: latestRun.updatedAt,
-            updatedAt: latestRun.updatedAt,
-          } as any,
-          {
-            id: `${latestRun.id}-${modelId}-sovhist`,
-            runId: latestRun.id,
-            name: 'shareOfVoiceHistory',
-            value: { history: modelSOVHistory },
-            engine: modelId,
-            createdAt: latestRun.updatedAt,
-            updatedAt: latestRun.updatedAt,
-          } as any,
-        );
-      }
-    } catch (modelMetricErr) {
-      controllerLog({ endpoint, userId, companyId, reportId: latestRun.id, error: modelMetricErr }, 'Failed to compute per-model metrics', 'WARN');
-    }
 
     const duration = Date.now() - startTime;
-    controllerLog({ 
-      endpoint, 
-      userId, 
-      companyId, 
-      reportId: latestRun.id,
-      duration, 
-      statusCode: 200,
-      metadata: { 
-        metricsCount: metrics.length,
-        companyName: latestRun.company.name,
-        appliedFilters: { dateRange, aiModel },
-        calculatedFromRawData: true
-      }
-    }, `Latest report data calculated from raw database with ${metrics.length} metrics and filtering applied`);
+    controllerLog({ endpoint, userId, companyId, reportId: latestRun.id, duration, statusCode: 200 }, 'Successfully retrieved latest report with pre-computed metrics');
+    
+    return res.status(200).json(responseData);
 
-    res.status(200).json(responseData);
   } catch (error) {
     const duration = Date.now() - startTime;
     controllerLog({ 
@@ -512,538 +366,44 @@ export const getLatestReport = async (req: Request, res: Response) => {
   }
 };
 
+export const getCompetitorRankingsForReport = async (req: Request, res: Response) => {
+  const { runId } = req.params;
+  const { companyId, aiModel } = req.query;
 
+  if (!runId || !companyId) {
+    return res.status(400).json({ error: 'runId and companyId are required' });
+  }
 
-// Raw database calculation functions to replace DashboardData
-async function calculateBrandShareOfVoice(runId: string, companyId: string, filters?: { aiModel?: string }) {
-    // Get all mentions for this run across all response types
-    const [visibilityMentions, benchmarkMentions, personalMentions] = await Promise.all([
-        prisma.visibilityMention.findMany({
-            where: {
-                visibilityResponse: { 
-                    runId,
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                }
-            },
-            include: { company: true, competitor: true }
-        }),
-        prisma.benchmarkMention.findMany({
-            where: {
-                benchmarkResponse: { 
-                    runId,
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                }
-            },
-            include: { company: true, competitor: true }
-        }),
-        prisma.personalMention.findMany({
-            where: {
-                personalResponse: { 
-                    runId,
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                }
-            },
-            include: { company: true, competitor: true }
-        })
-    ]);
+  try {
+    const rankings = await calculateCompetitorRankings(runId, companyId as string, { aiModel: aiModel as string | undefined });
+    return res.status(200).json(rankings);
+  } catch (error) {
+    console.error(`Failed to get competitor rankings for report ${runId}`, error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
 
-    const allMentions = [...visibilityMentions, ...benchmarkMentions, ...personalMentions];
-    const totalMentions = allMentions.length;
-    
-    if (totalMentions === 0) {
-        return { shareOfVoice: 0 };
-    }
+export const getReportResponses = async (req: Request, res: Response) => {
+  const { runId } = req.params;
+  const { companyId, aiModel, page = '1', limit = '100' } = req.query;
 
-    const companyMentions = allMentions.filter(mention => mention.companyId === companyId).length;
-    const shareOfVoice = (companyMentions / totalMentions) * 100;
+  if (!runId || !companyId) {
+    return res.status(400).json({ error: 'runId and companyId are required' });
+  }
 
-    return { shareOfVoice };
-}
+  try {
+    const pageNum = parseInt(page as string, 10);
+    const limitNum = parseInt(limit as string, 10);
+    const skip = (pageNum - 1) * limitNum;
 
-async function calculateAveragePosition(runId: string, companyId: string, filters?: { aiModel?: string }) {
-    // Get all company mentions with their positions
-    const [visibilityMentions, benchmarkMentions, personalMentions] = await Promise.all([
-        prisma.visibilityMention.findMany({
-            where: {
-                companyId,
-                visibilityResponse: { 
-                    runId,
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                }
-            },
-            select: { position: true }
-        }),
-        prisma.benchmarkMention.findMany({
-            where: {
-                companyId,
-                benchmarkResponse: { 
-                    runId,
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                }
-            },
-            select: { position: true }
-        }),
-        prisma.personalMention.findMany({
-            where: {
-                companyId,
-                personalResponse: { 
-                    runId,
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                }
-            },
-            select: { position: true }
-        })
-    ]);
+    // We can reuse the top questions logic, but remove the limit and add pagination
+    const responses = await calculateTopQuestions(runId, companyId as string, { aiModel: aiModel as string | undefined }, limitNum, skip);
+    // In a real scenario, we'd also return total count for pagination controls
+    return res.status(200).json(responses);
+  } catch (error) {
+    console.error(`Failed to get responses for report ${runId}`, error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
 
-    const allCompanyMentions = [...visibilityMentions, ...benchmarkMentions, ...personalMentions];
-    
-    if (allCompanyMentions.length === 0) {
-        return { averagePosition: 0, change: 0 };
-    }
-
-    const totalPositions = allCompanyMentions.reduce((sum, mention) => sum + mention.position, 0);
-    const averagePosition = totalPositions / allCompanyMentions.length;
-
-    // TODO: Calculate change by comparing with previous runs
-    // For now, return 0 change - this could be enhanced to look at historical data
-    const change = 0;
-
-    return { averagePosition, change };
-}
-
-async function calculateAverageInclusionRate(runId: string, companyId: string, filters?: { aiModel?: string }) {
-    // Get total number of responses and number of responses with company mentions
-    const [totalResponses, responsesWithMentions] = await Promise.all([
-        // Count all responses for this run
-        Promise.all([
-            prisma.visibilityResponse.count({
-                where: { 
-                    runId,
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                }
-            }),
-            prisma.benchmarkResponse.count({
-                where: { 
-                    runId,
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                }
-            }),
-            prisma.personalResponse.count({
-                where: { 
-                    runId,
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                }
-            })
-        ]).then(counts => counts.reduce((sum, count) => sum + count, 0)),
-        
-        // Count responses that have company mentions
-        Promise.all([
-            prisma.visibilityResponse.count({
-                where: {
-                    runId,
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {}),
-                    mentions: { some: { companyId } }
-                }
-            }),
-            prisma.benchmarkResponse.count({
-                where: {
-                    runId,
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {}),
-                    benchmarkMentions: { some: { companyId } }
-                }
-            }),
-            prisma.personalResponse.count({
-                where: {
-                    runId,
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {}),
-                    mentions: { some: { companyId } }
-                }
-            })
-        ]).then(counts => counts.reduce((sum, count) => sum + count, 0))
-    ]);
-
-    if (totalResponses === 0) {
-        return { averageInclusionRate: 0, change: 0 };
-    }
-
-    const averageInclusionRate = (responsesWithMentions / totalResponses) * 100;
-    
-    // TODO: Calculate change by comparing with previous runs
-    const change = 0;
-
-    return { averageInclusionRate, change };
-}
-
-async function calculateCompetitorRankings(runId: string, companyId: string, filters?: { aiModel?: string }) {
-    // Get all competitors for this company
-    const company = await prisma.company.findUnique({
-        where: { id: companyId },
-        include: { competitors: true }
-    });
-
-    if (!company) {
-        return { competitors: [], chartCompetitors: [], industryRanking: null, userCompany: null };
-    }
-
-    // Calculate share of voice for company and all competitors
-    const entityMentionCounts = new Map<string, { name: string, isUserCompany: boolean, website?: string, mentions: number }>();
-    
-    // Add the user's company
-    entityMentionCounts.set(companyId, {
-        name: company.name,
-        isUserCompany: true,
-        website: company.website,
-        mentions: 0
-    });
-
-    // Add all competitors
-    company.competitors.forEach(competitor => {
-        entityMentionCounts.set(competitor.id, {
-            name: competitor.name,
-            isUserCompany: false,
-            website: competitor.website,
-            mentions: 0
-        });
-    });
-
-    // Count mentions for each entity
-    const [visibilityMentions, benchmarkMentions, personalMentions] = await Promise.all([
-        prisma.visibilityMention.findMany({
-            where: {
-                visibilityResponse: { 
-                    runId,
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                },
-                OR: [
-                    { companyId },
-                    { competitorId: { in: company.competitors.map(c => c.id) } }
-                ]
-            }
-        }),
-        prisma.benchmarkMention.findMany({
-            where: {
-                benchmarkResponse: { 
-                    runId,
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                },
-                OR: [
-                    { companyId },
-                    { competitorId: { in: company.competitors.map(c => c.id) } }
-                ]
-            }
-        }),
-        prisma.personalMention.findMany({
-            where: {
-                personalResponse: { 
-                    runId,
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                },
-                OR: [
-                    { companyId },
-                    { competitorId: { in: company.competitors.map(c => c.id) } }
-                ]
-            }
-        })
-    ]);
-
-    // Count mentions for each entity
-    [...visibilityMentions, ...benchmarkMentions, ...personalMentions].forEach(mention => {
-        const entityId = mention.companyId || mention.competitorId;
-        if (entityId && entityMentionCounts.has(entityId)) {
-            entityMentionCounts.get(entityId)!.mentions++;
-        }
-    });
-
-    const totalMentions = Array.from(entityMentionCounts.values()).reduce((sum, entity) => sum + entity.mentions, 0);
-    
-    // Calculate share of voice and rank entities
-    const rankedEntities = Array.from(entityMentionCounts.entries())
-        .map(([id, entity]) => ({
-            id,
-            name: entity.name,
-            isUserCompany: entity.isUserCompany,
-            website: entity.website,
-            shareOfVoice: totalMentions > 0 ? (entity.mentions / totalMentions) * 100 : 0,
-            change: 0, // TODO: Calculate change from previous runs
-            changeType: 'stable' as const
-        }))
-        .sort((a, b) => b.shareOfVoice - a.shareOfVoice);
-
-    // Find user company ranking
-    const userCompanyRanking = rankedEntities.findIndex(entity => entity.isUserCompany) + 1;
-    const industryRanking = userCompanyRanking > 0 ? userCompanyRanking : null;
-
-    return {
-        competitors: rankedEntities.filter(entity => !entity.isUserCompany),
-        chartCompetitors: rankedEntities,
-        industryRanking,
-        userCompany: rankedEntities.find(entity => entity.isUserCompany) || null
-    };
-}
-
-async function calculateTopQuestions(runId: string, companyId: string, filters?: { aiModel?: string }) {
-    // Helper to group responses by engine
-    const groupByEngine = <T extends { engine: string }>(items: T[]) => {
-        const map = new Map<string, T[]>();
-        items.forEach(item => {
-            if (!map.has(item.engine)) map.set(item.engine, []);
-            map.get(item.engine)!.push(item);
-        });
-        return Array.from(map.entries());
-    };
-
-    // Fetch questions with their responses (optionally filtered by engine)
-    const [visibilityQuestions, benchmarkQuestions, personalQuestions] = await Promise.all([
-        prisma.visibilityQuestion.findMany({
-            where: {
-                responses: {
-                    some: {
-                        runId,
-                        ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                    }
-                }
-            },
-            include: {
-                product: { select: { name: true } },
-                responses: {
-                    where: {
-                        runId,
-                        ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                    },
-                    include: {
-                        mentions: { where: { companyId } }
-                    }
-                }
-            }
-        }),
-        prisma.benchmarkingQuestion.findMany({
-            where: {
-                benchmarkResponses: {
-                    some: {
-                        runId,
-                        ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                    }
-                }
-            },
-            include: {
-                benchmarkResponses: {
-                    where: {
-                        runId,
-                        ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                    },
-                    include: {
-                        benchmarkMentions: { where: { companyId } }
-                    }
-                }
-            }
-        }),
-        prisma.personalQuestion.findMany({
-            where: {
-                responses: {
-                    some: {
-                        runId,
-                        ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                    }
-                }
-            },
-            include: {
-                responses: {
-                    where: {
-                        runId,
-                        ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                    },
-                    include: {
-                        mentions: { where: { companyId } }
-                    }
-                }
-            }
-        })
-    ]);
-
-    const details: any[] = [];
-
-    // Utility to build record for a given response group
-    const buildRecord = (
-        baseId: string,
-        questionText: string,
-        type: 'visibility' | 'benchmark' | 'personal',
-        productName: string | undefined,
-        engine: string,
-        mentions: any[],
-        sampleResponse: { content?: string; engine?: string }
-    ) => {
-        if (mentions.length === 0) {
-            return {
-                id: `${baseId}-${engine}`,
-                question: questionText,
-                averagePosition: 999,
-                bestPosition: 999,
-                type,
-                productName,
-                totalMentions: 0,
-                bestResponse: sampleResponse?.content || 'No response available',
-                bestResponseModel: engine || 'unknown'
-            };
-        }
-
-        const bestMention = mentions.reduce((best, current) =>
-            current.position < best.position ? current : best, mentions[0]);
-        const averagePosition = mentions.reduce((sum, m) => sum + m.position, 0) / mentions.length;
-
-        return {
-            id: `${baseId}-${engine}`,
-            question: questionText,
-            averagePosition,
-            bestPosition: bestMention.position,
-            type,
-            productName,
-            totalMentions: mentions.length,
-            bestResponse: sampleResponse?.content || '',
-            bestResponseModel: engine
-        };
-    };
-
-    // Process visibility questions
-    visibilityQuestions.forEach(q => {
-        const byEngine = groupByEngine(q.responses);
-        byEngine.forEach(([engine, engineResponses]) => {
-            const mentions = engineResponses.flatMap(r => r.mentions);
-            const sampleResp = engineResponses.find(r => true) as any;
-            details.push(buildRecord(q.id, q.question, 'visibility', q.product?.name, engine, mentions, sampleResp));
-        });
-    });
-
-    // Process benchmarking questions
-    benchmarkQuestions.forEach(q => {
-        const byEngine = groupByEngine(q.benchmarkResponses);
-        byEngine.forEach(([engine, engineResponses]) => {
-            const mentions = engineResponses.flatMap(r => r.benchmarkMentions);
-            const sampleResp = engineResponses.find(r => true) as any;
-            details.push(buildRecord(q.id, q.text, 'benchmark', undefined, engine, mentions, sampleResp));
-        });
-    });
-
-    // Process personal questions
-    personalQuestions.forEach(q => {
-        const byEngine = groupByEngine(q.responses);
-        byEngine.forEach(([engine, engineResponses]) => {
-            const mentions = engineResponses.flatMap(r => r.mentions);
-            const sampleResp = engineResponses.find(r => true) as any;
-            details.push(buildRecord(q.id, q.question, 'personal', undefined, engine, mentions, sampleResp));
-        });
-    });
-
-    // If a specific model is requested (not 'all'), Prisma already filtered responses, so grouping may include unrelated engines; safeguard:
-    const filteredDetails = (filters?.aiModel && filters.aiModel !== 'all')
-        ? details.filter(d => d.bestResponseModel === filters.aiModel)
-        : details;
-
-    // Sort by average position (lower is better)
-    return filteredDetails.sort((a, b) => a.averagePosition - b.averagePosition);
-}
-
-async function calculateSentimentOverTime(runId: string, companyId: string, filters?: { aiModel?: string }) {
-    // Get sentiment metrics for this run
-    const sentimentMetrics = await prisma.metric.findMany({
-        where: {
-            runId,
-            name: 'Detailed Sentiment Scores',
-            ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-        },
-        orderBy: { createdAt: 'asc' }
-    });
-
-    if (sentimentMetrics.length === 0) {
-        return [];
-    }
-
-    // Group metrics by date and calculate average sentiment scores
-    const sentimentByDate: { [date: string]: { scores: number[], count: number } } = {};
-    
-    sentimentMetrics.forEach(metric => {
-        const value = metric.value as any;
-        if (!value?.ratings?.[0]) return;
-        
-        const rating = value.ratings[0];
-        const categoryScores = Object.values(rating).filter(v => typeof v === 'number') as number[];
-        if (categoryScores.length === 0) return;
-        
-        const averageScore = categoryScores.reduce((sum, score) => sum + score, 0) / categoryScores.length;
-        const date = new Date(metric.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        
-        if (!sentimentByDate[date]) {
-            sentimentByDate[date] = { scores: [], count: 0 };
-        }
-        sentimentByDate[date].scores.push(averageScore);
-        sentimentByDate[date].count++;
-    });
-    
-    // Convert to chart format
-    const sentimentOverTime = Object.entries(sentimentByDate).map(([date, data]) => ({
-        date,
-        score: data.scores.reduce((sum, score) => sum + score, 0) / data.count,
-    })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    return sentimentOverTime;
-}
-
-async function calculateShareOfVoiceHistory(runId: string, companyId: string, filters?: { aiModel?: string }) {
-    // Get all mentions for this run across all response types
-    const [visibilityMentions, benchmarkMentions, personalMentions] = await Promise.all([
-        prisma.visibilityMention.findMany({
-            where: {
-                visibilityResponse: { 
-                    runId,
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                }
-            },
-            select: { createdAt: true, companyId: true }
-        }),
-        prisma.benchmarkMention.findMany({
-            where: {
-                benchmarkResponse: { 
-                    runId,
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                }
-            },
-            select: { createdAt: true, companyId: true }
-        }),
-        prisma.personalMention.findMany({
-            where: {
-                personalResponse: { 
-                    runId,
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                }
-            },
-            select: { createdAt: true, companyId: true }
-        })
-    ]);
-
-    const allMentions = [...visibilityMentions, ...benchmarkMentions, ...personalMentions];
-    
-    if (allMentions.length === 0) {
-        return [];
-    }
-
-    // Group mentions by date
-    const mentionsByDate: { [date: string]: { companyMentions: number; totalMentions: number } } = {};
-    
-    allMentions.forEach(mention => {
-        const date = new Date(mention.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        if (!mentionsByDate[date]) {
-            mentionsByDate[date] = { companyMentions: 0, totalMentions: 0 };
-        }
-        mentionsByDate[date].totalMentions++;
-        if (mention.companyId === companyId) {
-            mentionsByDate[date].companyMentions++;
-        }
-    });
-
-    // Convert to chart format
-    const shareOfVoiceHistory = Object.entries(mentionsByDate).map(([date, data]) => ({
-        date,
-        shareOfVoice: data.totalMentions > 0 ? (data.companyMentions / data.totalMentions) * 100 : 0,
-    })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    return shareOfVoiceHistory;
-} 
+ 

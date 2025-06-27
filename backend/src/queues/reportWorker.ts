@@ -20,6 +20,8 @@ import { getModelsByTask, ModelTask, LLM_CONFIG } from '../config/models';
 import { z } from 'zod';
 import { Question } from '../types/reports';
 import { StreamingDatabaseWriter } from './streaming-db-writer';
+import { computeAndPersistMetrics } from '../services/metricsService';
+import { archiveQueue } from './archiveWorker';
 
 // Simple log types instead of complex levels
 type LogType = 'STAGE' | 'CONTENT' | 'PERFORMANCE' | 'TECHNICAL' | 'ERROR';
@@ -435,7 +437,7 @@ async function generateAndSaveSentiments(runId: string, company: { id: string; n
                 metadata: { modelId: model.id }
             }, `Successfully processed sentiment from ${model.id}`, 'TRACE');
 
-            await tx.metric.create({
+            await tx.sentimentScore.create({
                 data: {
                     runId,
                     name: 'Detailed Sentiment Scores',
@@ -498,7 +500,7 @@ async function generateAndSaveSentiments(runId: string, company: { id: string; n
                 }
             }, 'Successfully generated sentiment summary', 'TRACE');
 
-            await tx.metric.create({
+            await tx.sentimentScore.create({
                 data: {
                     runId,
                     name: 'Detailed Sentiment Scores',
@@ -1268,7 +1270,7 @@ const processJob = async (job: Job) => {
             const model = sentimentModels[i];
             if (result.status === 'fulfilled') {
                 const { data, usage } = result.value;
-                await tx.metric.create({
+                await tx.sentimentScore.create({
                     data: { runId, name: 'Detailed Sentiment Scores', value: data as any, engine: model.id }
                 });
             } else {
@@ -1277,7 +1279,7 @@ const processJob = async (job: Job) => {
         }
         if (sentimentSummary) {
             try {
-                await tx.metric.create({
+                await tx.sentimentScore.create({
                     data: {
                         runId,
                         name: 'Detailed Sentiment Scores',
@@ -1335,6 +1337,35 @@ const processJob = async (job: Job) => {
         },
     });
     
+    // --- Post-completion processing ---
+    try {
+        // Compute and persist dashboard metrics
+        log({ runId, stage: 'POST_COMPLETION', step: 'METRICS_START' }, 'Computing and persisting dashboard metrics...');
+        await computeAndPersistMetrics(runId, company.id);
+        log({ runId, stage: 'POST_COMPLETION', step: 'METRICS_SUCCESS' }, 'Successfully computed and persisted dashboard metrics');
+        
+        // Schedule archive job for old responses
+        log({ runId, stage: 'POST_COMPLETION', step: 'ARCHIVE_SCHEDULE' }, 'Scheduling archive job for old responses...');
+        await archiveQueue.add('archive-old-responses', { companyId: company.id }, {
+            removeOnComplete: true,
+            removeOnFail: 5,
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 30000 }
+        });
+        log({ runId, stage: 'POST_COMPLETION', step: 'ARCHIVE_SCHEDULED' }, 'Successfully scheduled archive job');
+        
+    } catch (error) {
+        log({ 
+            runId, 
+            stage: 'POST_COMPLETION', 
+            step: 'ERROR',
+            error,
+            metadata: { errorType: error instanceof Error ? error.name : 'Unknown' }
+        }, 'Error in post-completion processing (report still marked as completed)', 'ERROR');
+        // Note: We don't re-throw here because the report itself completed successfully
+        // The metrics computation and archiving are supplementary processes
+    }
+    
     log({ 
         runId, 
         stage: 'JOB_COMPLETE', 
@@ -1353,7 +1384,10 @@ const processJob = async (job: Job) => {
     }, `Report generation completed successfully - Total time: ${(totalJobDuration / 1000).toFixed(2)}s, Tokens used: ${finalTokenUsage}`);
 };
 
-const worker = new Worker('report-generation', processJob, {
+let worker: Worker | null = null;
+
+if (env.NODE_ENV !== 'test') {
+  worker = new Worker('report-generation', processJob, {
     connection: {
         host: env.REDIS_HOST,
         port: env.REDIS_PORT,
@@ -1454,5 +1488,6 @@ worker.on('failed', async (job, err) => {
 });
 
 console.log('Report worker process started...');
+}
 
 export default worker;

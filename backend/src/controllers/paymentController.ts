@@ -63,6 +63,9 @@ export const createCheckoutSession = async (req: Request, res: Response) => {
 
     } catch (error: any) {
         console.error("Error creating Stripe checkout session:", error);
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({ error: error.errors });
+        }
         res.status(500).json({ error: 'Failed to create checkout session.', details: error.message });
     }
 };

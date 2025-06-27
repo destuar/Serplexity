@@ -76,10 +76,15 @@ export interface QuestionInput {
     text: string;
 }
 
+// ---- Networking ----
+// Enforce a hard timeout on all outbound LLM HTTP calls so a hung TCP connection
+// cannot stall the entire report worker. Default 60 s but configurable via env.
+const HTTP_TIMEOUT_MS = process.env.LLM_TIMEOUT_MS ? Number(process.env.LLM_TIMEOUT_MS) : 60_000;
+
 // --- API Clients ---
-const openaiClient = new OpenAI({ apiKey: env.OPENAI_API_KEY });
-const perplexityClient = new OpenAI({ apiKey: env.PERPLEXITY_API_KEY, baseURL: 'https://api.perplexity.ai' });
-const anthropicClient = env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }) : null;
+const openaiClient = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: HTTP_TIMEOUT_MS });
+const perplexityClient = new OpenAI({ apiKey: env.PERPLEXITY_API_KEY, baseURL: 'https://api.perplexity.ai', timeout: HTTP_TIMEOUT_MS });
+const anthropicClient = env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: HTTP_TIMEOUT_MS }) : null;
 const genAI = env.GEMINI_API_KEY ? new GoogleGenerativeAI(env.GEMINI_API_KEY) : null;
 
 llmLog({ 
@@ -287,13 +292,14 @@ async function generateChatCompletion(
             }
           }, 'Using Google Gemini generate content');
           
-          const result = await geminiModel.generateContent({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: { 
-              responseMimeType: 'application/json',
-              maxOutputTokens: LLM_CONFIG.MAX_TOKENS
-            },
-          });
+          const result = await withTimeout(
+            geminiModel.generateContent({
+              contents: [{ role: 'user', parts: [{ text: prompt }] }],
+              generationConfig: { 
+                responseMimeType: 'application/json',
+                maxOutputTokens: LLM_CONFIG.MAX_TOKENS
+              },
+            }), HTTP_TIMEOUT_MS, `${model.engine} generateContent`);
           content = result.response.text();
           const usageMetadata = result.response.usageMetadata;
           usage = {
@@ -1328,8 +1334,25 @@ Find the official websites for the ${companyBatch.length} companies listed above
 
 // Quickly generate a plain text answer to a question without any additional instructions.
 export async function generatePlainAnswer(questionText: string, model: Model): Promise<ChatCompletionResponse<string>> {
-    const prompt = `Answer "${questionText}" and return back a response in normal text. Do not return in markdown or JSON.`;
+    const prompt = `You are a helpful assistant tasked with answering user questions clearly and concisely.\n\nGuidelines:\n1. Write your response in Markdown: use headings, paragraphs, "\n\n" for new lines, and bullet/numbered lists as appropriate.\n2. Never output raw JSON, YAML, or code blocks unless explicitly asked.\n4. Convert any structured data into plain English prose or Markdown lists.\n5. Keep paragraphs short (2-3 sentences). All paragraphs should be followed by a double line break.\n Now, answer the following question in a helpful, conversational manner:\n\n\"${questionText}\"`;
     const { content, usage } = await generateChatCompletion(model, prompt);
     if (!content) throw new Error('LLM returned empty content');
     return { data: content, usage };
+}
+
+// Helper to wrap any promise with a timeout using AbortController
+async function withTimeout<T>(promise: Promise<T>, ms: number, operationLabel = 'LLM request'): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${operationLabel} exceeded timeout of ${ms} ms`));
+    }, ms);
+
+    promise.then(v => {
+      clearTimeout(timer);
+      resolve(v);
+    }).catch(err => {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
 } 

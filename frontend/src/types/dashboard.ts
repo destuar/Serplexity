@@ -127,24 +127,52 @@ export interface DashboardFilters {
 }
 
 export interface DashboardData {
-  brandShareOfVoice: { shareOfVoice: number };
-  shareOfVoiceHistory: { date: string; shareOfVoice: number }[];
-  averagePosition: { averagePosition: number; change: number };
-  averageInclusionRate: { averageInclusionRate: number; change: number };
+  // Simple metric values
+  shareOfVoice: number;
+  shareOfVoiceChange: number | null;
+  averageInclusionRate: number;
+  averageInclusionChange: number | null;
+  averagePosition: number;
+  averagePositionChange: number | null;
+  sentimentScore: number | null;
+  sentimentChange: number | null;
+  topRankingsCount: number | null;
+  rankingsChange: number | null;
+
+  // Detailed sentiment scores, which may not always be present
+  sentimentDetails?: Metric<SentimentScoreValue>[];
+
+  // Complex, pre-computed data objects
   competitorRankings: CompetitorRankingsResponse;
   topQuestions: TopRankingQuestion[];
   sentimentOverTime: { date: string; score: number }[];
+  shareOfVoiceHistory: { date: string; shareOfVoice: number }[];
 
+  // Report metadata
   lastUpdated: string;
-  metrics: Metric[];
   id?: string;
   runId?: string;
   companyId?: string;
   createdAt?: string;
   updatedAt?: string;
+  aiModel?: string;
 }
 
-export interface Metric<T = unknown> {
+export interface PreloadedMetricSet {
+  shareOfVoice: number;
+  shareOfVoiceChange: number | null;
+  averageInclusionRate: number;
+  averageInclusionChange: number | null;
+  averagePosition: number;
+  averagePositionChange: number | null;
+  sentimentScore: number | null;
+  sentimentChange: number | null;
+  topRankingsCount: number | null;
+  rankingsChange: number | null;
+  sentimentDetails?: Metric<SentimentScoreValue>; // Optional since it's a specific metric
+}
+
+export interface Metric<T = any> {
   id: string;
   runId: string;
   name: string;

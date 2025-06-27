@@ -111,7 +111,43 @@ describe('Company Management System', () => {
         .send(invalidData)
         .expect(400);
 
-      expect(response.body.error).toBeDefined();
+      expect(response.body.error).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: 'Company name is required',
+            path: ['name'],
+          }),
+          expect.objectContaining({
+            message: 'Invalid website URL',
+            path: ['website'],
+          }),
+          expect.objectContaining({
+            message: 'Industry is required',
+            path: ['industry'],
+          }),
+          expect.objectContaining({
+            code: 'invalid_type',
+            expected: 'array',
+            received: 'undefined',
+            message: 'Required',
+            path: ['competitors'],
+          }),
+          expect.objectContaining({
+            code: 'invalid_type',
+            expected: 'array',
+            received: 'undefined',
+            message: 'Required',
+            path: ['benchmarkingQuestions'],
+          }),
+          expect.objectContaining({
+            code: 'invalid_type',
+            expected: 'array',
+            received: 'undefined',
+            message: 'Required',
+            path: ['products'],
+          }),
+        ])
+      );
     });
 
     it('should validate website URL format', async () => {
@@ -120,11 +156,20 @@ describe('Company Management System', () => {
         website: 'not-a-valid-url' 
       };
       
-      await request(app)
+      const response = await request(app)
         .post('/api/companies')
         .set('Authorization', `Bearer ${accessToken}`)
         .send(invalidData)
         .expect(400);
+
+      expect(response.body.error).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: 'Invalid website URL',
+            path: ['website'],
+          }),
+        ])
+      );
     });
 
     it('should validate competitor website URLs', async () => {
@@ -133,11 +178,20 @@ describe('Company Management System', () => {
         competitors: [{ name: 'Test', website: 'invalid-url' }]
       };
       
-      await request(app)
+      const response = await request(app)
         .post('/api/companies')
         .set('Authorization', `Bearer ${accessToken}`)
         .send(invalidData)
         .expect(400);
+
+      expect(response.body.error).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: 'Invalid competitor website URL',
+            path: ['competitors', 0, 'website'],
+          }),
+        ])
+      );
     });
 
     it('should require at least one competitor', async () => {
@@ -146,11 +200,20 @@ describe('Company Management System', () => {
         competitors: []
       };
       
-      await request(app)
+      const response = await request(app)
         .post('/api/companies')
         .set('Authorization', `Bearer ${accessToken}`)
         .send(invalidData)
         .expect(400);
+
+      expect(response.body.error).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: 'At least one competitor is required',
+            path: ['competitors'],
+          }),
+        ])
+      );
     });
 
     it('should require at least one benchmarking question', async () => {
@@ -159,11 +222,20 @@ describe('Company Management System', () => {
         benchmarkingQuestions: []
       };
       
-      await request(app)
+      const response = await request(app)
         .post('/api/companies')
         .set('Authorization', `Bearer ${accessToken}`)
         .send(invalidData)
         .expect(400);
+
+      expect(response.body.error).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: 'At least one benchmarking question is required',
+            path: ['benchmarkingQuestions'],
+          }),
+        ])
+      );
     });
 
     it('should require at least one product', async () => {
@@ -172,11 +244,20 @@ describe('Company Management System', () => {
         products: []
       };
       
-      await request(app)
+      const response = await request(app)
         .post('/api/companies')
         .set('Authorization', `Bearer ${accessToken}`)
         .send(invalidData)
         .expect(400);
+
+      expect(response.body.error).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: 'At least one product is required',
+            path: ['products'],
+          }),
+        ])
+      );
     });
 
     it('should limit maximum 5 benchmarking questions', async () => {
@@ -188,11 +269,20 @@ describe('Company Management System', () => {
         ]
       };
       
-      await request(app)
+      const response = await request(app)
         .post('/api/companies')
         .set('Authorization', `Bearer ${accessToken}`)
         .send(invalidData)
         .expect(400);
+
+      expect(response.body.error).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: 'Maximum 5 questions allowed',
+            path: ['benchmarkingQuestions'],
+          }),
+        ])
+      );
     });
 
     it('should limit maximum 5 products', async () => {
@@ -204,11 +294,20 @@ describe('Company Management System', () => {
         ]
       };
       
-      await request(app)
+      const response = await request(app)
         .post('/api/companies')
         .set('Authorization', `Bearer ${accessToken}`)
         .send(invalidData)
         .expect(400);
+
+      expect(response.body.error).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: 'Maximum 5 products allowed',
+            path: ['products'],
+          }),
+        ])
+      );
     });
 
     it('should remove duplicate competitors by website', async () => {

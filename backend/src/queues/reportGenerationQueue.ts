@@ -16,24 +16,18 @@ const queueLog = (message: string, level: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG' = 
 // Skip queue initialization in test environment to prevent Jest hanging
 let reportGenerationQueue: Queue | null = null;
 
-if (env.NODE_ENV !== 'test') {
-  queueLog('Initializing report generation queue', 'INFO', {
-    redisHost: env.REDIS_HOST,
-    redisPort: env.REDIS_PORT,
-    queueName: 'report-generation'
-  });
+queueLog('Initializing report generation queue', 'INFO', {
+  redisHost: env.REDIS_HOST,
+  redisPort: env.REDIS_PORT,
+  queueName: 'report-generation'
+});
 
-  reportGenerationQueue = new Queue('report-generation', {
-    connection: {
-      host: env.REDIS_HOST,
-      port: env.REDIS_PORT,
-    },
-  });
-} else {
-  queueLog('Skipping queue initialization in test environment', 'INFO', {
-    environment: env.NODE_ENV
-  });
-}
+reportGenerationQueue = new Queue('report-generation', {
+  connection: {
+    host: env.REDIS_HOST,
+    port: env.REDIS_PORT,
+  },
+});
 
 export { reportGenerationQueue };
 

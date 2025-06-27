@@ -13,13 +13,19 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:debug": "jest --runInBand --verbose",
-    "test-mentions": "ts-node src/scripts/test-mention-detection.ts"
+    "test:handles": "jest --detectOpenHandles",
+    "test-mentions": "ts-node src/scripts/test-mention-detection.ts",
+    "test-performance": "ts-node src/scripts/test-metrics-performance.ts",
+    "test-sentiment": "ts-node src/scripts/test-sentiment-scores.ts",
+    "validate-metrics": "ts-node src/scripts/validate-metrics-system.ts",
+    "recalculate-metrics": "ts-node src/scripts/recalculate-all-metrics.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.1",
+    "@aws-sdk/client-glacier": "^3.835.0",
     "@google/generative-ai": "^0.17.0",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/auto-instrumentations-node": "^0.60.1",
@@ -39,6 +45,7 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "openai": "^5.5.1",
+    "p-limit": "^6.2.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "querystring": "^0.2.1",

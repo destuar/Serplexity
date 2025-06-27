@@ -1,78 +1,117 @@
 import { Worker, Job, Queue } from 'bullmq';
 import env from '../config/env';
 import prisma from '../config/db';
-import AWS from 'aws-sdk';
+import { GlacierClient, UploadArchiveCommand } from '@aws-sdk/client-glacier';
 
 const connection = {
   host: env.REDIS_HOST,
   port: env.REDIS_PORT,
 };
 
+// Initialize Glacier client
+const glacierClient = new GlacierClient({
+  region: env.AWS_REGION,
+  credentials: {
+    accessKeyId: env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: env.AWS_SECRET_ACCESS_KEY!,
+  },
+});
+
 // --- Queue for scheduling ---
 export const archiveQueue = new Queue('archive-jobs', { connection });
 
-// --- Repeatable Job Scheduling ---
-const scheduleArchiveJob = async () => {
-  await archiveQueue.add('archive-old-metrics', {}, {
-    repeat: {
-      pattern: '0 2 * * *', // Every day at 2 AM UTC
-    },
-    jobId: 'daily-archive-job', // Ensures only one instance of this repeatable job exists
-    removeOnComplete: true,
-    removeOnFail: 10,
-  });
-  console.log('Daily metrics archive job scheduled.');
-};
+// Helper function to export responses to Glacier
+async function exportResponsesToGlacier(runIds: string[], companyId: string): Promise<string> {
+  console.log(`[ARCHIVE] Exporting ${runIds.length} runs for company ${companyId} to Glacier`);
+  
+  // Fetch all responses for these runs
+  const [visibilityResponses, benchmarkResponses, personalResponses] = await Promise.all([
+    prisma.visibilityResponse.findMany({
+      where: { runId: { in: runIds } },
+      include: { mentions: true }
+    }),
+    prisma.benchmarkResponse.findMany({
+      where: { runId: { in: runIds } },
+      include: { benchmarkMentions: true }
+    }),
+    prisma.personalResponse.findMany({
+      where: { runId: { in: runIds } },
+      include: { mentions: true }
+    }),
+  ]);
 
-scheduleArchiveJob().catch(err => console.error('Failed to schedule archive job', err));
+  // Create archive payload
+  const archiveData = {
+    companyId,
+    runIds,
+    archivedAt: new Date().toISOString(),
+    data: {
+      visibilityResponses,
+      benchmarkResponses,
+      personalResponses,
+    },
+  };
+
+  const archiveBody = JSON.stringify(archiveData);
+  const archiveDescription = `Company ${companyId} - ${runIds.length} runs - ${new Date().toISOString()}`;
+
+  // Upload to Glacier
+  const uploadCommand = new UploadArchiveCommand({
+    vaultName: env.GLACIER_VAULT_NAME,
+    accountId: env.GLACIER_ACCOUNT_ID,
+    archiveDescription,
+    body: Buffer.from(archiveBody),
+  });
+
+  const result = await glacierClient.send(uploadCommand);
+  console.log(`[ARCHIVE] Successfully uploaded to Glacier. Archive ID: ${result.archiveId}`);
+  
+  return result.archiveId!;
+}
 
 // --- Worker Implementation ---
-const processArchiveJob = async (job: Job) => {
-  if (job.name === 'archive-old-metrics') {
-    console.log('[ARCHIVE WORKER] Starting job to archive old metrics...');
+export const processArchiveJob = async (job: Job) => {
+  if (job.name === 'archive-old-responses') {
+    const { companyId } = job.data;
+    console.log(`[ARCHIVE WORKER] Starting archive job for company ${companyId}...`);
     
-    const ninetyDaysAgo = new Date();
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-
-    // Archive old metrics from completed report runs
-    const oldMetrics = await prisma.metric.findMany({
+    // Find reports older than the latest 3 for this company
+    const allRuns = await prisma.reportRun.findMany({
       where: { 
-        createdAt: { lt: ninetyDaysAgo },
-        reportRun: {
-          status: 'COMPLETED'
-        }
+        companyId,
+        status: 'COMPLETED'
       },
-      include: {
-        reportRun: {
-          select: {
-            id: true,
-            status: true,
-            companyId: true
-          }
-        }
-      }
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, createdAt: true }
     });
 
-    if (oldMetrics.length > 0) {
-      console.log(`[ARCHIVE WORKER] Found ${oldMetrics.length} metrics to archive.`);
-      
-      try {
-        // 1. Archive to S3 (placeholder)
-        console.log('[ARCHIVE WORKER] Simulating upload to S3 Glacier...');
-        console.log('[ARCHIVE WORKER] Simulated upload complete.');
+    if (allRuns.length <= 3) {
+      console.log(`[ARCHIVE WORKER] Company ${companyId} has ${allRuns.length} runs. Nothing to archive.`);
+      return;
+    }
 
-        // 2. Delete from primary database ONLY if archive is successful
-        console.log('[ARCHIVE WORKER] SKIPPING DELETE STEP. This is a destructive operation and the S3 upload is not yet implemented.');
-        
-        console.log('[ARCHIVE WORKER] Finished archiving job successfully.');
-      } catch (error) {
-        console.error('[ARCHIVE WORKER] Failed to archive or delete metrics.', error);
-        // Do not re-throw the error, to prevent the job from being retried,
-        // as a partial success might have occurred. A more robust implementation
-        // would use a transactional approach or a dead-letter queue.
-      }
-    } else {
-      console.log('[ARCHIVE WORKER] No old metrics found to archive.');
+    // Keep latest 3, archive the rest
+    const runsToArchive = allRuns.slice(3);
+    const runIds = runsToArchive.map(r => r.id);
+    
+    console.log(`[ARCHIVE WORKER] Found ${runIds.length} runs to archive for company ${companyId}`);
+    
+    try {
+      // 1. Archive to Glacier
+      const archiveId = await exportResponsesToGlacier(runIds, companyId);
+      
+      // 2. Delete from RDS in a transaction (mentions cascade delete automatically)
+      await prisma.$transaction([
+        prisma.visibilityResponse.deleteMany({ where: { runId: { in: runIds } } }),
+        prisma.benchmarkResponse.deleteMany({ where: { runId: { in: runIds } } }),
+        prisma.personalResponse.deleteMany({ where: { runId: { in: runIds } } }),
+      ]);
+      
+      console.log(`[ARCHIVE WORKER] Successfully archived and deleted ${runIds.length} runs for company ${companyId}. Archive ID: ${archiveId}`);
+      
+    } catch (error) {
+      console.error(`[ARCHIVE WORKER] Failed to archive responses for company ${companyId}:`, error);
+      throw error; // Re-throw to mark job as failed
     }
   }
 };

@@ -3,7 +3,10 @@ import env from '../config/env';
 import prisma from '../config/db';
 import { queueReport } from '../services/reportSchedulingService';
 
-const worker = new Worker('master-scheduler', async (job: Job) => {
+let worker: Worker | null = null;
+
+if (env.NODE_ENV !== 'test') {
+  worker = new Worker('master-scheduler', async (job: Job) => {
     if (job.name === 'trigger-daily-reports') {
         console.log('[Scheduler Worker] Starting to queue daily reports for all companies...');
         const companies = await prisma.company.findMany({
@@ -48,5 +51,6 @@ worker.on('failed', (job: Job | undefined, err: Error) => {
         console.error(`[Scheduler Worker] A master scheduler job has failed with ${err.message}`);
     }
 });
+}
 
 export default worker; 
