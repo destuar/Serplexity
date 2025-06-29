@@ -3,6 +3,33 @@ import app from '../app';
 import { prisma } from './setup';
 import { User, Company } from '@prisma/client';
 
+jest.mock('../config/db', () => {
+  const originalModule = jest.requireActual('../config/db');
+  return {
+    __esModule: true,
+    ...originalModule,
+    prismaReadReplica: originalModule.default,
+  };
+});
+
+jest.mock('../config/db', () => {
+  const originalModule = jest.requireActual('../config/db');
+  return {
+    __esModule: true,
+    ...originalModule,
+    prismaReadReplica: originalModule.default,
+  };
+});
+
+jest.mock('../config/db', () => {
+  const originalModule = jest.requireActual('../config/db');
+  return {
+    __esModule: true,
+    ...originalModule,
+    prismaReadReplica: originalModule.default,
+  };
+});
+
 describe('Company Management System', () => {
   let testUser: User;
   let accessToken: string;
