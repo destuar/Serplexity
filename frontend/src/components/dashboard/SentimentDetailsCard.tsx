@@ -149,6 +149,9 @@ const SentimentDetailsCard: React.FC<SentimentDetailsCardProps> = ({ selectedMod
     let metricToShow: Metric | undefined;
     if (selectedModel === 'all') {
         metricToShow = sentimentMetrics.find(m => m.engine === 'serplexity-summary');
+        if (!metricToShow && sentimentMetrics.length > 0) {
+            metricToShow = sentimentMetrics[0];
+        }
     } else {
         metricToShow = sentimentMetrics.find(m => m.engine === selectedModel);
     }

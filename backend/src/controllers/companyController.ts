@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import prisma from '../config/db';
+import prisma, { prismaReadReplica } from '../config/db';
 
 import env from '../config/env';
 
@@ -176,7 +176,7 @@ export const getCompanies = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    const companies = await prisma.company.findMany({
+    const companies = await prismaReadReplica.company.findMany({
       where: { userId },
       include: {
         competitors: { where: { isGenerated: false } },
@@ -208,7 +208,7 @@ export const getCompany = async (req: Request, res: Response) => {
     }
 
     // First check if company exists at all
-    const companyExists = await prisma.company.findUnique({
+    const companyExists = await prismaReadReplica.company.findUnique({
       where: { id },
     });
 
@@ -222,7 +222,7 @@ export const getCompany = async (req: Request, res: Response) => {
     }
 
     // Get company with relations
-    const company = await prisma.company.findUnique({
+    const company = await prismaReadReplica.company.findUnique({
       where: { id },
       include: {
         competitors: { where: { isGenerated: false } },
@@ -249,7 +249,7 @@ export const getAverageInclusionRate = async (req: Request, res: Response) => {
     }
 
     // Ensure the company belongs to the user
-    const company = await prisma.company.findFirst({
+    const company = await prismaReadReplica.company.findFirst({
       where: { id: companyId, userId },
     });
 
@@ -293,14 +293,14 @@ export const getAverageInclusionRate = async (req: Request, res: Response) => {
       }
 
       // Count total responses for this run
-      const totalVisibilityResponses = await prisma.visibilityResponse.count({
+      const totalVisibilityResponses = await prismaReadReplica.visibilityResponse.count({
         where: { 
           runId: runId,
           ...modelFilter,
         },
       });
 
-      const totalBenchmarkResponses = await prisma.benchmarkResponse.count({
+      const totalBenchmarkResponses = await prismaReadReplica.benchmarkResponse.count({
         where: { 
           runId: runId,
           ...modelFilter,
@@ -308,7 +308,7 @@ export const getAverageInclusionRate = async (req: Request, res: Response) => {
       });
 
       // Count responses that mentioned the company
-      const visibilityResponsesWithCompanyMentions = await prisma.visibilityResponse.count({
+      const visibilityResponsesWithCompanyMentions = await prismaReadReplica.visibilityResponse.count({
         where: {
           runId: runId,
           ...modelFilter,
@@ -320,7 +320,7 @@ export const getAverageInclusionRate = async (req: Request, res: Response) => {
         },
       });
 
-      const benchmarkResponsesWithCompanyMentions = await prisma.benchmarkResponse.count({
+      const benchmarkResponsesWithCompanyMentions = await prismaReadReplica.benchmarkResponse.count({
         where: {
           runId: runId,
           ...modelFilter,
@@ -372,7 +372,7 @@ export const getAveragePosition = async (req: Request, res: Response) => {
     }
 
     // Ensure the company belongs to the user
-    const company = await prisma.company.findFirst({
+    const company = await prismaReadReplica.company.findFirst({
       where: { id: companyId, userId },
     });
 
@@ -414,7 +414,7 @@ export const getAveragePosition = async (req: Request, res: Response) => {
       }
 
       // Get all visibility mentions for this company in this run
-      const visibilityMentions = await prisma.visibilityMention.findMany({
+      const visibilityMentions = await prismaReadReplica.visibilityMention.findMany({
         where: {
           companyId: companyId,
           visibilityResponse: {
@@ -428,7 +428,7 @@ export const getAveragePosition = async (req: Request, res: Response) => {
       });
 
       // Get all benchmark mentions for this company in this run
-      const benchmarkMentions = await prisma.benchmarkMention.findMany({
+      const benchmarkMentions = await prismaReadReplica.benchmarkMention.findMany({
         where: {
           companyId: companyId,
           benchmarkResponse: {

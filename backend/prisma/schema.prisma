@@ -189,6 +189,8 @@ model VisibilityMention {
   @@index([visibilityResponseId])
   @@index([competitorId])
   @@index([companyId])
+  @@index([visibilityResponseId, companyId])
+  @@index([visibilityResponseId, competitorId])
 }
 
 model BenchmarkMention {
@@ -206,6 +208,8 @@ model BenchmarkMention {
   @@index([benchmarkResponseId])
   @@index([competitorId])
   @@index([companyId])
+  @@index([benchmarkResponseId, companyId])
+  @@index([benchmarkResponseId, competitorId])
 }
 
 model PersonalQuestion {
@@ -252,6 +256,8 @@ model PersonalMention {
   @@index([personalResponseId])
   @@index([competitorId])
   @@index([companyId])
+  @@index([personalResponseId, companyId])
+  @@index([personalResponseId, competitorId])
 }
 
 model ReportMetric {

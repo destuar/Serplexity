@@ -3,7 +3,7 @@ import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';
 import { useReportGeneration } from '../hooks/useReportGeneration';
 import FilterDropdown from '../components/dashboard/FilterDropdown';
-import SentimentScoreCard from '../components/dashboard/SentimentScoreCard';
+import SentimentScoreDisplayCard from '../components/dashboard/SentimentScoreDisplayCard';
 import SentimentOverTimeCard from '../components/dashboard/SentimentOverTimeCard';
 import SentimentDetailsCard from '../components/dashboard/SentimentDetailsCard';
 import WelcomePrompt from '../components/ui/WelcomePrompt';
@@ -95,7 +95,7 @@ const SentimentAnalysisPage = () => {
               <div className="h-full w-full">
                 <div className="lg:hidden h-full overflow-y-auto space-y-4">
                   <div className="min-h-[300px]">
-                    <SentimentScoreCard key={`${cardKey}-score-mobile`} />
+                    <SentimentScoreDisplayCard key={`${cardKey}-score-mobile`} selectedModel={filters.aiModel} />
                   </div>
                   <div className="min-h-[300px]">
                     <SentimentOverTimeCard key={`${cardKey}-sot-mobile`} selectedModel={filters.aiModel} />
@@ -125,7 +125,7 @@ const SentimentAnalysisPage = () => {
                     "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
                   `
                 }}>
-                  <div style={{ gridArea: 's1' }}><SentimentScoreCard key={`${cardKey}-score-desk`} /></div>
+                  <div style={{ gridArea: 's1' }}><SentimentScoreDisplayCard key={`${cardKey}-score-desk`} selectedModel={filters.aiModel} /></div>
                   <div style={{ gridArea: 's2' }}><SentimentOverTimeCard key={`${cardKey}-sot-desk`} selectedModel={filters.aiModel} /></div>
                   <div style={{ gridArea: 'd1' }}><SentimentDetailsCard key={`${cardKey}-sd-desk`} selectedModel={filters.aiModel} /></div>
                 </div>

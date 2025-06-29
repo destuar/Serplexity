@@ -2,6 +2,8 @@
  * Service for fetching company logos from website URLs
  */
 
+import SerplexityLogo from '/Serplexity.svg';
+
 export interface LogoResult {
   url: string;
   source: 'clearbit' | 'favicon' | 'google' | 'fallback';
@@ -33,6 +35,10 @@ export function getCompanyLogo(
   websiteUrl: string
 ): LogoResult {
   const domain = extractDomain(websiteUrl);
+  
+  if (domain === 'serplexity.com') {
+    return { url: SerplexityLogo, source: 'fallback' };
+  }
   
   // Try Clearbit first (highest quality)
   const clearbitLogo = getClearbitLogo(domain);

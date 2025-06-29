@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { X, User, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { X, User, Mail, Lock, Eye, EyeOff, AlertCircle, LogOut, CreditCard } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
+import { useNavigate } from 'react-router-dom';
 import apiClient from '../../lib/apiClient';
 
 interface ProfileModalProps {
@@ -40,13 +41,15 @@ type ProfileFormData = z.infer<typeof profileUpdateSchema>;
 type PasswordFormData = z.infer<typeof passwordChangeSchema>;
 
 const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, logout } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('profile');
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [profileSuccess, setProfileSuccess] = useState(false);
@@ -120,6 +123,32 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await logout();
+      onClose(); // Close the modal after successful logout
+    } catch (error) {
+      console.error('Sign out failed:', error);
+      // Even if logout fails, we should still close the modal
+      // as the logout function in AuthContext handles clearing local state
+      onClose();
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
+
+  const handleManageSubscription = () => {
+    // If user has active subscription, redirect to customer portal
+    if (user?.subscriptionStatus === 'active') {
+      // This would typically be a customer portal link from Stripe
+      window.open('https://billing.stripe.com/p/login/test_XXXXXX', '_blank');
+    } else {
+      // Navigate to the payment page to choose a plan
+      navigate('/payment');
+    }
+  };
+
   const handleClose = () => {
     resetProfile({
       name: user?.name || '',
@@ -138,12 +167,13 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
   const tabs = [
     { id: 'profile', label: 'Profile Info', icon: User },
+    { id: 'subscription', label: 'Subscription', icon: CreditCard },
     { id: 'password', label: 'Change Password', icon: Lock, disabled: isOAuthUser },
   ];
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-2xl max-w-4xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <h2 className="text-2xl font-bold text-gray-900">Profile Settings</h2>
@@ -261,6 +291,77 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                     </Button>
                   </div>
                 </form>
+
+                {/* Sign Out Section */}
+                <div className="mt-8 pt-6 border-t border-gray-200">
+                  <div>
+                    <h4 className="text-md font-medium text-gray-900 mb-2">Account Actions</h4>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Sign out of your account on this device.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={handleSignOut}
+                    disabled={isSigningOut}
+                    className="flex items-center text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    {isSigningOut ? 'Signing out...' : 'Sign Out'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'subscription' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Subscription Management</h3>
+                  <p className="text-gray-600 mb-4">
+                    Manage your Serplexity Pro subscription.
+                  </p>
+                </div>
+
+                <div className="border border-gray-200 rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h4 className="font-semibold text-gray-900">Current Plan</h4>
+                      <p className="text-sm text-gray-600">
+                        {user?.subscriptionStatus === 'active' ? 'Serplexity Pro' : 'Free Plan'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600">Status</p>
+                      <span
+                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          user?.subscriptionStatus === 'active'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {user?.subscriptionStatus === 'active' ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <Button onClick={handleManageSubscription} className="w-full">
+                      <CreditCard className="w-4 h-4 mr-2" />
+                      {user?.subscriptionStatus === 'active'
+                        ? 'Manage Subscription'
+                        : 'Upgrade to Pro'}
+                    </Button>
+
+                    {user?.subscriptionStatus === 'active' && (
+                      <div className="text-sm text-gray-600">
+                        <p>• Update payment method</p>
+                        <p>• Download invoices</p>
+                        <p>• Cancel subscription</p>
+                        <p>• Change billing frequency</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 

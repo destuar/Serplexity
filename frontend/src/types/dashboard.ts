@@ -1,4 +1,5 @@
 import { CompetitorRankingsResponse, TopRankingQuestion } from '../services/companyService';
+import { Sparkles } from 'lucide-react';
 
 // Model configuration that matches backend models.ts
 export interface ModelConfig {
@@ -52,7 +53,7 @@ export const ENGINE_DISPLAY_NAMES: Record<string, string> = {
 
 // Get all available model options for filters
 export const getModelFilterOptions = () => [
-  { value: 'all', label: 'All Models', logoUrl: undefined },
+  { value: 'all', label: 'All Models', logoUrl: undefined, icon: Sparkles },
   ...Object.values(MODEL_CONFIGS).map(model => ({
     value: model.id,
     label: model.displayName,

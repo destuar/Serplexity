@@ -6,9 +6,11 @@ import { FaXTwitter } from "react-icons/fa6";
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { FadeIn } from '../components/ui/FadeIn';
+import { SlideIn } from '../components/ui/SlideIn';
 import { Accordion } from '../components/ui/Accordion';
 import { loadStripe } from '@stripe/stripe-js';
 import { createCheckoutSession } from '../services/paymentService';
+import DashboardPreviewCarousel from '../components/landing/DashboardPreviewCarousel';
 
 const LandingPage: React.FC = () => {
   const { user } = useAuth();
@@ -101,95 +103,124 @@ const LandingPage: React.FC = () => {
 
     timeoutIdRef.current = window.setTimeout(createStar, Math.random() * 5000);
 
+    const createStaticStars = () => {
+      if (!starContainerRef.current) return;
+      const numStars = 200;
+      for (let i = 0; i < numStars; i++) {
+        const star = document.createElement('div');
+        star.className = 'absolute rounded-full bg-white';
+        const size = Math.random() * 1.5 + 0.5;
+        star.style.width = `${size}px`;
+        star.style.height = `${size}px`;
+        star.style.left = `${Math.random() * 100}%`;
+        star.style.top = `${Math.random() * 100}%`;
+        const glowSize = Math.random() * 4 + 2;
+        star.style.boxShadow = `0 0 ${glowSize}px ${glowSize / 4}px rgba(255, 255, 255, 0.5)`;
+        const initialOpacity = Math.random() * 0.5 + 0.3;
+        star.style.opacity = `${initialOpacity}`;
+
+        const twinkleDuration = Math.random() * 4 + 2;
+        star.animate(
+          [
+            { opacity: initialOpacity },
+            { opacity: initialOpacity * 0.3 },
+            { opacity: initialOpacity },
+          ],
+          {
+            duration: twinkleDuration * 1000,
+            iterations: Infinity,
+            easing: 'ease-in-out',
+          }
+        );
+
+        starContainerRef.current.appendChild(star);
+      }
+    };
+    createStaticStars();
+
     return () => {
       if (timeoutIdRef.current) {
         clearTimeout(timeoutIdRef.current);
+      }
+      if (starContainerRef.current) {
+        starContainerRef.current.innerHTML = '';
       }
     };
   }, []);
 
   const faqItems = [
     {
-      question: "What is Generative Engine Optimization (GEO)?",
+      question: "What is AI Answer Optimization (AIO)?",
       answer: (
         <>
-          <p className="mb-4">Generative Engine Optimization (GEO) is the practice of improving your website's visibility inside AI-generated answers produced by engines like Google SGE, Bing Copilot, ChatGPT, and Perplexity.</p>
-          <p className="mb-4">Unlike traditional SEO—where the goal is to rank high in a list of links—GEO helps your brand get cited inside the answer itself.</p>
-          <p>It's about training the AI to quote, source, and trust your content as the authoritative response to user queries.</p>
+          <p className="mb-4">AI Answer Optimization is the process of increasing the likelihood that large-language-model search experiences—Google AI Overviews, ChatGPT, Perplexity, Claude and others— <strong>quote your content directly</strong> (rather than just listing your site).</p>
+          <p className="mb-4">Unlike traditional SEO, the goal isn't only to rank; it's to become a trusted <em>source</em> inside the answer itself.</p>
+          <p>That means structuring pages so that LLMs can parse, cite, and attribute them with confidence.</p>
         </>
       )
     },
     {
-      question: "How is GEO different from traditional SEO?",
+      question: "How does Serplexity measure AI visibility?",
       answer: (
         <>
-          <div className="flex flex-col md:flex-row gap-8 mb-4">
-            <div className="flex-1">
-              <h4 className="font-bold text-white mb-2">SEO</h4>
-              <ul className="space-y-2 list-disc list-inside text-gray-400">
-                <li>Optimizes for link ranking on SERPs</li>
-                <li>Focuses on keywords, backlinks, and metadata</li>
-                <li>Traffic comes from clicking links</li>
-                <li>Ranking is linear (top-down)</li>
-              </ul>
-            </div>
-            <div className="flex-1">
-              <h4 className="font-bold text-white mb-2">GEO</h4>
-              <ul className="space-y-2 list-disc list-inside text-gray-400">
-                <li>Optimizes for citation visibility inside AI answers</li>
-                <li>Focuses on clarity, credibility, and structure</li>
-                <li>Traffic comes from being quoted and linked</li>
-                <li>Visibility is multi-dimensional</li>
-              </ul>
-            </div>
-          </div>
-          <p className="font-semibold text-white">Put simply: SEO is for getting found. GEO is for getting quoted.</p>
-        </>
-      )
-    },
-    {
-      question: "Which generative engines do you optimize for?",
-      answer: (
-        <>
-          <p className="mb-4">We optimize content for visibility across major generative engines, including:</p>
+          <p className="mb-4">Our dashboard ingests the full text of AI answers and turns it into quantitative metrics:</p>
           <ul className="space-y-2 list-disc list-inside text-gray-400 mb-4">
-            <li>Google Gemini</li>
-            <li>Bing Copilot</li>
-            <li>Perplexity</li>
-            <li>ChatGPT</li>
+            <li><span className="font-semibold text-white">Share of Voice:</span> The percentage of words—and citations—attributed to your brand versus competitors (visualised in the <em>Share of Voice</em> pie card).</li>
+            <li><span className="font-semibold text-white">Inclusion Rate:</span> How often your domain appears across the monitored query set (tracked in the <em>Average Inclusion Rate</em> card).</li>
+            <li><span className="font-semibold text-white">Average Position:</span> Where your first mention lands inside the answer narrative (early sentences vs. footnotes).</li>
+            <li><span className="font-semibold text-white">Sentiment &amp; Topic Scores:</span> A multi-category radar chart showing how engines describe your brand (quality, price, trust, etc.).</li>
+          </ul>
+          <p>These metrics update automatically whenever a new report is generated.</p>
+        </>
+      )
+    },
+    {
+      question: "Which AI engines and models are included?",
+      answer: (
+        <>
+          <p className="mb-4">We currently monitor answers from:</p>
+          <ul className="space-y-2 list-disc list-inside text-gray-400 mb-4">
+            <li>Google Search (AI Overviews / Gemini-powered responses)</li>
+            <li>Microsoft Bing / Copilot</li>
+            <li>OpenAI ChatGPT (GPT-4 &amp; GPT-3.5)</li>
+            <li>Perplexity.ai</li>
             <li>Anthropic Claude</li>
           </ul>
-          <p>Each engine has different behaviors and biases. Our optimization strategy adapts to the specific strengths, citation styles, and update cycles of each one.</p>
+          <p>The list expands as new engines gain adoption. You can filter results by model inside the dashboard filter bar.</p>
         </>
       )
     },
     {
-      question: "How do you measure citation success?",
+      question: "Where do the keywords and questions come from?",
       answer: (
         <>
-          <p className="mb-4">We track visibility using industry-proven metrics developed in the GEO research community:</p>
-          <ul className="space-y-3 list-disc list-inside text-gray-400 mb-4">
-            <li><span className="font-semibold text-white">Position-Adjusted Word Count (PAWC):</span> Measures how many words from your content appear in the AI answer—and how early.</li>
-            <li><span className="font-semibold text-white">Subjective Impression Score:</span> Uses AI to assess relevance, influence, uniqueness, and user-perceived value of your citation.</li>
-            <li><span className="font-semibold text-white">Citation Position:</span> Where your source is mentioned relative to others (e.g., 1st, 3rd, 5th).</li>
-            <li><span className="font-semibold text-white">Click-through Impact:</span> When available, we track clicks from generative answers back to your site using referral paths and UTM tracking.</li>
-          </ul>
-          <p>These are just a few of the metrics in the client dashboard and benchmarked against your competitors.</p>
+          <p className="mb-4">Our <em>Top Ranking Questions</em> card reveals the exact prompts that surface your brand. We start with your existing SEO keyword set, layer in engine-specific query logs, and continuously discover new conversational questions surfaced by the models.</p>
+          <p>That means you're not guessing what people ask AI—you see the real language users type (and speak).</p>
         </>
       )
     },
     {
-      question: "Can you optimize existing content or do we need new content?",
+      question: "How do optimization recommendations work?",
       answer: (
         <>
-          <p className="mb-4">We can absolutely optimize existing content—that's the most common use case. Using our GEO framework, we'll identify opportunities to enhance:</p>
-          <ul className="space-y-2 list-disc list-inside text-gray-400 mb-4">
-            <li>Clarity and structure</li>
-            <li>Credibility (through citations and stats)</li>
-            <li>Quote-worthiness (e.g., adding expert soundbites)</li>
-            <li>Readability (short sentences, simplified language)</li>
-          </ul>
-          <p>If your existing content is outdated or missing entirely for high-opportunity queries, we'll recommend strategic content creation—but always as a supplement, not a starting requirement.</p>
+          <p className="mb-4">Every daily report is paired with an <em>Optimization Checklist</em> that highlights missing citations, answer gaps, and on-page tweaks (structure, schema, language) proven to increase LLM recall.</p>
+          <p>The checklist is generated automatically from your latest visibility data—no manual auditing required.</p>
+        </>
+      )
+    },
+    {
+      question: "Will AIO hurt my traditional SEO rankings?",
+      answer: (
+        <>
+          <p>No. The structural changes that help language models—clear headers, concise summaries, trustworthy sources—also align with Google's best-practice guidance for page experience. Most clients see flat or positive organic traffic alongside rising AI visibility.</p>
+        </>
+      )
+    },
+    {
+      question: "How quickly can I expect to see improvements?",
+      answer: (
+        <>
+          <p>Because AI answer indices refresh faster than classic search, brands often see citation lifts within one to two reporting cycles (typically days, not months). Competitive markets or large content backlogs can take longer, but progress is visible in the dashboard as it happens.</p>
         </>
       )
     }
@@ -202,7 +233,7 @@ const LandingPage: React.FC = () => {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(82,113,255,0.08),transparent_50%)]"></div>
       
       {/* Shooting Stars */}
-      <div ref={starContainerRef} className="absolute inset-0 overflow-hidden pointer-events-none" />
+      <div ref={starContainerRef} className="absolute inset-0 overflow-hidden pointer-events-none z-0" />
       
       <div className="relative z-10">
         <Navbar />
@@ -221,7 +252,7 @@ const LandingPage: React.FC = () => {
               </span>
             </h1>
             <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto mt-2 mb-8 leading-relaxed">
-              <span className="md:hidden">We are the first agency purpose-built for the generative era of SEO. Stay cited, visible, and relevant across industries.</span>
+              <span className="md:hidden">We are the first agency purpose-built for the generative era of SEO. Enhance your visibility with Google SGE, Perplexity, ChatGPT, and beyond.</span>
               <span className="hidden md:inline">We are the first agency purpose-built for the generative era of SEO. Enhance your visibility with Google SGE, Perplexity, ChatGPT, and beyond.</span>
             </p>
             
@@ -233,7 +264,7 @@ const LandingPage: React.FC = () => {
               >
                 <span className="flex items-center justify-center">
                   <span>
-                    Boost Your Visibility <ArrowRight className="h-5 w-5 ml-2 inline" />
+                    {user ? 'View Dashboard' : 'Boost Your Visibility'} <ArrowRight className="h-5 w-5 ml-2 inline" />
                   </span>
                 </span>
               </button>
@@ -241,17 +272,15 @@ const LandingPage: React.FC = () => {
           </div>
 
           {/* Dashboard Preview */}
-          <div id="product-preview" className="w-full max-w-6xl mx-auto mt-8 mb-16 px-4">
-            <div className="bg-black backdrop-blur-xl rounded-xl md:rounded-3xl aspect-[16/10] flex items-center justify-center">
-              <img src={`/Dashboard.svg?v=${Date.now()}`} alt="Dashboard Preview" className="w-full h-full object-contain rounded-xl md:rounded-3xl shadow-2xl drop-shadow-2xl" />
-            </div>
+          <div id="product-preview">
+            <DashboardPreviewCarousel />
           </div>
 
           {/* Company Logos */}
           <div className="w-full max-w-7xl mx-auto px-4">
             <div className="text-center pt-4 md:pt-6">
               <h2 className="text-lg font-semibold text-gray-400 uppercase tracking-wide">
-                Trusted by teams at
+                Leading brands already optimizing for AI citation
               </h2>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-8 items-center justify-items-center max-w-6xl mx-auto pt-10 md:pt-12">
@@ -294,43 +323,43 @@ const LandingPage: React.FC = () => {
             <div className="flex flex-col space-y-40">
               <FadeIn direction="right" className="self-start">
                 <p className="text-3xl font-semibold leading-tight max-w-3xl text-left">
-                  More than <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">1.5 billion people</span> use AI Overviews.
+                  Search has fundamentally changed. <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">50%+ of Google searches include an AI Overview</span>, giving users instant information without clicking through.
                 </p>
               </FadeIn>
               <FadeIn delay={100} direction="left" className="self-end">
                 <p className="text-3xl font-semibold leading-tight max-w-3xl text-right">
-                  Today, they are triggered by <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">13% of Google queries.</span> 
+                  This is more than a trend—AI Overview footprints have <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">doubled in the last year</span> and continues accelerating across all major search engines.
                 </p>
               </FadeIn>
               <FadeIn delay={200} direction="right" className="self-start">
                 <p className="text-3xl font-semibold leading-tight max-w-3xl text-left">
-                  These visitors are <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">4.4x more valuable</span> than traditional search users. 
+                  On mobile, these AI answers can <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">nearly half of the screen</span>, pushing out traditional organic results.
                 </p>
               </FadeIn>
               <FadeIn delay={300} direction="left" className="self-end">
                 <p className="text-3xl font-semibold leading-tight max-w-3xl text-right">
-                  We're not just browsing—we're buying.
+                  Brands not cited lose <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">about&nbsp;35% of clicks</span> when an Overview appears for their target keywords.
                 </p>
               </FadeIn>
               <FadeIn delay={400} direction="right" className="self-start">
                 <p className="text-3xl font-semibold leading-tight max-w-3xl text-left">
-                  <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">Half of all links from ChatGPT search</span> queries point to businesses or services
-                  </p>
+                  ChatGPT logs <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">5 billion+ visits</span> every month, while Perplexity fields <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">400 million questions</span> and Anthropic Claude now serves <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">19 million monthly users</span>.
+                </p>
               </FadeIn>
               <FadeIn delay={500} direction="left" className="self-end">
                 <p className="text-3xl font-semibold leading-tight max-w-3xl text-right">
-                  and only a fraction are optimizing for it.
+                  If you're invisible across those engines, your brand's story never makes it to the conversation.
                 </p>
               </FadeIn>
               <FadeIn delay={600} className="self-center">
                 <p className="text-3xl font-semibold leading-tight max-w-4xl text-center">
-                  The brands showing up will <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">win the next decade.</span>
+                  Your competitors are already adapting. The brands showing up will <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">win the next decade.</span>
                 </p>
               </FadeIn>
             </div>
 
             {/* Feature Showcase (moved inside story section) */}
-            <FadeIn delay={200}>
+            <SlideIn>
               <div id="solutions" className="mt-48 relative">
                 {/* Liquid Glass Container - Made wider */}
                 <div className="relative bg-black/5 backdrop-blur-xl rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-8 md:p-12 lg:p-16 overflow-hidden max-w-7xl mx-auto">
@@ -342,23 +371,23 @@ const LandingPage: React.FC = () => {
                   <div className="relative z-10">
                     <div className="text-center mb-16">
                       <h2 className="text-4xl font-bold tracking-tight text-white mb-4">
-                        Full-Stack GEO Solutions
+                        Optimize for AI Search
                       </h2>
                       <p className="text-xl text-gray-300 max-w-4xl mx-auto">
-                        From AI visibility audits to technical implementation, we future-proof your digital presence in the era of generative search.
+                        Everything you need to measure, improve, and own your presence inside AI-generated answers.
                       </p>
                     </div>
                     
                     {/* Two-column layout: Features on left, Tweet on right */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
                       {/* Left column - Features stacked vertically */}
-                      <div className="space-y-8">
+                      <div className="space-y-8 flex flex-col h-full">
                         {[
-                          { icon: Sparkles, title: "Real-Time GEO Analytics Dashboard", desc: "Track your brand's share of voice, visibility index, and citation performance across Google Gemini, GPT-4, and Claude with live competitor benchmarking." },
-                          { icon: BarChart2, title: "AI Content Optimization Tools", desc: "Advanced rewriting tools and sentiment analysis to enhance your content's citation-worthiness and improve your visibility scores." },
-                          { icon: Target, title: "Automated Report Generation", desc: "Scheduled visibility reports with keyword trend analysis, source attribution tracking, and concept-level performance insights across all major LLMs." }
+                          { icon: Sparkles, title: "AI Visibility Analytics", desc: "Monitor exactly how—and how often—your brand is cited inside Google AI Overviews, ChatGPT, Perplexity, Anthropic Claude, and other leading engines." },
+                          { icon: BarChart2, title: "Citation-Ready Content Assistant", desc: "Get instant rewrite suggestions that make your pages the preferred source for large language models." },
+                          { icon: Target, title: "Automated Insight Reports", desc: "Weekly opportunity reports highlight keyword gaps, competitor citations, and step-by-step actions to grow your AI search presence." }
                         ].map((feature, i) => (
-                          <div key={i} className="bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-8 hover:bg-black/10 transition-all duration-200 group">
+                          <div key={i} className="bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-6 hover:bg-black/10 transition-all duration-200 group flex-grow">
                             {/* Icon with gradient background */}
                             <div className="flex items-center justify-center h-12 w-12 rounded-full bg-gradient-to-r from-[#5271ff] to-[#9e52ff] mb-6 group-hover:shadow-lg transition-all duration-200">
                               <feature.icon className="h-6 w-6 text-white" />
@@ -370,14 +399,14 @@ const LandingPage: React.FC = () => {
                       </div>
                       
                       {/* Right column - Twitter Embed */}
-                      <div className="flex justify-center lg:justify-end">
+                      <div className="flex justify-center lg:justify-end h-full">
                         <div className="bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-4 md:p-8 hover:bg-black/10 transition-all duration-200 w-full max-w-md">
-                          <div className="flex justify-center items-center">
+                          <div className="flex justify-center items-center h-full">
                             <blockquote className="twitter-tweet" data-theme="dark" data-align="center">
                               <p lang="en" dir="ltr">
                                 SEO is slowly losing its dominance. Welcome to GEO.<br/><br/>
                                 In the age of ChatGPT, Perplexity, and Claude, Generative Engine Optimization is positioned to become the new playbook for brand visibility.<br/><br/>
-                                It&#39;s not about gaming the algorithm — it&#39;s about being cited by it.<br/><br/>
+                                It's not about gaming the algorithm — it's about being cited by it.<br/><br/>
                                 The brands that… <a href="https://t.co/jsjZ4ee8Z6">pic.twitter.com/jsjZ4ee8Z6</a>
                               </p>
                               &mdash; a16z (@a16z) <a href="https://twitter.com/a16z/status/1927766844062011834?ref_src=twsrc%5Etfw">May 28, 2025</a>
@@ -389,12 +418,12 @@ const LandingPage: React.FC = () => {
                   </div>
                 </div>
               </div>
-            </FadeIn>
+            </SlideIn>
           </div>
         </section>
 
         {/* Comparison Table Section */}
-        <FadeIn>
+        <SlideIn>
           <section id="comparison" className="py-24 relative">
             <div className="max-w-6xl mx-auto px-6 lg:px-8">
               <div className="text-center mb-20">
@@ -467,7 +496,7 @@ const LandingPage: React.FC = () => {
                                 </div>
                               </div>
                             </td>
-                                                         <td className="px-6 md:px-8 py-6 text-center">
+                                                       <td className="px-6 md:px-8 py-6 text-center">
                                <div className="flex justify-center">
                                  <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center group-hover:bg-red-500/30 transition-colors">
                                    <X className="w-5 h-5 text-red-400" />
@@ -501,13 +530,13 @@ const LandingPage: React.FC = () => {
                         <p className="text-gray-300 text-sm">Join the brands already leveraging GEO for competitive advantage</p>
                       </div>
                       <div className="relative z-10">
-                                             <button 
-                         onClick={user ? handleDashboard : handleGetStarted}
-                         className="bg-[#7762ff] hover:bg-[#6650e6] text-white px-6 py-3 rounded-full font-semibold transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2"
-                       >
-                        {user ? 'View Dashboard' : 'Get Started Today'}
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
+                        <button 
+                          onClick={user ? handleDashboard : handleGetStarted}
+                          className="bg-[#7762ff] hover:bg-[#6650e6] text-white px-6 py-3 rounded-full font-semibold transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2"
+                        >
+                          {user ? 'View Dashboard' : 'Get Started Today'}
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -515,10 +544,10 @@ const LandingPage: React.FC = () => {
               </div>
             </div>
           </section>
-        </FadeIn>
+        </SlideIn>
 
         {/* Pricing Section */}
-        <FadeIn>
+        <SlideIn>
           <section id="pricing" className="py-24">
             <div className="max-w-6xl mx-auto px-6 lg:px-8">
               <div className="text-center mb-16">
@@ -624,10 +653,10 @@ const LandingPage: React.FC = () => {
               </div>
             </div>
           </section>
-        </FadeIn>
+        </SlideIn>
 
         {/* FAQ Accordion Section */}
-        <FadeIn>
+        <SlideIn>
           <section id="faq" className="py-24">
             <div className="max-w-4xl mx-auto px-6 lg:px-8">
               <div className="text-center mb-16">
@@ -642,7 +671,7 @@ const LandingPage: React.FC = () => {
               <Accordion items={faqItems} />
             </div>
           </section>
-        </FadeIn>
+        </SlideIn>
 
         {/* Landing Page Footer */}
         <footer className="bg-transparent">

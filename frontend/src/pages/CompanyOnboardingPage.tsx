@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, TrendingUp, Users } from 'lucide-react';
-import CompanyProfileForm from '../components/company/CompanyProfileForm';
+import MultiStepCompanyForm from '../components/company/MultiStepCompanyForm';
 
 const CompanyOnboardingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -21,7 +21,7 @@ const CompanyOnboardingPage: React.FC = () => {
     },
     {
       icon: TrendingUp,
-      title: 'Track Your GEO Performance',
+      title: 'Track AI Search Performance',
       description: 'Monitor citation rates, position-adjusted word counts, and visibility metrics across all major generative engines.',
     },
     {
@@ -124,7 +124,7 @@ const CompanyOnboardingPage: React.FC = () => {
         {/* Mobile View - Form Only */}
         <div className="lg:hidden flex items-center justify-center min-h-screen px-4 py-6">
           <div className="w-full max-w-md -mt-16">
-            <CompanyProfileForm onSuccess={handleSuccess} />
+            <MultiStepCompanyForm onSuccess={handleSuccess} />
           </div>
         </div>
 
@@ -172,25 +172,12 @@ const CompanyOnboardingPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Progress Indicator */}
-                <div className="bg-black/5 backdrop-blur-xl rounded-lg p-6 shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)]">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-r from-[#5271ff] to-[#9e52ff] rounded-full">
-                      <span className="text-white font-semibold text-sm">1</span>
-                    </div>
-                    <h3 className="text-lg font-medium text-white">
-                      Step 1: Create Your Company Profile
-                    </h3>
-                  </div>
-                  <p className="text-gray-300 ml-11">
-                    Add your company details, competitors, and benchmarking questions to get personalized insights and boost visibility.
-                  </p>
-                </div>
+
               </div>
 
               {/* Right Side - Company Form */}
               <div className="lg:sticky lg:top-8">
-                <CompanyProfileForm onSuccess={handleSuccess} />
+                <MultiStepCompanyForm onSuccess={handleSuccess} />
               </div>
             </div>
           </div>

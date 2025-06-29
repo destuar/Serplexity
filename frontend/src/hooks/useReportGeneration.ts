@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useDashboard } from './useDashboard';
 import { triggerReportGeneration, getReportStatus } from '../services/reportService';
-import { generateCompetitors } from '../services/companyService';
 import { Company } from '../types/schemas';
 
 export const useReportGeneration = (selectedCompany: Company | null) => {
@@ -45,18 +44,15 @@ export const useReportGeneration = (selectedCompany: Company | null) => {
     if (!selectedCompany) return;
 
     setIsGenerating(true);
-    setGenerationStatus('Analyzing competitor landscape...');
+    setGenerationStatus('Initializing report generation pipeline...');
     try {
-      const exampleCompetitor = selectedCompany.competitors[0]?.name;
-      if (!exampleCompetitor) {
-        setGenerationStatus('Error: Add one competitor to seed the list.');
+      const hasCompetitors = selectedCompany.competitors && selectedCompany.competitors.length > 0;
+      if (!hasCompetitors) {
+        setGenerationStatus('Error: Add at least one competitor to enable report generation.');
         setIsGenerating(false);
         return;
       }
 
-      await generateCompetitors(selectedCompany.id, exampleCompetitor);
-
-      setGenerationStatus('Initializing report generation pipeline...');
       const { runId: newRunId } = await triggerReportGeneration(selectedCompany.id);
       setRunId(newRunId);
     } catch (error) {

@@ -1,4 +1,4 @@
-import prisma from '../config/db';
+import prisma, { prismaReadReplica } from '../config/db';
 import { Prisma } from '@prisma/client';
 import {
   calculateCompetitorRankings,
@@ -72,17 +72,17 @@ export async function computeAndPersistMetrics(
  */
 async function getModelsUsedInReport(reportId: string): Promise<string[]> {
   const [visModels, benchModels, personalModels] = await Promise.all([
-    prisma.visibilityResponse.findMany({
+    prismaReadReplica.visibilityResponse.findMany({
       where: { runId: reportId },
       select: { model: true },
       distinct: ['model'],
     }),
-    prisma.benchmarkResponse.findMany({
+    prismaReadReplica.benchmarkResponse.findMany({
       where: { runId: reportId },
       select: { model: true },
       distinct: ['model'],
     }),
-    prisma.personalResponse.findMany({
+    prismaReadReplica.personalResponse.findMany({
       where: { runId: reportId },
       select: { model: true },
       distinct: ['model'],
@@ -127,7 +127,7 @@ async function calculateAllMetrics(
     calculateAveragePosition(reportId, companyId, { aiModel: modelFilter }),
     calculateSentimentScore(reportId, companyId, { aiModel: modelFilter }),
     calculateTopRankings(reportId, companyId, { aiModel: modelFilter }),
-    prisma.sentimentScore.findMany({
+    prismaReadReplica.sentimentScore.findMany({
       where: {
         runId: reportId,
         name: 'Detailed Sentiment Scores',
@@ -172,17 +172,17 @@ async function calculateBrandShareOfVoice(
   
   // Get all mentions for this run across all response types
   const [visibilityMentions, benchmarkMentions, personalMentions] = await Promise.all([
-    prisma.visibilityMention.findMany({
+    prismaReadReplica.visibilityMention.findMany({
       where: {
         visibilityResponse: { runId, ...modelFilter }
       }
     }),
-    prisma.benchmarkMention.findMany({
+    prismaReadReplica.benchmarkMention.findMany({
       where: {
         benchmarkResponse: { runId, ...modelFilter }
       }
     }),
-    prisma.personalMention.findMany({
+    prismaReadReplica.personalMention.findMany({
       where: {
         personalResponse: { runId, ...modelFilter }
       }
@@ -199,7 +199,7 @@ async function calculateBrandShareOfVoice(
   // Calculate change from previous report's pre-computed metrics
   let change: number | null = null;
   
-  const previousRun = await prisma.reportRun.findFirst({
+  const previousRun = await prismaReadReplica.reportRun.findFirst({
     where: {
       companyId,
       status: 'COMPLETED',
@@ -235,16 +235,16 @@ async function calculateAverageInclusionRate(
     totalVisibility, totalBenchmark, totalPersonal,
     mentionedVisibility, mentionedBenchmark, mentionedPersonal
   ] = await Promise.all([
-    prisma.visibilityResponse.count({ where: { runId, ...modelFilter } }),
-    prisma.benchmarkResponse.count({ where: { runId, ...modelFilter } }),
-    prisma.personalResponse.count({ where: { runId, ...modelFilter } }),
-    prisma.visibilityResponse.count({
+    prismaReadReplica.visibilityResponse.count({ where: { runId, ...modelFilter } }),
+    prismaReadReplica.benchmarkResponse.count({ where: { runId, ...modelFilter } }),
+    prismaReadReplica.personalResponse.count({ where: { runId, ...modelFilter } }),
+    prismaReadReplica.visibilityResponse.count({
       where: { runId, ...modelFilter, mentions: { some: { companyId } } }
     }),
-    prisma.benchmarkResponse.count({
+    prismaReadReplica.benchmarkResponse.count({
       where: { runId, ...modelFilter, benchmarkMentions: { some: { companyId } } }
     }),
-    prisma.personalResponse.count({
+    prismaReadReplica.personalResponse.count({
       where: { runId, ...modelFilter, mentions: { some: { companyId } } }
     }),
   ]);
@@ -257,7 +257,7 @@ async function calculateAverageInclusionRate(
   // Calculate change from previous report's pre-computed metrics
   let change: number | null = null;
   
-  const previousRun = await prisma.reportRun.findFirst({
+  const previousRun = await prismaReadReplica.reportRun.findFirst({
     where: {
       companyId,
       status: 'COMPLETED',
@@ -290,21 +290,21 @@ async function calculateAveragePosition(
   
   // Get all mentions for the company in this run from all response types
   const [visibilityMentions, benchmarkMentions, personalMentions] = await Promise.all([
-    prisma.visibilityMention.findMany({
+    prismaReadReplica.visibilityMention.findMany({
       where: {
         companyId,
         visibilityResponse: { runId, ...modelFilter }
       },
       select: { position: true }
     }),
-    prisma.benchmarkMention.findMany({
+    prismaReadReplica.benchmarkMention.findMany({
         where: {
             companyId,
             benchmarkResponse: { runId, ...modelFilter }
         },
         select: { position: true }
     }),
-    prisma.personalMention.findMany({
+    prismaReadReplica.personalMention.findMany({
         where: {
             companyId,
             personalResponse: { runId, ...modelFilter }
@@ -322,7 +322,7 @@ async function calculateAveragePosition(
   // Calculate change from previous report's pre-computed metrics
   let change: number | null = null;
   
-  const previousRun = await prisma.reportRun.findFirst({
+  const previousRun = await prismaReadReplica.reportRun.findFirst({
     where: {
       companyId,
       status: 'COMPLETED',
@@ -360,7 +360,7 @@ async function calculateSentimentScore(
     where.engine = filters.aiModel; // engine column stores the model id
   }
 
-  const sentimentRows = await prisma.sentimentScore.findMany({ where });
+  const sentimentRows = await prismaReadReplica.sentimentScore.findMany({ where });
 
   if (sentimentRows.length === 0) {
     return { score: null, change: null };
@@ -388,7 +388,7 @@ async function calculateSentimentScore(
 
   // Calculate change from previous report
   let change: number | null = null;
-  const previousRun = await prisma.reportRun.findFirst({
+  const previousRun = await prismaReadReplica.reportRun.findFirst({
     where: {
       companyId,
       status: 'COMPLETED',
@@ -425,21 +425,21 @@ async function calculateTopRankings(
     topBenchmarkMentions,
     topPersonalMentions,
   ] = await Promise.all([
-    prisma.visibilityMention.count({
+    prismaReadReplica.visibilityMention.count({
       where: {
         position: { in: [1, 2, 3] },
         visibilityResponse: { runId, ...modelFilter },
         companyId: companyId,
       }
     }),
-    prisma.benchmarkMention.count({
+    prismaReadReplica.benchmarkMention.count({
       where: {
         position: { in: [1, 2, 3] },
         benchmarkResponse: { runId, ...modelFilter },
         companyId: companyId,
       }
     }),
-    prisma.personalMention.count({
+    prismaReadReplica.personalMention.count({
       where: {
         position: { in: [1, 2, 3] },
         personalResponse: { runId, ...modelFilter },
@@ -452,7 +452,7 @@ async function calculateTopRankings(
 
   // Calculate change
   let change: number | null = null;
-  const previousRun = await prisma.reportRun.findFirst({
+  const previousRun = await prismaReadReplica.reportRun.findFirst({
     where: {
       companyId,
       status: 'COMPLETED',
@@ -483,7 +483,7 @@ export async function getFullReportMetrics(
   reportId: string,
   aiModel: string = 'all'
 ): Promise<DashboardMetrics | null> {
-  const metric = await prisma.reportMetric.findUnique({
+  const metric = await prismaReadReplica.reportMetric.findUnique({
     where: { reportId_aiModel: { reportId, aiModel } }
     // No `select` needed, so all scalar and JSON fields are returned by default
   });

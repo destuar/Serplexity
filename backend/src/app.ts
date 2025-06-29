@@ -48,9 +48,22 @@ app.get('/api/health', (req: Request, res: Response) => {
 app.get('/api/health/deep', async (req: Request, res: Response) => {
     try {
         await prisma.$queryRaw`SELECT 1`;
+        
+        // Check for write access
+        const result: { transaction_read_only: string }[] = await prisma.$queryRaw`SHOW transaction_read_only;`;
+        const isReadOnly = result[0].transaction_read_only === 'on';
+
+        if (isReadOnly) {
+            return res.status(503).json({ 
+                status: 'UP', 
+                db: 'DEGRADED', 
+                error: 'Database connection is read-only. Write operations will fail.' 
+            });
+        }
+
         res.status(200).json({ status: 'UP', db: 'UP' });
     } catch (error) {
-        res.status(500).json({ status: 'DOWN', db: 'DOWN', error: (error as Error).message });
+        res.status(503).json({ status: 'DOWN', db: 'DOWN', error: (error as Error).message });
     }
 });
 

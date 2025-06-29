@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { X, Building, CreditCard, HelpCircle, Trash2, Edit, Mail } from 'lucide-react';
+import { X, Building, HelpCircle, Trash2, Edit, Mail, ArrowLeft } from 'lucide-react';
 import { useCompany } from '../../contexts/CompanyContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
 import CompanyProfileForm from '../company/CompanyProfileForm';
-import { useNavigate } from 'react-router-dom';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -14,7 +13,6 @@ interface SettingsModalProps {
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const { user } = useAuth();
   const { companies, deleteCompany } = useCompany();
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('companies');
   const [editingCompany, setEditingCompany] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -35,16 +33,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleManageSubscription = () => {
-    // If user has active subscription, redirect to customer portal
-    if (user?.subscriptionStatus === 'active') {
-      // This would typically be a customer portal link from Stripe
-      window.open('https://billing.stripe.com/p/login/test_XXXXXX', '_blank');
-    } else {
-      // Navigate to the payment page to choose a plan
-      navigate('/payment');
-    }
-  };
+
 
   const handleSubmitFeedback = async () => {
     try {
@@ -60,13 +49,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
 
   const tabs = [
     { id: 'companies', label: 'Company Profiles', icon: Building },
-    { id: 'subscription', label: 'Subscription', icon: CreditCard },
     { id: 'help', label: 'Help & Feedback', icon: HelpCircle },
   ];
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl max-w-4xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-2xl max-w-4xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-hidden relative">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <h2 className="text-2xl font-bold text-gray-900">Settings</h2>
@@ -170,74 +158,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                       </div>
                     )}
 
-                    {/* Edit Form */}
-                    {editingCompany === company.id && (
-                      <div className="border-t border-gray-200 pt-4">
-                                                 <CompanyProfileForm
-                           isModal={true}
-                           initialData={company}
-                           mode="edit"
-                           onSuccess={() => setEditingCompany(null)}
-                           onCancel={() => setEditingCompany(null)}
-                         />
-                      </div>
-                    )}
+                    {/* The inline edit form has been replaced by a full-screen overlay */}
                   </div>
                 ))}
               </div>
             )}
 
-            {activeTab === 'subscription' && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Subscription Management</h3>
-                  <p className="text-gray-600 mb-4">
-                    Manage your Serplexity Pro subscription.
-                  </p>
-                </div>
-
-                <div className="border border-gray-200 rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h4 className="font-semibold text-gray-900">Current Plan</h4>
-                      <p className="text-sm text-gray-600">
-                        {user?.subscriptionStatus === 'active' ? 'Serplexity Pro' : 'Free Plan'}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-600">Status</p>
-                      <span
-                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user?.subscriptionStatus === 'active'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        {user?.subscriptionStatus === 'active' ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <Button onClick={handleManageSubscription} className="w-full">
-                      <CreditCard className="w-4 h-4 mr-2" />
-                      {user?.subscriptionStatus === 'active'
-                        ? 'Manage Subscription'
-                        : 'Upgrade to Pro'}
-                    </Button>
-
-                    {user?.subscriptionStatus === 'active' && (
-                      <div className="text-sm text-gray-600">
-                        <p>• Update payment method</p>
-                        <p>• Download invoices</p>
-                        <p>• Cancel subscription</p>
-                        <p>• Change billing frequency</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
 
             {activeTab === 'help' && (
               <div className="space-y-6">
@@ -317,6 +243,46 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
             )}
           </div>
         </div>
+
+        {/* Full-screen company edit overlay */}
+        {editingCompany && (
+          <div className="absolute inset-0 bg-white flex flex-col z-50 shadow-xl">
+            {/* Overlay Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <button
+                onClick={() => setEditingCompany(null)}
+                className="text-gray-400 hover:text-gray-600 transition-colors flex items-center"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </button>
+              <h2 className="text-2xl font-bold text-gray-900">Edit Company</h2>
+              {/* Spacer to balance flex */}
+              <div className="w-6 h-6" />
+            </div>
+
+            {/* Overlay Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {companies
+                .filter((c) => c.id === editingCompany)
+                .map((company) => (
+                  <CompanyProfileForm
+                    key={company.id}
+                    isModal={true}
+                    initialData={company}
+                    mode="edit"
+                    onSuccess={() => {
+                      setEditingCompany(null);
+                      // Refresh to show updated data
+                      setTimeout(() => {
+                        window.location.reload();
+                      }, 500);
+                    }}
+                    onCancel={() => setEditingCompany(null)}
+                  />
+                ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

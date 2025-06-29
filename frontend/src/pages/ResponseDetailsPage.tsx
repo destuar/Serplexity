@@ -316,7 +316,16 @@ const ResponseDetailsPage: React.FC = () => {
                         <BlankLoadingState message="Processing response data..." />
                     ) : error ? (
                         <div className="flex-1 min-h-0 p-1 flex items-center justify-center">
-                            <p className="text-red-500">{error}</p>
+                            <div className="text-center p-8">
+                                <p className="text-xl font-semibold text-gray-500">Failed to load data. Try refreshing the page.</p>
+                                <button
+                                    onClick={fetchQuestions}
+                                    className="mt-4 px-4 py-2 bg-[#7762ff] text-white rounded-md hover:bg-[#6a55e3] transition-colors flex items-center gap-2 mx-auto"
+                                >
+                                    <RefreshCw size={16} />
+                                    Try Again
+                                </button>
+                            </div>
                         </div>
                     ) : (
                         <div className="flex-1 min-h-0 p-1">

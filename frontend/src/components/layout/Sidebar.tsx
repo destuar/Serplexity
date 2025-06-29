@@ -47,6 +47,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     return `${baseClass} text-gray-600 hover:bg-gray-100/50 hover:text-gray-900`;
   };
 
+  const getSectionHeaderClass = () => {
+    return `flex items-center ${isDesktopCollapsed ? 'justify-center' : 'justify-between'} mb-4 cursor-pointer p-2 rounded-xl hover:bg-gray-100/50 transition-all duration-300`;
+  };
+
   const sidebarClasses = `
     fixed inset-y-0 left-0 z-30 flex flex-col 
     bg-white/80 backdrop-blur-md border-r border-gray-200/50 text-gray-900 
@@ -54,12 +58,28 @@ const Sidebar: React.FC<SidebarProps> = ({
     lg:relative lg:translate-x-0
     ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
     ${isDesktopCollapsed ? 'w-20' : 'w-64'}
+    ${isDesktopCollapsed ? 'cursor-pointer' : ''}
   `;
 
+  const handleSidebarClick = () => {
+    if (isDesktopCollapsed) {
+      toggleDesktopSidebar();
+    }
+  };
+
+  const handleSectionClick = (section: keyof typeof openSections, e: React.MouseEvent) => {
+    if (isDesktopCollapsed) {
+      e.stopPropagation();
+      toggleDesktopSidebar();
+    } else {
+      toggleSection(section);
+    }
+  };
+
   return (
-    <div className={sidebarClasses}>
-      <div className="flex items-center py-4 border-b border-gray-200/50 px-4">
-        <Link to="/" className="flex items-center no-underline">
+    <div className={sidebarClasses} onClick={handleSidebarClick}>
+      <div className={`flex items-center py-2.5 border-b border-gray-200/50 px-4 ${isDesktopCollapsed ? 'justify-center' : ''}`}>
+        <Link to="/" className="flex items-center no-underline" onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
           <img
             src="/Serplexity.svg"
             alt="Serplexity Logo"
@@ -71,10 +91,10 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex flex-col flex-1">
         <div className="flex flex-col p-4 flex-1">
         <div 
-          className="flex items-center justify-between mb-4 cursor-pointer"
-          onClick={() => toggleSection('aiPerformance')}
+          className={getSectionHeaderClass()}
+          onClick={(e) => handleSectionClick('aiPerformance', e)}
         >
-          <div className="flex items-center">
+          <div className={`flex items-center ${isDesktopCollapsed ? 'justify-center' : ''}`}>
             <Sparkles className="text-gray-600" size={20} />
             {!isDesktopCollapsed && <span className="ml-2 text-gray-700 font-medium">AI Performance</span>}
           </div>
@@ -82,25 +102,25 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
         {(!isDesktopCollapsed && openSections.aiPerformance) && (
           <nav className="flex flex-col space-y-2 mb-6">
-            <Link to="/overview" className={getLinkClass('/overview')}>
+            <Link to="/overview" className={getLinkClass('/overview')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
               {!isDesktopCollapsed && <span className="ml-3 font-medium">Overview</span>}
             </Link>
-            <Link to="/visibility-report" className={getLinkClass('/visibility-report')}>
+            <Link to="/visibility-report" className={getLinkClass('/visibility-report')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
               {!isDesktopCollapsed && <span className="ml-3">Visibility Report</span>}
             </Link>
-            <Link to="/sentiment-analysis" className={getLinkClass('/sentiment-analysis')}>
+            <Link to="/sentiment-analysis" className={getLinkClass('/sentiment-analysis')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
               {!isDesktopCollapsed && <span className="ml-3">Sentiment Analysis</span>}
             </Link>
-            <Link to="/response-details" className={getLinkClass('/response-details')}>
+            <Link to="/response-details" className={getLinkClass('/response-details')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
               {!isDesktopCollapsed && <span className="ml-3">Response Details</span>}
             </Link>
           </nav>
         )}
         <div 
-          className="flex items-center justify-between mb-4 cursor-pointer"
-          onClick={() => toggleSection('marketAnalysis')}
+          className={getSectionHeaderClass()}
+          onClick={(e) => handleSectionClick('marketAnalysis', e)}
         >
-          <div className="flex items-center">
+          <div className={`flex items-center ${isDesktopCollapsed ? 'justify-center' : ''}`}>
             <BarChart2 className="text-gray-600" size={20} />
             {!isDesktopCollapsed && <span className="ml-2 text-gray-700 font-medium">Market Analysis</span>}
           </div>
@@ -108,19 +128,19 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
         {(!isDesktopCollapsed && openSections.marketAnalysis) && (
           <nav className="flex flex-col space-y-2 mb-6">
-            <Link to="/competitor-rankings" className={getLinkClass('/competitor-rankings')}>
+            <Link to="/competitor-rankings" className={getLinkClass('/competitor-rankings')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
               {!isDesktopCollapsed && <span className="ml-3">Competitor Rankings</span>}
             </Link>
-            <Link to="/model-comparison" className={getLinkClass('/model-comparison')}>
+            <Link to="/model-comparison" className={getLinkClass('/model-comparison')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
               {!isDesktopCollapsed && <span className="ml-3">Model Comparison</span>}
             </Link>
           </nav>
         )}
         <div 
-          className="flex items-center justify-between mb-4 cursor-pointer"
-          onClick={() => toggleSection('aiContentTools')}
+          className={getSectionHeaderClass()}
+          onClick={(e) => handleSectionClick('aiContentTools', e)}
         >
-          <div className="flex items-center">
+          <div className={`flex items-center ${isDesktopCollapsed ? 'justify-center' : ''}`}>
             <Wrench className="text-gray-600" size={20} />
             {!isDesktopCollapsed && <span className="ml-2 text-gray-700 font-medium">AI Content Tools</span>}
           </div>
@@ -128,21 +148,24 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
         {(!isDesktopCollapsed && openSections.aiContentTools) && (
           <nav className="flex flex-col space-y-2">
-            <Link to="/experimental-search" className={getLinkClass('/experimental-search')}>
+            <Link to="/experimental-search" className={getLinkClass('/experimental-search')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
               {!isDesktopCollapsed && <span className="ml-3">Experimental Search</span>}
             </Link>
-            <Link to="/ai-optimization-tool" className={getLinkClass('/ai-optimization-tool')}>
-              {!isDesktopCollapsed && <span className="ml-3">AI Optimization Tool</span>}
+            <Link to="/ai-optimization-tool" className={getLinkClass('/ai-optimization-tool')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
+              {!isDesktopCollapsed && <span className="ml-3">AI Content Optimizer</span>}
             </Link>
-            <Link to="/json-translation-tool" className={getLinkClass('/json-translation-tool')}>
-              {!isDesktopCollapsed && <span className="ml-3">JSON Translation Tool</span>}
+            <Link to="/json-translation-tool" className={getLinkClass('/json-translation-tool')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
+              {!isDesktopCollapsed && <span className="ml-3">GEO Content Guides</span>}
             </Link>
           </nav>
         )}
         </div>
         <div className="px-4 pb-4 -mt-2 hidden lg:block">
           <button 
-            onClick={toggleDesktopSidebar}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleDesktopSidebar();
+            }}
             className="flex items-center justify-end p-3 text-base font-normal text-gray-600 rounded-xl hover:bg-gray-100/50 hover:text-gray-900 w-full transition-all duration-300"
           >
             {isDesktopCollapsed ? <ChevronsRight size={20} className="text-gray-600" /> : <ChevronsLeft size={20} className="text-gray-600" />}
@@ -153,4 +176,4 @@ const Sidebar: React.FC<SidebarProps> = ({
   );
 };
 
-export default Sidebar; 
+export default Sidebar;

@@ -1,13 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Sparkles, RefreshCw, Loader, Users, TrendingUp, Medal, ArrowUpDown, ChevronUp, ChevronDown, ExternalLink } from 'lucide-react';
+import { Sparkles, RefreshCw, Loader, Users, TrendingUp, ArrowUpDown, ChevronUp, ChevronDown, ExternalLink } from 'lucide-react';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';
-import { triggerReportGeneration, getReportStatus, getCompetitorRankingsForReport, CompetitorRankingsResponse, CompetitorRanking } from '../services/reportService';
-import { generateCompetitors } from '../services/companyService';
+import { getCompetitorRankingsForReport, CompetitorRankingsResponse, CompetitorRanking } from '../services/reportService';
 import FilterDropdown from '../components/dashboard/FilterDropdown';
 import WelcomePrompt from '../components/ui/WelcomePrompt';
 import BlankLoadingState from '../components/ui/BlankLoadingState';
-import Card from '../components/ui/Card';
 import { getModelFilterOptions, DashboardFilters } from '../types/dashboard';
 import { getCompanyLogo } from '../lib/logoService';
 import { cn } from '../lib/utils';
@@ -255,7 +253,7 @@ const CompetitorRankingsPage = () => {
     <div className="h-full flex flex-col">
       {dashboardLoading || hasReport === null ? (
         <BlankLoadingState message="Loading dashboard data..." />
-      ) : hasReport === false ? (
+      ) : !hasReport ? (
         <WelcomePrompt
           onGenerateReport={generateReport}
           isGenerating={isGenerating}
@@ -320,11 +318,11 @@ const CompetitorRankingsPage = () => {
           </div>
 
           {/* Content Area - Show loading state only here */}
-          {isLoading || (!rankingsData && !error) ? (
+          {isLoading ? (
             <BlankLoadingState message="Processing competitor data..." />
           ) : error ? (
-            <div className="flex-1 min-h-0 p-1 flex items-center justify-center">
-              <p className="text-red-500">{error}</p>
+            <div className="flex-1 min-h-0 p-1 flex items-center justify-center text-gray-500">
+              {error}
             </div>
           ) : (
             <div className="flex-1 min-h-0 p-1">
@@ -357,4 +355,4 @@ const CompetitorRankingsPage = () => {
   );
 };
 
-export default CompetitorRankingsPage; 
+export default CompetitorRankingsPage;

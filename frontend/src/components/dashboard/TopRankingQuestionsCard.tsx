@@ -102,6 +102,39 @@ const Tooltip: React.FC<TooltipProps> = ({ question, children }) => {
     return getModelDisplayName(model);
   };
 
+  // Calculate positioning to prevent going off-screen with extra space
+  const getTooltipStyle = () => {
+    const tooltipWidth = 900;
+    const margin = 48; // Large margin from screen edge for extra space
+    const halfWidth = tooltipWidth / 2;
+    
+    // Check if tooltip would extend beyond left edge
+    const wouldGoOffLeft = position.x - halfWidth < margin;
+    
+    let transform = 'translate(-50%, -100%)';
+    let left = position.x;
+    let arrowLeft = '50%';
+    
+    if (wouldGoOffLeft) {
+      // Position tooltip so its left edge is at the margin
+      left = margin + halfWidth;
+      transform = 'translate(-50%, -100%)';
+      // Adjust arrow position to point to the original hover point
+      const arrowOffset = ((position.x - margin) / tooltipWidth) * 100;
+      arrowLeft = Math.max(8, Math.min(92, arrowOffset)) + '%'; // Keep arrow within tooltip bounds
+    }
+    
+    return {
+      left: `${left}px`,
+      top: `${position.y}px`,
+      transform,
+      arrowLeft,
+      boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+    };
+  };
+
+  const tooltipStyle = getTooltipStyle();
+
   return (
     <div
       className="relative"
@@ -113,9 +146,9 @@ const Tooltip: React.FC<TooltipProps> = ({ question, children }) => {
         <div
           className="fixed z-50 bg-white border border-gray-200 shadow-2xl rounded-xl p-6 w-[900px] max-w-[95vw] transition-all duration-200 ease-out"
           style={{
-            left: `${position.x}px`,
-            top: `${position.y}px`,
-            transform: 'translate(-50%, -100%)',
+            left: tooltipStyle.left,
+            top: tooltipStyle.top,
+            transform: tooltipStyle.transform,
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
           }}
         >
@@ -155,8 +188,11 @@ const Tooltip: React.FC<TooltipProps> = ({ question, children }) => {
             )}
           </div>
           
-          {/* Arrow pointing down */}
-          <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
+          {/* Arrow pointing down with dynamic positioning */}
+          <div 
+            className="absolute bottom-0 transform -translate-x-1/2 translate-y-full"
+            style={{ left: tooltipStyle.arrowLeft }}
+          >
             <div className="w-0 h-0 border-l-[8px] border-r-[8px] border-t-[8px] border-transparent border-t-white"></div>
             <div className="absolute top-[-9px] left-1/2 transform -translate-x-1/2">
               <div className="w-0 h-0 border-l-[9px] border-r-[9px] border-t-[9px] border-transparent border-t-gray-200"></div>

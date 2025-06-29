@@ -1,0 +1,21 @@
+import React from 'react';
+import MockDashboardCard from './MockDashboardCard';
+
+const mockVisibilityReportData = {
+    summary: "Based on the latest data, **Serplexity** shows strong visibility with an average inclusion rate of **72.3%** and a Share of Voice of **38.5%**. The brand excels in **Quality** and **Trust**, with sentiment scores of **9.2** and **8.9** respectively. However, there is an opportunity to improve the **Reputation** score (currently **7.5**). Key areas for optimization include targeting long-tail keywords where competitors are more visible and improving on-page structure for better LLM parsing."
+};
+
+const MockAiVisibilitySummaryCard: React.FC = () => {
+  const summaryText = mockVisibilityReportData.summary.replace(/\*\*/g, '').replace(/\*/g, '');
+  
+  return (
+    <MockDashboardCard className="p-6">
+      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex-shrink-0">AI Visibility Summary</h3>
+      <div className="flex-1 overflow-y-auto">
+        <p className="text-gray-700 whitespace-pre-wrap">{summaryText}</p>
+      </div>
+    </MockDashboardCard>
+  );
+};
+
+export default MockAiVisibilitySummaryCard;

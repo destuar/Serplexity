@@ -4,7 +4,7 @@ import { useDashboard } from "../hooks/useDashboard";
 import FilterDropdown from "../components/dashboard/FilterDropdown";
 import BrandShareOfVoiceCard from "../components/dashboard/BrandShareOfVoiceCard";
 import VisibilityOverTimeCard from "../components/dashboard/VisibilityOverTimeCard";
-import SentimentScoreCard from "../components/dashboard/SentimentScoreCard";
+import SentimentScoreDisplayCard from "../components/dashboard/SentimentScoreDisplayCard";
 import AverageInclusionRateCard from "../components/dashboard/AverageInclusionRateCard";
 import AveragePositionCard from "../components/dashboard/AveragePositionCard";
 import TopRankingQuestionsCard from "../components/dashboard/TopRankingQuestionsCard";
@@ -115,7 +115,7 @@ const OverviewPage = () => {
                     <AveragePositionCard key={`${cardKey}-ap`} />
                   </div>
                   <div className="min-h-[300px]">
-                    <SentimentScoreCard key={`${cardKey}-ss`} />
+                    <SentimentScoreDisplayCard key={`${cardKey}-ss`} selectedModel={filters.aiModel} />
                   </div>
                   <div className="min-h-[00px]">
                     <TopRankingQuestionsCard key={`${cardKey}-trq`} />
@@ -149,7 +149,7 @@ const OverviewPage = () => {
                   <div style={{ gridArea: 'm2' }}><VisibilityOverTimeCard key={`${cardKey}-vot-desk`} /></div>
                   <div style={{ gridArea: 'm3' }}><AverageInclusionRateCard key={`${cardKey}-air-desk`} /></div>
                   <div style={{ gridArea: 'm4' }}><AveragePositionCard key={`${cardKey}-ap-desk`} /></div>
-                  <div style={{ gridArea: 's1' }}><SentimentScoreCard key={`${cardKey}-ss-desk`} /></div>
+                  <div style={{ gridArea: 's1' }}><SentimentScoreDisplayCard key={`${cardKey}-ss-desk`} selectedModel={filters.aiModel} /></div>
                   <div style={{ gridArea: 'q1' }}><TopRankingQuestionsCard key={`${cardKey}-trq-desk`} /></div>
                   <div style={{ gridArea: 'r1' }}><RankingsCard key={`${cardKey}-rank-desk`} /></div>
                 </div>

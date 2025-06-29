@@ -2,16 +2,13 @@ import React, { useState } from 'react';
 import SearchBar from '../components/experimental/SearchBar';
 import GoogleSerpPane from '../components/experimental/GoogleSerpPane';
 import LlmSerpPane from '../components/experimental/LlmSerpPane';
-import { getModelFilterOptions } from '../types/dashboard';
 
 const ExperimentalSearchPage: React.FC = () => {
   const [query, setQuery] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState('');
 
-  const aiModelOptions = getModelFilterOptions().filter((o) => o.value !== 'all');
-
-  // Local model selection state (default to first model)
-  const [selectedModel, setSelectedModel] = useState<string>(aiModelOptions[0].value);
+  // Local model selection state (default to ChatGPT 4.1)
+  const [selectedModel, setSelectedModel] = useState<string>('gpt-4.1-mini');
 
   const handleSubmit = () => {
     if (query.trim()) {

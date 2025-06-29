@@ -250,9 +250,18 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
       name: initialData?.name || '',
       website: initialData?.website || '',
       industry: initialData?.industry || '',
-      products: initialData?.products?.map((p) => ({ name: p.name })) || [{ name: '' }],
-      competitors: initialData?.competitors?.map((c) => ({ name: c.name, website: c.website || '' })) || [{ name: '', website: '' }],
-      benchmarkingQuestions: initialData?.benchmarkingQuestions?.map((q) => ({ text: q.text })) || [{ text: '' }],
+      products: (() => {
+        const userProducts = (initialData?.products || []).filter((p: any) => !p.isGenerated);
+        return userProducts.length > 0 ? userProducts.map((p) => ({ name: p.name })) : [{ name: '' }];
+      })(),
+      competitors: (() => {
+        const userCompetitors = (initialData?.competitors || []).filter((c: any) => !c.isGenerated);
+        return userCompetitors.length > 0 ? userCompetitors.map((c) => ({ name: c.name, website: c.website || '' })) : [{ name: '', website: '' }];
+      })(),
+      benchmarkingQuestions: (() => {
+        const userQuestions = (initialData?.benchmarkingQuestions || []).filter((q: any) => !q.isGenerated);
+        return userQuestions.length > 0 ? userQuestions.map((q) => ({ text: q.text })) : [{ text: '' }];
+      })(),
     },
   });
   
@@ -338,8 +347,8 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
     : `You are editing the profile for ${initialData?.name}.`;
     
   const containerClass = isModal
-    ? "bg-white p-6 rounded-2xl max-w-4xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto"
-    : "max-w-2xl mx-auto bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-8";
+    ? "bg-white w-full"
+    : "max-w-2xl mx-auto bg-black/5 backdrop-blur-xl rounded-2xl p-8";
   
   const labelClass = isModal ? 'text-gray-700' : 'text-white/80';
   

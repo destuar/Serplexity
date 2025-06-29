@@ -1,43 +1,24 @@
 import React, { useState } from 'react';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';
-import { triggerReportGeneration } from '../services/reportService';
-import { generateCompetitors } from '../services/companyService';
 import WelcomePrompt from '../components/ui/WelcomePrompt';
 import BlankLoadingState from '../components/ui/BlankLoadingState';
+import { useReportGeneration } from '../hooks/useReportGeneration';
+import { RefreshCw, Loader } from 'lucide-react';
+import AiVisibilitySummaryCard from '../components/dashboard/AiVisibilitySummaryCard';
+import OptimizationChecklistCard from '../components/dashboard/OptimizationChecklistCard';
 
 const VisibilityReportPage: React.FC = () => {
   const { selectedCompany } = useCompany();
-  const { data, loading, hasReport } = useDashboard();
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generationStatus, setGenerationStatus] = useState<string | null>(null);
+  const { data, loading, hasReport, refreshing, refreshData, lastUpdated } = useDashboard();
+  const { isGenerating, generationStatus, generateReport } = useReportGeneration(selectedCompany);
 
-  // Remove old hasExistingData logic - now using hasReport from context
+  // The user said not to implement the LLM call yet. This will come from reportMetrics later.
+  const [summary, setSummary] = useState<string | null>(null);
 
-  const handleGenerateReport = async () => {
-    if (!selectedCompany) return;
-
-    setIsGenerating(true);
-    setGenerationStatus('Analyzing competitor landscape...');
-    try {
-      // Step 1: Generate competitors
-      const exampleCompetitor = selectedCompany.competitors[0]?.name;
-      if (!exampleCompetitor) {
-        setGenerationStatus('Error: Add one competitor to seed the list.');
-        setIsGenerating(false);
-        return;
-      }
-
-      await generateCompetitors(selectedCompany.id, exampleCompetitor);
-
-      // Step 2: Trigger report generation
-      setGenerationStatus('Initializing report generation pipeline...');
-      await triggerReportGeneration(selectedCompany.id);
-    } catch (error) {
-        console.error("Failed to start report generation:", error);
-        setIsGenerating(false);
-        setGenerationStatus('Failed to start report generation.');
-    }
+  const handleRefresh = () => {
+    refreshData();
+    // Later, this will also trigger a refetch of the summary from new report metrics
   };
 
   return (
@@ -46,20 +27,58 @@ const VisibilityReportPage: React.FC = () => {
         <BlankLoadingState message="Loading visibility report..." />
       ) : hasReport === false ? (
         <WelcomePrompt
-          onGenerateReport={handleGenerateReport}
+          onGenerateReport={generateReport}
           isGenerating={isGenerating}
           generationStatus={generationStatus}
         />
-      ) : !data || Object.keys(data).length === 0 ? (
-        <BlankLoadingState message="Processing visibility data..." />
       ) : (
-        <div className="p-4">
-          <h1 className="text-2xl font-bold">Visibility Report</h1>
-          <p>This page is under construction.</p>
-        </div>
+        <>
+          <div className="flex-shrink-0 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-2">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Visibility Report</h1>
+              {lastUpdated && (
+                <p className="text-sm text-gray-500 mt-1">
+                  Last updated: {new Date(lastUpdated).toLocaleString()}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing || isGenerating}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-[#7762ff] text-white rounded-lg hover:bg-[#6650e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+              >
+                {refreshing ? (
+                  <>
+                    <Loader size={16} className="animate-spin" />
+                    <span>Refreshing...</span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw size={16} />
+                    <span>Refresh Data</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {!data || Object.keys(data).length === 0 ? (
+            <BlankLoadingState message="Processing visibility data..." />
+          ) : (
+            <div className="flex-1 min-h-0 pt-1 flex flex-col gap-4">
+              <div className="min-h-0" style={{ flex: '1 1 60%' }}>
+                <AiVisibilitySummaryCard summary={summary} loading={refreshing} />
+              </div>
+              <div className="min-h-0" style={{ flex: '1 1 40%' }}>
+                <OptimizationChecklistCard />
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
 };
 
-export default VisibilityReportPage; 
+export default VisibilityReportPage;

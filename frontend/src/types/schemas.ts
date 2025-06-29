@@ -5,6 +5,7 @@ export const CompetitorSchema = z.object({
   name: z.string(),
   website: z.string().nullable().optional(),
   companyId: z.string(),
+  isGenerated: z.boolean().optional().default(false),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -13,6 +14,7 @@ export const BenchmarkingQuestionSchema = z.object({
   id: z.string(),
   text: z.string(),
   companyId: z.string(),
+  isGenerated: z.boolean().optional().default(false),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -21,6 +23,7 @@ export const ProductSchema = z.object({
   id: z.string(),
   name: z.string(),
   companyId: z.string(),
+  isGenerated: z.boolean().optional().default(false),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

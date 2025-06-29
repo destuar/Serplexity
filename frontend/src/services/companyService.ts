@@ -2,14 +2,6 @@ import apiClient from '../lib/apiClient';
 import { Company } from '../types/schemas';
 import { SentimentScores } from '../types/dashboard';
 
-export interface GenerateCompetitorsResponse {
-  message: string;
-  competitors: Array<{
-    name: string;
-    website?: string;
-  }>;
-}
-
 export interface ShareOfVoiceResponse {
   shareOfVoice: number | null;
   change: number | null;
@@ -22,13 +14,6 @@ export interface ShareOfVoiceHistoryResponse {
     createdAt: string;
   }>;
 }
-
-export const generateCompetitors = async (companyId: string, exampleCompetitor: string): Promise<GenerateCompetitorsResponse> => {
-  const { data } = await apiClient.post(`/companies/${companyId}/generate-competitors`, {
-    exampleCompetitor
-  });
-  return data;
-};
 
 export const updateCompany = async (companyId: string, updates: Partial<Company>): Promise<{ company: Company }> => {
   const { data } = await apiClient.put(`/companies/${companyId}`, updates);

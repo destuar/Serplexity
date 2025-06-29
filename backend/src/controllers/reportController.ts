@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import prisma from '../config/db';
+import prisma, { prismaReadReplica } from '../config/db';
 import redis from '../config/redis';
 import { queueReport } from '../services/reportSchedulingService';
 import { MODELS } from '../config/models';
@@ -231,7 +231,7 @@ export const getReportStatus = async (req: Request, res: Response) => {
 
     controllerLog({ endpoint, userId, reportId }, 'Fetching report status from database');
 
-    const report = await prisma.reportRun.findFirst({
+    const report = await prismaReadReplica.reportRun.findFirst({
       where: {
         id: reportId,
         company: {
@@ -317,7 +317,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    const latestRun = await prisma.reportRun.findFirst({
+    const latestRun = await prismaReadReplica.reportRun.findFirst({
       where: { companyId, status: 'COMPLETED' },
       orderBy: { createdAt: 'desc' },
     });

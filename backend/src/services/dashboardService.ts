@@ -1,9 +1,9 @@
-import prisma from '../config/db';
+import { prismaReadReplica } from '../config/db';
 
 // Raw database calculation functions to replace DashboardData
 export async function calculateCompetitorRankings(runId: string, companyId: string, filters?: { aiModel?: string }) {
     // Get all competitors for this company
-    const company = await prisma.company.findUnique({
+    const company = await prismaReadReplica.company.findUnique({
         where: { id: companyId },
         include: { competitors: true }
     });
@@ -35,7 +35,7 @@ export async function calculateCompetitorRankings(runId: string, companyId: stri
 
     // Count mentions for each entity
     const [visibilityMentions, benchmarkMentions, personalMentions] = await Promise.all([
-        prisma.visibilityMention.findMany({
+        prismaReadReplica.visibilityMention.findMany({
             where: {
                 visibilityResponse: { 
                     runId,
@@ -47,7 +47,7 @@ export async function calculateCompetitorRankings(runId: string, companyId: stri
                 ]
             }
         }),
-        prisma.benchmarkMention.findMany({
+        prismaReadReplica.benchmarkMention.findMany({
             where: {
                 benchmarkResponse: { 
                     runId,
@@ -59,7 +59,7 @@ export async function calculateCompetitorRankings(runId: string, companyId: stri
                 ]
             }
         }),
-        prisma.personalMention.findMany({
+        prismaReadReplica.personalMention.findMany({
             where: {
                 personalResponse: { 
                     runId,
@@ -84,7 +84,7 @@ export async function calculateCompetitorRankings(runId: string, companyId: stri
     const totalMentions = Array.from(entityMentionCounts.values()).reduce((sum, entity) => sum + entity.mentions, 0);
     
     // Get previous completed run for comparison
-    const previousRuns = await prisma.reportRun.findMany({
+    const previousRuns = await prismaReadReplica.reportRun.findMany({
         where: {
             companyId,
             status: 'COMPLETED',
@@ -101,7 +101,7 @@ export async function calculateCompetitorRankings(runId: string, companyId: stri
         
         // Get previous mention counts
         const [prevVisibilityMentions, prevBenchmarkMentions, prevPersonalMentions] = await Promise.all([
-            prisma.visibilityMention.findMany({
+            prismaReadReplica.visibilityMention.findMany({
                 where: {
                     visibilityResponse: { 
                         runId: previousRunId,
@@ -113,7 +113,7 @@ export async function calculateCompetitorRankings(runId: string, companyId: stri
                     ]
                 }
             }),
-            prisma.benchmarkMention.findMany({
+            prismaReadReplica.benchmarkMention.findMany({
                 where: {
                     benchmarkResponse: { 
                         runId: previousRunId,
@@ -125,7 +125,7 @@ export async function calculateCompetitorRankings(runId: string, companyId: stri
                     ]
                 }
             }),
-            prisma.personalMention.findMany({
+            prismaReadReplica.personalMention.findMany({
                 where: {
                     personalResponse: { 
                         runId: previousRunId,
@@ -208,7 +208,7 @@ export async function calculateTopQuestions(runId: string, companyId: string, fi
     // Fetch ALL question types with their responses and mentions
     const [visibilityQuestions, benchmarkQuestions, personalQuestions] = await Promise.all([
         // Visibility questions
-        prisma.visibilityQuestion.findMany({
+        prismaReadReplica.visibilityQuestion.findMany({
             where: {
                 responses: {
                     some: {
@@ -240,7 +240,7 @@ export async function calculateTopQuestions(runId: string, companyId: string, fi
         }),
         
         // Benchmark questions
-        prisma.benchmarkingQuestion.findMany({
+        prismaReadReplica.benchmarkingQuestion.findMany({
             where: {
                 companyId,
                 benchmarkResponses: {
@@ -268,7 +268,7 @@ export async function calculateTopQuestions(runId: string, companyId: string, fi
         }),
         
         // Personal questions
-        prisma.personalQuestion.findMany({
+        prismaReadReplica.personalQuestion.findMany({
             where: {
                 companyId,
                 responses: {
@@ -552,7 +552,7 @@ export async function calculateSentimentOverTime(runId: string, companyId: strin
     // --- NEW IMPLEMENTATION: aggregate sentiment scores across all completed runs for the company ---
 
     // 1. Find all completed runs for this company
-    const runs = await prisma.reportRun.findMany({
+    const runs = await prismaReadReplica.reportRun.findMany({
         where: {
             companyId,
             status: 'COMPLETED'
@@ -569,7 +569,7 @@ export async function calculateSentimentOverTime(runId: string, companyId: strin
     const runDateMap = new Map(runs.map(r => [r.id, r.createdAt]));
 
     // 2. Grab all sentiment metrics for those runs (optionally engine-filtered)
-    const sentimentMetrics = await prisma.sentimentScore.findMany({
+    const sentimentMetrics = await prismaReadReplica.sentimentScore.findMany({
         where: {
             runId: { in: runIds },
             name: 'Detailed Sentiment Scores',
@@ -621,7 +621,7 @@ export async function calculateShareOfVoiceHistory(runId: string, companyId: str
     // --- NEW IMPLEMENTATION: aggregate share-of-voice across all completed runs for the company ---
 
     // 1. Fetch company and competitors
-    const company = await prisma.company.findUnique({
+    const company = await prismaReadReplica.company.findUnique({
         where: { id: companyId },
         include: { competitors: true }
     });
@@ -632,7 +632,7 @@ export async function calculateShareOfVoiceHistory(runId: string, companyId: str
     const competitorIds = company.competitors.map(c => c.id);
 
     // 2. Fetch all completed run IDs for this company, and map their dates
-    const runs = await prisma.reportRun.findMany({
+    const runs = await prismaReadReplica.reportRun.findMany({
         where: {
             companyId,
             status: 'COMPLETED'
@@ -657,7 +657,7 @@ export async function calculateShareOfVoiceHistory(runId: string, companyId: str
     };
 
     const [visibilityMentions, benchmarkMentions, personalMentions] = await Promise.all([
-        prisma.visibilityMention.findMany({
+        prismaReadReplica.visibilityMention.findMany({
             where: {
                 visibilityResponse: {
                     runId: { in: runIds },
@@ -667,7 +667,7 @@ export async function calculateShareOfVoiceHistory(runId: string, companyId: str
             },
             select: { visibilityResponse: { select: { runId: true } }, companyId: true, competitorId: true }
         }),
-        prisma.benchmarkMention.findMany({
+        prismaReadReplica.benchmarkMention.findMany({
             where: {
                 benchmarkResponse: {
                     runId: { in: runIds },
@@ -677,7 +677,7 @@ export async function calculateShareOfVoiceHistory(runId: string, companyId: str
             },
             select: { benchmarkResponse: { select: { runId: true } }, companyId: true, competitorId: true }
         }),
-        prisma.personalMention.findMany({
+        prismaReadReplica.personalMention.findMany({
             where: {
                 personalResponse: {
                     runId: { in: runIds },
