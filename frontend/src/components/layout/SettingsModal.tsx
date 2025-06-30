@@ -17,7 +17,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const [feedbackText, setFeedbackText] = useState('');
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
-  const [pendingSaveData, setPendingSaveData] = useState<any>(null);
 
   if (!isOpen) return null;
 
@@ -47,7 +46,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
 
   const handleSaveConfirmation = () => {
     setShowSaveConfirmation(false);
-    setPendingSaveData(null);
     setEditingCompany(null);
     // Refresh to show updated data
     setTimeout(() => {
@@ -57,7 +55,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
 
   const handleCancelSaveConfirmation = () => {
     setShowSaveConfirmation(false);
-    setPendingSaveData(null);
   };
 
   const tabs = [
