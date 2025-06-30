@@ -19,7 +19,7 @@ const envSchema = z.object({
 
   // Redis
   REDIS_HOST: z.string(),
-  REDIS_PORT: z.string(),
+  REDIS_PORT: z.string().transform(val => parseInt(val, 10)),
   REDIS_PASSWORD: z.string().optional(),
   REDIS_USE_TLS: z.string().transform(val => val === 'true').default('false'),
 
@@ -49,6 +49,7 @@ const envSchema = z.object({
   AWS_SECRET_ACCESS_KEY: z.string(),
   AWS_REGION: z.string(),
   GLACIER_VAULT_NAME: z.string(),
+  GLACIER_ACCOUNT_ID: z.string(),
 
   // LLM Providers
   OPENAI_API_KEY: z.string(),

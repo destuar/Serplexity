@@ -19,7 +19,7 @@ describe('Database Configuration', () => {
 
   it('should initialize prismaReadReplica with READ_REPLICA_URL if set', () => {
     process.env.READ_REPLICA_URL = 'postgresql://test:test@localhost:5433/test_replica';
-    const env = getEnv(); // Re-evaluate env after setting variable
+    // Note: env is already loaded at module import time
     
     // Re-import prismaReadReplica to ensure it picks up the new env var
     jest.resetModules();
@@ -32,7 +32,7 @@ describe('Database Configuration', () => {
 
   it('should initialize prismaReadReplica with DATABASE_URL if READ_REPLICA_URL is not set', () => {
     delete process.env.READ_REPLICA_URL;
-    const env = getEnv(); // Re-evaluate env after deleting variable
+    // Note: env is already loaded at module import time
 
     // Re-import prismaReadReplica to ensure it picks up the new env var
     jest.resetModules();
