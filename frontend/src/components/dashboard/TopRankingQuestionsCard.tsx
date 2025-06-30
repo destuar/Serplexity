@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Card from '../ui/Card';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useCompany } from '../../contexts/CompanyContext';
@@ -206,6 +207,7 @@ const Tooltip: React.FC<TooltipProps> = ({ question, children }) => {
 
 const TopRankingQuestionsCard = () => {
   const { data, loading, error } = useDashboard();
+  const navigate = useNavigate();
 
   const questions = data?.topQuestions || [];
   
@@ -213,6 +215,10 @@ const TopRankingQuestionsCard = () => {
   console.log('[TopRankingQuestionsCard] Raw data:', data);
   console.log('[TopRankingQuestionsCard] Top questions:', questions);
   console.log('[TopRankingQuestionsCard] First question structure:', questions[0]);
+
+  const handleQuestionClick = () => {
+    navigate('/response-details');
+  };
 
   if (loading) {
     return (
@@ -258,7 +264,10 @@ const TopRankingQuestionsCard = () => {
       <div className="flex-1 space-y-2 mb-1">
         {questions.slice(0, 4).map((question, index) => (
           <Tooltip key={question.id} question={question}>
-            <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+            <div 
+              className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+              onClick={handleQuestionClick}
+            >
               <div className="flex-shrink-0">
                 <span className="text-sm font-medium text-gray-700 w-6">#{index + 1}</span>
               </div>

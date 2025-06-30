@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Building, HelpCircle, Trash2, Edit, Mail, ArrowLeft } from 'lucide-react';
+import { X, Building, HelpCircle, Trash2, Edit, Mail, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { useCompany } from '../../contexts/CompanyContext';
 import { Button } from '../ui/Button';
 import CompanyProfileForm from '../company/CompanyProfileForm';
@@ -16,6 +16,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [feedbackText, setFeedbackText] = useState('');
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
+  const [pendingSaveData, setPendingSaveData] = useState<any>(null);
 
   if (!isOpen) return null;
 
@@ -41,6 +43,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     } catch (error) {
       console.error('Failed to submit feedback:', error);
     }
+  };
+
+  const handleSaveConfirmation = () => {
+    setShowSaveConfirmation(false);
+    setPendingSaveData(null);
+    setEditingCompany(null);
+    // Refresh to show updated data
+    setTimeout(() => {
+      window.location.reload();
+    }, 500);
+  };
+
+  const handleCancelSaveConfirmation = () => {
+    setShowSaveConfirmation(false);
+    setPendingSaveData(null);
   };
 
   const tabs = [
@@ -266,15 +283,49 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                     initialData={company}
                     mode="edit"
                     onSuccess={() => {
-                      setEditingCompany(null);
-                      // Refresh to show updated data
-                      setTimeout(() => {
-                        window.location.reload();
-                      }, 500);
+                      setShowSaveConfirmation(true);
                     }}
                     onCancel={() => setEditingCompany(null)}
                   />
                 ))}
+            </div>
+          </div>
+        )}
+
+        {/* Save Confirmation Dialog */}
+        {showSaveConfirmation && (
+          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+            <div className="bg-white rounded-2xl max-w-md w-full mx-4 shadow-2xl p-6">
+              <div className="flex items-center mb-4">
+                <div className="flex-shrink-0">
+                  <AlertTriangle className="h-6 w-6 text-yellow-500" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-lg font-semibold text-gray-900">Changes Saved Successfully</h3>
+                </div>
+              </div>
+              
+              <div className="mb-6">
+                <p className="text-sm text-gray-600">
+                  Your company profile has been updated. These changes will be reflected in the next report generated for this company.
+                </p>
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <Button
+                  variant="outline"
+                  onClick={handleCancelSaveConfirmation}
+                  className="text-gray-700 hover:bg-gray-100"
+                >
+                  Continue Editing
+                </Button>
+                <Button
+                  onClick={handleSaveConfirmation}
+                  className="bg-gradient-to-r from-[#7762ff] to-[#9e52ff] text-white hover:from-[#6650e6] hover:to-[#8a47e6]"
+                >
+                  Got It
+                </Button>
+              </div>
             </div>
           </div>
         )}

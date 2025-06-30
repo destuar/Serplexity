@@ -103,7 +103,7 @@ export function Navbar() {
         >
           <div 
             className={cn(
-              "relative flex items-center justify-between h-16",
+              "relative flex items-center h-16",
               "px-6",
               isLandingStylePage
                 ? "lg:transition-[padding] lg:duration-700 lg:ease-in-out"
@@ -133,7 +133,7 @@ export function Navbar() {
 
             <div 
               className={cn(
-                "hidden lg:flex items-center justify-center gap-8"
+                "hidden lg:flex items-center justify-center gap-8 absolute left-1/2 transform -translate-x-1/2"
               )}
             >
               {isLandingPage ? (
@@ -162,7 +162,7 @@ export function Navbar() {
 
             <div 
               className={cn(
-                "flex items-center flex-shrink-0 gap-3",
+                "flex items-center flex-shrink-0 gap-3 ml-auto",
                 isLandingStylePage ? "lg:transition-[gap] lg:duration-700 lg:ease-in-out" : "lg:gap-6",
                 { "lg:gap-4": isLandingStylePage && isScrolled, "lg:gap-6": isLandingStylePage && !isScrolled }
               )}

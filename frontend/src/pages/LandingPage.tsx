@@ -11,12 +11,14 @@ import { Accordion } from '../components/ui/Accordion';
 import { loadStripe } from '@stripe/stripe-js';
 import { createCheckoutSession } from '../services/paymentService';
 import DashboardPreviewCarousel from '../components/landing/DashboardPreviewCarousel';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 const LandingPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const starContainerRef = useRef<HTMLDivElement>(null);
   const timeoutIdRef = useRef<number | null>(null);
+  const isLargeScreen = useMediaQuery('(min-width: 1024px)');
 
   const handleGetStarted = () => navigate('/register');
   const handleDashboard = () => navigate('/overview');
@@ -40,8 +42,7 @@ const LandingPage: React.FC = () => {
   };
 
   useEffect(() => {
-    const starContainer = starContainerRef.current;
-    if (typeof window === 'undefined' || !starContainer) return;
+    if (typeof window === 'undefined') return;
 
     // Load Twitter widgets script
     const script = document.createElement('script');
@@ -51,7 +52,7 @@ const LandingPage: React.FC = () => {
     document.head.appendChild(script);
 
     const createStar = () => {
-      if (!starContainer) return;
+      if (!starContainerRef.current) return;
 
       const starEl = document.createElement('div');
       starEl.className = "absolute h-px bg-gradient-to-r from-transparent via-white to-transparent";
@@ -96,7 +97,7 @@ const LandingPage: React.FC = () => {
         starEl.remove();
       };
 
-      starContainer.appendChild(starEl);
+      starContainerRef.current.appendChild(starEl);
       
       const randomInterval = Math.random() * 8000 + 4000; // 4-12 seconds
       timeoutIdRef.current = window.setTimeout(createStar, randomInterval);
@@ -105,7 +106,7 @@ const LandingPage: React.FC = () => {
     timeoutIdRef.current = window.setTimeout(createStar, Math.random() * 5000);
 
     const createStaticStars = () => {
-      if (!starContainer) return;
+      if (!starContainerRef.current) return;
       const numStars = 200;
       for (let i = 0; i < numStars; i++) {
         const star = document.createElement('div');
@@ -134,7 +135,7 @@ const LandingPage: React.FC = () => {
           }
         );
 
-        starContainer.appendChild(star);
+        starContainerRef.current.appendChild(star);
       }
     };
     createStaticStars();
@@ -143,8 +144,8 @@ const LandingPage: React.FC = () => {
       if (timeoutIdRef.current) {
         clearTimeout(timeoutIdRef.current);
       }
-      if (starContainer) {
-        starContainer.innerHTML = '';
+      if (starContainerRef.current) {
+        starContainerRef.current.innerHTML = '';
       }
     };
   }, []);
@@ -182,9 +183,8 @@ const LandingPage: React.FC = () => {
           <p className="mb-4">We currently monitor answers from:</p>
           <ul className="space-y-2 list-disc list-inside text-gray-400 mb-4">
             <li>Google Search (AI Overviews / Gemini-powered responses)</li>
-            <li>Microsoft Bing / Copilot</li>
-            <li>OpenAI ChatGPT (GPT-4 &amp; GPT-3.5)</li>
-            <li>Perplexity.ai</li>
+            <li>OpenAI ChatGPT (GPT-4.1 &amp; GPT-4o)</li>
+            <li>Perplexity Sonar</li>
             <li>Anthropic Claude</li>
           </ul>
           <p>The list expands as new engines gain adoption. You can filter results by model inside the dashboard filter bar.</p>
@@ -227,8 +227,35 @@ const LandingPage: React.FC = () => {
     }
   ];
 
+  const companyLogos = [
+    { file: 'Google_Gemini_logo.svg.png', name: 'Google Gemini' },
+    { file: 'logo-perplexity-1024x258.png', name: 'Perplexity' },
+    { file: 'OpenAI_Logo.svg.png', name: 'OpenAI' },
+    { file: 'Anthropic-Logo.wine.svg', name: 'Anthropic' },
+  ];
+
   return (
     <div className="bg-gradient-to-br from-black via-[#0a0a1a] to-[#050510] text-white relative min-h-screen">
+      <style>{`
+      .marquee-container {
+        overflow: hidden;
+        width: 100%;
+      }
+      .marquee-track {
+        display: inline-block;
+        white-space: nowrap;
+        animation: marquee 18s linear infinite;
+      }
+      @keyframes marquee {
+        0% { transform: translateX(0); }
+        100% { transform: translateX(-50%); }
+      }
+      .marquee-logo {
+        display: inline-block;
+        margin: 0 2rem;
+        vertical-align: middle;
+      }
+      `}</style>
       {/* Subtle background gradients */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#5271ff]/15 via-[#7662ff]/8 to-[#9e52ff]/15"></div>
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(82,113,255,0.08),transparent_50%)]"></div>
@@ -253,8 +280,8 @@ const LandingPage: React.FC = () => {
               </span>
             </h1>
             <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto mt-2 mb-8 leading-relaxed">
-              <span className="md:hidden">We are the first agency purpose-built for the generative era of SEO. Enhance your visibility with Google SGE, Perplexity, ChatGPT, and beyond.</span>
-              <span className="hidden md:inline">We are the first agency purpose-built for the generative era of SEO. Enhance your visibility with Google SGE, Perplexity, ChatGPT, and beyond.</span>
+              <span className="md:hidden">We are the first agency purpose-built for the generative era of SEO. Enhance your visibility with Google SGE, Gemini, Perplexity, ChatGPT, and beyond.</span>
+              <span className="hidden md:inline">We are the first agency purpose-built for the generative era of SEO. Enhance your visibility with Google SGE, Gemini,Perplexity, ChatGPT, and beyond.</span>
             </p>
             
             {/* CTA Buttons */}
@@ -274,42 +301,84 @@ const LandingPage: React.FC = () => {
 
           {/* Dashboard Preview */}
           <div id="product-preview">
-            <DashboardPreviewCarousel />
+            {isLargeScreen ? (
+              <DashboardPreviewCarousel />
+            ) : (
+              <img
+                src="/mock_dashboard.png"
+                alt="Dashboard preview"
+                className="w-full rounded-xl shadow-lg"
+                style={{ maxWidth: 600, margin: '0 auto' }}
+              />
+            )}
           </div>
 
           {/* Company Logos */}
           <div className="w-full max-w-7xl mx-auto px-4">
-            <div className="text-center pt-4 md:pt-6">
-              <h2 className="text-lg font-semibold text-gray-400 uppercase tracking-wide">
-                Leading brands already optimizing for AI citation
+            <div className="text-center pt-0 md:pt-2 mb-2">
+              <h2 className="text-lg font-semibold text-gray-400 uppercase tracking-wide mb-2 mt-16 md:mt-20">
+                Optimizing for AI search citations across leading engines
               </h2>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-8 items-center justify-items-center max-w-6xl mx-auto pt-10 md:pt-12">
-              {[
-                'Netflix_2015_logo.svg',
-                'redbull-logo-svg-vector.svg',
-                'Mint-mobile_stacked.svg',
-                'Verizon_2024.svg',
-              ].map((logo, i) => (
+            {/* Marquee for mobile/medium */}
+            <div className="block lg:hidden marquee-container mt-8 lg:mt-0">
+              <div className="marquee-track">
+                {[...companyLogos, ...companyLogos].map((logo, i) => (
+                  <img
+                    key={i}
+                    src={`/${logo.file}`}
+                    alt={`${logo.name} logo`}
+                    className="marquee-logo"
+                    style={{
+                      height:
+                        logo.file === 'Anthropic-Logo.wine.svg'
+                          ? '128px'
+                          : logo.file === 'logo-perplexity-1024x258.png'
+                            ? '42px'
+                            : (logo.file === 'Google_Gemini_logo.svg.png')
+                              ? '32px'
+                              : (logo.file === 'OpenAI_Logo.svg.png')
+                                ? '32px'
+                                : '48px',
+                      filter: 'brightness(0) invert(1)',
+                      marginTop: logo.file === 'OpenAI_Logo.svg.png'
+                        ? '4px'
+                        : logo.file === 'Google_Gemini_logo.svg.png'
+                          ? '-8px'
+                          : undefined,
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+            {/* Grid for large screens */}
+            <div className="hidden lg:grid grid-cols-4 gap-x-8 gap-y-8 items-center justify-items-center max-w-6xl mx-auto pt-2 md:pt-4">
+              {companyLogos.map((logo, i) => (
                 <div
                   key={i}
-                  className="w-32 h-20 sm:w-36 sm:h-22 md:w-44 md:h-24 flex items-center justify-center"
+                  className={
+                    logo.file === 'Anthropic-Logo.wine.svg'
+                      ? 'w-48 h-48 flex items-center justify-center'
+                      : logo.file === 'logo-perplexity-1024x258.png'
+                        ? 'w-44 h-36 flex items-center justify-center'
+                        : 'w-32 h-32 flex items-center justify-center'
+                  }
                 >
                   <img
-                    src={`/${logo}`}
-                    alt={`logo ${i + 1}`}
-                    className={`${
-                      logo === 'redbull-logo-svg-vector.svg'
-                        ? 'h-10 sm:h-12 md:h-14'
-                        : logo === 'Mint-mobile_stacked.svg'
-                        ? 'h-10 sm:h-12 md:h-14'
-                        : logo === 'Netflix_2015_logo.svg'
-                        ? 'h-7 sm:h-8 md:h-10'
-                        : logo === 'Verizon_2024.svg'
-                        ? 'h-7 sm:h-8 md:h-10'
-                        : 'h-8 sm:h-10 md:h-12'
-                    } w-auto object-contain`}
-                    style={{ filter: 'brightness(0) invert(1)' }}
+                    src={`/${logo.file}`}
+                    alt={`${logo.name} logo`}
+                    className="w-auto object-contain"
+                    style={{
+                      height:
+                        logo.file === 'Anthropic-Logo.wine.svg'
+                          ? '160px'
+                          : logo.file === 'logo-perplexity-1024x258.png'
+                            ? '110px'
+                            : logo.file === 'Google_Gemini_logo.svg.png'
+                              ? '36px'
+                              : '48px',
+                      filter: 'brightness(0) invert(1)',
+                    }}
                   />
                 </div>
               ))}
@@ -323,38 +392,38 @@ const LandingPage: React.FC = () => {
 
             <div className="flex flex-col space-y-40">
               <FadeIn direction="right" className="self-start">
-                <p className="text-3xl font-semibold leading-tight max-w-3xl text-left">
-                  Search has fundamentally changed. <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">50%+ of Google searches include an AI Overview</span>, giving users instant information without clicking through.
+                <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-3xl text-left">
+                  Search is fundamnetally changing. <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">AI answers now appear in over 50% of Google searches</span>, pushing traditional blue links furtherdown the page.
                 </p>
               </FadeIn>
               <FadeIn delay={100} direction="left" className="self-end">
-                <p className="text-3xl font-semibold leading-tight max-w-3xl text-right">
-                  This is more than a trend—AI Overview footprints have <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">doubled in the last year</span> and continues accelerating across all major search engines.
+                <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-3xl text-right">
+                This is more than a trend—AI Overview footprints have more than <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">doubled in the last year</span> and continues accelerating across all major search engines.
                 </p>
               </FadeIn>
               <FadeIn delay={200} direction="right" className="self-start">
-                <p className="text-3xl font-semibold leading-tight max-w-3xl text-left">
-                  On mobile, these AI answers can <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">nearly half of the screen</span>, pushing out traditional organic results.
+                <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-3xl text-left">
+                  On mobile, these AI answers can <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">dominate nearly half the screen</span>, pushing out traditional organic results.
                 </p>
               </FadeIn>
               <FadeIn delay={300} direction="left" className="self-end">
-                <p className="text-3xl font-semibold leading-tight max-w-3xl text-right">
-                  Brands not cited lose <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">about&nbsp;35% of clicks</span> when an Overview appears for their target keywords.
+                <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-3xl text-right">
+                  Brands not cited lose <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">up to 35% of potential traffic</span> when an AI Overview appears for their target keywords.
                 </p>
               </FadeIn>
               <FadeIn delay={400} direction="right" className="self-start">
-                <p className="text-3xl font-semibold leading-tight max-w-3xl text-left">
-                  ChatGPT logs <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">5 billion+ visits</span> every month, while Perplexity fields <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">400 million questions</span> and Anthropic Claude now serves <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">19 million monthly users</span>.
+                <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-3xl text-left">
+                  This is an opportunity—pages that <em>are</em> cited inside AI answers <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">receive 40% more traffic</span> than traditional blue links with clicks worth 4.4x more.
                 </p>
               </FadeIn>
               <FadeIn delay={500} direction="left" className="self-end">
-                <p className="text-3xl font-semibold leading-tight max-w-3xl text-right">
-                  If you're invisible across those engines, your brand's story never makes it to the conversation.
+                <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-3xl text-right">
+                  ChatGPT processes <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">5 billion+ visits</span>, Perplexity handles more than <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">400 million questions</span>, and Claude serves a growing <span className="whitespace-nowrap"><span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">19 million</span> active users every month</span>.
                 </p>
               </FadeIn>
               <FadeIn delay={600} className="self-center">
-                <p className="text-3xl font-semibold leading-tight max-w-4xl text-center">
-                  Your competitors are already adapting. The brands showing up will <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">win the next decade.</span>
+                <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-4xl text-center">
+                  Your competitors are already adapting. The brands that build AI citation optimization <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">will dominate the next decade of search</span>.
                 </p>
               </FadeIn>
             </div>
@@ -372,10 +441,10 @@ const LandingPage: React.FC = () => {
                   <div className="relative z-10">
                     <div className="text-center mb-16">
                       <h2 className="text-4xl font-bold tracking-tight text-white mb-4">
-                        Optimize for AI Search
+                        Right Now, You Might Be Invisible
                       </h2>
                       <p className="text-xl text-gray-300 max-w-4xl mx-auto">
-                        Everything you need to measure, improve, and own your presence inside AI-generated answers.
+                        While your others are boosting their visibility, your brand could be missing from the conversation entirely. Here's everything you need to measure, improve, and build your AI search presence.
                       </p>
                     </div>
                     
@@ -384,9 +453,9 @@ const LandingPage: React.FC = () => {
                       {/* Left column - Features stacked vertically */}
                       <div className="space-y-8 flex flex-col h-full">
                         {[
-                          { icon: Sparkles, title: "AI Visibility Analytics", desc: "Monitor exactly how—and how often—your brand is cited inside Google AI Overviews, ChatGPT, Perplexity, Anthropic Claude, and other leading engines." },
-                          { icon: BarChart2, title: "Citation-Ready Content Assistant", desc: "Get instant rewrite suggestions that make your pages the preferred source for large language models." },
-                          { icon: Target, title: "Automated Insight Reports", desc: "Weekly opportunity reports highlight keyword gaps, competitor citations, and step-by-step actions to grow your AI search presence." }
+                          { icon: Sparkles, title: "AI Visibility Analytics", desc: "Discover if you're being cited in AI answers across Google AI Overviews, ChatGPT, Perplexity, and Claude. Track your share of voice versus competitors and identify which queries are driving citations." },
+                          { icon: BarChart2, title: "Citation-Ready Content Optimization", desc: "Transform your existing content into AI-preferred formats. Our tool analyzes your pages and provides specific rewrites that increase your visibility." },
+                          { icon: Target, title: "Competitive Intelligence Reports", desc: "See exactly which competitors are dominating AI citations in your space. Get daily alerts when they gain ground and actionable strategies to outrank them." }
                         ].map((feature, i) => (
                           <div key={i} className="bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-6 hover:bg-black/10 transition-all duration-200 group flex-grow">
                             {/* Icon with gradient background */}
@@ -407,7 +476,7 @@ const LandingPage: React.FC = () => {
                               <p lang="en" dir="ltr">
                                 SEO is slowly losing its dominance. Welcome to GEO.<br/><br/>
                                 In the age of ChatGPT, Perplexity, and Claude, Generative Engine Optimization is positioned to become the new playbook for brand visibility.<br/><br/>
-                                It's not about gaming the algorithm — it's about being cited by it.<br/><br/>
+                                It&#39;s not about gaming the algorithm — it&#39;s about being cited by it.<br/><br/>
                                 The brands that… <a href="https://t.co/jsjZ4ee8Z6">pic.twitter.com/jsjZ4ee8Z6</a>
                               </p>
                               &mdash; a16z (@a16z) <a href="https://twitter.com/a16z/status/1927766844062011834?ref_src=twsrc%5Etfw">May 28, 2025</a>
