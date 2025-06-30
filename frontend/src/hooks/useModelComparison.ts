@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from './useDashboard';
 import { getAllModelsData } from '../services/dashboardService';
-import { DashboardData } from '../types/dashboard';
+import { DashboardData, DashboardFilters } from '../types/dashboard';
 
 export const useModelComparison = () => {
   const { selectedCompany } = useCompany();
@@ -23,8 +23,10 @@ export const useModelComparison = () => {
 
     try {
       // Use existing dashboard infrastructure - just fetch for all models
-      const { aiModel: _ignored, ...filtersWithoutAiModel } = filters;
-      const data = await getAllModelsData(selectedCompany.id, filtersWithoutAiModel);
+      const filtersWithoutAiModel = { ...filters };
+      delete (filtersWithoutAiModel as Partial<DashboardFilters>).aiModel;
+
+      const data = await getAllModelsData(selectedCompany.id, filtersWithoutAiModel as Omit<DashboardFilters, 'aiModel'>);
       setComparisonData(data);
     } catch (err) {
       console.error('Failed to fetch model comparison data:', err);

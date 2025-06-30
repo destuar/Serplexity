@@ -14,7 +14,7 @@ const VisibilityReportPage: React.FC = () => {
   const { isGenerating, generationStatus, generateReport } = useReportGeneration(selectedCompany);
 
   // The user said not to implement the LLM call yet. This will come from reportMetrics later.
-  const [summary, setSummary] = useState<string | null>(null);
+  const [summary, _setSummary] = useState<string | null>(null);
 
   const handleRefresh = () => {
     refreshData();
@@ -67,10 +67,10 @@ const VisibilityReportPage: React.FC = () => {
             <BlankLoadingState message="Processing visibility data..." />
           ) : (
             <div className="flex-1 min-h-0 pt-1 flex flex-col gap-4">
-              <div className="min-h-0" style={{ flex: '1 1 60%' }}>
+              <div className="min-h-0" style={{ flex: '1 1 30%' }}>
                 <AiVisibilitySummaryCard summary={summary} loading={refreshing} />
               </div>
-              <div className="min-h-0" style={{ flex: '1 1 40%' }}>
+              <div className="min-h-0" style={{ flex: '1 1 70%' }}>
                 <OptimizationChecklistCard />
               </div>
             </div>

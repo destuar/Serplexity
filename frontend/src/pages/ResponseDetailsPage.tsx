@@ -162,7 +162,7 @@ const ResponseDetailsPage: React.FC = () => {
 
     // Sort dropdown (position, question)
     const [sortBy, setSortBy] = useState<'position' | 'question'>('position');
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+    const [sortDirection, _setSortDirection] = useState<'asc' | 'desc'>('asc');
 
     // Report generation logic handled by custom hook
     const { isGenerating, generationStatus, generateReport } = useReportGeneration(selectedCompany);
@@ -193,7 +193,7 @@ const ResponseDetailsPage: React.FC = () => {
             setQuestionsRaw([]);
             fetchQuestions();
         }
-    }, [filters.aiModel, dashboardData?.id, selectedCompany?.id, showLimit, refreshTrigger]);
+    }, [fetchQuestions, filters.aiModel, dashboardData?.id, selectedCompany?.id, showLimit, refreshTrigger]);
 
     // Process and filter data from the new local state
     const processedResponses = useMemo(() => {

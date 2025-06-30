@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import Card from '../ui/Card';
-// eslint-disable-next-line import/extensions
+ 
 import { searchModels } from '../../services/experimentalSearchService.ts';
 import { MODEL_CONFIGS } from '../../types/dashboard';
 import FilterDropdown from '../dashboard/FilterDropdown';
@@ -20,10 +20,17 @@ interface ChatItem {
   latencyMs: number;
 }
 
-const STRIP_KEY_REGEX = /^(company[_ ]?name|summary|title|heading|label|section|response|answer|content|result|output|text|message|data)$/i;
+interface ApiError {
+  response?: {
+    data?: {
+      error?: string;
+    };
+  };
+  message?: string;
+}
 
 // Recursively convert a JSON value to a Markdown bullet-list representation
-const jsonToMarkdown = (value: any, depth = 0): string => {
+const jsonToMarkdown = (value: unknown, depth = 0): string => {
   const indent = '  '.repeat(depth);
 
   if (Array.isArray(value)) {
@@ -37,7 +44,7 @@ const jsonToMarkdown = (value: any, depth = 0): string => {
     
     // If it's a single-key object with a string/number value, likely a wrapper - unwrap it
     if (entries.length === 1) {
-      const [key, val] = entries[0];
+      const [_key, val] = entries[0];
       if (typeof val === 'string' || typeof val === 'number') {
         return `${indent}${val}`;
       }
@@ -115,9 +122,9 @@ const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
         } else {
           setAnswers(formatted);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to fetch model answer:', err);
-        const msg = err?.response?.data?.error || err?.message || 'Unknown error';
+        const msg = (err as ApiError)?.response?.data?.error || (err as ApiError)?.message || 'Unknown error';
         // Show the error as a pseudo-answer so it appears in the chat stream
         setAnswers([{ engine: modelId, answer: `**Error:** ${msg}` , latencyMs: 0 }]);
       } finally {
@@ -132,8 +139,6 @@ const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [answers]);
-
-  const displayName = MODEL_CONFIGS[modelId]?.displayName || modelId;
 
   return (
     <Card className="h-full flex flex-col overflow-hidden p-4">

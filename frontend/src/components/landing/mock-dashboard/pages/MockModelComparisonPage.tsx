@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, TooltipProps } from 'recharts';
 import MockDashboardLayout from '../MockDashboardLayout';
 import MockDashboardCard from '../cards/MockDashboardCard';
 import { ChevronUp, ChevronDown, Calendar, ArrowUpDown, RefreshCw } from 'lucide-react';
@@ -43,16 +43,16 @@ const getChangeDisplay = (change: number | null) => {
     );
 };
 
-const CustomTooltip: React.FC<any> = ({ active, payload, label }) => {
+const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload, label }) => {
     if (!active || !payload || payload.length === 0) return null;
-    const sorted = [...payload].sort((a, b) => b.value - a.value);
+    const sorted = [...payload].sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
     return (
       <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs z-50">
         <p className="font-semibold text-gray-800 mb-1">{label}</p>
         {sorted.map((entry) => (
-          <div key={entry.dataKey} className="flex items-center gap-2" style={{ color: entry.stroke }}>
+          <div key={entry.dataKey} className="flex items-center gap-2" style={{ color: entry.color }}>
             <span className="truncate max-w-[120px]">{entry.name}</span>
-            <span className="font-bold ml-auto">{(entry.value as number).toFixed(1)}%</span>
+            <span className="font-bold ml-auto">{entry.value?.toFixed(1)}%</span>
           </div>
         ))}
       </div>
@@ -153,7 +153,7 @@ const MockModelComparisonPage: React.FC = () => {
             </div>
         </div>
       <div className="flex-1 min-h-0 flex flex-col gap-4">
-        <MockDashboardCard className="h-[350px] flex-shrink-0 !p-0 relative" isHoverable={false}>
+        <MockDashboardCard className="h-[350px] flex-shrink-0 !p-0 relative">
             <div className="flex flex-col flex-1 h-full p-4">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Visibility Over Time</h3>
                 <div className="flex-1">
@@ -179,7 +179,7 @@ const MockModelComparisonPage: React.FC = () => {
                 ))}
             </div>
         </MockDashboardCard>
-        <MockDashboardCard className="flex-1 min-h-0 !p-0" isHoverable={false}>
+        <MockDashboardCard className="flex-1 min-h-0 !p-0">
             <div className="p-4 flex flex-col h-full overflow-hidden">
                 <h3 className="text-lg font-semibold text-gray-900 flex-shrink-0">Key Metrics Comparison</h3>
                 <div className="mt-4 flex-1 min-h-0 overflow-auto">

@@ -4,11 +4,10 @@ import { cn } from '../../../../lib/utils';
 interface MockDashboardCardProps {
   children: React.ReactNode;
   className?: string;
-  isHoverable?: boolean;
   isCompact?: boolean;
 }
 
-const MockDashboardCard: React.FC<MockDashboardCardProps> = ({ children, className, isHoverable = false, isCompact = false }) => {
+const MockDashboardCard: React.FC<MockDashboardCardProps> = ({ children, className, isCompact = false }) => {
   return (
     <div
       className={cn(

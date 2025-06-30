@@ -1,5 +1,5 @@
 import React from 'react';
-import { ExternalLink, Sparkles, TrendingUp, ArrowUpDown, RefreshCw, Loader, ChevronUp, ChevronDown } from 'lucide-react';
+import { ExternalLink, Sparkles, TrendingUp, ArrowUpDown, RefreshCw, ChevronUp, ChevronDown } from 'lucide-react';
 import MockDashboardLayout from '../MockDashboardLayout';
 import { cn } from '../../../../lib/utils';
 import MockFilterDropdown from '../MockFilterDropdown';
@@ -62,7 +62,7 @@ const getChangeDisplay = (change: number, changeType: string) => {
 };
 
 const MockCompetitorRankingsPage: React.FC = () => {
-    const renderCompetitorCard = (competitor: (typeof mockCompetitors)[0], index: number) => {
+    const renderCompetitorCard = (competitor: (typeof mockCompetitors)[0]) => {
         const logoResult = competitor.website ? getCompanyLogo(competitor.website) : null;
         
         return (
@@ -191,8 +191,8 @@ const MockCompetitorRankingsPage: React.FC = () => {
             <div className="h-full w-full">
                 <div className="h-full overflow-y-auto space-y-6">
                     <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 pb-6">
-                      {mockCompetitors.map((competitor, index) => 
-                        renderCompetitorCard(competitor, index)
+                      {mockCompetitors.map((competitor) => 
+                        renderCompetitorCard(competitor)
                       )}
                     </div>
                 </div>

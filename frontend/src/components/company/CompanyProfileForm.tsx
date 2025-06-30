@@ -6,6 +6,7 @@ import { Building, Globe, Factory, Users, Loader, Plus, X, HelpCircle, ShoppingB
 import { FormInput } from '../ui/FormInput';
 import { Button } from '../ui/Button';
 import { useCompany, CompanyFormData, Company } from '../../contexts/CompanyContext';
+import { Product, Competitor, BenchmarkingQuestion } from '../../types/schemas';
 
 // Form validation schema
 const companyFormSchema = z.object({
@@ -251,15 +252,15 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
       website: initialData?.website || '',
       industry: initialData?.industry || '',
       products: (() => {
-        const userProducts = (initialData?.products || []).filter((p: any) => !p.isGenerated);
+        const userProducts = (initialData?.products || []).filter((p: Product) => !p.isGenerated);
         return userProducts.length > 0 ? userProducts.map((p) => ({ name: p.name })) : [{ name: '' }];
       })(),
       competitors: (() => {
-        const userCompetitors = (initialData?.competitors || []).filter((c: any) => !c.isGenerated);
+        const userCompetitors = (initialData?.competitors || []).filter((c: Competitor) => !c.isGenerated);
         return userCompetitors.length > 0 ? userCompetitors.map((c) => ({ name: c.name, website: c.website || '' })) : [{ name: '', website: '' }];
       })(),
       benchmarkingQuestions: (() => {
-        const userQuestions = (initialData?.benchmarkingQuestions || []).filter((q: any) => !q.isGenerated);
+        const userQuestions = (initialData?.benchmarkingQuestions || []).filter((q: BenchmarkingQuestion) => !q.isGenerated);
         return userQuestions.length > 0 ? userQuestions.map((q) => ({ text: q.text })) : [{ text: '' }];
       })(),
     },

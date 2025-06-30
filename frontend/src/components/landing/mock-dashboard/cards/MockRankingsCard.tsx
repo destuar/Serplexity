@@ -3,7 +3,19 @@ import { ChevronUp, ChevronDown } from 'lucide-react';
 import MockDashboardCard from './MockDashboardCard';
 import { getCompanyLogo } from '../../../../lib/logoService';
 
-const mockRankingsData = {
+interface CompetitorData {
+    name: string;
+    shareOfVoice: number;
+    change: number;
+    changeType: string;
+    isUserCompany: boolean;
+    website: string;
+}
+
+const mockRankingsData: {
+    industryRanking: number;
+    chartCompetitors: CompetitorData[];
+} = {
     industryRanking: 1,
     chartCompetitors: [
         { name: 'Serplexity', shareOfVoice: 38.5, change: 2.1, changeType: 'increase', isUserCompany: true, website: 'serplexity.com' },
@@ -98,9 +110,9 @@ const CompetitorsList = () => {
                         <div className="flex items-center flex-shrink-0">
                             <div className="w-12 flex justify-start">
                                 {!isOthers && (
-                                    <div className={`flex items-center text-xs ${(c as any).change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                        {(c as any).change >= 0 ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                                        <span className="ml-0.5">{Math.abs((c as any).change).toFixed(1)}%</span>
+                                    <div className={`flex items-center text-xs ${c.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        {c.change >= 0 ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                        <span className="ml-0.5">{Math.abs(c.change).toFixed(1)}%</span>
                                     </div>
                                 )}
                             </div>

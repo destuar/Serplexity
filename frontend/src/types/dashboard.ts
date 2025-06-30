@@ -173,7 +173,7 @@ export interface PreloadedMetricSet {
   sentimentDetails?: Metric<SentimentScoreValue>; // Optional since it's a specific metric
 }
 
-export interface Metric<T = any> {
+export interface Metric<T = unknown> {
   id: string;
   runId: string;
   name: string;

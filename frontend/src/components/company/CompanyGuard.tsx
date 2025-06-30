@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useCompany } from '../../contexts/CompanyContext';
+import BlankLoadingState from '../ui/BlankLoadingState';
 
 interface CompanyGuardProps {
   children: React.ReactNode;
@@ -40,10 +41,7 @@ const CompanyGuard: React.FC<CompanyGuardProps> = ({ children }) => {
   if (loading || (!hasCompanies && location.pathname !== '/onboarding') || (hasCompanies && location.pathname === '/onboarding')) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="flex items-center space-x-3">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span className="text-gray-600">Loading...</span>
-        </div>
+        <BlankLoadingState message="Loading dashboard data..." />
       </div>
     );
   }

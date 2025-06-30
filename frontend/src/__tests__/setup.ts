@@ -33,26 +33,26 @@ global.ResizeObserver = class ResizeObserver {
 };
 
 // Mock IntersectionObserver
-global.IntersectionObserver = class IntersectionObserver {
-  root = null;
-  rootMargin = '';
-  thresholds = [];
-  
-  constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {}
-  
-  observe() {}
-  unobserve() {}
+global.IntersectionObserver = class implements IntersectionObserver {
+  readonly root: Element | null = null;
+  readonly rootMargin: string = '';
+  readonly thresholds: readonly number[] = [];
+
+  constructor(_callback: IntersectionObserverCallback, _options?: IntersectionObserverInit) {}
+
+  observe(_target: Element) {}
+  unobserve(_target: Element) {}
   disconnect() {}
   takeRecords(): IntersectionObserverEntry[] {
     return [];
   }
-} as any;
+};
 
 // Mock localStorage
 const localStorageMock = {
-  getItem: (key: string) => null,
-  setItem: (key: string, value: string) => {},
-  removeItem: (key: string) => {},
+  getItem: (_key: string) => null,
+  setItem: (_key: string, _value: string) => {},
+  removeItem: (_key: string) => {},
   clear: () => {},
 };
 Object.defineProperty(window, 'localStorage', {

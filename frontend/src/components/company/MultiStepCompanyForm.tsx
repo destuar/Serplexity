@@ -225,7 +225,7 @@ const StepIndicator: React.FC<{ currentStep: number; completedSteps: number[] }>
 }) => {
   const steps = [
     { number: 1, title: "Company Details", description: "Basic information" },
-    { number: 2, title: "Products & Services", description: "What you offer" },
+    { number: 2, title: "Products", description: "What you offer" },
     { number: 3, title: "Competitors", description: "Market analysis" },
     { number: 4, title: "Benchmarking", description: "Key questions" },
   ];
@@ -233,7 +233,7 @@ const StepIndicator: React.FC<{ currentStep: number; completedSteps: number[] }>
   const progress = completedSteps.length > 0 ? (completedSteps.length / (steps.length - 1)) * 100 : 0;
 
   return (
-    <div className="mb-12 w-full">
+    <div className="mb-8 w-full">
       <div className="relative">
         {/* Padded container for the lines */}
         <div className="absolute top-5 left-16 right-16" style={{ transform: 'translateY(-50%)' }}>
@@ -242,7 +242,7 @@ const StepIndicator: React.FC<{ currentStep: number; completedSteps: number[] }>
           
           {/* Progress line */}
           <div 
-            className="absolute top-0 left-0 h-0.5 bg-green-500 transition-all duration-300" 
+            className="absolute top-0 left-0 h-0.5 bg-[#7762ff] transition-all duration-300" 
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -252,7 +252,7 @@ const StepIndicator: React.FC<{ currentStep: number; completedSteps: number[] }>
             <div key={step.number} className="flex flex-col items-center text-center w-32">
               <div className={`relative z-10 flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-200 ${
                 completedSteps.includes(step.number)
-                  ? 'bg-green-500 border-green-500 text-white'
+                  ? 'bg-[#7762ff] border-[#7762ff] text-white'
                   : currentStep === step.number
                   ? 'bg-[#7762ff] border-[#7762ff] text-white'
                   : 'bg-[#1e1b4b] border-white/30 text-white/60'
@@ -470,8 +470,8 @@ const MultiStepCompanyForm: React.FC<MultiStepCompanyFormProps> = ({
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-white mb-2">Products & Services</h2>
-              <p className="text-white/60">Add up to 5 product or service keywords that your brand offers. Visibility questions are generated based on your industry and these keywords.</p>
+              <h2 className="text-2xl font-bold text-white mb-2">Products</h2>
+              <p className="text-white/60">Add up to 5 product or service keywords that your brand offers. These keywords are used to generate visibility questions.</p>
             </div>
             <div className="space-y-4 rounded-lg p-6 bg-white/5">
               <h3 className="text-xl font-semibold flex items-center gap-3 text-white/90">
@@ -580,7 +580,7 @@ const MultiStepCompanyForm: React.FC<MultiStepCompanyFormProps> = ({
           <div className="space-y-6">
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold text-white mb-2">Benchmarking Questions</h2>
-              <p className="text-white/60">Add up to 5 benchmarking questions that you want to rank for that your customer market is searching.</p>
+              <p className="text-white/60">Enter up to 5 key questions your customers are asking. We'll use these to benchmark your AI search performance.</p>
             </div>
             <div className="space-y-4 rounded-lg p-6 bg-white/5">
               <h3 className="text-xl font-semibold flex items-center gap-3 text-white/90">
@@ -637,13 +637,13 @@ const MultiStepCompanyForm: React.FC<MultiStepCompanyFormProps> = ({
       <form onSubmit={handleSubmit(onSubmit)}>
         {renderStep()}
         
-        <div className="flex items-center justify-center gap-4 pt-8 mt-8">
+        <div className="flex items-center justify-center gap-4 mt-8">
           {currentStep > 1 && (
             <Button
               type="button"
               variant="ghost"
               onClick={handlePrev}
-              className="text-white/80 hover:bg-white/10"
+              className="text-white/80 hover:bg-white/10 hover:text-white"
             >
               <ArrowLeft size={16} className="mr-2" />
               Previous

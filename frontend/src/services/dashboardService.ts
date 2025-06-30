@@ -21,11 +21,20 @@ export const getDashboardData = async (companyId: string, filters: Partial<Dashb
   } catch (error: unknown) {
     console.error(`[Dashboard] Error fetching data:`, error);
     
-    const isAxios404 = (err: any): boolean => {
-      if (err?.response?.status === 404) return true;
-      if (err?.status === 404) return true;
-      if (typeof err?.message === 'string' && err.message.includes('404')) return true;
-      if (typeof err?.message === 'string' && err.message.includes('No completed report')) return true;
+    interface AxiosError {
+      response?: {
+        status?: number;
+      };
+      status?: number;
+      message?: string;
+    }
+
+    const isAxios404 = (err: unknown): boolean => {
+      const axiosError = err as AxiosError;
+      if (axiosError?.response?.status === 404) return true;
+      if (axiosError?.status === 404) return true;
+      if (typeof axiosError?.message === 'string' && axiosError.message.includes('404')) return true;
+      if (typeof axiosError?.message === 'string' && axiosError.message.includes('No completed report')) return true;
       return false;
     };
 

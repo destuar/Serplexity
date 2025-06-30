@@ -4,6 +4,7 @@ import { getDashboardData } from '../services/dashboardService';
 import { useCompany } from '../hooks/useCompany';
 import { DashboardContext } from '../hooks/useDashboard';
 import { useLocation } from 'react-router-dom';
+import { getShareOfVoiceHistory } from '../services/companyService';
 
 interface ApiError {
   message: string;
@@ -106,12 +107,23 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
 
       const dashboardData = await getDashboardData(selectedCompany.id, currentFilters);
 
-      console.log('[DashboardContext] Data received from service:', dashboardData);
-      console.log('[DashboardContext] Data type:', typeof dashboardData);
-      console.log('[DashboardContext] Data is null?', dashboardData === null);
-      console.log('[DashboardContext] Data keys count:', dashboardData ? Object.keys(dashboardData).length : 0);
+      // Fetch full Share of Voice history respecting the same filters
+      const sovHistoryResponse = await getShareOfVoiceHistory(selectedCompany.id, currentFilters);
+      const fullHistory = sovHistoryResponse.history.map(({ date, shareOfVoice }) => ({
+        date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        shareOfVoice,
+      }));
 
-      setData(dashboardData);
+      const mergedData: DashboardData | null = dashboardData
+        ? { ...dashboardData, shareOfVoiceHistory: fullHistory }
+        : null;
+
+      console.log('[DashboardContext] Data received from service:', mergedData);
+      console.log('[DashboardContext] Data type:', typeof mergedData);
+      console.log('[DashboardContext] Data is null?', mergedData === null);
+      console.log('[DashboardContext] Data keys count:', mergedData ? Object.keys(mergedData).length : 0);
+
+      setData(mergedData);
       // Track if we have ever received a report - null means no reports exist, anything else means reports exist
       setHasReport(dashboardData !== null);
       
@@ -120,7 +132,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
       }
 
       // Persist to cache
-      cacheRef.current[cacheKey] = dashboardData;
+      cacheRef.current[cacheKey] = mergedData;
     } catch (err) {
       const apiErr = err as ApiError;
       console.error('Failed to fetch dashboard data:', apiErr);
@@ -135,7 +147,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedCompany, filters, location.pathname]);
+  }, [selectedCompany, filters, location.pathname, data]);
 
   // Fetch on meaningful filter changes (dateRange/aiModel) or company switch
   useEffect(() => {
@@ -180,7 +192,8 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
     }
 
     // Handle global filters (currently only dateRange). Ignore aiModel here.
-    const { aiModel: _ignored, ...rest } = newFilters;
+    const rest = { ...newFilters };
+    delete rest.aiModel;
     if (Object.keys(rest).length > 0) {
       setGlobalFilters(prev => ({ ...prev, ...rest }));
     }

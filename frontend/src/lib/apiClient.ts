@@ -1,5 +1,11 @@
 import axios from 'axios';
 
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    _retry?: boolean;
+  }
+}
+
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8001/api',
   withCredentials: true,
@@ -52,10 +58,10 @@ apiClient.interceptors.response.use(
     }
 
     // Prevent infinite retry loops
-    if ((config as any)._retry) {
+    if (config._retry) {
       return Promise.reject(error);
     }
-    (config as any)._retry = true;
+    config._retry = true;
 
     // Do not attempt refresh on auth endpoints themselves
     if (config.url?.startsWith('/auth/')) {

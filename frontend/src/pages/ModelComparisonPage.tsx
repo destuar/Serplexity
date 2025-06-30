@@ -14,10 +14,16 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  TooltipProps,
 } from 'recharts';
 import { MODEL_CONFIGS, getModelDisplayName } from '../types/dashboard';
 import FilterDropdown from '../components/dashboard/FilterDropdown';
 import { useReportGeneration } from '../hooks/useReportGeneration';
+
+interface TimeSeriesDataPoint {
+  date: string;
+  [modelId: string]: number | string;
+}
 
 // Colors for chart lines (cycled)
 const modelColors = [
@@ -70,7 +76,7 @@ const getChangeDisplay = (change: number | null) => {
 /*******************************************************************************
  *  Visualization Components
  ******************************************************************************/
-const ModelShareOfVoiceChart: React.FC<{ data: any; modelIds: string[] }> = ({ data, modelIds }) => {
+const ModelShareOfVoiceChart: React.FC<{ data: TimeSeriesDataPoint[]; modelIds: string[] }> = ({ data, modelIds }) => {
   if (!data || data.length === 0) {
     return (
       <Card className="h-full flex items-center justify-center">
@@ -79,10 +85,10 @@ const ModelShareOfVoiceChart: React.FC<{ data: any; modelIds: string[] }> = ({ d
     );
   }
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
     if (!active || !payload || payload.length === 0) return null;
 
-    const sorted = [...payload].sort((a, b) => (b.value as number) - (a.value as number));
+    const sorted = [...payload].sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
 
     return (
       <div className="bg-white border border-gray-200 rounded-lg shadow p-2 text-xs">
@@ -90,7 +96,7 @@ const ModelShareOfVoiceChart: React.FC<{ data: any; modelIds: string[] }> = ({ d
         {sorted.map((entry) => (
           <div key={entry.dataKey} className="flex items-center gap-2" style={{ color: entry.stroke }}>
             <span className="truncate max-w-[100px]">{entry.name}</span>
-            <span className="font-medium ml-auto">{(entry.value as number).toFixed(1)}%</span>
+            <span className="font-medium ml-auto">{entry.value?.toFixed(1)}%</span>
           </div>
         ))}
       </div>
@@ -320,7 +326,7 @@ const ModelComparisonPage: React.FC = () => {
       inclusionRateChange: modelData.averageInclusionChange,
     }));
 
-    const historyAccumulator: Record<string, any> = {};
+    const historyAccumulator: Record<string, TimeSeriesDataPoint> = {};
     comparisonData.forEach(modelData => {
       if (modelData.shareOfVoiceHistory) {
         modelData.shareOfVoiceHistory.forEach(pt => {
@@ -334,7 +340,7 @@ const ModelComparisonPage: React.FC = () => {
     });
 
     const history = Object.values(historyAccumulator).sort(
-      (a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
     );
 
     const ids = comparisonData.map(d => d.aiModel!);

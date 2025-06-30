@@ -7,7 +7,7 @@ export const buttonVariants = cva(
       variant: {
         default: "bg-[#7762ff] text-white hover:bg-[#6650e6] shadow-lg hover:shadow-xl",
         outline:
-          "border border-gray-300 bg-transparent shadow-sm hover:bg-gray-100 hover:text-gray-800",
+          "border border-gray-300 bg-transparent text-gray-700 shadow-sm hover:bg-gray-100 hover:text-gray-800",
         ghost: "hover:bg-gray-100 hover:text-gray-800",
       },
       size: {

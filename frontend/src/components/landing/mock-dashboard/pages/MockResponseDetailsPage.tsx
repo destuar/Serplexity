@@ -1,12 +1,18 @@
 import React, { useState } from 'react';
-import { Sparkles, ArrowUpDown, MessageSquare, ChevronDown, ChevronUp, RefreshCw, Calendar } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronUp, RefreshCw, Calendar } from 'lucide-react';
 import MockDashboardLayout from '../MockDashboardLayout';
 import { getModelDisplayName } from '../../../../types/dashboard';
 import { cn } from '../../../../lib/utils';
 import MockFilterDropdown from '../MockFilterDropdown';
 
+interface ResponseDetail {
+  question: string;
+  model: string;
+  response: string;
+}
+
 // Inline mock data
-const mockResponseDetailsData = [
+const mockResponseDetailsData: ResponseDetail[] = [
     {
         question: "What is the best tool for AI visibility tracking?",
         model: "openai/gpt-4o",
@@ -217,7 +223,7 @@ const MockResponseDetailsPage: React.FC = () => {
         </div>
       <div className="flex-1 min-h-0 overflow-hidden">
         <div className="space-y-2 h-full overflow-y-auto pr-2">
-            {mockResponseDetailsData.map((item: any, index: number) => (
+            {mockResponseDetailsData.map((item, index) => (
                 <div key={index} className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200">
                     <div className="p-4 cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => handleToggle(index)}>
                         <div className="grid grid-cols-12 gap-3 items-center">

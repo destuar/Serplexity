@@ -72,11 +72,9 @@ export const CompanyProvider: React.FC<CompanyProviderProps> = ({ children }) =>
           companyToSelect = newCompanies.find(c => c.id === storedCompanyId) || null;
         }
 
-        // If no stored company or stored company not found, fall back to current selection or first company
+        // If no stored company or stored company not found, default to first company
         if (!companyToSelect) {
-          const currentSelectedId = selectedCompany?.id;
-          companyToSelect = currentSelectedId ? (newCompanies.find(c => c.id === currentSelectedId) || null) : null;
-          companyToSelect = companyToSelect || newCompanies[0];
+          companyToSelect = newCompanies[0];
         }
 
         setSelectedCompany(companyToSelect);
@@ -96,51 +94,19 @@ export const CompanyProvider: React.FC<CompanyProviderProps> = ({ children }) =>
     } finally {
       setLoading(false);
     }
-  }, [selectedCompany, authLoading, user, getStoredCompanyId, storeCompanyId]);
+  }, [authLoading, user, getStoredCompanyId, storeCompanyId]);
 
   useEffect(() => {
-    if (authLoading) {
-      setLoading(true);
-      return;
-    }
-
-    if (user?.companies) {
-      const userCompanies = user.companies;
-      // Only update local state if we don't already have companies
-      // This prevents overriding locally created companies before the user object is updated
-      setCompanies(prev => prev.length === 0 ? userCompanies : prev);
-      
-      if (userCompanies.length > 0 && !selectedCompany) {
-        // Try to restore the previously selected company
-        const storedCompanyId = getStoredCompanyId();
-        let companyToSelect: Company | null = null;
-
-        if (storedCompanyId) {
-          // Try to find the stored company
-          companyToSelect = userCompanies.find(c => c.id === storedCompanyId) || null;
-        }
-
-        // If no stored company or stored company not found, default to first company
-        if (!companyToSelect) {
-          companyToSelect = userCompanies[0];
-        }
-
-        setSelectedCompany(companyToSelect);
-        if (companyToSelect) {
-          storeCompanyId(companyToSelect.id);
-        }
-      } else if (userCompanies.length === 0 && companies.length === 0) {
-        setSelectedCompany(null);
-        storeCompanyId(null);
-      }
-    } else {
-      // Only clear companies if we're sure the user has no companies
-      setCompanies(prev => prev.length === 0 ? [] : prev);
+    if (user && !authLoading) {
+      fetchCompanies();
+    } else if (!authLoading) {
+      // User is not logged in, clear all company data
+      setCompanies([]);
       setSelectedCompany(null);
       storeCompanyId(null);
+      setLoading(false);
     }
-    setLoading(false);
-  }, [user, authLoading, selectedCompany, companies.length, getStoredCompanyId, storeCompanyId]);
+  }, [user, authLoading, fetchCompanies, storeCompanyId]);
 
   const createCompany = useCallback(async (data: CompanyFormData): Promise<Company> => {
     try {

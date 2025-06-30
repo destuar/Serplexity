@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { X, Building, HelpCircle, Trash2, Edit, Mail, ArrowLeft } from 'lucide-react';
 import { useCompany } from '../../contexts/CompanyContext';
-import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
 import CompanyProfileForm from '../company/CompanyProfileForm';
 
@@ -11,7 +10,6 @@ interface SettingsModalProps {
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
-  const { user } = useAuth();
   const { companies, deleteCompany } = useCompany();
   const [activeTab, setActiveTab] = useState('companies');
   const [editingCompany, setEditingCompany] = useState<string | null>(null);
@@ -32,8 +30,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
       console.error('Failed to delete company:', error);
     }
   };
-
-
 
   const handleSubmitFeedback = async () => {
     try {
@@ -163,7 +159,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                 ))}
               </div>
             )}
-
 
             {activeTab === 'help' && (
               <div className="space-y-6">

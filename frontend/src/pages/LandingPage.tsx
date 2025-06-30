@@ -40,7 +40,8 @@ const LandingPage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    const starContainer = starContainerRef.current;
+    if (typeof window === 'undefined' || !starContainer) return;
 
     // Load Twitter widgets script
     const script = document.createElement('script');
@@ -50,7 +51,7 @@ const LandingPage: React.FC = () => {
     document.head.appendChild(script);
 
     const createStar = () => {
-      if (!starContainerRef.current) return;
+      if (!starContainer) return;
 
       const starEl = document.createElement('div');
       starEl.className = "absolute h-px bg-gradient-to-r from-transparent via-white to-transparent";
@@ -95,7 +96,7 @@ const LandingPage: React.FC = () => {
         starEl.remove();
       };
 
-      starContainerRef.current.appendChild(starEl);
+      starContainer.appendChild(starEl);
       
       const randomInterval = Math.random() * 8000 + 4000; // 4-12 seconds
       timeoutIdRef.current = window.setTimeout(createStar, randomInterval);
@@ -104,7 +105,7 @@ const LandingPage: React.FC = () => {
     timeoutIdRef.current = window.setTimeout(createStar, Math.random() * 5000);
 
     const createStaticStars = () => {
-      if (!starContainerRef.current) return;
+      if (!starContainer) return;
       const numStars = 200;
       for (let i = 0; i < numStars; i++) {
         const star = document.createElement('div');
@@ -133,7 +134,7 @@ const LandingPage: React.FC = () => {
           }
         );
 
-        starContainerRef.current.appendChild(star);
+        starContainer.appendChild(star);
       }
     };
     createStaticStars();
@@ -142,8 +143,8 @@ const LandingPage: React.FC = () => {
       if (timeoutIdRef.current) {
         clearTimeout(timeoutIdRef.current);
       }
-      if (starContainerRef.current) {
-        starContainerRef.current.innerHTML = '';
+      if (starContainer) {
+        starContainer.innerHTML = '';
       }
     };
   }, []);
