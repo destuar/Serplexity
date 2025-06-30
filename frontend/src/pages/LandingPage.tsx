@@ -279,9 +279,9 @@ const LandingPage: React.FC = () => {
                 </div>
               </span>
             </h1>
-            <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto mt-2 mb-8 leading-relaxed">
+            <p className="text-xl md:text-2xl text-gray-300 max-w-4xl mx-auto mt-2 mb-8 leading-relaxed">
               <span className="md:hidden">We are the first agency purpose-built for the generative era of SEO. Enhance your visibility with Google SGE, Gemini, Perplexity, ChatGPT, and beyond.</span>
-              <span className="hidden md:inline">We are the first agency purpose-built for the generative era of SEO. Enhance your visibility with Google SGE, Gemini,Perplexity, ChatGPT, and beyond.</span>
+              <span className="hidden md:inline">We are the first agency purpose-built for the generative era of SEO. Enhance your visibility with Google SGE, Gemini, Perplexity, ChatGPT, and beyond.</span>
             </p>
             
             {/* CTA Buttons */}
@@ -317,7 +317,7 @@ const LandingPage: React.FC = () => {
           <div className="w-full max-w-7xl mx-auto px-4">
             <div className="text-center pt-0 md:pt-2 mb-2">
               <h2 className="text-lg font-semibold text-gray-400 uppercase tracking-wide mb-2 mt-16 md:mt-20">
-                Optimizing for AI search citations across leading engines
+                Optimizing for AI search across leading engines
               </h2>
             </div>
             {/* Marquee for mobile/medium */}
@@ -393,7 +393,7 @@ const LandingPage: React.FC = () => {
             <div className="flex flex-col space-y-40">
               <FadeIn direction="right" className="self-start">
                 <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-3xl text-left">
-                  Search is fundamnetally changing. <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">AI answers now appear in over 50% of Google searches</span>, pushing traditional blue links furtherdown the page.
+                  AI answers now appear in <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">over 50% of Google searches,</span> fundamentally changing traditional search optimization.
                 </p>
               </FadeIn>
               <FadeIn delay={100} direction="left" className="self-end">
@@ -403,7 +403,7 @@ const LandingPage: React.FC = () => {
               </FadeIn>
               <FadeIn delay={200} direction="right" className="self-start">
                 <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-3xl text-left">
-                  On mobile, these AI answers can <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">dominate nearly half the screen</span>, pushing out traditional organic results.
+                  On mobile, these AI answers can <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">dominate nearly half the screen,</span> pushing out traditional organic results.
                 </p>
               </FadeIn>
               <FadeIn delay={300} direction="left" className="self-end">
@@ -417,13 +417,8 @@ const LandingPage: React.FC = () => {
                 </p>
               </FadeIn>
               <FadeIn delay={500} direction="left" className="self-end">
-                <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-3xl text-right">
-                  ChatGPT processes <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">5 billion+ visits</span>, Perplexity handles more than <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">400 million questions</span>, and Claude serves a growing <span className="whitespace-nowrap"><span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">19 million</span> active users every month</span>.
-                </p>
-              </FadeIn>
-              <FadeIn delay={600} className="self-center">
                 <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-4xl text-center">
-                  Your competitors are already adapting. The brands that build AI citation optimization <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">will dominate the next decade of search</span>.
+                  Your competitors are already adapting. The brands that build AI citation optimization <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">will dominate the next decade of search.</span>
                 </p>
               </FadeIn>
             </div>
@@ -441,10 +436,10 @@ const LandingPage: React.FC = () => {
                   <div className="relative z-10">
                     <div className="text-center mb-16">
                       <h2 className="text-4xl font-bold tracking-tight text-white mb-4">
-                        Right Now, You Might Be Invisible
+                        Your Opportunity to Win AI Search
                       </h2>
                       <p className="text-xl text-gray-300 max-w-4xl mx-auto">
-                        While your others are boosting their visibility, your brand could be missing from the conversation entirely. Here's everything you need to measure, improve, and build your AI search presence.
+                        While your others are growing their visibility, your brand could be missing from the conversation entirely. Here's everything you need to measure, improve, and build your AI search presence.
                       </p>
                     </div>
                     
@@ -501,7 +496,7 @@ const LandingPage: React.FC = () => {
                   Why Traditional SEO <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">Isn't Enough</span>
                 </h2>
                 <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-                  As generative engines reshape search, brands need specialized GEO expertise to stay relevant and competitive
+                  As generative engines reshape search, brands need a new playbook
                 </p>
               </div>
               
@@ -546,11 +541,11 @@ const LandingPage: React.FC = () => {
                       </thead>
                       <tbody className="divide-y divide-white/5">
                         {[
-                          { name: "Generative Engine Citations", description: "Direct quotes in AI responses" },
+                          { name: "Track AI Search Mentions", description: "Direct quotes in AI responses" },
                           { name: "LLM Content Optimization", description: "AI-ready content structure" }, 
-                          { name: "AI Visibility Tracking", description: "Monitor AI engine performance" },
+                          { name: "Competitor Benchmarking", description: "Track the competitors' Share of Voice" },
                           { name: "Sentence-Level Attribution", description: "Precise citation analysis" },
-                          { name: "Future-Proof Strategy", description: "Adapt to evolving AI landscape" }
+                          { name: "Adaptive Growth Strategy", description: "Win the evolving AI landscape" }
                         ].map((feature, i) => (
                           <tr key={i} className="hover:bg-white/3 transition-all duration-300 group">
                             <td className="px-6 md:px-8 py-6">
@@ -649,7 +644,7 @@ const LandingPage: React.FC = () => {
                           "LLM-Ready Content Analysis",
                           "Sentence-Level Citation Monitoring",
                           "Competitor GEO Benchmarking",
-                          "AI Content Rewriting Tool"
+                          "AI Content Optimization Tools"
                         ], 
                         description: "Paid Monthly" 
                       },
@@ -663,7 +658,7 @@ const LandingPage: React.FC = () => {
                           "LLM-Ready Content Analysis",
                           "Sentence-Level Citation Monitoring",
                           "Competitor GEO Benchmarking",
-                          "AI Content Rewriting Tool"
+                          "AI Content Optimization Tools"
                         ], 
                         popular: true, 
                         description: "Paid Annually" 
@@ -675,9 +670,9 @@ const LandingPage: React.FC = () => {
                         priceId: "contact_sales",
                         features: [
                           "Everything in Pro, plus:",
-                          "Custom GEO Implementations",
-                          "Dedicated Account Manager",
-                          "API Access & Integrations"
+                          "Personalized Growth Strategies",
+                          "GEO Implementation Support",
+                          "Dedicated Account Manager"
                         ], 
                         description: "For large-scale or custom needs" 
                       }
