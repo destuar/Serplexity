@@ -33,7 +33,7 @@ const MockSentimentDetailsCard: React.FC = () => {
     const averageScore = categoryScores.reduce((sum, score) => sum + score, 0) / categoryScores.length;
 
   return (
-    <MockDashboardCard className="p-0" isHoverable={false}>
+    <MockDashboardCard className="p-0">
       <div className="h-full flex min-w-0">
           <div className="flex-[3] p-4 flex flex-col min-w-0">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Sentiment Details</h3>

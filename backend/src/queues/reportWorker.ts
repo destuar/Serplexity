@@ -1036,44 +1036,48 @@ const processJob = async (job: Job) => {
             // --- Step 2.3: Save new competitors to the database ---
             const standardizeWebsite = (website: string | null | undefined): string => {
                 if (!website) return '';
-                // Normalize to lowercase, remove protocol and www., and remove any path.
-                return website.toLowerCase()
-                    .replace(/^https?:\/\//, '')
-                    .replace(/^www\./, '')
-                    .split('/')[0];
+                return website.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
             };
 
-            const newCompetitorsToSave = enrichedCompetitors.filter(
+            // Standardize and then deduplicate the list of newly discovered competitors against itself.
+            // A website is the strongest unique identifier.
+            const uniqueNewCompetitorsMap = new Map<string, CompetitorInfo>();
+            for (const competitor of enrichedCompetitors) {
+                const standardizedWebsite = standardizeWebsite(competitor.website);
+                if (standardizedWebsite && !uniqueNewCompetitorsMap.has(standardizedWebsite)) {
+                    uniqueNewCompetitorsMap.set(standardizedWebsite, {
+                        ...competitor,
+                        website: standardizedWebsite, // Ensure the stored website is the standardized one
+                    });
+                }
+            }
+
+            // Create sets of existing normalized names and standardized websites for efficient filtering.
+            const existingCompetitorNames = new Set(fullCompany.competitors.map(c => normalizeNameForDeduplication(c.name)));
+            const existingCompetitorWebsites = new Set(fullCompany.competitors.map(c => standardizeWebsite(c.website)));
+
+            // Add the user's own company to the sets to prevent it from being added as a competitor.
+            existingCompetitorNames.add(normalizeNameForDeduplication(fullCompany.name));
+            existingCompetitorWebsites.add(standardizeWebsite(fullCompany.website));
+
+            const newCompetitorsToSave = Array.from(uniqueNewCompetitorsMap.values()).filter(
                 (newComp: CompetitorInfo) => {
-                    const standardizedNewCompWebsite = standardizeWebsite(newComp.website);
+                    const normalizedNewName = normalizeNameForDeduplication(newComp.name);
 
-                    // Check if the discovered competitor is the user's own company
-                    const isUserCompanyByName = fullCompany.name.toLowerCase() === newComp.name.toLowerCase();
-                    const isUserCompanyByWebsite = standardizedNewCompWebsite &&
-                        standardizeWebsite(fullCompany.website) === standardizedNewCompWebsite;
+                    // Check against existing websites AND normalized names.
+                    const websiteExists = existingCompetitorWebsites.has(newComp.website); // Already standardized
+                    const nameExists = existingCompetitorNames.has(normalizedNewName);
 
-                    if (isUserCompanyByName || isUserCompanyByWebsite) {
+                    if (websiteExists || nameExists) {
                         log({
                             runId,
                             stage: 'BRAND_DISCOVERY',
-                            step: 'SELF_AS_COMPETITOR_SKIPPED',
-                            metadata: { companyName: newComp.name, companyWebsite: newComp.website }
-                        }, `Skipping adding user's own company '${newComp.name}' as a competitor.`);
-                        return false; // Prevent user's company from being added as a competitor
+                            step: 'DUPLICATE_COMPETITOR_SKIPPED',
+                            metadata: { companyName: newComp.name, companyWebsite: newComp.website, reason: websiteExists ? 'website exists' : 'name exists' }
+                        }, `Skipping adding duplicate competitor '${newComp.name}'.`);
+                        return false;
                     }
-                    
-                    // Check for name duplicates (existing logic)
-                    const nameExists = fullCompany.competitors.some(
-                        (existing) => existing.name.toLowerCase() === newComp.name.toLowerCase()
-                    );
-                    
-                    // Check for website duplicates (new logic)
-                    const websiteExists = standardizedNewCompWebsite && fullCompany.competitors.some(
-                        (existing) => standardizeWebsite(existing.website) === standardizedNewCompWebsite
-                    );
-                    
-                    // Only add if neither name nor website exists
-                    return !nameExists && !websiteExists;
+                    return true;
                 }
             );
 
@@ -1081,23 +1085,27 @@ const processJob = async (job: Job) => {
                 try {
                     await prisma.competitor.createMany({
                         data: newCompetitorsToSave.map((c: CompetitorInfo) => ({
-                            name: c.name,
-                            website: c.website,
+                            name: c.name, // Keep the original, human-readable name
+                            website: c.website, // Save the standardized website for uniqueness
                             companyId: fullCompany.id,
                             isGenerated: true,
                         })),
-                        skipDuplicates: true,
+                        skipDuplicates: true, // This is now a secondary guard, but good to keep.
                     });
                     log({ runId, stage: 'BRAND_DISCOVERY', step: 'NEW_COMPETITORS_SAVED', metadata: { count: newCompetitorsToSave.length } }, `Saved ${newCompetitorsToSave.length} newly discovered competitors.`);
                 } catch (error) {
-                    // Handle unique constraint violations gracefully - this can happen if competitors are discovered 
-                    // with websites that already exist for this company
+                    // Handle unique constraint violations gracefully - this can happen in a race condition
+                    // or if the logic above has a flaw.
                     if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
-                        log({ runId, stage: 'BRAND_DISCOVERY', step: 'DUPLICATE_COMPETITORS_SKIPPED', 
-                              metadata: { attemptedCount: newCompetitorsToSave.length } }, 
-                              'Some discovered competitors were skipped due to duplicate websites.', 'WARN');
+                        log({
+                            runId,
+                            stage: 'BRAND_DISCOVERY',
+                            step: 'DUPLICATE_COMPETITORS_SKIPPED_ON_WRITE',
+                            metadata: { attemptedCount: newCompetitorsToSave.length }
+                        },
+                        'Some discovered competitors were skipped due to a unique constraint violation during database write.', 'WARN');
                     } else {
-                        // Re-throw other errors
+                        // Re-throw other critical errors
                         throw error;
                     }
                 }

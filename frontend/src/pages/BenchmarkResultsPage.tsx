@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';
 import { triggerReportGeneration, getReportStatus } from '../services/reportService';
-import { generateCompetitors } from '../services/companyService';
 import WelcomePrompt from '../components/ui/WelcomePrompt';
 import BlankLoadingState from '../components/ui/BlankLoadingState';
 
@@ -52,20 +51,8 @@ const BenchmarkResultsPage: React.FC = () => {
     if (!selectedCompany) return;
 
     setIsGenerating(true);
-    setGenerationStatus('Analyzing competitor landscape...');
+    setGenerationStatus('Initializing report generation pipeline...');
     try {
-      // Step 1: Generate competitors
-      const exampleCompetitor = selectedCompany.competitors[0]?.name;
-      if (!exampleCompetitor) {
-        setGenerationStatus('Error: Add one competitor to seed the list.');
-        setIsGenerating(false);
-        return;
-      }
-
-      await generateCompetitors(selectedCompany.id, exampleCompetitor);
-
-      // Step 2: Trigger report generation
-      setGenerationStatus('Initializing report generation pipeline...');
       const { runId: newRunId } = await triggerReportGeneration(selectedCompany.id);
       setRunId(newRunId);
     } catch (error) {
