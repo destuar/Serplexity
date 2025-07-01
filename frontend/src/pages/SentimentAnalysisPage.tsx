@@ -13,7 +13,7 @@ import { DashboardFilters, getModelFilterOptions } from '../types/dashboard';
 const SentimentAnalysisPage = () => {
   const { selectedCompany } = useCompany();
   const { data, filters, updateFilters, refreshing, refreshData, loading, lastUpdated, hasReport, refreshTrigger } = useDashboard();
-  const { isGenerating, generationStatus, generateReport } = useReportGeneration(selectedCompany);
+  const { isGenerating, generationStatus, progress, generateReport } = useReportGeneration(selectedCompany);
 
   const dateRangeOptions = [
     { value: '7d', label: 'Last 7 days' },
@@ -39,6 +39,7 @@ const SentimentAnalysisPage = () => {
           onGenerateReport={generateReport}
           isGenerating={isGenerating}
           generationStatus={generationStatus}
+          progress={progress}
         />
       ) : (
         <>
@@ -81,7 +82,7 @@ const SentimentAnalysisPage = () => {
                 ) : (
                   <>
                     <RefreshCw size={16} />
-                    <span className="whitespace-nowrap">Refresh data</span>
+                    <span className="whitespace-nowrap">Refresh Data</span>
                   </>
                 )}
               </button>

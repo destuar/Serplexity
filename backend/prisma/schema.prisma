@@ -28,7 +28,7 @@ model User {
 model Company {
   id                    String                 @id @default(cuid())
   name                  String
-  website               String
+  website               String                 @unique
   industry              String?
   userId                String
   createdAt             DateTime               @default(now())
@@ -43,6 +43,8 @@ model Company {
   runs                  ReportRun[]
   mentions              VisibilityMention[]
   reportMetrics         ReportMetric[]
+  shareOfVoiceHistory   ShareOfVoiceHistory[]
+  sentimentOverTime     SentimentOverTime[]
 
   @@index([userId])
 }
@@ -121,6 +123,8 @@ model ReportRun {
   company             Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
   visibilityResponses VisibilityResponse[]
   reportMetrics       ReportMetric[]
+  shareOfVoiceHistory ShareOfVoiceHistory[]
+  sentimentOverTime   SentimentOverTime[]
 
   @@index([companyId])
 }
@@ -256,55 +260,65 @@ model PersonalMention {
   @@index([personalResponseId])
   @@index([competitorId])
   @@index([companyId])
-  @@index([personalResponseId, companyId])
-  @@index([personalResponseId, competitorId])
 }
 
 model ReportMetric {
-  id                        String    @id @default(cuid())
-  reportId                  String
-  companyId                 String
-  aiModel                   String    // "all", "gpt-4o", "gemini-1.5-pro", etc.
-  
-  // Brand Share of Voice metrics
-  shareOfVoice              Float
-  shareOfVoiceChange        Float?
-  
-  // Average Inclusion Rate metrics  
-  averageInclusionRate      Float
-  averageInclusionChange    Float?
-  
-  // Average Position metrics
-  averagePosition           Float
-  averagePositionChange     Float?
-  
-  // Sentiment metrics
-  sentimentScore            Float?
-  sentimentChange           Float?
-  
-  // Rankings metrics
-  topRankingsCount          Int?
-  rankingsChange            Int?
-  
-  // Detailed sentiment score rows (JSON array of SentimentScore records)
-  sentimentDetails         Json?
-  
-  // New fields for complex, pre-computed data
-  competitorRankings        Json?
-  topQuestions              Json?
-  sentimentOverTime         Json?
-  shareOfVoiceHistory       Json?
-  
-  createdAt                 DateTime  @default(now())
-  updatedAt                 DateTime  @updatedAt
-  
-  // Relations
-  report                    ReportRun @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  company                   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id                     String    @id @default(cuid())
+  reportId               String
+  companyId              String
+  aiModel                String
+  shareOfVoice           Float
+  shareOfVoiceChange     Float?
+  averageInclusionRate   Float
+  averageInclusionChange Float?
+  averagePosition        Float
+  averagePositionChange  Float?
+  sentimentScore         Float?
+  sentimentChange        Float?
+  topRankingsCount       Int?
+  rankingsChange         Float?
+  competitorRankings     Json?
+  topQuestions           Json?
+  sentimentDetails       Json?
+  report                 ReportRun @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  company                Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
   @@unique([reportId, aiModel])
+  @@index([companyId])
+}
+
+model ShareOfVoiceHistory {
+  id           String   @id @default(cuid())
+  companyId    String
+  date         DateTime @db.Date
+  aiModel      String
+  shareOfVoice Float
+  reportRunId  String
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reportRun    ReportRun @relation(fields: [reportRunId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([companyId, date, aiModel])
   @@index([companyId, aiModel])
-  @@index([reportId])
+}
+
+model SentimentOverTime {
+  id             String   @id @default(cuid())
+  companyId      String
+  date           DateTime @db.Date
+  aiModel        String
+  sentimentScore Float
+  reportRunId    String
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reportRun      ReportRun @relation(fields: [reportRunId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([companyId, date, aiModel])
+  @@index([companyId, aiModel])
 }
 
 enum Role {

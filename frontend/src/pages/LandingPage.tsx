@@ -43,6 +43,8 @@ const LandingPage: React.FC = () => {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    
+    const starContainer = starContainerRef.current;
 
     // Load Twitter widgets script
     const script = document.createElement('script');
@@ -141,11 +143,12 @@ const LandingPage: React.FC = () => {
     createStaticStars();
 
     return () => {
-      if (timeoutIdRef.current) {
-        clearTimeout(timeoutIdRef.current);
+      const timeoutId = timeoutIdRef.current;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
-      if (starContainerRef.current) {
-        starContainerRef.current.innerHTML = '';
+      if (starContainer) {
+        starContainer.innerHTML = '';
       }
     };
   }, []);

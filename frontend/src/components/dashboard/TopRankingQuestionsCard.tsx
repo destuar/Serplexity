@@ -5,6 +5,7 @@ import { useDashboard } from '../../hooks/useDashboard';
 import { useCompany } from '../../contexts/CompanyContext';
 import { TopRankingQuestion } from '../../services/companyService';
 import { getModelDisplayName } from '../../types/dashboard';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 /**
  * Removes <brand> tags from a string, returning the clean text.
@@ -208,6 +209,7 @@ const Tooltip: React.FC<TooltipProps> = ({ question, children }) => {
 const TopRankingQuestionsCard = () => {
   const { data, loading, error } = useDashboard();
   const navigate = useNavigate();
+  const isTallerScreen = useMediaQuery('(min-height: 900px)');
 
   const questions = data?.topQuestions || [];
   
@@ -262,7 +264,7 @@ const TopRankingQuestionsCard = () => {
       </div>
       
       <div className="flex-1 space-y-2 mb-1">
-        {questions.slice(0, 4).map((question, index) => (
+        {questions.slice(0, isTallerScreen ? 5 : 4).map((question, index) => (
           <Tooltip key={question.id} question={question}>
             <div 
               className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"

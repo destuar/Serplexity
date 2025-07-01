@@ -46,7 +46,7 @@ describe('StreamingDatabaseWriter', () => {
   const companyId = 'company-123';
   const runId = 'run-123';
   const entities = [
-    { id: companyId, name: 'Acme Corp' },
+    { id: companyId, name: 'Company Name' },
     { id: 'competitor-1', name: 'Globex' },
   ];
 
@@ -60,18 +60,18 @@ describe('StreamingDatabaseWriter', () => {
     // Create two responses with <brand> tags (company & competitor)
     await writer.streamResponse({
       questionId: 'q1',
-      answer: 'Answer mentioning <brand>Acme Corp</brand> and <brand>Globex</brand>.',
-      modelId: 'gpt-4o',
-      engine: 'gpt-4o',
+      answer: 'Answer mentioning <brand>Company Name</brand> and <brand>Globex</brand>.',
+      modelId: 'gpt-4.1',
+      engine: 'gpt-4.1',
       usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
       questionType: 'visibility',
     });
 
     await writer.streamResponse({
       questionId: 'q2',
-      answer: 'Only mentions <brand>Acme Corp</brand>.',
-      modelId: 'gpt-4o',
-      engine: 'gpt-4o',
+      answer: 'Only mentions <brand>Company Name</brand>.',
+      modelId: 'gpt-4.1',
+      engine: 'gpt-4.1',
       usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
       questionType: 'benchmark',
     });

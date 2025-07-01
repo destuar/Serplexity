@@ -8,6 +8,8 @@ import { getFullReportMetrics } from '../services/metricsService';
 import {
     calculateCompetitorRankings,
     calculateTopQuestions,
+    calculateShareOfVoiceHistory,
+    calculateSentimentOverTime,
 } from '../services/dashboardService';
 
 // Enhanced logging system for the report controller
@@ -311,6 +313,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
   const userId = req.user?.id;
   const companyId = req.params.companyId;
   const { aiModel } = req.query;
+  const effectiveModel = (aiModel as string | undefined) || 'all';
 
   try {
     if (!userId) {
@@ -327,7 +330,19 @@ export const getLatestReport = async (req: Request, res: Response) => {
     }
 
     // Fetch all pre-computed metrics for the latest report
-    const metrics = await getFullReportMetrics(latestRun.id, aiModel as string || 'all');
+    const metrics = await getFullReportMetrics(latestRun.id, effectiveModel);
+
+    // If shareOfVoiceHistory is missing (which it is for individual models), fetch it on demand
+    let shareOfVoiceHistory = (metrics as any)?.shareOfVoiceHistory;
+    if (!shareOfVoiceHistory || (Array.isArray(shareOfVoiceHistory) && shareOfVoiceHistory.length === 0)) {
+      shareOfVoiceHistory = await calculateShareOfVoiceHistory(latestRun.id, companyId, { aiModel: effectiveModel });
+    }
+
+    // Similarly, fetch sentimentOverTime if it's not on the main metrics object
+    let sentimentOverTime = (metrics as any)?.sentimentOverTime;
+    if (!sentimentOverTime || (Array.isArray(sentimentOverTime) && sentimentOverTime.length === 0)) {
+        sentimentOverTime = await calculateSentimentOverTime(latestRun.id, companyId, { aiModel: effectiveModel });
+    }
 
     if (!metrics) {
       // This might happen if metrics haven't been computed yet for this run/model.
@@ -342,7 +357,9 @@ export const getLatestReport = async (req: Request, res: Response) => {
       createdAt: latestRun.createdAt,
       updatedAt: latestRun.updatedAt,
       lastUpdated: latestRun.updatedAt.toISOString(),
-      ...metrics, // Spread all the pre-computed metrics
+      ...metrics, // Spread all the pre-computed metrics (may include history if present)
+      shareOfVoiceHistory, // Ensure history is always present
+      sentimentOverTime, // Ensure sentiment history is always present
     };
 
     const duration = Date.now() - startTime;

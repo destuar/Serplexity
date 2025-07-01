@@ -77,6 +77,41 @@ const getChangeDisplay = (change: number | null) => {
  *  Visualization Components
  ******************************************************************************/
 const ModelShareOfVoiceChart: React.FC<{ data: TimeSeriesDataPoint[]; modelIds: string[] }> = ({ data, modelIds }) => {
+  const { yAxisMax, ticks } = useMemo(() => {
+    if (!data || data.length === 0) {
+      return { yAxisMax: 100, ticks: [0, 20, 40, 60, 80, 100] };
+    }
+    const allValues = data.flatMap(d => modelIds.map(id => d[id] as number).filter(v => typeof v === 'number'));
+    if (allValues.length === 0) {
+      return { yAxisMax: 100, ticks: [0, 20, 40, 60, 80, 100] };
+    }
+
+    const maxVal = Math.max(...allValues);
+    if (maxVal === 0) {
+      return { yAxisMax: 10, ticks: [0, 5, 10] };
+    }
+    
+    const dynamicMax = Math.min(100, maxVal * 1.4);
+    
+    let increment;
+    if (dynamicMax <= 20) {
+      increment = 5;
+    } else if (dynamicMax <= 50) {
+      increment = 10;
+    } else {
+      increment = 20;
+    }
+
+    const finalMax = Math.ceil(dynamicMax / increment) * increment;
+
+    const tickValues = [];
+    for (let i = 0; i <= finalMax; i += increment) {
+      tickValues.push(i);
+    }
+    
+    return { yAxisMax: finalMax, ticks: tickValues };
+  }, [data, modelIds]);
+
   if (!data || data.length === 0) {
     return (
       <Card className="h-full flex items-center justify-center">
@@ -119,14 +154,14 @@ const ModelShareOfVoiceChart: React.FC<{ data: TimeSeriesDataPoint[]; modelIds: 
                 tickMargin={0}
               />
               <YAxis
-                domain={[0, 100]}
+                domain={[0, yAxisMax]}
+                ticks={ticks}
+                allowDecimals={false}
                 axisLine={{ stroke: '#e2e8f0', strokeWidth: 1 }}
                 tickLine={false}
                 tick={{ fontSize: 11, fill: '#64748b' }}
-                ticks={[0, 20, 40, 60, 80, 100]}
                 tickFormatter={(val) => `${val}%`}
                 width={20}
-                interval={0}
               />
               <Tooltip content={<CustomTooltip />} wrapperStyle={{ outline: 'none' }} />
               {modelIds.map((modelId, idx) => (
@@ -139,11 +174,10 @@ const ModelShareOfVoiceChart: React.FC<{ data: TimeSeriesDataPoint[]; modelIds: 
                   strokeWidth={data.length > 1 ? 2 : 0}
                   dot={{
                     fill: modelColors[idx % modelColors.length],
-                    strokeWidth: 2,
+                    strokeWidth: 0,
                     r: 4,
-                    stroke: '#ffffff',
                   }}
-                  activeDot={{ r: 6, stroke: modelColors[idx % modelColors.length], strokeWidth: 2, fill: '#ffffff' }}
+                  activeDot={{ r: 6, fill: modelColors[idx % modelColors.length], strokeWidth: 0 }}
                   isAnimationActive={false}
                 />
               ))}
@@ -300,7 +334,7 @@ const ModelComparisonPage: React.FC = () => {
     hasReport,
   } = useDashboard();
 
-  const { isGenerating, generationStatus, generateReport } = useReportGeneration(selectedCompany);
+  const { isGenerating, generationStatus, progress, generateReport } = useReportGeneration(selectedCompany);
   const { data: comparisonData, loading: comparisonLoading, refreshData: refreshComparison } = useModelComparison();
   
   const [sortBy, setSortBy] = useState<SortField>('shareOfVoice');
@@ -385,6 +419,7 @@ const ModelComparisonPage: React.FC = () => {
           onGenerateReport={generateReport}
           isGenerating={isGenerating}
           generationStatus={generationStatus}
+          progress={progress}
         />
       ) : (
         <>
@@ -415,7 +450,7 @@ const ModelComparisonPage: React.FC = () => {
                 {refreshing || loading ? (
                   <><Loader size={16} className="animate-spin" /><span>Refreshing...</span></>
                 ) : (
-                  <><RefreshCw size={16} /><span>Refresh data</span></>
+                  <><RefreshCw size={16} /><span>Refresh Data</span></>
                 )}
               </button>
             </div>

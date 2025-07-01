@@ -1,4 +1,4 @@
-import { prismaReadReplica } from '../config/db';
+import prisma, { prismaReadReplica } from '../config/db';
 
 // Raw database calculation functions to replace DashboardData
 export async function calculateCompetitorRankings(runId: string, companyId: string, filters?: { aiModel?: string }) {
@@ -549,180 +549,132 @@ export async function calculateTopQuestions(runId: string, companyId: string, fi
 }
 
 export async function calculateSentimentOverTime(runId: string, companyId: string, filters?: { aiModel?: string }) {
-    // --- NEW IMPLEMENTATION: aggregate sentiment scores across all completed runs for the company ---
-
-    // 1. Find all completed runs for this company
-    const runs = await prismaReadReplica.reportRun.findMany({
+    const aiModel = filters?.aiModel || 'all';
+    console.log(`[SENTIMENT_OVER_TIME] Fetching normalized history for company ${companyId}, model ${aiModel}...`);
+    
+    const sentimentHistory = await prismaReadReplica.sentimentOverTime.findMany({
         where: {
             companyId,
-            status: 'COMPLETED'
+            aiModel
         },
-        select: { id: true, createdAt: true },
-        orderBy: { createdAt: 'asc' }
-    });
-
-    if (runs.length === 0) {
-        return [];
-    }
-
-    const runIds = runs.map(r => r.id);
-    const runDateMap = new Map(runs.map(r => [r.id, r.createdAt]));
-
-    // 2. Grab all sentiment metrics for those runs (optionally engine-filtered)
-    const sentimentMetrics = await prismaReadReplica.sentimentScore.findMany({
-        where: {
-            runId: { in: runIds },
-            name: 'Detailed Sentiment Scores',
-            ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
+        orderBy: { date: 'asc' },
+        select: {
+            date: true,
+            sentimentScore: true
         }
     });
 
-    if (sentimentMetrics.length === 0) {
-        return [];
-    }
-
-    // 3. Group by calendar day and average scores
-    const sentimentByDate: { [date: string]: { scores: number[]; count: number } } = {};
-
-    sentimentMetrics.forEach(metric => {
-        if (!metric.runId) return;
-
-        const value = metric.value as any;
-        if (!value?.ratings?.[0]) return;
-
-        const rating = value.ratings[0];
-        const categoryScores = Object.values(rating).filter(v => typeof v === 'number') as number[];
-        if (categoryScores.length === 0) return;
-
-        const averageScore = categoryScores.reduce((sum, score) => sum + score, 0) / categoryScores.length;
-
-        const runDate = runDateMap.get(metric.runId);
-        if (!runDate) return;
-
-        const date = new Date(runDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-        if (!sentimentByDate[date]) {
-            sentimentByDate[date] = { scores: [], count: 0 };
-        }
-        sentimentByDate[date].scores.push(averageScore);
-        sentimentByDate[date].count++;
-    });
-
-    // 4. Convert to chart format sorted chronologically
-    return Object.entries(sentimentByDate)
-        .map(([date, data]) => ({
-            date,
-            score: data.scores.reduce((sum, s) => sum + s, 0) / data.count
-        }))
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    // Format for chart display
+    return sentimentHistory.map(item => ({
+        date: item.date.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+        }),
+        score: item.sentimentScore
+    }));
 }
 
 export async function calculateShareOfVoiceHistory(runId: string, companyId: string, filters?: { aiModel?: string }) {
-    // --- NEW IMPLEMENTATION: aggregate share-of-voice across all completed runs for the company ---
-
-    // 1. Fetch company and competitors
-    const company = await prismaReadReplica.company.findUnique({
-        where: { id: companyId },
-        include: { competitors: true }
-    });
-
-    if (!company) {
-        return [];
-    }
-    const competitorIds = company.competitors.map(c => c.id);
-
-    // 2. Fetch all completed run IDs for this company, and map their dates
-    const runs = await prismaReadReplica.reportRun.findMany({
+    const aiModel = filters?.aiModel || 'all';
+    console.log(`[SHARE_OF_VOICE_HISTORY] Fetching normalized history for company ${companyId}, model ${aiModel}...`);
+    
+    const shareOfVoiceHistory = await prismaReadReplica.shareOfVoiceHistory.findMany({
         where: {
             companyId,
-            status: 'COMPLETED'
+            aiModel
         },
-        select: { id: true, createdAt: true },
-        orderBy: { createdAt: 'asc' }
-    });
-
-    if (runs.length === 0) {
-        return [];
-    }
-
-    const runIds = runs.map(r => r.id);
-    const runDateMap = new Map(runs.map(r => [r.id, r.createdAt]));
-
-    // 3. Gather mentions across all response types for those runs
-    const mentionWhereClause = {
-        OR: [
-            { companyId: companyId },
-            { competitorId: { in: competitorIds } }
-        ]
-    };
-
-    const [visibilityMentions, benchmarkMentions, personalMentions] = await Promise.all([
-        prismaReadReplica.visibilityMention.findMany({
-            where: {
-                visibilityResponse: {
-                    runId: { in: runIds },
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                },
-                ...mentionWhereClause
-            },
-            select: { visibilityResponse: { select: { runId: true } }, companyId: true, competitorId: true }
-        }),
-        prismaReadReplica.benchmarkMention.findMany({
-            where: {
-                benchmarkResponse: {
-                    runId: { in: runIds },
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                },
-                ...mentionWhereClause
-            },
-            select: { benchmarkResponse: { select: { runId: true } }, companyId: true, competitorId: true }
-        }),
-        prismaReadReplica.personalMention.findMany({
-            where: {
-                personalResponse: {
-                    runId: { in: runIds },
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                },
-                ...mentionWhereClause
-            },
-            select: { personalResponse: { select: { runId: true } }, companyId: true, competitorId: true }
-        })
-    ]);
-
-    const allMentions = [
-        ...visibilityMentions.map(m => ({ ...m, runId: m.visibilityResponse?.runId })),
-        ...benchmarkMentions.map(m => ({ ...m, runId: m.benchmarkResponse?.runId })),
-        ...personalMentions.map(m => ({ ...m, runId: m.personalResponse?.runId }))
-    ];
-
-    if (allMentions.length === 0) {
-        return [];
-    }
-
-    // 4. Group by calendar day and compute SOV
-    const mentionsByDate: { [date: string]: { companyMentions: number; totalMentions: number } } = {};
-
-    allMentions.forEach(mention => {
-        if (!mention.runId) return;
-        const runDate = runDateMap.get(mention.runId);
-        if (!runDate) return;
-        
-        const date = new Date(runDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-        if (!mentionsByDate[date]) {
-            mentionsByDate[date] = { companyMentions: 0, totalMentions: 0 };
-        }
-        mentionsByDate[date].totalMentions++;
-        if (mention.companyId === companyId) {
-            mentionsByDate[date].companyMentions++;
+        orderBy: { date: 'asc' },
+        select: {
+            date: true,
+            shareOfVoice: true
         }
     });
 
-    // 5. Convert to chart format sorted chronologically
-    return Object.entries(mentionsByDate)
-        .map(([date, data]) => ({
-            date,
-            shareOfVoice: data.totalMentions > 0 ? (data.companyMentions / data.totalMentions) * 100 : 0
-        }))
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    // Format for chart display
+    return shareOfVoiceHistory.map(item => ({
+        date: item.date.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+        }),
+        shareOfVoice: item.shareOfVoice
+    }));
+}
+
+// New utility functions to save data to normalized tables
+export async function saveShareOfVoiceHistoryPoint(
+    companyId: string,
+    date: Date,
+    aiModel: string,
+    shareOfVoice: number,
+    reportRunId?: string
+): Promise<void> {
+    if (!reportRunId) {
+        console.warn(`[saveShareOfVoiceHistoryPoint] reportRunId is missing for company ${companyId}. Skipping save.`);
+        return;
+    }
+    // Normalize date to day precision
+    const normalizedDate = new Date(date);
+    normalizedDate.setHours(0, 0, 0, 0);
+
+    await prisma.shareOfVoiceHistory.upsert({
+        where: {
+            companyId_date_aiModel: {
+                companyId,
+                date: normalizedDate,
+                aiModel
+            }
+        },
+        update: {
+            shareOfVoice,
+            reportRunId,
+            updatedAt: new Date()
+        },
+        create: {
+            companyId,
+            date: normalizedDate,
+            aiModel,
+            shareOfVoice,
+            reportRunId
+        }
+    });
+}
+
+export async function saveSentimentOverTimePoint(
+    companyId: string,
+    date: Date,
+    aiModel: string,
+    sentimentScore: number,
+    reportRunId?: string
+): Promise<void> {
+    if (!reportRunId) {
+        console.warn(`[saveSentimentOverTimePoint] reportRunId is missing for company ${companyId}. Skipping save.`);
+        return;
+    }
+    // Normalize date to day precision
+    const normalizedDate = new Date(date);
+    normalizedDate.setHours(0, 0, 0, 0);
+
+    await prisma.sentimentOverTime.upsert({
+        where: {
+            companyId_date_aiModel: {
+                companyId,
+                date: normalizedDate,
+                aiModel
+            }
+        },
+        update: {
+            sentimentScore,
+            reportRunId,
+            updatedAt: new Date()
+        },
+        create: {
+            companyId,
+            date: normalizedDate,
+            aiModel,
+            sentimentScore,
+            reportRunId
+        }
+    });
 } 

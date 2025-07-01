@@ -7,13 +7,10 @@ export interface ShareOfVoiceResponse {
   change: number | null;
 }
 
-export interface ShareOfVoiceHistoryResponse {
-  history: Array<{
-    date: string;
-    shareOfVoice: number;
-    createdAt: string;
-  }>;
-}
+export type ShareOfVoiceHistoryResponse = Array<{
+  date: string;
+  shareOfVoice: number;
+}>;
 
 export const updateCompany = async (companyId: string, updates: Partial<Company>): Promise<{ company: Company }> => {
   const { data } = await apiClient.put(`/companies/${companyId}`, updates);
@@ -34,7 +31,7 @@ export const getShareOfVoiceHistory = async (companyId: string, filters?: { date
   if (filters?.dateRange) params.append('dateRange', filters.dateRange);
   if (filters?.aiModel) params.append('aiModel', filters.aiModel);
   
-  const { data } = await apiClient.get(`/companies/${companyId}/metrics/share-of-voice/history?${params.toString()}`);
+  const { data } = await apiClient.get(`/companies/${companyId}/share-of-voice-history?${params.toString()}`);
   return data;
 };
 

@@ -1,10 +1,42 @@
+import { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Scatter } from 'recharts';
 import Card from '../ui/Card';
 import { useDashboard } from '../../hooks/useDashboard';
 
 const VisibilityOverTimeCard = () => {
   const { data, loading, error } = useDashboard();
-  const chartData = data?.shareOfVoiceHistory || [];
+  const chartData = useMemo(() => data?.shareOfVoiceHistory || [], [data?.shareOfVoiceHistory]);
+
+  const { yAxisMax, ticks } = useMemo(() => {
+    if (!chartData || chartData.length === 0) {
+      return { yAxisMax: 100, ticks: [0, 20, 40, 60, 80, 100] };
+    }
+    const maxVal = Math.max(...chartData.map(d => d.shareOfVoice));
+
+    if (maxVal === 0) {
+      return { yAxisMax: 10, ticks: [0, 5, 10] };
+    }
+
+    const dynamicMax = Math.min(100, maxVal * 1.4);
+    
+    let increment;
+    if (dynamicMax <= 20) {
+      increment = 5;
+    } else if (dynamicMax <= 50) {
+      increment = 10;
+    } else {
+      increment = 20;
+    }
+
+    const finalMax = Math.ceil(dynamicMax / increment) * increment;
+
+    const tickValues = [];
+    for (let i = 0; i <= finalMax; i += increment) {
+      tickValues.push(i);
+    }
+    
+    return { yAxisMax: finalMax, ticks: tickValues };
+  }, [chartData]);
 
   const renderContent = () => {
     if (loading) {
@@ -57,14 +89,14 @@ const VisibilityOverTimeCard = () => {
               tickMargin={0}
             />
             <YAxis 
-              domain={[0, 100]}
+              domain={[0, yAxisMax]}
+              ticks={ticks}
+              allowDecimals={false}
               axisLine={{ stroke: '#e2e8f0', strokeWidth: 1 }}
               tickLine={false}
               tick={{ fontSize: 11, fill: '#64748b' }}
-              ticks={[0, 20, 40, 60, 80, 100]}
               tickFormatter={(value) => `${value}%`}
               width={20}
-              interval={0}
             />
             <Tooltip 
               contentStyle={{
@@ -87,15 +119,13 @@ const VisibilityOverTimeCard = () => {
               strokeWidth={chartData.length > 1 ? 2 : 0}
               dot={{ 
                 fill: '#7762ff', 
-                strokeWidth: 2, 
+                strokeWidth: 0, 
                 r: 4,
-                stroke: '#ffffff'
               }}
               activeDot={{ 
                 r: 6, 
-                stroke: '#7762ff',
-                strokeWidth: 2,
-                fill: '#ffffff'
+                fill: '#7762ff',
+                strokeWidth: 0,
               }}
             />
             {chartData.length === 1 && <Scatter dataKey="shareOfVoice" fill="#7762ff" />}

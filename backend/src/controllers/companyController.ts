@@ -238,6 +238,61 @@ export const getCompany = async (req: Request, res: Response) => {
   }
 };
 
+export const getShareOfVoiceHistory = async (req: Request, res: Response) => {
+  const { id: companyId } = req.params;
+  const { dateRange, aiModel } = req.query;
+  const userId = req.user?.id;
+
+  if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  try {
+      // Verify user owns the company
+      const company = await prisma.company.findFirst({
+          where: { id: companyId, userId },
+      });
+
+      if (!company) {
+          return res.status(404).json({ message: 'Company not found or not authorized' });
+      }
+
+      // Date filter
+      let dateFilter = {};
+      if (dateRange) {
+        const now = new Date();
+        const daysMap: { [key: string]: number } = { '7d': 7, '30d': 30, '90d': 90, '1y': 365 };
+        const days = daysMap[dateRange as string] || 30; // default to 30 days
+        const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+        dateFilter = { gte: startDate };
+      }
+
+      // Model filter - if 'all' is passed, we should look for the 'all' record.
+      const effectiveModel = (aiModel || 'all') as string;
+
+      const history = await prisma.shareOfVoiceHistory.findMany({
+          where: {
+              companyId: companyId,
+              aiModel: effectiveModel,
+              ...(Object.keys(dateFilter).length > 0 && { date: dateFilter }),
+          },
+          orderBy: {
+              date: 'asc',
+          },
+      });
+
+      const formattedHistory = history.map(item => ({
+          date: item.date.toISOString().split('T')[0],
+          shareOfVoice: item.shareOfVoice,
+      }));
+
+      res.json(formattedHistory);
+  } catch (error) {
+      console.error(`Error fetching share of voice history for company ${companyId}:`, error);
+      res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 export const getAverageInclusionRate = async (req: Request, res: Response) => {
   try {
     const { id: companyId } = req.params;
@@ -518,7 +573,7 @@ export const getShareOfVoice = async (req: Request, res: Response) => {
       return res.json({ shareOfVoice: null, change: null });
     }
 
-    const calculateShareOfVoice = async (runId: string) => {
+    const calculateShareOfVoice = async (runId: string): Promise<number> => {
       // Create model filter for responses
       let responseModelFilter = {};
       if (aiModel && aiModel !== 'all') {
@@ -576,85 +631,17 @@ export const getShareOfVoice = async (req: Request, res: Response) => {
       return (companyMentions / totalMentions) * 100;
     };
 
-    const latestShareOfVoice = await calculateShareOfVoice(reportRuns[0].id);
+    const shareOfVoice = await calculateShareOfVoice(reportRuns[0].id);
 
     let change = null;
     if (reportRuns.length > 1) {
       const previousShareOfVoice = await calculateShareOfVoice(reportRuns[1].id);
-      // Calculate percentage point difference
-      change = latestShareOfVoice - previousShareOfVoice;
+      change = shareOfVoice - previousShareOfVoice;
     }
 
-    res.json({ shareOfVoice: latestShareOfVoice, change });
+    res.json({ shareOfVoice, change });
   } catch (error) {
     console.error('[GET SHARE OF VOICE ERROR]', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-};
-
-export const getShareOfVoiceHistory = async (req: Request, res: Response) => {
-  try {
-    const { id: companyId } = req.params;
-    const { dateRange, aiModel } = req.query;
-
-    // Calculate date filter
-    let dateFilter: { gte?: Date } = {};
-    if (dateRange) {
-      const now = new Date();
-      const daysMap: { [key: string]: number } = { '7d': 7, '30d': 30, '90d': 90, '1y': 365 };
-      const days = daysMap[dateRange as string] || 30;
-      dateFilter.gte = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-    }
-
-    const reportRuns = await prisma.reportRun.findMany({
-      where: {
-        companyId,
-        status: 'COMPLETED',
-        ...(dateFilter.gte && { createdAt: dateFilter }),
-      },
-      orderBy: { createdAt: 'asc' },
-      select: { id: true, createdAt: true },
-    });
-
-    if (reportRuns.length === 0) {
-      return res.json({ history: [] });
-    }
-
-    let modelFilter = {};
-    if (aiModel && aiModel !== 'all') {
-        modelFilter = { model: aiModel as string };
-    }
-
-    const historyPromises = reportRuns.map(async (run) => {
-      const visibilityMentions = await prisma.visibilityMention.findMany({
-        where: { visibilityResponse: { runId: run.id, ...modelFilter } },
-        select: { companyId: true },
-      });
-      const benchmarkMentions = await prisma.benchmarkMention.findMany({
-        where: { benchmarkResponse: { runId: run.id, ...modelFilter } },
-        select: { companyId: true },
-      });
-
-      const allMentions = [...visibilityMentions, ...benchmarkMentions];
-      const totalMentions = allMentions.length;
-      const companyMentions = allMentions.filter(m => m.companyId === companyId).length;
-      
-      const shareOfVoice = totalMentions > 0 ? (companyMentions / totalMentions) * 100 : 0;
-
-      return {
-        date: run.createdAt.toISOString().split('T')[0], // Format as YYYY-MM-DD
-        shareOfVoice,
-      };
-    });
-
-    const history = await Promise.all(historyPromises);
-    
-    // Simple deduplication, keeping the last data point for a given day
-    const uniqueHistory = Array.from(new Map(history.map(item => [item.date, item])).values());
-
-    res.json({ history: uniqueHistory });
-  } catch (error) {
-    console.error('Error fetching share of voice history:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
@@ -662,7 +649,7 @@ export const getShareOfVoiceHistory = async (req: Request, res: Response) => {
 export const getSentimentData = async (req: Request, res: Response) => {
   try {
     const { id: companyId } = req.params;
-    const { aiModel } = req.query;
+    const { dateRange, aiModel } = req.query;
 
     // Get latest completed run
     const reportRuns = await prisma.reportRun.findMany({

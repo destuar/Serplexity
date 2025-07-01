@@ -24,7 +24,7 @@ const CompetitorRankingsPage = () => {
   const [error, setError] = useState<string | null>(null);
 
   // Report generation logic handled by custom hook
-  const { isGenerating, generationStatus, generateReport } = useReportGeneration(selectedCompany);
+  const { isGenerating, generationStatus, progress, generateReport } = useReportGeneration(selectedCompany);
 
   // Local state for competitor rankings specific features
   const [sortBy, setSortBy] = useState<SortOption>('shareOfVoice');
@@ -258,6 +258,7 @@ const CompetitorRankingsPage = () => {
           onGenerateReport={generateReport}
           isGenerating={isGenerating}
           generationStatus={generationStatus}
+          progress={progress}
         />
       ) : (
         <>
@@ -310,7 +311,7 @@ const CompetitorRankingsPage = () => {
                 ) : (
                   <>
                     <RefreshCw size={16} />
-                    <span className="whitespace-nowrap">Refresh data</span>
+                    <span className="whitespace-nowrap">Refresh Data</span>
                   </>
                 )}
               </button>

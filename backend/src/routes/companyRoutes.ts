@@ -2,18 +2,18 @@ import { Router } from 'express';
 import { authenticate } from '../middleware/authMiddleware';
 import {
   createCompany,
-  getCompanies,
-  getCompany,
-  updateCompany,
   deleteCompany,
   getAverageInclusionRate,
   getAveragePosition,
+  getCompanies,
+  getCompany,
+  getCompetitorRankings,
+  getSentimentData,
+  getSentimentOverTime,
   getShareOfVoice,
   getShareOfVoiceHistory,
-  getSentimentData,
   getTopRankingQuestions,
-  getCompetitorRankings,
-  getSentimentOverTime,
+  updateCompany,
 } from '../controllers/companyController';
 
 const router = Router();
@@ -32,11 +32,11 @@ router.delete('/:id', deleteCompany);      // DELETE /api/companies/:id - Delete
 router.get('/:id/metrics/air', getAverageInclusionRate); // GET /api/companies/:id/metrics/air
 router.get('/:id/metrics/position', getAveragePosition); // GET /api/companies/:id/metrics/position
 router.get('/:id/metrics/share-of-voice', getShareOfVoice); // GET /api/companies/:id/metrics/share-of-voice
-router.get('/:id/metrics/share-of-voice/history', getShareOfVoiceHistory); // GET /api/companies/:id/metrics/share-of-voice/history
 router.get('/:id/metrics/competitor-rankings', getCompetitorRankings);
 router.get('/:id/metrics/sentiment', getSentimentData); // GET /api/companies/:id/metrics/sentiment
 router.get('/:id/top-ranking-questions', getTopRankingQuestions); // GET /api/companies/:id/top-ranking-questions
 router.get('/:id/metrics/sentiment-over-time', getSentimentOverTime);
+router.get('/:id/share-of-voice-history', getShareOfVoiceHistory);
 
 // AI-powered features (competitor generation removed - competitors are now discovered from responses)
 

@@ -108,8 +108,8 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
       const dashboardData = await getDashboardData(selectedCompany.id, currentFilters);
 
       // Fetch full Share of Voice history respecting the same filters
-      const sovHistoryResponse = await getShareOfVoiceHistory(selectedCompany.id, currentFilters);
-      const fullHistory = sovHistoryResponse.history.map(({ date, shareOfVoice }) => ({
+      const sovHistory = await getShareOfVoiceHistory(selectedCompany.id, currentFilters);
+      const fullHistory = sovHistory.map(({ date, shareOfVoice }) => ({
         date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         shareOfVoice,
       }));
@@ -119,13 +119,15 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
         : null;
 
       console.log('[DashboardContext] Data received from service:', mergedData);
-      console.log('[DashboardContext] Data type:', typeof mergedData);
-      console.log('[DashboardContext] Data is null?', mergedData === null);
-      console.log('[DashboardContext] Data keys count:', mergedData ? Object.keys(mergedData).length : 0);
 
       setData(mergedData);
-      // Track if we have ever received a report - null means no reports exist, anything else means reports exist
-      setHasReport(dashboardData !== null);
+      // Update hasReport only if we haven't determined it yet. Once true, keep it.
+      if (mergedData && hasReport !== true) {
+        setHasReport(true);
+      } else if (!mergedData && hasReport === null) {
+        // Only set false the first time when we know no report exists
+        setHasReport(false);
+      }
       
       if (dashboardData?.lastUpdated) {
         setLastUpdated(dashboardData.lastUpdated);
@@ -138,16 +140,15 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
       console.error('Failed to fetch dashboard data:', apiErr);
       setError(apiErr.message || 'Failed to fetch dashboard data');
       
-      // On error, if current data is null, assume no reports exist (show welcome)
-      // Otherwise, keep existing data to avoid blanking the screen
-      if (data === null) {
+      // On error, don't flip hasReport back to false if we have ever seen a report.
+      if (data === null && hasReport === null) {
         setHasReport(false);
       }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedCompany, filters, location.pathname, data]);
+  }, [selectedCompany, filters, location.pathname, data, hasReport]);
 
   // Fetch on meaningful filter changes (dateRange/aiModel) or company switch
   useEffect(() => {

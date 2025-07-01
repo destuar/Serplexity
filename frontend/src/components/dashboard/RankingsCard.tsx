@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import Card from '../ui/Card';
 import { useDashboard } from '../../hooks/useDashboard';
 import { getCompanyLogo } from '../../lib/logoService';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 const RankingsCard = () => {
   const { data, loading, error } = useDashboard();
   const navigate = useNavigate();
+  const isTallerScreen = useMediaQuery('(min-height: 900px)');
 
       // Data is now pre-calculated on the backend
     const rankingsData = data?.competitorRankings;
@@ -55,7 +57,7 @@ const RankingsCard = () => {
 
     // If company has no ranking (not mentioned), show N/A
     if (!rankingsData?.industryRanking) {
-      const chartData = rankingsData?.competitors || [];
+      const chartData = rankingsData?.chartCompetitors || [];
       const displayedChartData = chartData.slice(0, Math.min(12, chartData.length));
       
       return (
@@ -69,11 +71,15 @@ const RankingsCard = () => {
                 const maxShareOfVoice = Math.max(...displayedChartData.map((c: Competitor) => c.shareOfVoice));
                 const heightPercent = maxShareOfVoice > 0 ? (competitor.shareOfVoice / maxShareOfVoice) * 100 : 0;
                 const heightPx = Math.max(8, Math.round((heightPercent / 100) * 64));
+                const isUserCompany = competitor.isUserCompany;
                 
                 return (
                   <div
                     key={`${competitor.name}-${index}`}
-                    className="w-3 rounded-t transition-all duration-300 bg-gray-300"
+                    className={`
+                      w-3 rounded-t transition-all duration-300
+                      ${isUserCompany ? 'bg-[#7762ff]' : 'bg-gray-300'}
+                    `}
                     style={{ height: `${heightPx}px` }}
                     title={`${competitor.name}: ${competitor.shareOfVoice.toFixed(1)}%`}
                   />
@@ -94,7 +100,7 @@ const RankingsCard = () => {
     }
 
     // Chart logic is now simplified as data is pre-calculated.
-    const chartData = rankingsData.competitors || [];
+    const chartData = rankingsData.chartCompetitors || [];
     // Show up to 12 competitors, or all available if fewer than 12
     const displayedChartData = chartData.slice(0, Math.min(12, chartData.length));
     const maxShareOfVoice = displayedChartData.length > 0 ? Math.max(...displayedChartData.map((c: Competitor) => c.shareOfVoice)) : 0;
@@ -147,8 +153,8 @@ const RankingsCard = () => {
       );
     }
 
-    // Use competitors instead of chartCompetitors to include the user's company
-    if (!rankingsData || !rankingsData.competitors || rankingsData.competitors.length === 0) {
+    // Use chartCompetitors to include the user's company
+    if (!rankingsData || !rankingsData.chartCompetitors || rankingsData.chartCompetitors.length === 0) {
       return (
         <div className="flex-1 flex items-center justify-center">
           <p className="text-gray-400 text-sm">No competitor mentions found</p>
@@ -156,10 +162,12 @@ const RankingsCard = () => {
       );
     }
 
+    const numCompetitorsToShow = isTallerScreen ? 4 : 3;
+
     // Show only top 3 entities (including user company), then "X+ others" if there are more
-    const allCompetitors = rankingsData.competitors;
-    const topCompetitors = allCompetitors.slice(0, 3);
-    const remainingCompetitors = allCompetitors.slice(3);
+    const allCompetitors = rankingsData.chartCompetitors;
+    const topCompetitors = allCompetitors.slice(0, numCompetitorsToShow);
+    const remainingCompetitors = allCompetitors.slice(numCompetitorsToShow);
     const remainingCount = remainingCompetitors.length;
     
     // Calculate combined share of voice for remaining competitors

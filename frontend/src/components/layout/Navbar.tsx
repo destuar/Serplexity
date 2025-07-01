@@ -182,15 +182,14 @@ export function Navbar() {
                         <User size={20} />
                       </button>
                       
-                      {/* Profile Dropdown - Fixed positioning to prevent layout shifts */}
+                      {/* Profile Dropdown - Positioned relative to profile button */}
                       {isProfileDropdownOpen && (
-                        <div className="fixed inset-0 z-40" onClick={() => setIsProfileDropdownOpen(false)}>
+                        <>
+                          {/* Backdrop for mobile/outside clicks */}
+                          <div className="fixed inset-0 z-40" onClick={() => setIsProfileDropdownOpen(false)}></div>
                           <div 
-                            className="absolute right-4 top-20 w-52 z-50"
+                            className="absolute right-0 top-12 w-52 z-50"
                             onClick={(e) => e.stopPropagation()}
-                            style={{
-                              transform: 'translateX(0)',
-                            }}
                           >
                             {isLandingStylePage ? (
                               // Liquid Glass Design for Landing Page
@@ -255,7 +254,7 @@ export function Navbar() {
                               </div>
                             )}
                           </div>
-                        </div>
+                        </>
                       )}
                     </div>
                   ) : (

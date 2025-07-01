@@ -435,7 +435,7 @@ const MultiStepCompanyForm: React.FC<MultiStepCompanyFormProps> = ({
                 label="Company Name"
                 register={register}
                 error={errors.name}
-                placeholder="e.g. Acme Corporation"
+                placeholder="e.g. Company Name"
                 Icon={Building}
               />
               <FormInput<FormData>
@@ -443,7 +443,7 @@ const MultiStepCompanyForm: React.FC<MultiStepCompanyFormProps> = ({
                 label="Company Website"
                 register={register}
                 error={errors.website}
-                placeholder="https://www.acme.com"
+                placeholder="https://www.companyname.com"
                 Icon={Globe}
               />
               <div className="space-y-2">

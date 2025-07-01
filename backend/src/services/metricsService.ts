@@ -5,6 +5,8 @@ import {
   calculateTopQuestions,
   calculateSentimentOverTime,
   calculateShareOfVoiceHistory,
+  saveSentimentOverTimePoint,
+  saveShareOfVoiceHistoryPoint,
 } from './dashboardService';
 
 export interface DashboardMetrics {
@@ -40,28 +42,72 @@ export async function computeAndPersistMetrics(
   // Compute metrics for "all" models combined
   const allModelsMetrics = await calculateAllMetrics(reportId, companyId, 'all');
   
-  // Compute metrics for each individual model
+  // Persist daily history points for "all" models
+  try {
+    if (allModelsMetrics.sentimentScore !== null) {
+      await saveSentimentOverTimePoint(
+        companyId,
+        new Date(),
+        'all',
+        allModelsMetrics.sentimentScore as number,
+        reportId
+      );
+    }
+    await saveShareOfVoiceHistoryPoint(
+      companyId,
+      new Date(),
+      'all',
+      allModelsMetrics.shareOfVoice,
+      reportId
+    );
+  } catch (err) {
+    console.warn('[METRICS] Failed to save overall history points', err);
+  }
+
+  // Compute metrics for each individual model and persist history points
   const modelMetrics = await Promise.all(
-    modelsUsed.map(model => calculateAllMetrics(reportId, companyId, model))
+    modelsUsed.map(async (model) => {
+      const metrics = await calculateAllMetrics(reportId, companyId, model);
+      try {
+        if (metrics.sentimentScore !== null) {
+          await saveSentimentOverTimePoint(companyId, new Date(), model, metrics.sentimentScore as number, reportId);
+        }
+        await saveShareOfVoiceHistoryPoint(companyId, new Date(), model, metrics.shareOfVoice, reportId);
+      } catch (err) {
+        console.warn(`[METRICS] Failed to save history for model ${model}`, err);
+      }
+      return metrics;
+    })
   );
+
+  // Helper to strip large array fields that don't exist on ReportMetric
+  const sanitizeForPersist = (metrics: DashboardMetrics) => {
+    const {
+      sentimentOverTime: _omitSOT,
+      shareOfVoiceHistory: _omitSOV,
+      ...persistable
+    } = metrics as any;
+    return persistable;
+  };
 
   // Persist all metrics in a transaction
   await prisma.$transaction([
     // Insert "all" models metric
     prisma.reportMetric.upsert({
       where: { reportId_aiModel: { reportId, aiModel: 'all' } },
-      update: allModelsMetrics,
-      create: { reportId, companyId, aiModel: 'all', ...allModelsMetrics },
+      update: sanitizeForPersist(allModelsMetrics),
+      create: { reportId, companyId, aiModel: 'all', ...sanitizeForPersist(allModelsMetrics) },
     }),
     
     // Insert individual model metrics
-    ...modelsUsed.map((model, index) => 
-      prisma.reportMetric.upsert({
+    ...modelsUsed.map((model, index) => {
+      const data = sanitizeForPersist(modelMetrics[index]);
+      return prisma.reportMetric.upsert({
         where: { reportId_aiModel: { reportId, aiModel: model } },
-        update: modelMetrics[index],
-        create: { reportId, companyId, aiModel: model, ...modelMetrics[index] },
-      })
-    ),
+        update: data,
+        create: { reportId, companyId, aiModel: model, ...data },
+      });
+    }),
   ]);
 
   console.log(`[METRICS] Successfully persisted metrics for report ${reportId} (${modelsUsed.length + 1} metric rows)`);

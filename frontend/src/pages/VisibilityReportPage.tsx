@@ -11,7 +11,7 @@ import OptimizationChecklistCard from '../components/dashboard/OptimizationCheck
 const VisibilityReportPage: React.FC = () => {
   const { selectedCompany } = useCompany();
   const { data, loading, hasReport, refreshing, refreshData, lastUpdated } = useDashboard();
-  const { isGenerating, generationStatus, generateReport } = useReportGeneration(selectedCompany);
+  const { isGenerating, generationStatus, progress, generateReport } = useReportGeneration(selectedCompany);
 
   // The user said not to implement the LLM call yet. This will come from reportMetrics later.
   const [summary, _setSummary] = useState<string | null>(null);
@@ -30,6 +30,7 @@ const VisibilityReportPage: React.FC = () => {
           onGenerateReport={generateReport}
           isGenerating={isGenerating}
           generationStatus={generationStatus}
+          progress={progress}
         />
       ) : (
         <>

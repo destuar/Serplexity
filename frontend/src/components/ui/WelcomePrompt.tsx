@@ -6,25 +6,19 @@ interface WelcomePromptProps {
   onGenerateReport: () => void;
   isGenerating: boolean;
   generationStatus?: string | null;
-  progressPercentage?: number;
+  progress?: number;
 }
 
 const WelcomePrompt: React.FC<WelcomePromptProps> = ({
   onGenerateReport,
   isGenerating,
   generationStatus,
-  progressPercentage = 0
+  progress = 0
 }) => {
   const { selectedCompany } = useCompany();
 
-  // Extract percentage from status string if available
-  const getProgressFromStatus = (status: string | null | undefined): number => {
-    if (!status) return 0;
-    const match = status.match(/\((\d+)%\)/);
-    return match ? parseInt(match[1], 10) : progressPercentage;
-  };
-
-  const currentProgress = isGenerating ? getProgressFromStatus(generationStatus) : 0;
+  // Use the progress value directly from the hook (which already handles monotonic progression)
+  const currentProgress = progress;
 
   return (
     <div className="flex-1 flex items-center justify-center">
@@ -81,7 +75,7 @@ const WelcomePrompt: React.FC<WelcomePromptProps> = ({
           <div className="space-y-3">
             <button 
               onClick={onGenerateReport}
-              disabled={isGenerating || !selectedCompany?.competitors?.length}
+              disabled={isGenerating || !selectedCompany?.competitors?.length || generationStatus === 'Report generated successfully'}
               className="w-full flex flex-col gap-2 px-6 py-3 bg-gradient-to-r from-[#7762ff] to-[#9e52ff] text-white rounded-lg hover:from-[#6650e6] hover:to-[#8a47e6] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-lg font-medium shadow-lg hover:shadow-xl relative overflow-hidden"
             >
               {isGenerating ? (

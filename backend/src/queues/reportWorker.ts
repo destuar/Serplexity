@@ -628,7 +628,7 @@ const processJob = async (job: Job) => {
 
     // --- Stage 1: Data Gathering (Network-Intensive) ---
     const dataGatheringTimer = new Timer();
-    log({ runId, stage: 'DATA_GATHERING', step: 'START' }, 'STARTING DATA GATHERING PHASE - Generating questions, competitors, and responses', 'STAGE');
+    log({ runId, stage: 'DATA_GATHERING', step: 'START' }, 'STARTING DATA GATHERING PHASE - Identifying questions, competitors, and responses', 'STAGE');
     // All LLM calls are done here, before any major DB transactions.
 
     // --- Skip AI competitor generation - competitors will be discovered from responses ---
@@ -1013,6 +1013,20 @@ const processJob = async (job: Job) => {
         
         try {
             const { data: enrichedCompetitors, usage: websiteUsage } = await generateWebsiteForCompetitors(discoveredBrands);
+
+            // --- Fine-grained progress tracking for competitor enrichment (30-70 %) ---
+            const totalEnriched = enrichedCompetitors.length || 1; // safeguard against division by zero
+            let processedEnriched = 0;
+            let lastProgressPct = 30;
+            const updateCompetitorProgress = async (pct: number) => {
+                // only update on 5 % boundaries and if progress increased
+                if (pct > lastProgressPct && (pct % 5 === 0 || pct === 70)) {
+                    lastProgressPct = pct;
+                    await prisma.reportRun.update({ where: { id: runId }, data: { stepStatus: `Analyzing Competitors (${pct}%)` } });
+                }
+            };
+
+            // We will call updateCompetitorProgress inside loops below
             totalPromptTokens += websiteUsage.promptTokens;
             totalCompletionTokens += websiteUsage.completionTokens;
 
@@ -1050,6 +1064,11 @@ const processJob = async (job: Job) => {
                         website: standardizedWebsite, // Ensure the stored website is the standardized one
                     });
                 }
+
+                // progress: 30 -> 70 across enrichment list
+                processedEnriched++;
+                const pct = 30 + Math.round((processedEnriched / totalEnriched) * 40); // 30-70
+                await updateCompetitorProgress(pct);
             }
 
             // Create sets of existing normalized names and standardized websites for efficient filtering.
