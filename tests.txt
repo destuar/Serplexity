@@ -1,3 +1,66 @@
-Bug: `company.test.ts` fails intermittently due to read replica lag. The tests create a company and immediately attempt to read it, but the data has not yet replicated. A temporary fix of mocking `prismaReadReplica` was implemented and reverted. The long-term solution is to investigate and resolve the replication lag itself.
+Test Plan and Findings
 
-Update: `company.test.ts` now mocks `prismaReadReplica` to point to the primary database during testing. This is a temporary measure to ensure test stability and addresses the intermittent failures. True read replica testing requires a more sophisticated setup that simulates replication lag, which will be addressed in a future task.
+## Backend
+
+### Initial Test Run
+
+- [x] Run `npm test` in the `backend` directory.
+- [x] Run `npm run test:coverage` in the `backend` directory.
+
+**Findings:**
+
+- **Test Failures:** The test suite execution resulted in 2 failed test suites out of 10:
+    - `archiveWorker.test.ts`: 2 tests failed due to incorrect mocking of the Prisma transaction client. The mock implementation does not correctly simulate the transactional behavior, causing a `TypeError: callback is not a function`.
+    - `config/db.test.ts`: 2 tests failed due to Jest's module caching. The tests modify `process.env.READ_REPLICA_URL` but do not reset the modules, so the `prismaReadReplica` instance is not re-initialized with the new environment variable.
+- **Excessive Logging:** The test output is cluttered with a large number of `console.error` and `console.log` statements, making it difficult to identify the root causes of failures. This suggests that the application's logging is not being properly managed during tests.
+- **Low Coverage:** The coverage report shows critically low coverage across the board, failing to meet the 70% threshold.
+    - **Statements:** 29.69%
+    - **Branches:** 14.49%
+    - **Functions:** 23.78%
+    - **Lines:** 28.97%
+- This indicates a significant lack of testing for the majority of the backend codebase.
+
+### Security Vulnerability Assessment
+
+- [x] **Authentication:** Review `src/controllers/authController.ts` and `src/middleware/authMiddleware.ts`.
+    - **Weak Password Policy:** The password policy only enforces a minimum length of 8 characters. It should also enforce complexity requirements (e.g., uppercase, lowercase, numbers, and special characters).
+    - **Information Leak:** The registration endpoint confirms if a user already exists, which can be used to enumerate registered email addresses.
+    - **Sensitive Data Exposure:** The login and registration endpoints return the entire user object, including potentially sensitive information like `stripeCustomerId` and all associated company data. This data should be fetched from dedicated endpoints when needed.
+    - **Incomplete Logout:** The logout function does not guarantee the invalidation of the user's token if the database update fails. This could lead to a user believing they have logged out when they have not.
+- [x] **Authorization:** Review `src/middleware/paymentGuard.ts` and other authorization logic.
+    - **Insecure Direct Object Reference (IDOR):** In the `updateCompany` function in `companyController.ts`, the application verifies that the user owns the company being updated. However, it does not verify that the `competitors`, `benchmarkingQuestions`, and `products` being modified belong to that company. An attacker could potentially modify or delete these child objects of other companies if they know their IDs.
+    - **Ownership Checks:** The `getCompany`, `updateCompany`, and `deleteCompany` endpoints correctly check for user ownership of the company record. The `getShareOfVoiceHistory`, `getAverageInclusionRate`, `getAveragePosition`, `getShareOfVoice`, and `getCompetitorRankings` endpoints also correctly verify that the user owns the company.
+- [x] **Input Validation:** Check how Zod is used for validation in controllers.
+    - **Potential DoS:** The `updateCompanySchema` does not enforce a maximum length on the `competitors`, `benchmarkingQuestions`, and `products` arrays, which could lead to a Denial of Service attack if an attacker sends a very large array.
+    - **Missing Query Validation:** The `getShareOfVoiceHistory`, `getAverageInclusionRate`, `getAveragePosition`, `getShareOfVoice`, and `getCompetitorRankings` endpoints do not validate the `dateRange` or `aiModel` query parameters.
+- [x] **SQL Injection:** Verify that Prisma is used correctly to prevent SQL injection.
+    - **No vulnerabilities found.** The application consistently uses Prisma's query builder, which provides protection against SQL injection attacks.
+- [x] **Cross-Site Scripting (XSS):** Although primarily a frontend concern, check if the backend ever returns HTML that could be vulnerable.
+    - **No vulnerabilities found.** The backend API exclusively returns JSON data, so there is no risk of XSS from the backend.
+- [x] **Sensitive Data Exposure:** Check for any logging of sensitive information.
+    - **Excessive Data Exposure:** The `exportUserData` function in `userController.ts` exports all user data, including all associated companies, competitors, products, and report runs. This is a significant amount of sensitive data that should be handled with care.
+    - **Logging of Sensitive Data:** The `console.error` statements in the controllers log the entire error object, which can include sensitive information from the request body. This could lead to sensitive data being stored in logs.
+    - **Inadequate Rate Limiting:** The rate limiting in `searchController.ts` is implemented in-memory, which is not suitable for a production environment. It should be replaced with a more robust solution like a Redis-based rate limiter.
+
+## Frontend
+
+### Initial Test Run
+
+- [x] Run `npm test` in the `frontend` directory.
+- [x] Run `npm run test:coverage` in the `frontend` directory.
+
+**Findings:**
+
+- **Test Failures:** All 3 tests in `src/__tests__/App.test.tsx` failed with the same error: `TypeError: star.animate is not a function`.
+    - This error originates from the `LandingPage.tsx` component and its `createStaticStars` function.
+    - The error is because the test environment (JSDOM) does not implement the Web Animations API (`element.animate()`), which is a browser-specific feature. To fix this, the `animate` function should be mocked in the test setup file.
+- **Coverage Run Failed:** The coverage run failed with the same `star.animate is not a function` error, so no coverage report was generated.
+
+### Security Vulnerability Assessment
+
+- [x] **Dependency Vulnerabilities:**
+    - **`esbuild`:** The frontend has a moderate severity vulnerability in `esbuild`. This should be addressed by running `npm audit fix --force`.
+- [x] **Cross-Site Scripting (XSS):** Review how data from the backend is rendered.
+    - **No vulnerabilities found.** The application uses React, which by default escapes all values embedded in JSX, preventing XSS attacks. The data from the backend is consistently rendered as text content, not as raw HTML.
+- [x] **Component-level testing:** Review component tests for proper input validation and sanitization.
+    - **No vulnerabilities found.** The existing component tests do not reveal any security vulnerabilities. However, the lack of test coverage means that there may be undiscovered vulnerabilities.

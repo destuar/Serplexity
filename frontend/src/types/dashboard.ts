@@ -157,6 +157,10 @@ export interface DashboardData {
   createdAt?: string;
   updatedAt?: string;
   aiModel?: string;
+
+  // AI Visibility Summary and Optimization Tasks
+  aiVisibilitySummary?: string | null;
+  optimizationTasks?: import('../services/reportService').OptimizationTask[];
 }
 
 export interface PreloadedMetricSet {

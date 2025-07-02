@@ -14,6 +14,7 @@ export const enum ModelTask {
   PERSONAL_QUESTION_GENERATION = 'personal_question_generation',
   QUESTION_ANSWERING = 'question_answering',
   WEBSITE_ENRICHMENT = 'website_enrichment',
+  OPTIMIZATION_TASKS = 'optimization_tasks',
 }
 
 export interface Model {
@@ -66,7 +67,7 @@ export const LLM_CONFIG = {
     SHOW_STAGES: true,              // Show stage transitions (START/COMPLETE)
     SHOW_GENERATED_CONTENT: true,   // Show actual questions, competitors, responses
     SHOW_PERFORMANCE: false,        // Show timing and token usage
-    SHOW_TECHNICAL_DETAILS: false, // Show model IDs, metadata, etc.
+    SHOW_TECHNICAL_DETAILS: true, // Show model IDs, metadata, etc.
     SHOW_ERRORS: true,              // Show error messages
   },
   
@@ -95,7 +96,8 @@ export const MODELS: Record<string, Model> = {
       ModelTask.VISIBILITY,                       // ✅ Used for visibility question generation
       ModelTask.BENCHMARKING,                     // ✅ Used for benchmark question generation  
       ModelTask.SENTIMENT_SUMMARY,                // ✅ Used for sentiment summaries
-      ModelTask.QUESTION_ANSWERING                // ✅ Used for answering questions
+      ModelTask.QUESTION_ANSWERING,               // ✅ Used for answering questions
+      ModelTask.OPTIMIZATION_TASKS                // ✅ Used for generating optimization tasks and summaries
     ],
   },
   'claude-3-5-haiku-20241022': {
@@ -112,7 +114,8 @@ export const MODELS: Record<string, Model> = {
     task: [
         ModelTask.SENTIMENT,                      // ✅ Used for sentiment analysis
         ModelTask.QUESTION_ANSWERING,             // ✅ Used for answering questions
-        ModelTask.WEBSITE_ENRICHMENT              // ✅ Used for enriching competitors with websites
+        ModelTask.WEBSITE_ENRICHMENT,             // ✅ Used for enriching competitors with websites
+        ModelTask.OPTIMIZATION_TASKS              // ✅ Now used for generating optimization tasks and summaries
       ],
   },
   'sonar': {

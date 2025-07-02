@@ -22,4 +22,5 @@ export default async function teardown() {
 
   await prisma.$disconnect();
   console.log('✅ All test connections closed.');
+  process.exit(0);
 }

@@ -112,7 +112,7 @@ export interface ChatCompletionResponse<T> {
 }
 
 // --- Core Generic Completion Function ---
-async function generateChatCompletion(
+export async function generateChatCompletion(
   model: Model,
   prompt: string,
   schema?: z.ZodType<any>
@@ -554,6 +554,13 @@ async function generateAndValidate<T, U>(
         try {
             const result = await generateChatCompletion(model, prompt);
             
+            llmLog({
+                modelId: model.id,
+                engine: model.engine,
+                operation: 'RAW_RESPONSE_INSPECT',
+                metadata: { rawResponse: result.content }
+            }, 'Inspecting raw LLM response before parsing', 'DEBUG');
+            
             // First attempt: Direct JSON parsing
             let parsedData: any;
             let parseErrors: string[] = [];
@@ -620,6 +627,23 @@ async function generateAndValidate<T, U>(
                             rescuedData: JSON.stringify(rescuedData).slice(0, 200)
                         }
                     }, 'Successfully rescued data using rescue function', 'DEBUG');
+                }
+            }
+
+            if (!validationResult.success) {
+                 // Second rescue attempt: if the data is an array, try parsing the first element
+                if (Array.isArray(parsedData) && parsedData.length > 0) {
+                    llmLog({
+                        modelId: model.id,
+                        engine: model.engine,
+                        operation: 'SCHEMA_RESCUE_ARRAY',
+                        metadata: { originalData: JSON.stringify(parsedData).slice(0, 200) }
+                    }, 'Attempting to rescue by validating the first element of the array', 'DEBUG');
+                    
+                    const firstElementResult = schema.safeParse(parsedData[0]);
+                    if (firstElementResult.success) {
+                        validationResult = firstElementResult;
+                    }
                 }
             }
 
@@ -1355,4 +1379,6 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, operationLabel = 
       reject(err);
     });
   });
-} 
+}
+
+export { generateAndValidate }; 

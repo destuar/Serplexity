@@ -323,6 +323,11 @@ export const getLatestReport = async (req: Request, res: Response) => {
     const latestRun = await prismaReadReplica.reportRun.findFirst({
       where: { companyId, status: 'COMPLETED' },
       orderBy: { createdAt: 'desc' },
+      include: {
+        optimizationTasks: {
+          orderBy: { taskId: 'asc' },
+        },
+      },
     });
 
     if (!latestRun) {
@@ -349,7 +354,28 @@ export const getLatestReport = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Metrics not available for the latest report.' });
     }
 
-    // Construct the final response object
+    // If the latest report has no optimization tasks, fallback to the newest report that does.
+    let optimizationTasks = latestRun.optimizationTasks || [];
+
+    if (!optimizationTasks || optimizationTasks.length === 0) {
+      const tasksSourceRun = await prismaReadReplica.reportRun.findFirst({
+        where: {
+          companyId,
+          status: 'COMPLETED',
+          optimizationTasks: {
+            some: {},
+          },
+        },
+        select: {
+          optimizationTasks: {
+            orderBy: { taskId: 'asc' },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      optimizationTasks = tasksSourceRun?.optimizationTasks ?? [];
+    }
+
     const responseData = {
       id: latestRun.id,
       runId: latestRun.id,
@@ -357,6 +383,8 @@ export const getLatestReport = async (req: Request, res: Response) => {
       createdAt: latestRun.createdAt,
       updatedAt: latestRun.updatedAt,
       lastUpdated: latestRun.updatedAt.toISOString(),
+      aiVisibilitySummary: latestRun.aiVisibilitySummary || null,
+      optimizationTasks,
       ...metrics, // Spread all the pre-computed metrics (may include history if present)
       shareOfVoiceHistory, // Ensure history is always present
       sentimentOverTime, // Ensure sentiment history is always present

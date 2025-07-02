@@ -1,121 +1,202 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { toggleTaskCompletion, OptimizationTask } from '../../services/reportService';
+import { useDashboard } from '../../hooks/useDashboard';
 import Card from '../ui/Card';
 import { cn } from '../../lib/utils';
 
-const checklistItems = [
-    "Run Experimental Search on your benchmarking questions to see where you rank vs your competitors.",
-    "Create and publish content after applying the AI Content Optimizer tool.",
-    "Identify top-performing competitor content for inspiration.",
-    "Review sentiment analysis for brand perception insights.",
-    "Analyze response details to find content gaps and opportunities.",
-    "Optimize existing content based on AI feedback.",
-    "Update company profile and competitor list for accuracy.",
-    "Schedule regular report generation to track progress over time.",
-];
-
 const OptimizationChecklistCard: React.FC = () => {
-    const [completed, setCompleted] = useState<number[]>([]);
-    const [justCompleted, setJustCompleted] = useState<number[]>([]);
-    const [sliding, setSliding] = useState<number[]>([]);
+    const { data, loading } = useDashboard();
+    const [tasks, setTasks] = useState<OptimizationTask[]>([]);
+    const [justCompleted, setJustCompleted] = useState<string[]>([]);
+    const [sliding, setSliding] = useState<string[]>([]);
 
-    const toggleCompleted = (index: number) => {
-        const isCurrentlyCompleted = completed.includes(index);
-        
-        if (!isCurrentlyCompleted) {
-            // Task is being completed
-            setJustCompleted(prev => [...prev, index]);
-            
-            // After a short delay, start the sliding animation
-            setTimeout(() => {
-                setSliding(prev => [...prev, index]);
-                
-                // After the sliding animation duration, actually move it to completed
-                setTimeout(() => {
-                    setCompleted(prev => [...prev, index]);
-                    setJustCompleted(prev => prev.filter(i => i !== index));
-                    setSliding(prev => prev.filter(i => i !== index));
-                }, 800); // Duration of sliding animation
-            }, 300); // Initial delay before sliding starts
+    // Whenever dashboard data updates, sync tasks locally
+    useEffect(() => {
+        if (data?.optimizationTasks) {
+            setTasks(data.optimizationTasks);
         } else {
-            // Task is being uncompleted - immediate update
-            setCompleted(prev => prev.filter(i => i !== index));
-            setJustCompleted(prev => prev.filter(i => i !== index));
-            setSliding(prev => prev.filter(i => i !== index));
+            setTasks([]);
+        }
+    }, [data?.optimizationTasks]);
+
+    const handleToggleCompleted = async (task: OptimizationTask) => {
+        // Extract reportRunId from the task's reportRunId field
+        // For now, we'll need to get this from the most recent report
+        // This is a simplified approach - in production you might want to store this differently
+        try {
+            const isCurrentlyCompleted = task.isCompleted;
+            
+            if (!isCurrentlyCompleted) {
+                // Task is being completed - add visual feedback
+                setJustCompleted(prev => [...prev, task.taskId]);
+                setTimeout(() => {
+                    setSliding(prev => [...prev, task.taskId]);
+                    setTimeout(() => {
+                        setJustCompleted(prev => prev.filter(id => id !== task.taskId));
+                        setSliding(prev => prev.filter(id => id !== task.taskId));
+                    }, 800);
+                }, 300);
+            }
+            
+            // Optimistically update the UI
+            setTasks(prev => prev.map(t => 
+                t.taskId === task.taskId 
+                    ? { ...t, isCompleted: !t.isCompleted, completedAt: !t.isCompleted ? new Date().toISOString() : undefined }
+                    : t
+            ));
+            
+            // Call API to toggle completion using the reportRunId
+            const reportRunId = task.reportRunId;
+            await toggleTaskCompletion(reportRunId, task.taskId);
+            
+        } catch (error) {
+            console.error('Error toggling task completion:', error);
+            // Revert optimistic update on error
+            setTasks(prev => prev.map(t => 
+                t.taskId === task.taskId 
+                    ? { ...t, isCompleted: task.isCompleted, completedAt: task.completedAt }
+                    : t
+            ));
         }
     };
 
-    // Create items with their original indices and sort them
-    const itemsWithIndices = checklistItems.map((item, index) => ({
-        item,
-        originalIndex: index,
-        isCompleted: completed.includes(index),
-        isJustCompleted: justCompleted.includes(index),
-        isSliding: sliding.includes(index)
+    // Create items with their completion status and sort them
+    const tasksWithStatus = tasks.map(task => ({
+        ...task,
+        isJustCompleted: justCompleted.includes(task.taskId),
+        isSliding: sliding.includes(task.taskId)
     }));
 
-    // Sort items: incomplete items first, then completed items
-    // Items that are "justCompleted" or "sliding" stay in their original position until animation completes
-    const sortedItems = itemsWithIndices.sort((a, b) => {
+    // Sort tasks: incomplete first, then completed
+    const sortedTasks = tasksWithStatus.sort((a, b) => {
         const aEffectivelyCompleted = a.isCompleted && !a.isJustCompleted && !a.isSliding;
         const bEffectivelyCompleted = b.isCompleted && !b.isJustCompleted && !b.isSliding;
         
         if (aEffectivelyCompleted === bEffectivelyCompleted) {
-            // If both have the same completion status, maintain original order
-            return a.originalIndex - b.originalIndex;
+            // If both have the same completion status, maintain priority order
+            const priorityOrder = { 'High': 0, 'Medium': 1, 'Low': 2 };
+            return priorityOrder[a.priority] - priorityOrder[b.priority];
         }
-        // Incomplete items come first (false < true)
+        // Incomplete tasks come first
         return aEffectivelyCompleted ? 1 : -1;
     });
+
+    const completedCount = tasks.filter(task => task.isCompleted).length;
+
+    if (loading) {
+        return (
+            <Card className="h-full flex flex-col p-6">
+                <div className="flex justify-between items-center mb-4 flex-shrink-0">
+                    <h3 className="text-lg font-semibold text-gray-800">Optimization Checklist</h3>
+                    <div className="bg-gray-200 rounded h-4 w-20 animate-pulse"></div>
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-2">
+                    {Array.from({ length: 8 }).map((_, i) => (
+                        <div key={i} className="bg-gray-100 rounded h-16 animate-pulse"></div>
+                    ))}
+                </div>
+            </Card>
+        );
+    }
+
+    if (tasks.length === 0) {
+        return (
+            <Card className="h-full flex flex-col p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex-shrink-0">Optimization Checklist</h3>
+                <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center">
+                        <div className="text-gray-400 mb-2">
+                            <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <p className="text-gray-500 text-sm font-medium">No optimization tasks available</p>
+                        <p className="text-gray-400 text-xs mt-1">Tasks will be generated with your first report</p>
+                    </div>
+                </div>
+            </Card>
+        );
+    }
 
     return (
         <Card className="h-full flex flex-col p-6">
             <div className="flex justify-between items-center mb-4 flex-shrink-0">
                 <h3 className="text-lg font-semibold text-gray-800">Optimization Checklist</h3>
                 <span className="text-sm font-medium text-gray-600">
-                    Completed: {completed.length} / {checklistItems.length}
+                    Completed: {completedCount} / {tasks.length}
                 </span>
             </div>
             <div className="flex-1 overflow-y-auto">
                 <div className="space-y-2 relative">
-                    {sortedItems.map(({ item, originalIndex, isCompleted, isJustCompleted, isSliding }) => {
-                        const isVisuallyCompleted = isCompleted || isJustCompleted || isSliding;
+                    {sortedTasks.map((task) => {
+                        const isVisuallyCompleted = task.isCompleted || task.isJustCompleted || task.isSliding;
                         
-                        // Calculate how many positions down this item should slide
-                        const incompleteCount = sortedItems.filter(i => !i.isCompleted && !i.isJustCompleted && !i.isSliding).length;
-                        const currentPosition = sortedItems.findIndex(i => i.originalIndex === originalIndex);
-                        const targetPosition = isSliding ? incompleteCount + sliding.filter(i => i < originalIndex).length : currentPosition;
-                        const slideDistance = isSliding ? (targetPosition - currentPosition) * 60 : 0; // Approximate height per item
+                        // Calculate slide distance for animation
+                        const incompleteCount = sortedTasks.filter(t => !t.isCompleted && !t.isJustCompleted && !t.isSliding).length;
+                        const currentPosition = sortedTasks.findIndex(t => t.taskId === task.taskId);
+                        const targetPosition = task.isSliding ? incompleteCount + sliding.filter(id => tasks.find(t => t.taskId === id)?.priority === 'High' ? -1 : 1).length : currentPosition;
+                        const slideDistance = task.isSliding ? (targetPosition - currentPosition) * 70 : 0;
                         
                         return (
                             <label
-                                key={originalIndex}
-                                htmlFor={`checklist-item-${originalIndex}`}
+                                key={task.taskId}
+                                htmlFor={`task-${task.taskId}`}
                                 className={cn(
-                                    "flex items-start p-3 rounded-lg cursor-pointer relative",
+                                    "flex items-start p-3 rounded-lg cursor-pointer relative transition-all duration-300",
                                     isVisuallyCompleted ? "bg-gray-100 shadow-sm" : "bg-white hover:bg-gray-50",
-                                    isJustCompleted && "shadow-md",
-                                    isSliding && "z-10 shadow-lg",
-                                    // Transition classes
-                                    !isSliding && "transition-all duration-300",
-                                    isSliding && "transition-all duration-700 ease-in-out"
+                                    task.isJustCompleted && "shadow-md",
+                                    task.isSliding && "z-10 shadow-lg transition-all duration-700 ease-in-out"
                                 )}
                                 style={{
-                                    transform: isSliding ? `translateY(${slideDistance}px)` : 'translateY(0)',
+                                    transform: task.isSliding ? `translateY(${slideDistance}px)` : 'translateY(0)',
                                 }}
+                                title={task.description}
                             >
                                 <input
                                     type="checkbox"
-                                    id={`checklist-item-${originalIndex}`}
+                                    id={`task-${task.taskId}`}
                                     className="h-5 w-5 rounded border-gray-300 text-[#7762ff] focus:ring-[#7762ff] focus:ring-offset-0 accent-[#7762ff]"
                                     checked={isVisuallyCompleted}
-                                    onChange={() => toggleCompleted(originalIndex)}
+                                    onChange={() => handleToggleCompleted(task)}
                                 />
-                                <span className={cn(
-                                    "ml-3 text-sm transition-all duration-300",
-                                    isVisuallyCompleted ? "text-gray-500 line-through" : "text-gray-800"
-                                )}>
-                                    {item}
-                                </span>
+                                <div className="ml-3 flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className={cn(
+                                            "text-sm font-medium transition-all duration-300",
+                                            isVisuallyCompleted ? "text-gray-500 line-through" : "text-gray-800"
+                                        )}>
+                                            {task.title}
+                                        </span>
+                                        <span
+                                            className={cn(
+                                                "px-2 py-1 text-xs rounded-full font-medium",
+                                                task.priority === 'High'
+                                                    ? 'bg-red-100 text-red-700'
+                                                    : task.priority === 'Medium'
+                                                    ? 'bg-yellow-100 text-yellow-700'
+                                                    : 'bg-green-100 text-green-700'
+                                            )}
+                                        >
+                                            {task.priority}
+                                        </span>
+                                        {/* Category badge */}
+                                        <span className="px-2 py-1 text-xs rounded-full font-medium bg-gray-100 text-gray-700">
+                                            {task.category}
+                                        </span>
+                                        {/* Impact metric badge */}
+                                        <span className="px-2 py-1 text-xs rounded-full font-medium bg-gray-100 text-gray-700">
+                                            {task.impactMetric}
+                                        </span>
+                                    </div>
+                                    <p
+                                        className={cn(
+                                            "text-xs transition-all duration-300 whitespace-normal break-words",
+                                            isVisuallyCompleted ? "text-gray-400" : "text-gray-600"
+                                        )}
+                                    >
+                                        {task.description}
+                                    </p>
+                                </div>
                             </label>
                         );
                     })}

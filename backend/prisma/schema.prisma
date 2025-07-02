@@ -26,16 +26,16 @@ model User {
 }
 
 model Company {
-  id                    String                 @id @default(cuid())
+  id                    String                       @id @default(cuid())
   name                  String
-  website               String                 @unique
+  website               String                       @unique
   industry              String?
   userId                String
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
+  createdAt             DateTime                     @default(now())
+  updatedAt             DateTime                     @updatedAt
   benchmarkMentions     BenchmarkMention[]
   benchmarkingQuestions BenchmarkingQuestion[]
-  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                  User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
   competitors           Competitor[]
   personalMentions      PersonalMention[]
   personalQuestions     PersonalQuestion[]
@@ -45,6 +45,7 @@ model Company {
   reportMetrics         ReportMetric[]
   shareOfVoiceHistory   ShareOfVoiceHistory[]
   sentimentOverTime     SentimentOverTime[]
+  optimizationTasks     VisibilityOptimizationTask[]
 
   @@index([userId])
 }
@@ -108,23 +109,25 @@ model VisibilityQuestion {
 }
 
 model ReportRun {
-  id                  String               @id @default(cuid())
-  companyId           String
-  status              String
-  stepStatus          String?
-  tokensUsed          Int?
-  usdCost             Float?
-  traceId             String?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  benchmarkResponses  BenchmarkResponse[]
-  sentimentScores     SentimentScore[]
-  personalResponses   PersonalResponse[]
-  company             Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  visibilityResponses VisibilityResponse[]
-  reportMetrics       ReportMetric[]
-  shareOfVoiceHistory ShareOfVoiceHistory[]
-  sentimentOverTime   SentimentOverTime[]
+  id                     String                      @id @default(cuid())
+  companyId              String
+  status                 String
+  stepStatus             String?
+  tokensUsed             Int?
+  usdCost                Float?
+  traceId                String?
+  aiVisibilitySummary    String?                     // New field for AI-generated summary
+  createdAt              DateTime                    @default(now())
+  updatedAt              DateTime                    @updatedAt
+  benchmarkResponses     BenchmarkResponse[]
+  sentimentScores        SentimentScore[]
+  personalResponses      PersonalResponse[]
+  company                Company                     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  visibilityResponses    VisibilityResponse[]
+  reportMetrics          ReportMetric[]
+  shareOfVoiceHistory    ShareOfVoiceHistory[]
+  sentimentOverTime      SentimentOverTime[]
+  optimizationTasks      VisibilityOptimizationTask[] // New relation
 
   @@index([companyId])
 }
@@ -319,6 +322,29 @@ model SentimentOverTime {
 
   @@unique([companyId, date, aiModel])
   @@index([companyId, aiModel])
+}
+
+model VisibilityOptimizationTask {
+  id             String   @id @default(cuid())
+  taskId         String   // T01, T02, etc.
+  reportRunId    String
+  companyId      String
+  title          String
+  description    String
+  category       String   // Technical SEO, Content Creation, etc.
+  priority       String   // High, Medium, Low
+  impactMetric   String   // shareOfVoice, inclusionRate, etc.
+  dependencies   Json     // Array of task IDs
+  isCompleted    Boolean  @default(false)
+  completedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  reportRun      ReportRun @relation(fields: [reportRunId], references: [id], onDelete: Cascade)
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([reportRunId, taskId])
+  @@index([companyId])
+  @@index([reportRunId])
 }
 
 enum Role {

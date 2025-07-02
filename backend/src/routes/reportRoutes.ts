@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { createReport, getReportStatus, getLatestReport, getCompetitorRankingsForReport, getReportResponses } from '../controllers/reportController';
+import { getCompanyOptimizationTasks, toggleOptimizationTaskCompletion, getCompanyVisibilitySummary } from '../controllers/optimizationController';
 import { authenticate } from '../middleware/authMiddleware';
 import { paymentGuard } from '../middleware/paymentGuard';
 
@@ -17,6 +18,9 @@ router.get('/:runId/competitor-rankings', authenticate, getCompetitorRankingsFor
 
 router.get('/:runId/responses', authenticate, getReportResponses);
 
-
+// Optimization task endpoints
+router.get('/companies/:companyId/optimization-tasks', authenticate, getCompanyOptimizationTasks);
+router.patch('/reports/:reportRunId/tasks/:taskId/toggle', authenticate, toggleOptimizationTaskCompletion);
+router.get('/companies/:companyId/visibility-summary', authenticate, getCompanyVisibilitySummary);
 
 export default router; 

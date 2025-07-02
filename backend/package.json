@@ -18,7 +18,8 @@
     "test-performance": "ts-node src/scripts/test-metrics-performance.ts",
     "test-sentiment": "ts-node src/scripts/test-sentiment-scores.ts",
     "validate-metrics": "ts-node src/scripts/validate-metrics-system.ts",
-    "recalculate-metrics": "ts-node src/scripts/recalculate-all-metrics.ts"
+    "recalculate-metrics": "ts-node src/scripts/recalculate-all-metrics.ts",
+    "regenerate-summaries": "ts-node scripts/regenerate-visibility-summaries.ts"
   },
   "keywords": [],
   "author": "",

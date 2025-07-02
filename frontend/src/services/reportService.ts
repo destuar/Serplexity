@@ -83,4 +83,36 @@ export const getReportResponses = async (runId: string, companyId: string, aiMod
     params: { companyId, aiModel, page, limit }
   });
   return data;
+};
+
+// Optimization Tasks API
+export interface OptimizationTask {
+  id: string;
+  taskId: string;
+  reportRunId: string;
+  title: string;
+  description: string;
+  category: string;
+  priority: 'High' | 'Medium' | 'Low';
+  impactMetric: string;
+  dependencies: string[];
+  isCompleted: boolean;
+  completedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const getOptimizationTasks = async (companyId: string): Promise<OptimizationTask[]> => {
+  const { data } = await apiClient.get(`/reports/companies/${companyId}/optimization-tasks`);
+  return data.tasks;
+};
+
+export const toggleTaskCompletion = async (reportRunId: string, taskId: string): Promise<OptimizationTask> => {
+  const { data } = await apiClient.patch(`/reports/reports/${reportRunId}/tasks/${taskId}/toggle`);
+  return data.task;
+};
+
+export const getVisibilitySummary = async (companyId: string): Promise<string | null> => {
+  const { data } = await apiClient.get(`/reports/companies/${companyId}/visibility-summary`);
+  return data.summary;
 }; 

@@ -1371,6 +1371,64 @@ const processJob = async (job: Job) => {
         await computeAndPersistMetrics(runId, company.id);
         log({ runId, stage: 'POST_COMPLETION', step: 'METRICS_SUCCESS' }, 'Successfully computed and persisted dashboard metrics');
         
+        // Generate optimization tasks and summary
+        log({ runId, stage: 'POST_COMPLETION', step: 'OPTIMIZATION_START' }, 'Generating optimization tasks and visibility summary...');
+        
+        try {
+            const { generateOptimizationTasksAndSummary, persistOptimizationTasks } = await import('../services/optimizationTaskService');
+            
+            const optimizationResult = await generateOptimizationTasksAndSummary(runId, company.id, prisma);
+            
+            // Persist tasks if any were generated (first report only)
+            if (optimizationResult.tasks.length > 0) {
+                await persistOptimizationTasks(optimizationResult.tasks, runId, company.id, prisma);
+                log({ 
+                    runId, 
+                    stage: 'POST_COMPLETION', 
+                    step: 'OPTIMIZATION_TASKS_PERSISTED',
+                    metadata: { tasksCount: optimizationResult.tasks.length }
+                }, `Persisted ${optimizationResult.tasks.length} optimization tasks`);
+            }
+            
+            // Always update the summary on the report run
+            await prisma.reportRun.update({
+                where: { id: runId },
+                data: { aiVisibilitySummary: optimizationResult.summary }
+            });
+            
+            // Update token usage
+            await prisma.reportRun.update({
+                where: { id: runId },
+                data: { 
+                    tokensUsed: finalTokenUsage + optimizationResult.tokenUsage.totalTokens
+                }
+            });
+            
+            log({ 
+                runId, 
+                stage: 'POST_COMPLETION', 
+                step: 'OPTIMIZATION_SUCCESS',
+                tokenUsage: { 
+                    prompt: optimizationResult.tokenUsage.promptTokens, 
+                    completion: optimizationResult.tokenUsage.completionTokens, 
+                    total: optimizationResult.tokenUsage.totalTokens 
+                },
+                metadata: { 
+                    tasksGenerated: optimizationResult.tasks.length > 0,
+                    summaryGenerated: true
+                }
+            }, 'Successfully generated optimization tasks and summary');
+            
+        } catch (optimizationError) {
+            log({ 
+                runId, 
+                stage: 'POST_COMPLETION', 
+                step: 'OPTIMIZATION_ERROR',
+                error: optimizationError,
+                metadata: { errorType: optimizationError instanceof Error ? optimizationError.name : 'Unknown' }
+            }, 'Error generating optimization tasks/summary (report still completed)', 'ERROR');
+        }
+        
         // Schedule archive job for old responses
         log({ runId, stage: 'POST_COMPLETION', step: 'ARCHIVE_SCHEDULE' }, 'Scheduling archive job for old responses...');
         await archiveQueue.add('archive-old-responses', { companyId: company.id }, {

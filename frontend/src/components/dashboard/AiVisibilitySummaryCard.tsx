@@ -1,12 +1,11 @@
 import React from 'react';
+import { useDashboard } from '../../hooks/useDashboard';
 import Card from '../ui/Card';
 
-interface AiVisibilitySummaryCardProps {
-    summary: string | null;
-    loading: boolean;
-}
+const AiVisibilitySummaryCard: React.FC = () => {
+    const { data, loading } = useDashboard();
+    const summary = data?.aiVisibilitySummary || null;
 
-const AiVisibilitySummaryCard: React.FC<AiVisibilitySummaryCardProps> = ({ summary, loading }) => {
     return (
         <Card className="h-full flex flex-col p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex-shrink-0">AI Visibility Summary</h3>

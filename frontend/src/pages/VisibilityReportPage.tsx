@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';
 import WelcomePrompt from '../components/ui/WelcomePrompt';
@@ -13,12 +13,9 @@ const VisibilityReportPage: React.FC = () => {
   const { data, loading, hasReport, refreshing, refreshData, lastUpdated } = useDashboard();
   const { isGenerating, generationStatus, progress, generateReport } = useReportGeneration(selectedCompany);
 
-  // The user said not to implement the LLM call yet. This will come from reportMetrics later.
-  const [summary, _setSummary] = useState<string | null>(null);
-
   const handleRefresh = () => {
     refreshData();
-    // Later, this will also trigger a refetch of the summary from new report metrics
+    // The summary and tasks will be automatically refreshed when new reports are generated
   };
 
   return (
@@ -69,7 +66,7 @@ const VisibilityReportPage: React.FC = () => {
           ) : (
             <div className="flex-1 min-h-0 pt-1 flex flex-col gap-4">
               <div className="min-h-0" style={{ flex: '1 1 30%' }}>
-                <AiVisibilitySummaryCard summary={summary} loading={refreshing} />
+                <AiVisibilitySummaryCard />
               </div>
               <div className="min-h-0" style={{ flex: '1 1 70%' }}>
                 <OptimizationChecklistCard />
