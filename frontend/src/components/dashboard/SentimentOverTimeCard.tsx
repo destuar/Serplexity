@@ -13,12 +13,6 @@ interface ChartDataPoint {
   score: number;
 }
 
-interface SentimentOverTimeItem {
-  date: string;
-  aiModel: string;
-  sentimentScore: number;
-}
-
 const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedModel = 'all' }) => {
   const { data, loading } = useDashboard();
 
@@ -28,10 +22,13 @@ const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedM
       return [];
     }
 
+    type SentimentPoint = { date: string; sentimentScore: number; aiModel: string; };
+    type ChartPointWithDate = ChartDataPoint & { fullDate: string };
+
     // Filter by selected model and group by date (one point per day)
     const filteredData = data.sentimentOverTime
-      .filter((item: any) => item.aiModel === selectedModel)
-      .map((item: any) => ({
+      .filter((item: SentimentPoint) => item.aiModel === selectedModel)
+      .map((item: SentimentPoint): ChartPointWithDate => ({
         date: new Date(item.date).toLocaleDateString('en-US', { 
           month: 'short', 
           day: 'numeric',
@@ -40,8 +37,8 @@ const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedM
         score: item.sentimentScore,
         fullDate: item.date // Keep original date for sorting
       }))
-      .sort((a: any, b: any) => new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime())
-      .map(({ fullDate, ...rest }: any) => rest); // Remove fullDate from final data
+      .sort((a: ChartPointWithDate, b: ChartPointWithDate) => new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime())
+      .map(({ fullDate: _fullDate, ...rest }) => rest); // Remove fullDate from final data
 
     return filteredData;
   }, [data?.sentimentOverTime, selectedModel]);

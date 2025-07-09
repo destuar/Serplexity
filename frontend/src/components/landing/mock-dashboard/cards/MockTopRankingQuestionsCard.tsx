@@ -3,8 +3,6 @@ import MockDashboardCard from './MockDashboardCard';
 import { getModelDisplayName } from '../../../../types/dashboard';
 import FormattedResponseViewer from '../../../ui/FormattedResponseViewer';
 
-const MOCK_COMPANY_NAME = 'Serplexity';
-
 const mockTopQuestions = [
     {
         question: "How can I track my brand's mentions in ChatGPT and Google AI Overviews?",

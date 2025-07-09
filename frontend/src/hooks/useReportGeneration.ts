@@ -202,13 +202,12 @@ export const useReportGeneration = (selectedCompany: Company | null) => {
   const tabSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Time estimation function
-  const updateTimeEstimation = (currentProgress: number) => {
+  const updateTimeEstimation = useCallback((currentProgress: number) => {
     const now = Date.now();
     
     if (!startTime || currentProgress <= 0) return;
     
     const elapsedMs = now - startTime;
-    const elapsedMinutes = elapsedMs / 1000 / 60;
     
     // Use different estimation strategies based on progress phase
     let estimatedTotalTime: number;
@@ -238,7 +237,7 @@ export const useReportGeneration = (selectedCompany: Company | null) => {
     
     // Update last progress tracking for rate calculation
     lastProgressUpdate.current = { progress: currentProgress, timestamp: now };
-  };
+  }, [selectedCompany, startTime]);
 
   // Format time remaining for display
   const formatTimeRemaining = (ms: number): string => {
@@ -289,7 +288,7 @@ export const useReportGeneration = (selectedCompany: Company | null) => {
   }, []);
 
   // Cross-tab synchronization
-  const syncCrossTab = useCallback((companyId: string, state: GenerationState, data?: any) => {
+  const syncCrossTab = useCallback((companyId: string, state: GenerationState, data?: unknown) => {
     if (typeof window === 'undefined') return;
     
     const syncKey = `${CROSS_TAB_SYNC_PREFIX}${companyId}`;
@@ -350,27 +349,19 @@ export const useReportGeneration = (selectedCompany: Company | null) => {
       // Handle same-tab sync if needed
     };
     
-    const handleDashboardRefreshed = (e: CustomEvent) => {
-      if (e.detail.companyId !== selectedCompany.id) return;
-      console.log('[ReportGeneration] Dashboard refreshed detected for company:', e.detail.companyId);
-      
-      // Update completion state to mark dashboard as refreshed
-      const completionKey = `${COMPLETION_STATE_PREFIX}${selectedCompany.id}`;
-      const storedCompletion = localStorage.getItem(completionKey);
-      if (storedCompletion) {
-        const completion: CompletionState = JSON.parse(storedCompletion);
-        completion.dashboardRefreshed = true;
-        setCompletionState(completion);
-        localStorage.setItem(completionKey, JSON.stringify(completion));
-        
-        // Transition to idle state after a short delay
-        setTimeout(() => {
-          setGenerationState(GenerationState.IDLE);
-          setCrossTabLock(false);
-          setCompletionState(null);
-          localStorage.removeItem(completionKey);
-          syncCrossTab(selectedCompany.id, GenerationState.IDLE);
-        }, 3000);
+    // Event listener for when dashboard has been refreshed post-completion
+    const handleDashboardRefreshed = (e: CustomEvent<{ companyId: string }>) => {
+      if (e.detail.companyId === selectedCompany?.id) {
+        console.log('[useReportGen] Received dashboard refreshed event.');
+        // Update local completion state to remove UI blocker
+        const completionKey = `${COMPLETION_STATE_PREFIX}${selectedCompany.id}`;
+        const stored = localStorage.getItem(completionKey);
+        if (stored) {
+          const completion = JSON.parse(stored) as CompletionState;
+          completion.dashboardRefreshed = true;
+          localStorage.setItem(completionKey, JSON.stringify(completion));
+          setCompletionState(completion);
+        }
       }
     };
     
@@ -584,7 +575,7 @@ export const useReportGeneration = (selectedCompany: Company | null) => {
         abortControllerRef.current = null;
       }
     };
-  }, [isGenerating, runId, selectedCompany, handleReportCompletion, releaseGenerationLock, syncCrossTab]);
+  }, [isGenerating, runId, selectedCompany, handleReportCompletion, releaseGenerationLock, syncCrossTab, updateTimeEstimation]);
 
   // Enhanced generateReport function with comprehensive safeguards
   const generateReport = async () => {
@@ -716,6 +707,7 @@ export const useReportGeneration = (selectedCompany: Company | null) => {
         abortControllerRef.current.abort();
       }
       if (tabSyncTimeoutRef.current) {
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         clearTimeout(tabSyncTimeoutRef.current);
       }
     };

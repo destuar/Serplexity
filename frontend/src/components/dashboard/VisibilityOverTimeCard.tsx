@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Scatter } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import Card from '../ui/Card';
 import { useDashboard } from '../../hooks/useDashboard';
 
@@ -47,7 +47,7 @@ const VisibilityOverTimeCard: React.FC<VisibilityOverTimeCardProps> = ({ selecte
     // Apply date range filter based on dashboard filters
     const now = new Date();
     const dateFilter = filters?.dateRange || '30d';
-    let cutoffDate = new Date(now);
+    const cutoffDate = new Date(now);
     
     switch (dateFilter) {
       case '7d':
@@ -98,7 +98,7 @@ const VisibilityOverTimeCard: React.FC<VisibilityOverTimeCardProps> = ({ selecte
       })
       .filter(item => item !== null) // Remove invalid dates
       .sort((a, b) => new Date(a!.fullDate).getTime() - new Date(b!.fullDate).getTime())
-      .map(({ fullDate, ...rest }) => rest); // Remove fullDate from final data
+      .map(({ fullDate: _fullDate, ...rest }) => rest); // Remove fullDate from final data
 
     return processedData as ChartDataPoint[];
   }, [data?.shareOfVoiceHistory, selectedModel, filters?.dateRange]);

@@ -136,10 +136,6 @@ const mockResponseDetailsData: ResponseDetail[] = [
     }
 ];
 
-const mockCompany = {
-    name: 'Serplexity'
-};
-
 const dateRangeOptions = [
   { value: '30d', label: 'Last 30 days' },
   { value: '7d', label: 'Last 7 days' },

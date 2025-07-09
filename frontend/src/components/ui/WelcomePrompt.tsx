@@ -1,6 +1,13 @@
 import React from 'react';
-import { Sparkles, Loader, CheckCircle, Clock } from 'lucide-react';
+import { Sparkles, Loader, CheckCircle } from 'lucide-react';
 import { useCompany } from '../../contexts/CompanyContext';
+
+interface CompletionState {
+  timestamp: number;
+  companyId: string;
+  reportCompleted: boolean;
+  dashboardRefreshed: boolean;
+}
 
 interface WelcomePromptProps {
   onGenerateReport: () => void;
@@ -9,7 +16,7 @@ interface WelcomePromptProps {
   progress?: number;
   isButtonDisabled?: boolean;
   generationState?: string;
-  completionState?: any;
+  completionState?: CompletionState | null;
 }
 
 const WelcomePrompt: React.FC<WelcomePromptProps> = ({
@@ -21,7 +28,7 @@ const WelcomePrompt: React.FC<WelcomePromptProps> = ({
   generationState,
   completionState
 }) => {
-  const { selectedCompany } = useCompany();
+  const { selectedCompany: _selectedCompany } = useCompany();
 
   // Use the progress value directly from the hook (which already handles monotonic progression)
   const currentProgress = progress;
@@ -105,35 +112,6 @@ const WelcomePrompt: React.FC<WelcomePromptProps> = ({
     }
 
     return `${baseClass} bg-gradient-to-r from-[#7762ff] to-[#9e52ff] text-white hover:from-[#6650e6] hover:to-[#8a47e6]`;
-  };
-
-  // Enhanced disabled state logic
-  const getDisabledReason = () => {
-    if (!selectedCompany?.competitors?.length) {
-      return "Add at least one competitor to your company profile before generating a report.";
-    }
-
-    if (completionState && !completionState.dashboardRefreshed) {
-      return "Report has completed. Dashboard is being updated...";
-    }
-
-    if (generationState === 'REQUESTING') {
-      return "Report generation request is being processed...";
-    }
-
-    if (generationState === 'GENERATING') {
-      return "Report is currently being generated...";
-    }
-
-    if (generationState === 'COMPLETING') {
-      return "Report is being finalized...";
-    }
-
-    if (generationState === 'COMPLETED') {
-      return "Report has been completed. Refresh the page to view the dashboard.";
-    }
-
-    return null;
   };
 
   return (

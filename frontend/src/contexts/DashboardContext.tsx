@@ -178,7 +178,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedCompany, filters, location.pathname, hasReport]);
+  }, [selectedCompany, filters, location.pathname, hasReport, data]);
 
   // Listen for report completion events to update state immediately
   useEffect(() => {

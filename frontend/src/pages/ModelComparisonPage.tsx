@@ -402,7 +402,7 @@ const ModelComparisonPage: React.FC = () => {
     
     // Merge shareOfVoiceHistory from every model (exclude the aggregated 'all')
     comparisonData.forEach(model => {
-      (model.shareOfVoiceHistory || []).forEach((pt: any) => {
+      (model.shareOfVoiceHistory || []).forEach((pt: { date: string; shareOfVoice: number; aiModel: string; }) => {
         if (pt.aiModel !== 'all') {
           const dateKey = new Date(pt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
           if (!historyAccumulator[dateKey]) {

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Sparkles, RefreshCw, Loader, MessageSquare, ListFilter, ChevronDown, ChevronUp } from 'lucide-react';
 import { useCompany } from '../contexts/CompanyContext';
@@ -12,37 +12,7 @@ import { getModelFilterOptions, DashboardFilters } from '../types/dashboard';
 import { getModelDisplayName } from '../types/dashboard';
 import { cn } from '../lib/utils';
 import { useReportGeneration } from '../hooks/useReportGeneration';
-
-// Fanout question types and their display labels
-export const FANOUT_QUESTION_TYPES = [
-  'benchmark',
-  'paraphrase',
-  'comparison',
-  'temporal',
-  'topical',
-  'entity_broader',
-  'entity_narrower',
-  'session_context',
-  'user_profile',
-  'vertical',
-  'safety_probe'
-] as const;
-
-export type FanoutQuestionType = typeof FANOUT_QUESTION_TYPES[number];
-
-export const FANOUT_DISPLAY_LABELS: Record<FanoutQuestionType, string> = {
-  'benchmark': 'Benchmark',
-  'paraphrase': 'Paraphrase',
-  'comparison': 'Comparison',
-  'temporal': 'Time-based',
-  'topical': 'Related Topics',
-  'entity_broader': 'Broader Category',
-  'entity_narrower': 'Specific Focus',
-  'session_context': 'Context',
-  'user_profile': 'Personalized',
-  'vertical': 'Media Search',
-  'safety_probe': 'Safety Check'
-};
+import { FANOUT_QUESTION_TYPES, FANOUT_DISPLAY_LABELS, FanoutQuestionType } from '../types/responses';
 
 /**
  * Removes <brand> tags from a string, returning the clean text.
@@ -68,7 +38,7 @@ interface FlattenedResponse {
   questionId: string; // Add question ID for grouping
 }
 
-const ResponseItem: React.FC<{ item: FlattenedResponse; index: number; autoExpand?: boolean }> = ({ item, index, autoExpand=false }) => {
+const ResponseItem: React.FC<{ item: FlattenedResponse; autoExpand?: boolean }> = ({ item, autoExpand=false }) => {
     const [isExpanded, setIsExpanded] = useState(false);
 
     // auto expand if prop true on first render
@@ -217,9 +187,9 @@ const ResponseDetailsPage: React.FC = () => {
                     
                     // Debug: Check for shared rankings in the raw data
                     if (data.questions && Array.isArray(data.questions)) {
-                        const questionsWithRank1 = data.questions.filter((q: any) => q.bestPosition === 1);
-                        const questionsWithoutMentions = data.questions.filter((q: any) => q.bestPosition === null);
-                        const questionsWithBadData = data.questions.filter((q: any) => q.bestPosition === 1 && q.totalMentions === 0);
+                        const questionsWithRank1 = data.questions.filter((q: TopRankingQuestion) => q.bestPosition === 1);
+                        const questionsWithoutMentions = data.questions.filter((q: TopRankingQuestion) => q.bestPosition === null);
+                        const questionsWithBadData = data.questions.filter((q: TopRankingQuestion) => q.bestPosition === 1 && q.totalMentions === 0);
                         
                         console.log('[ResponseDetailsPage] Debug stats:');
                         console.log('- Questions with rank 1:', questionsWithRank1.length);
@@ -228,7 +198,7 @@ const ResponseDetailsPage: React.FC = () => {
                         
                         if (questionsWithBadData.length > 0) {
                             console.warn('[ResponseDetailsPage] FOUND BUGGY DATA - Questions with rank 1 but no mentions:');
-                            questionsWithBadData.slice(0, 3).forEach((q: any, i: number) => {
+                            questionsWithBadData.slice(0, 3).forEach((q: TopRankingQuestion, i: number) => {
                                 console.warn(`${i + 1}. "${q.question?.substring(0, 50)}..." - bestPosition: ${q.bestPosition}, totalMentions: ${q.totalMentions}`);
                             });
                         }
@@ -288,7 +258,7 @@ const ResponseDetailsPage: React.FC = () => {
         console.log('[ResponseDetailsPage] Processed', responses.length, 'responses, showing', limited.length, 'after limit');
         
         return limited;
-    }, [questionsRaw, showLimit, filters.aiModel]); // Added filters.aiModel to dependencies
+    }, [questionsRaw, showLimit]);
 
     useEffect(() => {
         if (initialQuestionId) {
@@ -423,12 +393,11 @@ const ResponseDetailsPage: React.FC = () => {
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="space-y-2 pb-6">
+                                        <div className="space-y-3">
                                             {processedResponses.map((item, index) => (
                                                 <ResponseItem 
-                                                    key={`${item.questionType}-${item.model}-${index}-${item.question.substring(0, 20)}`} 
+                                                    key={`${item.questionType}-${item.model}-${index}-${item.question.substring(0,20)}`}
                                                     item={item} 
-                                                    index={index} 
                                                     autoExpand={item.questionId === initialQuestionId}
                                                 />
                                             ))}

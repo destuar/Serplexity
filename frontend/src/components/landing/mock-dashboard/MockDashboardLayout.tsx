@@ -1,7 +1,8 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import MockSidebar from './MockSidebar';
 import MockHeader from './MockHeader';
-import { CompanyContext } from '../../../hooks/useCompany';
+import { CompanyContext, CompanyFormData } from '../../../hooks/useCompany';
+import { Company } from '../../../types/schemas';
 
 // Mock Company Context value for the dashboard preview
 const mockCompanyValue = {
@@ -20,8 +21,8 @@ const mockCompanyValue = {
   companies: [],
   loading: false,
   error: null,
-  createCompany: () => Promise.resolve({} as any),
-  updateCompany: () => Promise.resolve({} as any),
+  createCompany: (data: CompanyFormData): Promise<Company> => Promise.resolve({ ...data, id: 'new-mock-id', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), userId: 'mock-user-id', competitors: [], benchmarkingQuestions: [], products: [] }),
+  updateCompany: (id: string, data: Partial<CompanyFormData>): Promise<Company> => Promise.resolve({ id, name: 'Updated Serplexity', website: 'https://serplexity.com', industry: 'Tech', ...data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), userId: 'mock-user-id', competitors: [], benchmarkingQuestions: [], products: [] }),
   deleteCompany: () => Promise.resolve(),
   selectCompany: () => {},
   refreshCompanies: () => Promise.resolve(),

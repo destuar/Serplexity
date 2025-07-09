@@ -146,7 +146,7 @@ export interface DashboardData {
   // Complex, pre-computed data objects
   competitorRankings: CompetitorRankingsResponse;
   topQuestions: TopRankingQuestion[];
-  sentimentOverTime: { date: string; score: number }[];
+  sentimentOverTime: { date: string; sentimentScore: number; aiModel: string; }[];
   shareOfVoiceHistory: { date: string; shareOfVoice: number; aiModel: string; }[];
 
   // Report metadata
