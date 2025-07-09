@@ -235,7 +235,13 @@ const LandingPage: React.FC = () => {
     { file: 'logo-perplexity-1024x258.png', name: 'Perplexity' },
     { file: 'OpenAI_Logo.svg.png', name: 'OpenAI' },
     { file: 'Anthropic-Logo.wine.svg', name: 'Anthropic' },
+    { file: 'copilot-logo.png', name: 'GitHub Copilot' },
+    { file: 'Grok-feb-2025-logo.svg.png', name: 'Grok' },
+    { file: 'DeepSeek_logo.svg.png', name: 'DeepSeek' },
   ];
+
+  const topRowLogos = companyLogos.slice(0, 4);
+  const bottomRowLogos = companyLogos.slice(4, 7);
 
   return (
     <div className="bg-gradient-to-br from-black via-[#0a0a1a] to-[#050510] text-white relative min-h-screen">
@@ -258,6 +264,309 @@ const LandingPage: React.FC = () => {
         margin: 0 2rem;
         vertical-align: middle;
       }
+      
+      /* Vertical Grid Lines */
+      .vertical-grid-container {
+        position: relative;
+      }
+      
+      .vertical-grid-container::before,
+      .vertical-grid-container::after {
+        content: '';
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        width: 1px;
+        background: linear-gradient(
+          to bottom,
+          transparent 0%,
+          rgba(82, 113, 255, 0.3) 10%,
+          rgba(118, 98, 255, 0.4) 50%,
+          rgba(158, 82, 255, 0.3) 90%,
+          transparent 100%
+        );
+        box-shadow: 0 0 8px rgba(118, 98, 255, 0.5);
+        z-index: 1;
+        pointer-events: none;
+        opacity: 0;
+        /* animation is now defined in the rule below to avoid being overridden */
+      }
+      
+      .vertical-grid-container::before {
+        left: max(2rem, calc(50vw - 576px));
+      }
+      
+      .vertical-grid-container::after {
+        right: max(2rem, calc(50vw - 576px));
+      }
+      
+      @keyframes gridFadeIn {
+        to { opacity: 1; }
+      }
+      
+      /* Hide on mobile for cleaner experience */
+      @media (max-width: 768px) {
+        .vertical-grid-container::before,
+        .vertical-grid-container::after {
+          display: none;
+        }
+      }
+      
+      /* Subtle pulse animation for added futuristic feel */
+      .vertical-grid-container::before,
+      .vertical-grid-container::after {
+        animation: gridFadeIn 1.5s ease-out 0.5s forwards, gridPulse 4s ease-in-out infinite 2s;
+      }
+      
+      @keyframes gridPulse {
+        0%, 100% { 
+          opacity: 1;
+          box-shadow: 0 0 8px rgba(118, 98, 255, 0.5);
+        }
+        50% { 
+          opacity: 0.7;
+          box-shadow: 0 0 12px rgba(118, 98, 255, 0.7);
+        }
+      }
+      
+      /* Horizontal Section Dividers */
+      .section-divider {
+        height: 1px;
+        background: linear-gradient(
+          to right,
+          transparent 0%,
+          rgba(82, 113, 255, 0.2) 15%,
+          rgba(118, 98, 255, 0.4) 35%,
+          rgba(158, 82, 255, 0.5) 50%,
+          rgba(118, 98, 255, 0.4) 65%,
+          rgba(82, 113, 255, 0.2) 85%,
+          transparent 100%
+        );
+        box-shadow: 0 0 6px rgba(118, 98, 255, 0.3);
+        margin: 8rem auto;
+        max-width: 1200px;
+        opacity: 0;
+        transform: scaleX(0);
+        /* Animation is now handled by .top-divider and .in-view for better control */
+        position: relative;
+      }
+      
+      @keyframes dividerReveal {
+        0% {
+          opacity: 0;
+          transform: scaleX(0);
+        }
+        60% {
+          opacity: 0.8;
+          transform: scaleX(1.02);
+        }
+        100% {
+          opacity: 0.6;
+          transform: scaleX(1);
+        }
+      }
+      
+      /* Intersection Observer trigger classes */
+      .top-divider,
+      .section-divider.in-view {
+        animation: dividerReveal 1.5s ease-out 0.5s forwards;
+      }
+      
+      /* Dashboard Preview Container Styling */
+      .dashboard-preview-container {
+        position: relative;
+        margin: 1rem 0;
+        padding: 1rem 0;
+      }
+      
+      .dashboard-frame-line {
+        height: 1px;
+        background: linear-gradient(
+          to right,
+          transparent 0%,
+          rgba(82, 113, 255, 0.15) 10%,
+          rgba(118, 98, 255, 0.3) 25%,
+          rgba(158, 82, 255, 0.4) 50%,
+          rgba(118, 98, 255, 0.3) 75%,
+          rgba(82, 113, 255, 0.15) 90%,
+          transparent 100%
+        );
+        box-shadow: 0 0 8px rgba(118, 98, 255, 0.2);
+        max-width: 1400px;
+        margin: 0 auto;
+        opacity: 0;
+        transform: scaleX(0);
+        position: relative;
+      }
+      
+      .dashboard-frame-top {
+        animation: dashboardFrameReveal 1.5s ease-out 0.5s forwards;
+      }
+      
+      .dashboard-frame-bottom {
+        animation: dashboardFrameReveal 1.5s ease-out 0.5s forwards;
+      }
+      
+      /* Subtle corner accents */
+      .dashboard-frame-line::before,
+      .dashboard-frame-line::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        width: 12px;
+        height: 12px;
+        background: radial-gradient(circle, rgba(118, 98, 255, 0.6) 0%, transparent 70%);
+        border-radius: 50%;
+        transform: translateY(-50%);
+        box-shadow: 0 0 8px rgba(118, 98, 255, 0.4);
+        opacity: 0;
+        animation: cornerAccentFade 1s ease-out 1.5s forwards;
+      }
+      
+      .dashboard-frame-line::before {
+        left: 10%;
+      }
+      
+      .dashboard-frame-line::after {
+        right: 10%;
+      }
+      
+      @keyframes dashboardFrameReveal {
+        0% {
+          opacity: 0;
+          transform: scaleX(0);
+        }
+        70% {
+          opacity: 0.8;
+          transform: scaleX(1.01);
+        }
+        100% {
+          opacity: 0.5;
+          transform: scaleX(1);
+        }
+      }
+      
+      @keyframes cornerAccentFade {
+        to {
+          opacity: 0.7;
+        }
+      }
+      
+      /* Dashboard content enhancement */
+      .dashboard-preview-content {
+        position: relative;
+        z-index: 2;
+      }
+      
+      /* Contained grid glow - fills EXACTLY the rectangle defined by frame lines */
+      .dashboard-preview-container::before {
+        content: '';
+        position: absolute;
+        top: 1px;  /* Start after top frame line */
+        left: max(2rem, calc(50vw - 576px));  /* Align with vertical grid lines */
+        right: max(2rem, calc(50vw - 576px)); /* Align with vertical grid lines */
+        bottom: 1px; /* End before bottom frame line */
+        background: 
+          radial-gradient(
+            ellipse at center,
+            rgba(118, 98, 255, 0.08) 0%,
+            rgba(82, 113, 255, 0.05) 30%,
+            rgba(158, 82, 255, 0.03) 60%,
+            transparent 80%
+          ),
+          linear-gradient(
+            to bottom,
+            rgba(118, 98, 255, 0.02) 0%,
+            rgba(118, 98, 255, 0.06) 50%,
+            rgba(118, 98, 255, 0.02) 100%
+          );
+        border-radius: 0;
+        z-index: -1;
+        opacity: 0;
+        animation: containedGlow 2.5s ease-out 1.2s forwards;
+      }
+      
+      /* Enhanced ambient glow for dashboard content */
+      .dashboard-preview-content::before {
+        content: '';
+        position: absolute;
+        top: -1rem;
+        left: -1rem;
+        right: -1rem;
+        bottom: -1rem;
+        background: radial-gradient(
+          ellipse at center,
+          rgba(118, 98, 255, 0.06) 0%,
+          rgba(158, 82, 255, 0.04) 40%,
+          transparent 70%
+        );
+        border-radius: 1.5rem;
+        z-index: -1;
+        opacity: 0;
+        animation: ambientGlow 2s ease-out 1.5s forwards;
+      }
+      
+      @keyframes containedGlow {
+        0% {
+          opacity: 0;
+          transform: scale(0.95);
+        }
+        60% {
+          opacity: 0.8;
+          transform: scale(1.01);
+        }
+        100% {
+          opacity: 0.6;
+          transform: scale(1);
+        }
+      }
+      
+      @keyframes ambientGlow {
+        to {
+          opacity: 1;
+        }
+      }
+      
+      /* Responsive adjustments */
+      @media (max-width: 768px) {
+        .dashboard-preview-container {
+          margin: 2rem 0;
+          padding: 2rem 0;
+        }
+        
+        .dashboard-frame-line {
+          max-width: 90%;
+          box-shadow: 0 0 4px rgba(118, 98, 255, 0.15);
+        }
+        
+        .dashboard-frame-top {
+          margin-bottom: 2rem;
+        }
+        
+        .dashboard-frame-bottom {
+          margin-top: 2rem;
+        }
+        
+        .dashboard-frame-line::before,
+        .dashboard-frame-line::after {
+          width: 8px;
+          height: 8px;
+          box-shadow: 0 0 6px rgba(118, 98, 255, 0.3);
+        }
+        
+        .dashboard-preview-content {
+          padding: 0 1rem;
+        }
+        
+        /* Mobile glow adjustments */
+        .dashboard-preview-container::before {
+          left: 1rem;
+          right: 1rem;
+          box-shadow: 
+            inset 0 0 15px rgba(118, 98, 255, 0.04),
+            0 0 20px rgba(118, 98, 255, 0.08);
+        }
+      }
       `}</style>
       {/* Subtle background gradients */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#5271ff]/15 via-[#7662ff]/8 to-[#9e52ff]/15"></div>
@@ -266,11 +575,17 @@ const LandingPage: React.FC = () => {
       {/* Shooting Stars */}
       <div ref={starContainerRef} className="absolute inset-0 overflow-hidden pointer-events-none z-0" />
       
-      <div className="relative z-10">
+      <div className="relative z-10 vertical-grid-container">
         <Navbar />
         
         {/* Hero Section */}
-        <section className="relative flex flex-col items-center justify-center min-h-screen px-4 pt-40 md:pt-48 pb-24">
+        <section className="relative flex flex-col items-center px-4 pt-28 md:pt-36 pb-4">
+          
+          {/* Top Divider for Hero Section */}
+          <div className="absolute -top-8 left-0 right-0">
+            <div className="section-divider my-0 top-divider"></div>
+          </div>
+
           <div className="flex flex-col items-center text-center max-w-5xl mx-auto">
             <h1 className="text-6xl md:text-7xl font-bold mb-6 text-white tracking-tight">
               The Future of Search<br className="hidden md:block" />
@@ -283,12 +598,12 @@ const LandingPage: React.FC = () => {
               </span>
             </h1>
             <p className="text-xl md:text-2xl text-gray-300 max-w-4xl mx-auto mt-2 mb-8 leading-relaxed">
-              <span className="md:hidden">We are the first agency purpose-built for the generative era of SEO. Enhance your visibility with Google SGE, Gemini, Perplexity, ChatGPT, and beyond.</span>
-              <span className="hidden md:inline">We are the first agency purpose-built for the generative era of SEO. Enhance your visibility with Google SGE, Gemini, Perplexity, ChatGPT, and beyond.</span>
+              <span className="md:hidden">Enhance your visibility with Google SGE, Gemini, Perplexity, ChatGPT, and beyond. Software purpose-built for the era of AI search. </span>
+              <span className="hidden md:inline">Enhance your visibility with Google SGE, Gemini, Perplexity, ChatGPT, and beyond. Software purpose-built for the era of AI search. </span>
             </p>
             
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-16 justify-center">
+            <div className="flex flex-col sm:flex-row gap-4 mb-4 justify-center">
               <button 
                 onClick={user ? handleDashboard : handleGetStarted}
                 className="px-8 py-4 bg-[#7762ff] hover:bg-[#6650e6] text-white rounded-full font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-200 relative"
@@ -302,24 +617,30 @@ const LandingPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Dashboard Preview */}
-          <div id="product-preview">
-            {isLargeScreen ? (
-              <DashboardPreviewCarousel />
-            ) : (
-              <img
-                src="/mock_dashboard.png"
-                alt="Dashboard preview"
-                className="w-full rounded-xl shadow-lg"
-                style={{ maxWidth: 600, margin: '0 auto' }}
-              />
-            )}
+          {/* Dashboard Preview Container */}
+          <div id="product-preview" className="dashboard-preview-container">
+            {/* Top containment line */}
+            <div className="dashboard-frame-line dashboard-frame-top"></div>
+            
+            {/* Dashboard Preview */}
+            <div className="dashboard-preview-content">
+              {isLargeScreen ? (
+                <DashboardPreviewCarousel />
+              ) : (
+                <img
+                  src="/mock_dashboard.png"
+                  alt="Dashboard preview"
+                  className="w-full rounded-xl shadow-lg"
+                  style={{ maxWidth: 600, margin: '0 auto' }}
+                />
+              )}
+            </div>
           </div>
 
           {/* Company Logos */}
           <div className="w-full max-w-7xl mx-auto px-4">
             <div className="text-center pt-0 md:pt-2 mb-2">
-              <h2 className="text-lg font-semibold text-gray-400 uppercase tracking-wide mb-2 mt-16 md:mt-20">
+              <h2 className="text-lg font-semibold text-gray-400 uppercase tracking-wide mb-2 mt-8 md:mt-12">
                 Optimizing for AI search across leading engines
               </h2>
             </div>
@@ -355,63 +676,96 @@ const LandingPage: React.FC = () => {
               </div>
             </div>
             {/* Grid for large screens */}
-            <div className="hidden lg:grid grid-cols-4 gap-x-8 gap-y-8 items-center justify-items-center max-w-6xl mx-auto pt-2 md:pt-4">
-              {companyLogos.map((logo, i) => (
-                <div
-                  key={i}
-                  className={
-                    logo.file === 'Anthropic-Logo.wine.svg'
-                      ? 'w-48 h-48 flex items-center justify-center'
-                      : logo.file === 'logo-perplexity-1024x258.png'
-                        ? 'w-44 h-36 flex items-center justify-center'
-                        : 'w-32 h-32 flex items-center justify-center'
-                  }
-                >
-                  <img
-                    src={`/${logo.file}`}
-                    alt={`${logo.name} logo`}
-                    className="w-auto object-contain"
-                    style={{
-                      height:
-                        logo.file === 'Anthropic-Logo.wine.svg'
-                          ? '160px'
-                          : logo.file === 'logo-perplexity-1024x258.png'
-                            ? '110px'
-                            : logo.file === 'Google_Gemini_logo.svg.png'
-                              ? '36px'
-                              : '48px',
-                      filter: 'brightness(0) invert(1)',
-                    }}
-                  />
-                </div>
-              ))}
+            <div className="hidden lg:block max-w-6xl mx-auto pt-2 md:pt-4 pb-0">
+              {/* Top row - 4 logos */}
+              <div className="grid grid-cols-4 gap-x-8 gap-y-8 items-center justify-items-center mb-2">
+                {topRowLogos.map((logo, i) => (
+                  <div
+                    key={i}
+                    className={
+                      logo.file === 'Anthropic-Logo.wine.svg'
+                        ? 'w-48 h-48 flex items-center justify-center'
+                        : logo.file === 'logo-perplexity-1024x258.png'
+                          ? 'w-44 h-36 flex items-center justify-center'
+                          : 'w-32 h-32 flex items-center justify-center'
+                    }
+                  >
+                    <img
+                      src={`/${logo.file}`}
+                      alt={`${logo.name} logo`}
+                      className="w-auto object-contain"
+                      style={{
+                        height:
+                          logo.file === 'Anthropic-Logo.wine.svg'
+                            ? '160px'
+                            : logo.file === 'logo-perplexity-1024x258.png'
+                              ? '110px'
+                              : logo.file === 'Google_Gemini_logo.svg.png'
+                                ? '36px'
+                                : '48px',
+                        filter: 'brightness(0) invert(1)',
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+              
+              {/* Bottom row - 3 logos centered */}
+              <div className="grid grid-cols-3 gap-x-8 gap-y-8 items-center justify-items-center max-w-3xl mx-auto mb-0">
+                {bottomRowLogos.map((logo, i) => (
+                  <div
+                    key={i}
+                    className="w-32 h-32 flex items-center justify-center"
+                  >
+                    <img
+                      src={`/${logo.file}`}
+                      alt={`${logo.name} logo`}
+                      className="w-auto object-contain"
+                      style={{
+                        height:
+                          logo.file === 'copilot-logo.png'
+                            ? '48px'
+                            : logo.file === 'Grok-feb-2025-logo.svg.png'
+                              ? '48px'
+                              : logo.file === 'DeepSeek_logo.svg.png'
+                                ? '48px'
+                                : '48px',
+                        filter: 'brightness(0) invert(1)',
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </section>
 
+        {/* Divider: Hero → Story */}
+        <div className="section-divider hidden md:block"></div>
+
         {/* Story Section */}
-        <section id="story" className="py-24">
+        <section id="story" className="py-20 md:pt-16 md:pb-24">
           <div className="max-w-6xl mx-auto px-6 lg:px-8">
 
             <div className="flex flex-col space-y-40">
               <FadeIn direction="right" className="self-start">
                 <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-3xl text-left">
-                  AI answers now appear in <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">over 50% of Google searches,</span> fundamentally changing traditional search optimization.
+                  AI answers now appear in <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">over 50% of Google searches,</span> fundamentally changing how brands connect with their customers.
                 </p>
               </FadeIn>
               <FadeIn delay={100} direction="left" className="self-end">
                 <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-3xl text-right">
-                This is more than a trend—AI Overview footprints have more than <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">doubled in the last year</span> and continues accelerating across all major search engines.
+                This is more than a trend—AI Overview footprints have more than <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">doubled in the last year</span>.
                 </p>
               </FadeIn>
               <FadeIn delay={200} direction="right" className="self-start">
                 <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-3xl text-left">
-                  On mobile, these AI answers can <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">dominate nearly half the screen,</span> pushing out traditional organic results.
+                  On mobile, these AI answers can <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">dominate nearly half the screen,</span> pushing out traditional results.
                 </p>
               </FadeIn>
               <FadeIn delay={300} direction="left" className="self-end">
                 <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-3xl text-right">
-                  Brands not cited lose <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">up to 35% of potential traffic</span> when an AI Overview appears for their target keywords.
+                  Brands not cited lose <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">up to 35% of potential traffic</span> when an AI Overview appears for their query.
                 </p>
               </FadeIn>
               <FadeIn delay={400} direction="right" className="self-start">
@@ -420,15 +774,18 @@ const LandingPage: React.FC = () => {
                 </p>
               </FadeIn>
               <FadeIn delay={500} direction="left" className="self-end">
-                <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-4xl text-center">
-                  Your competitors are already adapting. The brands that build AI citation optimization <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">will dominate the next decade of search.</span>
+                <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-4xl text-right">
+                  The brands that adapt will <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">dominate the next decade</span>. We are building for the era of AI-powered search.
                 </p>
               </FadeIn>
             </div>
 
+            {/* Divider: Story → Solutions */}
+            <div className="section-divider hidden md:block"></div>
+
             {/* Feature Showcase (moved inside story section) */}
             <SlideIn>
-              <div id="solutions" className="mt-48 relative">
+              <div id="solutions" className="mt-24 relative hidden md:block">
                 {/* Liquid Glass Container - Made wider */}
                 <div className="relative bg-black/5 backdrop-blur-xl rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-8 md:p-12 lg:p-16 overflow-hidden max-w-7xl mx-auto">
                   {/* Glass morphism border glow */}
@@ -442,7 +799,7 @@ const LandingPage: React.FC = () => {
                         Your Opportunity to Win AI Search
                       </h2>
                       <p className="text-xl text-gray-300 max-w-4xl mx-auto">
-                        While your others are growing their visibility, your brand could be missing from the conversation entirely. Here's everything you need to measure, improve, and build your AI search presence.
+                        Your brand could be missing from the conversation entirely. Here is everything you need to measure, improve, and build your AI search presence.
                       </p>
                     </div>
                     
@@ -451,9 +808,9 @@ const LandingPage: React.FC = () => {
                       {/* Left column - Features stacked vertically */}
                       <div className="space-y-8 flex flex-col h-full">
                         {[
-                          { icon: Sparkles, title: "AI Visibility Analytics", desc: "Discover if you're being cited in AI answers across Google AI Overviews, ChatGPT, Perplexity, and Claude. Track your share of voice versus competitors and identify which queries are driving citations." },
+                          { icon: Sparkles, title: "AI Visibility Analytics", desc: "Discover if you're being cited in AI answers across Google AI Overviews, ChatGPT, Perplexity, and Claude. Track your share of voice and see which queries are driving citations." },
                           { icon: BarChart2, title: "Citation-Ready Content Optimization", desc: "Transform your existing content into AI-preferred formats. Our tool analyzes your pages and provides specific rewrites that increase your visibility." },
-                          { icon: Target, title: "Competitive Intelligence Reports", desc: "See exactly which competitors are dominating AI citations in your space. Get daily alerts when they gain ground and actionable strategies to outrank them." }
+                          { icon: Target, title: "Competitive Intelligence Reports", desc: "See exactly which competitors are dominating AI citations in your space. Receive daily insights and actionable strategies to outrank them." }
                         ].map((feature, i) => (
                           <div key={i} className="bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-6 hover:bg-black/10 transition-all duration-200 group flex-grow">
                             {/* Icon with gradient background */}
@@ -492,7 +849,7 @@ const LandingPage: React.FC = () => {
 
         {/* Comparison Table Section */}
         <SlideIn>
-          <section id="comparison" className="py-24 relative">
+          <section id="comparison" className="py-24 relative hidden md:block">
             <div className="max-w-6xl mx-auto px-6 lg:px-8">
               <div className="text-center mb-20">
                 <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-white mb-6">
@@ -616,7 +973,7 @@ const LandingPage: React.FC = () => {
 
         {/* Pricing Section */}
         <SlideIn>
-          <section id="pricing" className="py-24">
+          <section id="pricing" className="py-24 hidden md:block">
             <div className="max-w-6xl mx-auto px-6 lg:px-8">
               <div className="text-center mb-16">
                 <h2 className="text-4xl font-bold tracking-tight text-white mb-4">
@@ -723,9 +1080,12 @@ const LandingPage: React.FC = () => {
           </section>
         </SlideIn>
 
+        {/* Divider: Pricing → FAQ */}
+        <div className="section-divider hidden md:block"></div>
+
         {/* FAQ Accordion Section */}
         <SlideIn>
-          <section id="faq" className="py-24">
+          <section id="faq" className="py-20 md:py-24">
             <div className="max-w-4xl mx-auto px-6 lg:px-8">
               <div className="text-center mb-16">
                 <h2 className="text-4xl font-bold tracking-tight text-white mb-4">
@@ -740,6 +1100,9 @@ const LandingPage: React.FC = () => {
             </div>
           </section>
         </SlideIn>
+
+        {/* Divider: FAQ → Footer */}
+        <div className="section-divider hidden md:block"></div>
 
         {/* Landing Page Footer */}
         <footer className="bg-transparent">

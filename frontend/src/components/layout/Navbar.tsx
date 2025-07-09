@@ -40,14 +40,24 @@ export function Navbar() {
   ];
   
   useEffect(() => {
-    if (isLandingStylePage) {
-      const handleScroll = () => {
-        setIsScrolled(window.scrollY > 50);
-      };
-      window.addEventListener('scroll', handleScroll);
-      handleScroll();
-      return () => window.removeEventListener('scroll', handleScroll);
-    }
+    if (!isLandingStylePage) return;
+
+    let lastScrolled = window.scrollY > 50;
+    setIsScrolled(lastScrolled); // initialise
+
+    const handleScroll = () => {
+      // Throttle using rAF to avoid flooding updates
+      requestAnimationFrame(() => {
+        const nextScrolled = window.scrollY > 50;
+        if (nextScrolled !== lastScrolled) {
+          lastScrolled = nextScrolled;
+          setIsScrolled(nextScrolled);
+        }
+      });
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
   }, [isLandingStylePage]);
 
   // Close mobile menu and profile dropdown when clicking outside
@@ -77,7 +87,10 @@ export function Navbar() {
         className={cn(
           "fixed left-0 right-0 top-0 z-50",
           isLandingStylePage
-            ? "bg-black/20 backdrop-blur-xl border-b border-white/10 lg:bg-transparent lg:border-none lg:backdrop-blur-none lg:transition-[top] lg:duration-700 lg:ease-in-out"
+            ? cn(
+                "bg-black/20 border-b border-white/10 lg:bg-transparent lg:border-none lg:backdrop-blur-none lg:transition-[top] lg:duration-700 lg:ease-in-out",
+                !isScrolled && "backdrop-blur-xl"
+              )
             : "border-b bg-white/80 backdrop-blur-sm dark:border-transparent lg:relative",
           { "lg:top-4": shouldApplyScrollStyles }
         )}

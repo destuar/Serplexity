@@ -1,6 +1,34 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import MockSidebar from './MockSidebar';
 import MockHeader from './MockHeader';
+import { CompanyContext } from '../../../hooks/useCompany';
+
+// Mock Company Context value for the dashboard preview
+const mockCompanyValue = {
+  selectedCompany: {
+    id: 'mock-company-id',
+    name: 'Serplexity',
+    website: 'https://serplexity.com',
+    industry: 'Technology',
+    userId: 'mock-user-id',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    competitors: [],
+    benchmarkingQuestions: [],
+    products: []
+  },
+  companies: [],
+  loading: false,
+  error: null,
+  createCompany: () => Promise.resolve({} as any),
+  updateCompany: () => Promise.resolve({} as any),
+  deleteCompany: () => Promise.resolve(),
+  selectCompany: () => {},
+  refreshCompanies: () => Promise.resolve(),
+  hasCompanies: true,
+  canCreateMore: false,
+  maxCompanies: 3,
+};
 
 interface MockDashboardLayoutProps {
   children: ReactNode;
@@ -55,19 +83,21 @@ class MockDashboardErrorBoundary extends Component<
 
 const MockDashboardLayout: React.FC<MockDashboardLayoutProps> = ({ children, activePage }) => {
   return (
-    <MockDashboardErrorBoundary>
-      <div className="flex h-full w-full bg-gray-50 overflow-visible">
-        <MockSidebar activePage={activePage} />
-        <div className="flex flex-col flex-1 min-w-0 h-full">
-          <MockHeader />
-          <main className="flex-1 flex flex-col overflow-visible p-4 min-h-0">
-            <div className="flex-1 min-h-0 overflow-visible flex flex-col">
-              {children}
-            </div>
-          </main>
-        </div>
-      </div>
-    </MockDashboardErrorBoundary>
+    <CompanyContext.Provider value={mockCompanyValue}>
+      <MockDashboardErrorBoundary>
+        <div className="flex h-full w-full bg-gray-50 overflow-visible">
+          <MockSidebar activePage={activePage} />
+          <div className="flex flex-col flex-1 min-w-0 h-full">
+            <MockHeader />
+            <main className="flex-1 flex flex-col overflow-visible p-4 min-h-0">
+              <div className="flex-1 min-h-0 overflow-visible flex flex-col">
+                {children}
+              </div>
+            </main>
+                     </div>
+         </div>
+       </MockDashboardErrorBoundary>
+     </CompanyContext.Provider>
   );
 };
 
