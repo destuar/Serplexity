@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { MODELS } from '../config/models';
-import { generatePlainAnswer } from '../services/llmService';
+import { generateChatCompletion } from '../services/llmService';
 
 // Schema for request validation
 const askSchema = z.object({
@@ -30,7 +30,7 @@ export const askModel = async (req: Request, res: Response) => {
     }
     lastCallMap[modelId] = now;
 
-    const { data: answer } = await generatePlainAnswer(query, model);
+    const { content: answer } = await generateChatCompletion(model, query);
     const latencyMs = Date.now() - startTime;
 
     return res.status(200).json({ engine: modelId, answer, latencyMs });

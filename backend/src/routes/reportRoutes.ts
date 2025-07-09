@@ -6,8 +6,9 @@ import { paymentGuard } from '../middleware/paymentGuard';
 
 const router = Router();
 
+// Enhanced report creation endpoint with company ID as URL parameter
 // This endpoint is protected by authentication and a payment check
-router.post('/', authenticate, paymentGuard, createReport);
+router.post('/companies/:companyId', authenticate, paymentGuard, createReport);
 
 // This endpoint is protected by authentication
 router.get('/:id/status', authenticate, getReportStatus);

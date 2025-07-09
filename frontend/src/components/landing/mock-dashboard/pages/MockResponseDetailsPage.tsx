@@ -4,6 +4,7 @@ import MockDashboardLayout from '../MockDashboardLayout';
 import { getModelDisplayName } from '../../../../types/dashboard';
 import { cn } from '../../../../lib/utils';
 import MockFilterDropdown from '../MockFilterDropdown';
+import FormattedResponseViewer from '../../../ui/FormattedResponseViewer';
 
 interface ResponseDetail {
   question: string;
@@ -154,34 +155,7 @@ const aiModelOptions = [
     { value: 'mistral-large-latest', label: 'Mistral Large' },
 ];
 
-// Using a simplified version of the real FormattedResponseViewer
-const FormattedResponseViewer: React.FC<{ text: string }> = ({ text }) => {
-    const renderFormattedText = (str: string): React.ReactNode => {
-        const boldPattern = /(\*\*.*?\*\*)/g;
-        const parts = str.split(boldPattern);
-        return parts.filter(Boolean).map((part, index) => {
-            if (part.startsWith('**') && part.endsWith('**')) {
-                const boldText = part.slice(2, -2);
-                return <strong key={index}>{highlightBrandName(boldText)}</strong>;
-            }
-            return <React.Fragment key={index}>{highlightBrandName(part)}</React.Fragment>;
-        });
-    };
-    const highlightBrandName = (text: string): React.ReactNode => {
-        const brandRegex = new RegExp(`(${mockCompany.name})`, 'gi');
-        const parts = text.split(brandRegex);
-        return parts.map((part, index) =>
-            part.toLowerCase() === mockCompany.name.toLowerCase() ? (
-                <span key={index} className="font-bold text-[#7762ff]">{part}</span>
-            ) : ( part )
-        );
-    };
-    return (
-        <div className="bg-white rounded-lg p-4 border-l-4 border-green-500 border border-gray-200">
-            <p className="text-sm text-gray-800 leading-relaxed">{renderFormattedText(text)}</p>
-        </div>
-    );
-};
+// Now using the enhanced FormattedResponseViewer from ../../../ui/FormattedResponseViewer
 
 const MockResponseDetailsPage: React.FC = () => {
     const [expandedIndex, setExpandedIndex] = useState<number | null>(0);

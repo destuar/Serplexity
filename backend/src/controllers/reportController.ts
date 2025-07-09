@@ -74,131 +74,284 @@ export const createReport = async (req: Request, res: Response) => {
   const startTime = Date.now();
   const endpoint = 'CREATE_REPORT';
   const userId = req.user?.id;
-
-  controllerLog({ 
-    endpoint, 
+  const companyId = req.params.companyId;
+  const force = req.query.force === 'true';
+  
+  controllerLog({
+    endpoint,
     userId,
-    metadata: { 
-      requestBody: req.body,
+    companyId,
+    metadata: {
+      force,
       userAgent: req.headers['user-agent'],
       ip: req.ip
     }
   }, 'Report creation request received');
 
   try {
-    const { companyId, force } = createReportSchema.parse(req.body);
-    
-    controllerLog({ 
-      endpoint, 
-      userId, 
-      companyId,
-      metadata: { force }
-    }, `Request validated - Force mode: ${force}`);
-
     if (!userId) {
       const duration = Date.now() - startTime;
-      controllerLog({ 
-        endpoint, 
-        duration, 
+      controllerLog({
+        endpoint,
+        companyId,
+        duration,
         statusCode: 401,
         metadata: { reason: 'missing_user_id' }
       }, 'Authentication failed - no user ID', 'WARN');
       
-      return res.status(401).json({ error: 'User not authenticated' });
+      return res.status(401).json({ 
+        error: 'Authentication required',
+        message: 'Please log in to generate reports'
+      });
     }
 
-    // Verify the user has access to this company before proceeding
-    controllerLog({ endpoint, userId, companyId }, 'Verifying user access to company');
-    
+    if (!companyId) {
+      const duration = Date.now() - startTime;
+      controllerLog({
+        endpoint,
+        userId,
+        duration,
+        statusCode: 400,
+        metadata: { reason: 'missing_company_id' }
+      }, 'Bad request - missing company ID', 'WARN');
+      
+      return res.status(400).json({ 
+        error: 'Missing company ID',
+        message: 'Company ID is required to generate reports'
+      });
+    }
+
+    controllerLog({ endpoint, userId, companyId }, 'Validating user access to company');
+
+    // Verify user has access to this company
     const company = await prisma.company.findFirst({
-      where: { id: companyId, userId: userId },
+      where: { 
+        id: companyId,
+        userId: userId
+      },
+      include: {
+        competitors: true,
+        benchmarkingQuestions: true
+      }
     });
 
     if (!company) {
       const duration = Date.now() - startTime;
-      controllerLog({ 
-        endpoint, 
-        userId, 
-        companyId, 
-        duration, 
-        statusCode: 403,
-        metadata: { reason: 'access_denied' }
-      }, 'Access denied - company not found or access not permitted', 'WARN');
+      controllerLog({
+        endpoint,
+        userId,
+        companyId,
+        duration,
+        statusCode: 404,
+        metadata: { reason: 'company_not_found_or_access_denied' }
+      }, 'Company not found or access denied', 'WARN');
       
-      return res.status(403).json({ error: 'Access to this company is denied or company does not exist' });
+      return res.status(404).json({ 
+        error: 'Company not found',
+        message: 'Company not found or you do not have access to it'
+      });
     }
 
-    controllerLog({ 
-      endpoint, 
-      userId, 
-      companyId,
-      metadata: { companyName: company.name }
-    }, `Company access verified: ${company.name}`);
+    // Enhanced validation for report generation prerequisites
+    if (!company.competitors || company.competitors.length === 0) {
+      const duration = Date.now() - startTime;
+      controllerLog({
+        endpoint,
+        userId,
+        companyId,
+        duration,
+        statusCode: 400,
+        metadata: { 
+          reason: 'no_competitors',
+          companyName: company.name
+        }
+      }, 'Cannot generate report - no competitors configured', 'WARN');
+      
+      return res.status(400).json({
+        error: 'No competitors configured',
+        message: 'Please add at least one competitor to your company profile before generating a report'
+      });
+    }
 
-    // Queue the report generation
+    controllerLog({
+      endpoint,
+      userId,
+      companyId,
+      metadata: { 
+        companyName: company.name,
+        competitorsCount: company.competitors.length,
+        benchmarkingQuestionsCount: company.benchmarkingQuestions.length
+      }
+    }, `Company validation successful: ${company.name}`);
+
+    // Enhanced rate limiting check
+    const rateLimitWindow = 60 * 1000; // 1 minute
+    const maxRequestsPerWindow = 3;
+    const now = Date.now();
+    
+    const recentRequests = await prisma.reportRun.count({
+      where: {
+        companyId,
+        createdAt: {
+          gte: new Date(now - rateLimitWindow)
+        }
+      }
+    });
+
+    if (recentRequests >= maxRequestsPerWindow && !force) {
+      const duration = Date.now() - startTime;
+      controllerLog({
+        endpoint,
+        userId,
+        companyId,
+        duration,
+        statusCode: 429,
+        metadata: { 
+          reason: 'rate_limit_exceeded',
+          recentRequests,
+          maxRequestsPerWindow,
+          windowMs: rateLimitWindow
+        }
+      }, 'Rate limit exceeded for report generation', 'WARN');
+      
+      return res.status(429).json({
+        error: 'Rate limit exceeded',
+        message: 'Too many report generation requests. Please wait a moment before trying again.',
+        retryAfter: Math.ceil(rateLimitWindow / 1000)
+      });
+    }
+
+    // Check for any running reports for this company
+    const runningReport = await prisma.reportRun.findFirst({
+      where: {
+        companyId,
+        status: { in: ['PENDING', 'RUNNING'] }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (runningReport && !force) {
+      const duration = Date.now() - startTime;
+      controllerLog({
+        endpoint,
+        userId,
+        companyId,
+        duration,
+        statusCode: 409,
+        metadata: { 
+          reason: 'concurrent_generation',
+          existingRunId: runningReport.id,
+          existingStatus: runningReport.status,
+          existingCreatedAt: runningReport.createdAt
+        }
+      }, 'Concurrent report generation detected', 'WARN');
+      
+      return res.status(409).json({
+        error: 'Report generation in progress',
+        message: 'A report is already being generated for this company. Please wait for it to complete.',
+        existingRunId: runningReport.id,
+        status: runningReport.status
+      });
+    }
+
+    // Queue the report generation with enhanced error handling
     controllerLog({ endpoint, userId, companyId }, 'Initiating report queue process');
     
-    const result = await queueReport(companyId, force);
-    
-    const duration = Date.now() - startTime;
-    const statusCode = result.isNew ? 202 : 200;
-    
-    controllerLog({ 
-      endpoint, 
-      userId, 
-      companyId, 
-      reportId: result.runId,
-      duration, 
-      statusCode,
-      metadata: { 
-        isNew: result.isNew,
-        status: result.status,
-        companyName: company.name
-      }
-    }, `Report ${result.isNew ? 'queued' : 'existing'} - Run ID: ${result.runId}`);
+    try {
+      const result = await queueReport(companyId, force);
+      const duration = Date.now() - startTime;
+      const statusCode = result.isNew ? 202 : 200;
+      
+      controllerLog({
+        endpoint,
+        userId,
+        companyId,
+        reportId: result.runId,
+        duration,
+        statusCode,
+        metadata: {
+          isNew: result.isNew,
+          status: result.status,
+          companyName: company.name,
+          competitorsCount: company.competitors.length
+        }
+      }, `Report ${result.isNew ? 'queued' : 'existing'} - Run ID: ${result.runId}`);
 
-    if (result.isNew) {
+      if (result.isNew) {
         return res.status(202).json({
-            message: 'Report generation has been queued',
-            runId: result.runId,
+          message: 'Report generation has been queued successfully',
+          runId: result.runId,
+          estimatedTime: '2-5 minutes',
+          status: 'PENDING'
         });
-    } else {
+      } else {
         return res.status(200).json({
-            message: 'A report for today has already been generated or is in progress.',
-            runId: result.runId,
-            status: result.status,
+          message: 'A report for today has already been generated or is in progress',
+          runId: result.runId,
+          status: result.status
         });
+      }
+    } catch (queueError) {
+      const duration = Date.now() - startTime;
+      
+      // Enhanced error handling for different queue error types
+      let statusCode = 500;
+      let errorMessage = 'Failed to queue report generation';
+      let userMessage = 'An internal error occurred while starting report generation. Please try again.';
+      
+      if (queueError instanceof Error) {
+        if (queueError.message.includes('already being processed')) {
+          statusCode = 409;
+          errorMessage = 'Concurrent generation detected';
+          userMessage = 'A report is already being generated for this company. Please wait for it to complete.';
+        } else if (queueError.message.includes('Company with ID') && queueError.message.includes('not found')) {
+          statusCode = 404;
+          errorMessage = 'Company not found during queue process';
+          userMessage = 'Company not found or access denied';
+        } else if (queueError.message.includes('queue is not available')) {
+          statusCode = 503;
+          errorMessage = 'Report generation service unavailable';
+          userMessage = 'Report generation service is temporarily unavailable. Please try again later.';
+        }
+      }
+      
+      controllerLog({
+        endpoint,
+        userId,
+        companyId,
+        duration,
+        statusCode,
+        error: queueError,
+        metadata: {
+          errorType: queueError instanceof Error ? queueError.constructor.name : 'Unknown',
+          companyName: company.name
+        }
+      }, `Queue error: ${errorMessage}`, 'ERROR');
+      
+      return res.status(statusCode).json({
+        error: errorMessage,
+        message: userMessage
+      });
     }
-
   } catch (error) {
     const duration = Date.now() - startTime;
     
-    if (error instanceof z.ZodError) {
-      controllerLog({ 
-        endpoint, 
-        userId, 
-        duration, 
-        statusCode: 400, 
-        error,
-        metadata: { validationErrors: error.errors }
-      }, 'Request validation failed', 'ERROR');
-      
-      return res.status(400).json({ error: error.errors });
-    }
+    controllerLog({
+      endpoint,
+      userId,
+      companyId,
+      duration,
+      statusCode: 500,
+      error,
+      metadata: {
+        errorType: error instanceof Error ? error.constructor.name : 'Unknown'
+      }
+    }, `Unexpected error in report creation: ${error instanceof Error ? error.message : String(error)}`, 'ERROR');
     
-          controllerLog({ 
-        endpoint, 
-        userId, 
-        duration, 
-        statusCode: 500, 
-        error,
-        metadata: { 
-          errorType: error instanceof Error ? error.name : 'Unknown',
-          companyId: req.body?.companyId
-        }
-      }, 'Internal server error during report creation', 'ERROR');
-    
-    res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: 'An unexpected error occurred. Please try again or contact support if the problem persists.'
+    });
   }
 };
 
@@ -337,6 +490,46 @@ export const getLatestReport = async (req: Request, res: Response) => {
     // Fetch all pre-computed metrics for the latest report
     const metrics = await getFullReportMetrics(latestRun.id, effectiveModel);
 
+    // Fetch sentiment details from SentimentScore table
+    let sentimentDetails: any[] = [];
+    try {
+      const sentimentScores = await prismaReadReplica.sentimentScore.findMany({
+        where: { 
+          runId: latestRun.id,
+          name: 'Detailed Sentiment Scores'
+        },
+        select: {
+          engine: true,
+          value: true,
+          name: true
+        }
+      });
+
+      // Transform sentiment scores into the expected format
+      sentimentDetails = sentimentScores.map(score => ({
+        name: score.name,
+        engine: score.engine,
+        value: score.value
+      }));
+
+      controllerLog({ 
+        endpoint, 
+        userId, 
+        companyId, 
+        reportId: latestRun.id,
+        metadata: { sentimentScoresFound: sentimentDetails.length }
+      }, `Fetched ${sentimentDetails.length} sentiment details for dashboard`);
+    } catch (error) {
+      controllerLog({ 
+        endpoint, 
+        userId, 
+        companyId, 
+        reportId: latestRun.id, 
+        error 
+      }, 'Failed to fetch sentiment details', 'ERROR');
+      // Continue without sentiment details rather than failing the entire request
+    }
+
     // If shareOfVoiceHistory is missing (which it is for individual models), fetch it on demand
     let shareOfVoiceHistory = (metrics as any)?.shareOfVoiceHistory;
     if (!shareOfVoiceHistory || (Array.isArray(shareOfVoiceHistory) && shareOfVoiceHistory.length === 0)) {
@@ -385,6 +578,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
       lastUpdated: latestRun.updatedAt.toISOString(),
       aiVisibilitySummary: latestRun.aiVisibilitySummary || null,
       optimizationTasks,
+      sentimentDetails, // Add sentiment details to the response
       ...metrics, // Spread all the pre-computed metrics (may include history if present)
       shareOfVoiceHistory, // Ensure history is always present
       sentimentOverTime, // Ensure sentiment history is always present

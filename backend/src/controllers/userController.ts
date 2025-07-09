@@ -38,8 +38,7 @@ export const exportUserData = async (req: Request, res: Response) => {
                     include: {
                         competitors: true,
                         benchmarkingQuestions: true,
-                        products: true,
-                                    runs: {
+                        runs: {
                 include: {
                     sentimentScores: true
                 }
@@ -82,7 +81,7 @@ export const deleteUserData = async (req: Request, res: Response) => {
             await tx.reportRun.deleteMany({ where: { companyId: { in: companyIds } } });
             await tx.competitor.deleteMany({ where: { companyId: { in: companyIds } } });
             await tx.benchmarkingQuestion.deleteMany({ where: { companyId: { in: companyIds } } });
-            await tx.product.deleteMany({ where: { companyId: { in: companyIds } } });
+            // Removed product deletion as Product model deprecated
             await tx.company.deleteMany({ where: { userId: userId } });
             
             // Finally, delete the user
@@ -172,7 +171,7 @@ export const updateUserProfile = async (req: Request, res: Response) => {
         provider: true,
         subscriptionStatus: true,
         stripeCustomerId: true,
-        companies: { include: { competitors: true, products: true, benchmarkingQuestions: true } },
+        companies: { include: { competitors: true, benchmarkingQuestions: true } },
       },
     });
 

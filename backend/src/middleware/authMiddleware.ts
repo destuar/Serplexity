@@ -25,7 +25,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, email: true, name: true, role: true, tokenVersion: true, subscriptionStatus: true, stripeCustomerId: true, companies: { include: { competitors: true, products: true, benchmarkingQuestions: true } } }
+      select: { id: true, email: true, name: true, role: true, tokenVersion: true, subscriptionStatus: true, stripeCustomerId: true, companies: { include: { competitors: true, benchmarkingQuestions: true } } }
     });
 
     if (!user || user.tokenVersion !== payload.tokenVersion) {

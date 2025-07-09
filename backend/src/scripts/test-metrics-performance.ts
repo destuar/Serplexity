@@ -77,17 +77,15 @@ async function testMetricsPerformance(): Promise<void> {
     // Compare with database size before/after
     console.log('\n📊 Database efficiency check...');
     
-    const [reportMetricsCount, visibilityResponsesCount, benchmarkResponsesCount] = await Promise.all([
+    const [reportMetricsCount, fanoutResponsesCount] = await Promise.all([
       prisma.reportMetric.count(),
-      prisma.visibilityResponse.count(),
-      prisma.benchmarkResponse.count()
+      prisma.fanoutResponse.count(),
     ]);
 
     console.log(`📋 ReportMetric rows: ${reportMetricsCount} (pre-computed, fast)`);
-    console.log(`📋 VisibilityResponse rows: ${visibilityResponsesCount} (raw data, slow to aggregate)`);
-    console.log(`📋 BenchmarkResponse rows: ${benchmarkResponsesCount} (raw data, slow to aggregate)`);
-    
-    const speedupRatio = Math.round((visibilityResponsesCount + benchmarkResponsesCount) / reportMetricsCount);
+    console.log(`📋 FanoutResponse rows: ${fanoutResponsesCount} (raw data, slow to aggregate)`);
+
+    const speedupRatio = Math.round(fanoutResponsesCount / (reportMetricsCount || 1));
     console.log(`⚡ Efficiency improvement: ~${speedupRatio}x fewer rows to query`);
 
   } catch (error) {

@@ -1,0 +1,362 @@
+import { z } from 'zod';
+import { generateAndValidate } from './llmService';
+import { ModelTask, ModelEngine, getModelsByTask, Model, LLM_CONFIG } from '../config/models';
+import pLimit from 'p-limit';
+import { FANOUT_SYSTEM_PROMPT, FANOUT_EXAMPLES } from '../prompts';
+import prisma from '../config/db';
+
+// ===== FANOUT TYPES =====
+
+export const FANOUT_QUERY_TYPES = [
+  'paraphrase',
+  'comparison', 
+  'temporal',
+  'topical',
+  'entity_broader',
+  'entity_narrower',
+  'session_context',
+  'user_profile',
+  'vertical',
+  'safety_probe'
+] as const;
+
+export type FanoutQueryType = typeof FANOUT_QUERY_TYPES[number];
+
+export interface FanoutOptions {
+  prev_query?: string | null;
+  geo?: string | null;
+  user_profile?: Record<string, any> | null;
+  company_name?: string;
+  industry?: string;
+}
+
+export interface FanoutResult {
+  paraphrase: string[];
+  comparison: string[];
+  temporal: string[];
+  topical: string[];
+  entity_broader: string[];
+  entity_narrower: string[];
+  session_context: string[];
+  user_profile: string[];
+  vertical: string[];
+  safety_probe: string[];
+}
+
+export interface ModelFanoutGeneration {
+  modelId: string;
+  modelEngine: ModelEngine;
+  fanoutQueries: FanoutResult;
+  tokenUsage: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+}
+
+export interface CompleteFanoutData {
+  baseQuery: string;
+  modelGenerations: ModelFanoutGeneration[];
+  totalTokenUsage: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+  generatedAt: Date;
+}
+
+// ===== DISPLAY LABELS =====
+
+export const FANOUT_DISPLAY_LABELS: Record<FanoutQueryType, string> = {
+  'paraphrase': 'Paraphrase',
+  'comparison': 'Comparison',
+  'temporal': 'Time-based',
+  'topical': 'Related Topics',
+  'entity_broader': 'Broader Category',
+  'entity_narrower': 'Specific Focus',
+  'session_context': 'Context',
+  'user_profile': 'Personalized',
+  'vertical': 'Media Search',
+  'safety_probe': 'Safety Check'
+};
+
+export const FANOUT_DESCRIPTIONS: Record<FanoutQueryType, string> = {
+  'paraphrase': 'Different ways to ask the same question',
+  'comparison': 'Direct comparisons between options',
+  'temporal': 'Time-sensitive or recent versions',
+  'topical': 'Related questions in this topic area',
+  'entity_broader': 'Questions about the broader category',
+  'entity_narrower': 'Questions about specific brands/models',
+  'session_context': 'Questions building on previous context',
+  'user_profile': 'Questions tailored to user preferences',
+  'vertical': 'Questions seeking images, videos, or documents',
+  'safety_probe': 'Questions checking for policy compliance'
+};
+
+// ===== VALIDATION SCHEMA =====
+
+const FanoutQuerySchema = z
+  .array(z.string().max(120))
+  .min(0)
+  .max(LLM_CONFIG.FANOUT_MAX_QUERIES_PER_TYPE);
+
+const FanoutResultSchema = z.object({
+  paraphrase: FanoutQuerySchema,
+  comparison: FanoutQuerySchema,
+  temporal: FanoutQuerySchema,
+  topical: FanoutQuerySchema,
+  entity_broader: FanoutQuerySchema,
+  entity_narrower: FanoutQuerySchema,
+  session_context: FanoutQuerySchema,
+  user_profile: FanoutQuerySchema,
+  vertical: FanoutQuerySchema,
+  safety_probe: FanoutQuerySchema,
+});
+
+// ===== PROMPT BUNDLE =====
+// Centralised in prompts/fanoutPrompt.ts
+
+/**
+ * Generates fanout queries for a single base query using a specific model
+ */
+async function generateFanoutForModel(
+  baseQuery: string,
+  model: Model,
+  options: FanoutOptions = {}
+): Promise<ModelFanoutGeneration> {
+  const userPayload = {
+    base_query: baseQuery,
+    prev_query: options.prev_query || null,
+    geo: options.geo || null,
+    user_profile: options.user_profile || null,
+    company_name: options.company_name || null,
+    industry: options.industry || null
+  };
+
+  const messages = [
+    { role: "system" as const, content: FANOUT_SYSTEM_PROMPT },
+    ...FANOUT_EXAMPLES,
+    { role: "user" as const, content: JSON.stringify(userPayload) }
+  ];
+
+  const { data: fanoutResult, usage } = await generateAndValidate<FanoutResult, FanoutResult>(
+    JSON.stringify(messages),
+    FanoutResultSchema,
+    model,
+    ModelTask.QUESTION_ANSWERING, // Using question answering task since it's most similar
+    undefined, // No transform needed
+    (data: any) => {
+      // Rescue function - ensure all keys exist
+      const rescued: any = {};
+      for (const key of FANOUT_QUERY_TYPES) {
+        rescued[key] = Array.isArray(data[key]) ? data[key] : [];
+      }
+      return rescued;
+    }
+  );
+
+  // Ensure we never exceed the maximum queries per type, even if model is verbose
+  const slicedFanoutResult: FanoutResult = {} as FanoutResult;
+  FANOUT_QUERY_TYPES.forEach(type => {
+    slicedFanoutResult[type] = fanoutResult[type].slice(0, LLM_CONFIG.FANOUT_MAX_QUERIES_PER_TYPE);
+  });
+
+  return {
+    modelId: model.id,
+    modelEngine: model.engine,
+    fanoutQueries: slicedFanoutResult,
+    tokenUsage: usage
+  };
+}
+
+/**
+ * Generates fanout queries using all available models
+ */
+export async function generateCompleteFanout(
+  baseQuery: string,
+  options: FanoutOptions = {}
+): Promise<CompleteFanoutData> {
+  // Get all models that can do question answering
+  const models = getModelsByTask(ModelTask.QUESTION_ANSWERING);
+  
+  if (models.length === 0) {
+    throw new Error('No models available for fanout generation');
+  }
+
+  // Limit concurrency based on centralized configuration
+  const limit = pLimit(LLM_CONFIG.FANOUT_CONCURRENCY);
+  
+  // Generate fanout for each model in parallel
+  const modelGenerations = await Promise.all(
+    models.map(model => 
+      limit(() => generateFanoutForModel(baseQuery, model, options))
+    )
+  );
+
+  // Calculate total token usage
+  const totalTokenUsage = modelGenerations.reduce(
+    (total, generation) => ({
+      promptTokens: total.promptTokens + generation.tokenUsage.promptTokens,
+      completionTokens: total.completionTokens + generation.tokenUsage.completionTokens,
+      totalTokens: total.totalTokens + generation.tokenUsage.totalTokens,
+    }),
+    { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
+  );
+
+  return {
+    baseQuery,
+    modelGenerations,
+    totalTokenUsage,
+    generatedAt: new Date()
+  };
+}
+
+/**
+ * Flattens all fanout queries from all models into a single list for response generation
+ */
+export function flattenFanoutQueries(fanoutData: CompleteFanoutData): Array<{
+  id: string;
+  text: string;
+  type: FanoutQueryType;
+  sourceModel: string;
+  displayLabel: string;
+  description: string;
+}> {
+  const queries: Array<{
+    id: string;
+    text: string;
+    type: FanoutQueryType;
+    sourceModel: string;
+    displayLabel: string;
+    description: string;
+  }> = [];
+
+  let queryId = 1;
+
+  fanoutData.modelGenerations.forEach(generation => {
+    FANOUT_QUERY_TYPES.forEach(type => {
+      generation.fanoutQueries[type].forEach((queryText: string) => {
+        queries.push({
+          id: `fanout_${queryId++}`,
+          text: queryText,
+          type,
+          sourceModel: generation.modelId,
+          displayLabel: FANOUT_DISPLAY_LABELS[type],
+          description: FANOUT_DESCRIPTIONS[type]
+        });
+      });
+    });
+  });
+
+  return queries;
+}
+
+/**
+ * Validates that a fanout result matches the expected schema
+ */
+export function validateFanoutResult(data: unknown): data is FanoutResult {
+  try {
+    FanoutResultSchema.parse(data);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Gets existing fanout question counts per model and type for a base question
+ */
+export async function getExistingFanoutCounts(
+  baseQuestionId: string,
+  companyId: string
+): Promise<Record<string, Record<FanoutQueryType, number>>> {
+  const existing = await prisma.fanoutQuestion.groupBy({
+    by: ['type', 'sourceModel'],
+    where: { 
+      baseQuestionId,
+      companyId 
+    },
+    _count: { _all: true },
+  });
+
+  const counts: Record<string, Record<FanoutQueryType, number>> = {};
+  
+  // Get all available models to initialize their counts
+  const models = getModelsByTask(ModelTask.QUESTION_ANSWERING);
+  models.forEach(model => {
+    counts[model.id] = {} as Record<FanoutQueryType, number>;
+    FANOUT_QUERY_TYPES.forEach(type => {
+      counts[model.id][type] = 0;
+    });
+  });
+
+  // Populate with existing counts
+  existing.forEach(({ type, sourceModel, _count }) => {
+    if (counts[sourceModel] && FANOUT_QUERY_TYPES.includes(type as FanoutQueryType)) {
+      counts[sourceModel][type as FanoutQueryType] = _count._all;
+    }
+  });
+
+  return counts;
+}
+
+/**
+ * Gets the missing fanout questions needed per model and type
+ */
+export async function getMissingFanoutCounts(
+  baseQuestionId: string,
+  companyId: string
+): Promise<Record<string, Record<FanoutQueryType, number>>> {
+  const existingCounts = await getExistingFanoutCounts(baseQuestionId, companyId);
+  const missingCounts: Record<string, Record<FanoutQueryType, number>> = {};
+
+  Object.keys(existingCounts).forEach(modelId => {
+    missingCounts[modelId] = {} as Record<FanoutQueryType, number>;
+    FANOUT_QUERY_TYPES.forEach(type => {
+      const existing = existingCounts[modelId][type] || 0;
+      const needed = Math.max(0, LLM_CONFIG.FANOUT_MAX_QUERIES_PER_TYPE - existing);
+      missingCounts[modelId][type] = needed;
+    });
+  });
+
+  return missingCounts;
+}
+
+/**
+ * Gets statistics about generated fanout queries
+ */
+export function getFanoutStats(fanoutData: CompleteFanoutData): {
+  totalQueries: number;
+  queriesPerModel: Record<string, number>;
+  queriesPerType: Record<FanoutQueryType, number>;
+  averageQueriesPerType: number;
+} {
+  const stats = {
+    totalQueries: 0,
+    queriesPerModel: {} as Record<string, number>,
+    queriesPerType: {} as Record<FanoutQueryType, number>,
+    averageQueriesPerType: 0
+  };
+
+  // Initialize counters
+  FANOUT_QUERY_TYPES.forEach(type => {
+    stats.queriesPerType[type] = 0;
+  });
+
+  fanoutData.modelGenerations.forEach(generation => {
+    let modelQueryCount = 0;
+    
+    FANOUT_QUERY_TYPES.forEach(type => {
+      const typeCount = generation.fanoutQueries[type].length;
+      stats.queriesPerType[type] += typeCount;
+      modelQueryCount += typeCount;
+    });
+    
+    stats.queriesPerModel[generation.modelId] = modelQueryCount;
+    stats.totalQueries += modelQueryCount;
+  });
+
+  stats.averageQueriesPerType = stats.totalQueries / FANOUT_QUERY_TYPES.length;
+
+  return stats;
+} 

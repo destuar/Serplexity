@@ -1,15 +1,48 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Sparkles, RefreshCw, Loader, MessageSquare, ArrowUpDown, ChevronDown, ChevronUp } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Sparkles, RefreshCw, Loader, MessageSquare, ListFilter, ChevronDown, ChevronUp } from 'lucide-react';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';
 import { getTopRankingQuestions, TopRankingQuestion } from '../services/companyService';
 import FilterDropdown from '../components/dashboard/FilterDropdown';
 import WelcomePrompt from '../components/ui/WelcomePrompt';
 import BlankLoadingState from '../components/ui/BlankLoadingState';
+import FormattedResponseViewer from '../components/ui/FormattedResponseViewer';
 import { getModelFilterOptions, DashboardFilters } from '../types/dashboard';
 import { getModelDisplayName } from '../types/dashboard';
 import { cn } from '../lib/utils';
 import { useReportGeneration } from '../hooks/useReportGeneration';
+
+// Fanout question types and their display labels
+export const FANOUT_QUESTION_TYPES = [
+  'benchmark',
+  'paraphrase',
+  'comparison',
+  'temporal',
+  'topical',
+  'entity_broader',
+  'entity_narrower',
+  'session_context',
+  'user_profile',
+  'vertical',
+  'safety_probe'
+] as const;
+
+export type FanoutQuestionType = typeof FANOUT_QUESTION_TYPES[number];
+
+export const FANOUT_DISPLAY_LABELS: Record<FanoutQuestionType, string> = {
+  'benchmark': 'Benchmark',
+  'paraphrase': 'Paraphrase',
+  'comparison': 'Comparison',
+  'temporal': 'Time-based',
+  'topical': 'Related Topics',
+  'entity_broader': 'Broader Category',
+  'entity_narrower': 'Specific Focus',
+  'session_context': 'Context',
+  'user_profile': 'Personalized',
+  'vertical': 'Media Search',
+  'safety_probe': 'Safety Check'
+};
 
 /**
  * Removes <brand> tags from a string, returning the clean text.
@@ -20,107 +53,84 @@ const stripBrandTags = (text: string): string => {
     return text.replace(/<\/?brand>/g, '');
 };
 
-/**
- * A component to format and display response text.
- * It handles markdown bolding and highlights brand mentions.
- */
-const FormattedResponseViewer: React.FC<{ text: string }> = ({ text }) => {
-    const { selectedCompany } = useCompany();
-    
-    const renderFormattedText = (str: string): React.ReactNode => {
-        if (!str) return null;
 
-        // First handle markdown bolding
-        const boldPattern = '(\\*\\*.*?\\*\\*)';
-        const parts = str.split(new RegExp(boldPattern, 'gi'));
-
-        return (
-            <>
-                {parts.filter(Boolean).map((part, index) => {
-                    if (part.startsWith('**') && part.endsWith('**')) {
-                        const boldText = part.slice(2, -2);
-                        return <strong key={index}>{highlightBrandName(boldText)}</strong>;
-                    }
-                    return <React.Fragment key={index}>{highlightBrandName(part)}</React.Fragment>;
-                })}
-            </>
-        );
-    };
-
-    const highlightBrandName = (text: string): React.ReactNode => {
-        if (!selectedCompany?.name || !text) return text;
-
-        // Create case-insensitive regex for the brand name
-        const brandRegex = new RegExp(`(${selectedCompany.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-        const parts = text.split(brandRegex);
-
-        return (
-            <>
-                {parts.map((part, index) => {
-                    if (part.toLowerCase() === selectedCompany.name.toLowerCase()) {
-                        return (
-                            <span key={index} className="font-bold text-[#7762ff]">
-                                {part}
-                            </span>
-                        );
-                    }
-                    return <React.Fragment key={index}>{part}</React.Fragment>;
-                })}
-            </>
-        );
-    };
-
-    return (
-        <div className="bg-white rounded-lg p-4 border-l-4 border-green-500 border border-gray-200">
-            <p className="text-sm text-gray-800 leading-relaxed">
-                {renderFormattedText(text)}
-            </p>
-        </div>
-    );
-};
 
 /**
  * Individual response item component - compact with click-to-expand
  */
-interface FlattenedResponse { question: string; response: string; model: string; position: number; }
+interface FlattenedResponse { 
+  question: string; 
+  response: string; 
+  model: string; 
+  position: number | null; // Individual model's position for this response
+  questionType?: string; 
+  bestPosition: number | null; // Question's best position across all models (what users expect to see)
+  questionId: string; // Add question ID for grouping
+}
 
-const ResponseItem: React.FC<{ item: FlattenedResponse; index: number }> = ({ item, index }) => {
+const ResponseItem: React.FC<{ item: FlattenedResponse; index: number; autoExpand?: boolean }> = ({ item, index, autoExpand=false }) => {
     const [isExpanded, setIsExpanded] = useState(false);
 
+    // auto expand if prop true on first render
+    useEffect(() => {
+        if (autoExpand) {
+            setIsExpanded(true);
+        }
+    }, [autoExpand]);
+
+    const questionTypeBadge = item.questionType && item.questionType in FANOUT_DISPLAY_LABELS 
+        ? FANOUT_DISPLAY_LABELS[item.questionType as FanoutQuestionType]
+        : item.questionType;
+
+    // Determine what to show as the primary ranking:
+    // Only show model-specific position or N/A - NO fallback to bestPosition
+    // This ensures responses without brand mentions display 'N/A' correctly
+    const primaryRanking = item.position !== null ? item.position : 'N/A';
+
+    const hasIndividualPosition = item.position !== null && item.position !== item.bestPosition;
+
     return (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200">
+        <div id={`question-${item.questionId}`} className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200">
             {/* Clickable Question Header */}
             <div 
                 className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
                 onClick={() => setIsExpanded(!isExpanded)}
             >
                 <div className="grid grid-cols-12 gap-3 items-center">
-                    {/* Ranking Number */}
-                    <div className="col-span-1">
-                        <p className="text-center text-2xl font-light text-gray-500">
-                            {index + 1}
+                    {/* Ranking Number with "Rank:" prefix - show question's best position */}
+                    <div className="col-span-2">
+                        <p className="text-sm font-medium text-gray-600">
+                            Rank: {primaryRanking}
                         </p>
                     </div>
                     
                     {/* Question Text */}
-                    <div className="col-span-8 min-w-0">
-                        <p className={cn(
-                            "text-base text-gray-900 font-medium",
-                            !isExpanded && "truncate"
-                        )}>
+                    <div className="col-span-7 min-w-0">
+                        <p 
+                            className={cn(
+                                "text-base text-gray-900 font-medium",
+                                !isExpanded && "truncate"
+                            )}
+                            title={!isExpanded ? `${item.question}\n\nResponse preview: ${stripBrandTags(item.response).substring(0, 200)}${stripBrandTags(item.response).length > 200 ? '...' : ''}` : undefined}
+                        >
                             {item.question}
                         </p>
                     </div>
                     
-                    {/* Right-aligned badges and expand icon */}
-                    <div className="col-span-3 flex items-center justify-end gap-2">
-                        <span className="bg-[#7762ff]/10 text-[#7762ff] px-1.5 py-0.5 rounded text-xs font-medium border border-[#7762ff]/20">
+                    {/* All labels on one line */}
+                    <div className="col-span-3 flex items-center justify-end gap-2 text-xs">
+                        {questionTypeBadge && (
+                            <span className="inline-block px-2 py-1 font-medium bg-blue-100 text-blue-800 rounded-full whitespace-nowrap">
+                                {questionTypeBadge}
+                            </span>
+                        )}
+                        <span className="bg-[#7762ff]/10 text-[#7762ff] px-2 py-1 rounded font-medium border border-[#7762ff]/20 whitespace-nowrap">
                             {getModelDisplayName(item.model)}
                         </span>
                         {isExpanded ? (
-                            <ChevronUp size={20} className="text-gray-400" />
+                            <ChevronUp size={20} className="text-gray-400 flex-shrink-0" />
                         ) : (
-                            <ChevronDown size={20} className="text-gray-400" />
+                            <ChevronDown size={20} className="text-gray-400 flex-shrink-0" />
                         )}
                     </div>
                 </div>
@@ -137,8 +147,16 @@ const ResponseItem: React.FC<{ item: FlattenedResponse; index: number }> = ({ it
                         <span className="text-xs text-gray-500">
                             from {getModelDisplayName(item.model)}
                         </span>
+                        {/* Show individual model position if different from best position */}
+                        {hasIndividualPosition && (
+                            <span className="text-xs text-gray-500 ml-2">
+                                (This model ranked #{item.position})
+                            </span>
+                        )}
                     </div>
-                    <FormattedResponseViewer text={stripBrandTags(item.response)} />
+                    <div className="text-sm">
+                        <FormattedResponseViewer text={stripBrandTags(item.response)} />
+                    </div>
                 </div>
             )}
         </div>
@@ -148,6 +166,8 @@ const ResponseItem: React.FC<{ item: FlattenedResponse; index: number }> = ({ it
 // Main page component
 const ResponseDetailsPage: React.FC = () => {
     const { selectedCompany } = useCompany();
+    const [searchParams] = useSearchParams();
+    const initialQuestionId = searchParams.get('questionId');
     const { data: dashboardData, filters, loading: dashboardLoading, refreshing, updateFilters, refreshData, lastUpdated, hasReport, refreshTrigger } = useDashboard();
     
     // ---------------------------
@@ -160,76 +180,124 @@ const ResponseDetailsPage: React.FC = () => {
     // Show limit dropdown (10, 20, 50, all)
     const [showLimit, setShowLimit] = useState<'10' | '20' | '50' | 'all'>('20');
 
-    // Sort dropdown (position, question)
-    const [sortBy, setSortBy] = useState<'position' | 'question'>('position');
-    const [sortDirection, _setSortDirection] = useState<'asc' | 'desc'>('asc');
+    // Question type filter (replaces sort functionality)
+    const [questionTypeFilter, setQuestionTypeFilter] = useState<FanoutQuestionType | 'all'>('all');
 
     // Report generation logic handled by custom hook
-    const { isGenerating, generationStatus, progress, generateReport } = useReportGeneration(selectedCompany);
+    const { 
+      isGenerating, 
+      generationStatus, 
+      progress, 
+      generateReport, 
+      isButtonDisabled, 
+      generationState, 
+      completionState 
+    } = useReportGeneration(selectedCompany);
 
-    // Fetch detailed data for this page (all questions at once)
-    const fetchQuestions = useCallback(async () => {
-        if (!selectedCompany?.id) return;
-
-        setIsLoading(true);
-        setError(null);
-
-        try {
-            const modelParam = filters.aiModel === 'all' ? undefined : filters.aiModel;
-            const data = await getTopRankingQuestions(selectedCompany.id, { aiModel: modelParam });
-            setQuestionsRaw(data.questions);
-        } catch (err) {
-            console.error('Failed to fetch questions:', err);
-            setError('Could not load response details.');
-        } finally {
-            setIsLoading(false);
-        }
-    }, [selectedCompany?.id, filters.aiModel]);
-
-    // Initial fetch and re-fetch on filter / limit change
+    // Initial fetch and re-fetch on filter change
     useEffect(() => {
-        // Ensure we have both the report id and a selected company before fetching
+        // Only fetch if we have the required data and filters have actually changed
         if (dashboardData?.id && selectedCompany?.id) {
+            console.log('[ResponseDetailsPage] useEffect triggered - filters changed, fetching questions');
             setQuestionsRaw([]);
-            fetchQuestions();
+            
+            // Inline the fetch logic to avoid dependency issues
+            const doFetch = async () => {
+                try {
+                    setIsLoading(true);
+                    const modelParam = filters.aiModel === 'all' ? undefined : filters.aiModel;
+                    const typeParam = questionTypeFilter === 'all' ? undefined : questionTypeFilter;
+                    console.log('[ResponseDetailsPage] Fetching questions for company:', selectedCompany.id, 'model:', modelParam, 'type:', typeParam);
+                    const data = await getTopRankingQuestions(selectedCompany.id, { 
+                        aiModel: modelParam,
+                        questionType: typeParam 
+                    });
+                    console.log('[ResponseDetailsPage] Raw API response:', data);
+                    console.log('[ResponseDetailsPage] Questions received:', data.questions?.length || 0);
+                    
+                    // Debug: Check for shared rankings in the raw data
+                    if (data.questions && Array.isArray(data.questions)) {
+                        const questionsWithRank1 = data.questions.filter((q: any) => q.bestPosition === 1);
+                        const questionsWithoutMentions = data.questions.filter((q: any) => q.bestPosition === null);
+                        const questionsWithBadData = data.questions.filter((q: any) => q.bestPosition === 1 && q.totalMentions === 0);
+                        
+                        console.log('[ResponseDetailsPage] Debug stats:');
+                        console.log('- Questions with rank 1:', questionsWithRank1.length);
+                        console.log('- Questions without mentions (null bestPosition):', questionsWithoutMentions.length);
+                        console.log('- Questions with rank 1 but 0 mentions (BUG):', questionsWithBadData.length);
+                        
+                        if (questionsWithBadData.length > 0) {
+                            console.warn('[ResponseDetailsPage] FOUND BUGGY DATA - Questions with rank 1 but no mentions:');
+                            questionsWithBadData.slice(0, 3).forEach((q: any, i: number) => {
+                                console.warn(`${i + 1}. "${q.question?.substring(0, 50)}..." - bestPosition: ${q.bestPosition}, totalMentions: ${q.totalMentions}`);
+                            });
+                        }
+                    }
+                    
+                    setQuestionsRaw(data.questions || []);
+                    setError(null);
+                } catch (err) {
+                    console.error('Error fetching questions:', err);
+                    setError('Failed to load response data');
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+            
+            // Small delay to debounce rapid filter changes
+            const timeoutId = setTimeout(doFetch, 100);
+            return () => clearTimeout(timeoutId);
         }
-    }, [fetchQuestions, filters.aiModel, dashboardData?.id, selectedCompany?.id, showLimit, refreshTrigger]);
+    }, [
+        dashboardData?.id, 
+        selectedCompany?.id, 
+        filters.aiModel, 
+        questionTypeFilter,
+        refreshTrigger
+    ]);
 
     // Process and filter data from the new local state
     const processedResponses = useMemo(() => {
-        // Flatten per model
-        const flat: FlattenedResponse[] = [];
-        questionsRaw.forEach(q => {
-            if (q.responses && q.responses.length > 0) {
-                q.responses.forEach(r => {
-                    flat.push({ question: q.question, response: r.response, model: r.model, position: r.position ?? q.bestPosition });
-                });
-            } else {
-                flat.push({ question: q.question, response: q.bestResponse, model: q.bestResponseModel, position: q.bestPosition });
-            }
+        console.log('[ResponseDetailsPage] Processing responses from questionsRaw:', questionsRaw.length, 'questions');
+        
+        // 10x APPROACH: Backend now sends response-level data directly
+        // No need for complex grouping - just transform to expected format
+        const responses: FlattenedResponse[] = questionsRaw.map(q => {
+            // Extract the single response (backend now sends one row per response)
+            const response = q.responses && q.responses.length > 0 ? q.responses[0] : {
+                model: q.bestResponseModel,
+                response: q.bestResponse,
+                position: q.averagePosition ?? null, // Use averagePosition as it's the model-specific position
+                createdAt: undefined
+            };
+
+            return {
+                question: q.question,
+                response: response.response,
+                model: response.model,
+                position: response.position ?? null,
+                questionType: q.type,
+                bestPosition: q.bestPosition,
+                questionId: q.id
+            };
         });
 
-        // Sorting logic
-        flat.sort((a, b) => {
-            let comparison = 0;
+        // Apply client-side limit for UI control
+        const limited = showLimit === 'all' ? responses : responses.slice(0, parseInt(showLimit, 10));
 
-            switch (sortBy) {
-                case 'question':
-                    comparison = a.question.localeCompare(b.question);
-                    break;
-                case 'position':
-                    // Lower position number = best position
-                    comparison = (a.position ?? 0) - (b.position ?? 0);
-                    break;
-            }
-
-            return sortDirection === 'asc' ? comparison : -comparison;
-        });
-
-        // Apply display limit if not showing all
-        const limited = showLimit === 'all' ? flat : flat.slice(0, parseInt(showLimit, 10));
+        console.log('[ResponseDetailsPage] Processed', responses.length, 'responses, showing', limited.length, 'after limit');
+        
         return limited;
-    }, [questionsRaw, sortBy, sortDirection, showLimit]);
+    }, [questionsRaw, showLimit, filters.aiModel]); // Added filters.aiModel to dependencies
+
+    useEffect(() => {
+        if (initialQuestionId) {
+            const el = document.getElementById(`question-${initialQuestionId}`);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+    }, [processedResponses, initialQuestionId]);
 
     const handleRefresh = () => {
       refreshData();
@@ -245,6 +313,9 @@ const ResponseDetailsPage: React.FC = () => {
                     isGenerating={isGenerating}
                     generationStatus={generationStatus}
                     progress={progress}
+                    isButtonDisabled={isButtonDisabled}
+                    generationState={generationState}
+                    completionState={completionState}
                 />
             ) : (
                 <>
@@ -274,14 +345,17 @@ const ResponseDetailsPage: React.FC = () => {
                                 disabled={dashboardLoading || refreshing || isLoading}
                             />
                             <FilterDropdown
-                                label="Sort by"
-                                value={sortBy}
+                                label="Question Type"
+                                value={questionTypeFilter}
                                 options={[
-                                    { value: 'position', label: 'Best Position' },
-                                    { value: 'question', label: 'Question Text' },
+                                    { value: 'all', label: 'All Types' },
+                                    ...FANOUT_QUESTION_TYPES.map(type => ({
+                                        value: type,
+                                        label: FANOUT_DISPLAY_LABELS[type]
+                                    }))
                                 ]}
-                                onChange={(value) => setSortBy(value as typeof sortBy)}
-                                icon={ArrowUpDown}
+                                onChange={(value) => setQuestionTypeFilter(value as FanoutQuestionType | 'all')}
+                                icon={ListFilter}
                                 disabled={dashboardLoading || refreshing || isLoading}
                             />
                             <FilterDropdown
@@ -320,7 +394,10 @@ const ResponseDetailsPage: React.FC = () => {
                             <div className="text-center p-8">
                                 <p className="text-xl font-semibold text-gray-500">Failed to load data. Try refreshing the page.</p>
                                 <button
-                                    onClick={fetchQuestions}
+                                    onClick={() => {
+                                        setQuestionsRaw([]); // Clear current data to force re-fetch
+                                        refreshData();
+                                    }}
                                     className="mt-4 px-4 py-2 bg-[#7762ff] text-white rounded-md hover:bg-[#6a55e3] transition-colors flex items-center gap-2 mx-auto"
                                 >
                                     <RefreshCw size={16} />
@@ -348,7 +425,12 @@ const ResponseDetailsPage: React.FC = () => {
                                     ) : (
                                         <div className="space-y-2 pb-6">
                                             {processedResponses.map((item, index) => (
-                                                <ResponseItem key={`${item.question}-${item.model}-${index}`} item={item} index={index} />
+                                                <ResponseItem 
+                                                    key={`${item.questionType}-${item.model}-${index}-${item.question.substring(0, 20)}`} 
+                                                    item={item} 
+                                                    index={index} 
+                                                    autoExpand={item.questionId === initialQuestionId}
+                                                />
                                             ))}
                                         </div>
                                     )}

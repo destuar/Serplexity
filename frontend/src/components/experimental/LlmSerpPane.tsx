@@ -6,6 +6,7 @@ import { searchModels } from '../../services/experimentalSearchService.ts';
 import { MODEL_CONFIGS } from '../../types/dashboard';
 import FilterDropdown from '../dashboard/FilterDropdown';
 import { getModelFilterOptions } from '../../types/dashboard';
+import { formatResponseText } from '../../lib/responseFormatter';
 import remarkGfm from 'remark-gfm';
 
 interface Props {
@@ -29,73 +30,7 @@ interface ApiError {
   message?: string;
 }
 
-// Recursively convert a JSON value to a Markdown bullet-list representation
-const jsonToMarkdown = (value: unknown, depth = 0): string => {
-  const indent = '  '.repeat(depth);
 
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => `${indent}- ${jsonToMarkdown(item, depth + 1).trim()}`)
-      .join('\n');
-  }
-
-  if (value && typeof value === 'object') {
-    const entries = Object.entries(value);
-    
-    // If it's a single-key object with a string/number value, likely a wrapper - unwrap it
-    if (entries.length === 1) {
-      const [_key, val] = entries[0];
-      if (typeof val === 'string' || typeof val === 'number') {
-        return `${indent}${val}`;
-      }
-    }
-    
-    return entries
-      .map(([key, val]) => {
-        if (typeof val === 'object') {
-          return `${indent}- **${key}**:\n${jsonToMarkdown(val, depth + 1)}`;
-        }
-        return `${indent}- **${key}**: ${val}`;
-      })
-      .join('\n');
-  }
-
-  // Primitive value
-  return `${indent}${String(value)}`;
-};
-
-// Helper to prettify raw model text into nicer Markdown
-const formatAnswer = (raw: string): string => {
-  if (!raw) return raw;
-
-  let text = raw.trim();
-
-  // Attempt to parse as JSON and convert to Markdown if possible
-  try {
-    const json = JSON.parse(text);
-    text = jsonToMarkdown(json);
-    // Properly unescape JSON strings (convert literal \n to actual newlines, etc.)
-    text = text.replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-  } catch {
-    // Not valid JSON, continue with other formatting tweaks
-  }
-
-  // Strip leading key labels like "company_name: " or "summary: " at beginning of a line
-  text = text.replace(/^(?:[A-Za-z0-9_ ]+):\s*(.*)$/gm, (_, val: string) => val.trim());
-
-  // Replace leading bullet characters like "•" or "●" with Markdown dashes while keeping indentation intact
-  text = text.replace(/^(\s*)[\u2022\u25CF]\s+/gm, (_, indent: string) => `${indent}- `);
-
-  // Ensure numbered lists have a space after the dot ("1. item")
-  text = text.replace(/^(\d+)\.\s*/gm, (_, num: string) => `${num}. `);
-
-  // Handle line breaks for proper Markdown paragraph spacing
-  // Split into lines, then rejoin with double newlines to ensure paragraph breaks
-  const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-  text = lines.join('\n\n');
-
-  return text;
-};
 
 const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
   const [loading, setLoading] = useState(false);
@@ -114,7 +49,7 @@ const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
         const res = await searchModels(query, modelId);
         const formatted = res.map((item) => ({
           ...item,
-          answer: formatAnswer(item.answer),
+          answer: formatResponseText(item.answer),
         }));
 
         if (formatted.length === 0 || formatted[0].answer.trim() === '') {
@@ -202,7 +137,8 @@ const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
         {answers.map((a) => (
           <div key={a.engine} className="flex justify-start">
             <div className="max-w-[75%] rounded-2xl bg-white/40 dark:bg-white/5 backdrop-blur-lg border border-white/30 px-4 py-2 text-sm text-gray-900 shadow ring-1 ring-white/20">
-              <div className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-900 prose-p:mb-4 prose-strong:text-gray-900 prose-code:text-gray-800 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-100 prose-pre:text-gray-800 [&>p]:mb-4 [&>p]:leading-relaxed">
+              {/* By controlling the paragraph margins directly, we get consistent spacing without conflicts */}
+              <div className="text-sm text-gray-900 [&_p]:mb-3">
                 <ReactMarkdown 
                   remarkPlugins={[remarkGfm]}
                   components={{

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import MockDashboardCard from './MockDashboardCard';
 import { getModelDisplayName } from '../../../../types/dashboard';
+import FormattedResponseViewer from '../../../ui/FormattedResponseViewer';
 
 const MOCK_COMPANY_NAME = 'Serplexity';
 
@@ -40,45 +41,7 @@ const stripBrandTags = (text: string): string => {
     return text.replace(/<\/?brand>/g, '');
 };
 
-const FormattedResponseViewer: React.FC<{ text: string }> = ({ text }) => {
-    const renderFormattedText = (str: string): React.ReactNode => {
-        if (!str) return null;
-        const boldPattern = '(\\*\\*.*?\\*\\*)';
-        const parts = str.split(new RegExp(boldPattern, 'gi'));
-        return (
-            <>
-                {parts.filter(Boolean).map((part, index) => {
-                    if (part.startsWith('**') && part.endsWith('**')) {
-                        return <strong key={index}>{highlightBrandName(part.slice(2, -2))}</strong>;
-                    }
-                    return <React.Fragment key={index}>{highlightBrandName(part)}</React.Fragment>;
-                })}
-            </>
-        );
-    };
-
-    const highlightBrandName = (text: string): React.ReactNode => {
-        if (!text) return text;
-        const brandRegex = new RegExp(`(${MOCK_COMPANY_NAME})`, 'gi');
-        const parts = text.split(brandRegex);
-        return (
-            <>
-                {parts.map((part, index) => {
-                    if (part.toLowerCase() === MOCK_COMPANY_NAME.toLowerCase()) {
-                        return <span key={index} className="font-bold text-[#7762ff]">{part}</span>;
-                    }
-                    return <React.Fragment key={index}>{part}</React.Fragment>;
-                })}
-            </>
-        );
-    };
-
-    return (
-        <div className="bg-gray-50 rounded-md p-3 border-l-4 border-green-500">
-            <p className="text-xs text-gray-800 leading-relaxed">{renderFormattedText(text)}</p>
-        </div>
-    );
-};
+// Now using the enhanced FormattedResponseViewer from ../../../ui/FormattedResponseViewer
 
 
 const QuestionItem: React.FC<{ question: typeof mockTopQuestions[0]; index: number; showTooltip: boolean }> = ({ question, index, showTooltip }) => {
@@ -111,7 +74,11 @@ const QuestionItem: React.FC<{ question: typeof mockTopQuestions[0]; index: numb
                                     {getModelDisplayName(question.bestResponseModel)}
                                 </span>
                             </div>
-                            <FormattedResponseViewer text={stripBrandTags(question.bestResponse)} />
+                            <FormattedResponseViewer 
+                                text={stripBrandTags(question.bestResponse)} 
+                                compact={true}
+                                className="bg-gray-50 rounded-md p-3 border-l-4 border-green-500"
+                            />
                         </div>
                         {question.productName && (
                             <div className="flex items-center gap-2 pt-2 border-t border-gray-100">

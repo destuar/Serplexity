@@ -341,12 +341,6 @@ describe('User Controller', () => {
           website: 'https://testcompany.com',
           industry: 'Technology',
           userId: userId,
-          products: {
-            create: [
-              { name: 'Product 1' },
-              { name: 'Product 2' },
-            ],
-          },
           competitors: {
             create: [
               { name: 'Competitor 1', website: 'https://competitor1.com' },
@@ -387,7 +381,6 @@ describe('User Controller', () => {
         industry: 'Technology',
       });
 
-      expect(response.body.companies[0].products).toHaveLength(2);
       expect(response.body.companies[0].competitors).toHaveLength(2);
       expect(response.body.companies[0].benchmarkingQuestions).toHaveLength(2);
     });
@@ -422,12 +415,6 @@ describe('User Controller', () => {
           website: 'https://testcompany.com',
           industry: 'Technology',
           userId: userId,
-          products: {
-            create: [
-              { name: 'Product 1' },
-              { name: 'Product 2' },
-            ],
-          },
           competitors: {
             create: [
               { name: 'Competitor 1', website: 'https://competitor1.com' },
@@ -461,9 +448,7 @@ describe('User Controller', () => {
       // Verify all data has been deleted
       const userAfter = await prisma.user.findUnique({ where: { id: userId } });
       const companiesAfter = await prisma.company.findMany({ where: { userId: userId } });
-      const productsAfter = await prisma.product.findMany({
-        where: { company: { userId: userId } },
-      });
+      // Product model removed
       const competitorsAfter = await prisma.competitor.findMany({
         where: { company: { userId: userId } },
       });
@@ -473,7 +458,6 @@ describe('User Controller', () => {
 
       expect(userAfter).toBeNull();
       expect(companiesAfter).toHaveLength(0);
-      expect(productsAfter).toHaveLength(0);
       expect(competitorsAfter).toHaveLength(0);
       expect(questionsAfter).toHaveLength(0);
     });

@@ -25,20 +25,10 @@ async function exportResponsesToGlacier(runIds: string[], companyId: string): Pr
   console.log(`[ARCHIVE] Exporting ${runIds.length} runs for company ${companyId} to Glacier`);
   
   // Fetch all responses for these runs
-  const [visibilityResponses, benchmarkResponses, personalResponses] = await Promise.all([
-    prisma.visibilityResponse.findMany({
-      where: { runId: { in: runIds } },
-      include: { mentions: true }
-    }),
-    prisma.benchmarkResponse.findMany({
-      where: { runId: { in: runIds } },
-      include: { benchmarkMentions: true }
-    }),
-    prisma.personalResponse.findMany({
-      where: { runId: { in: runIds } },
-      include: { mentions: true }
-    }),
-  ]);
+  const fanoutResponses = await prisma.fanoutResponse.findMany({
+    where: { runId: { in: runIds } },
+    include: { mentions: true }
+  });
 
   // Create archive payload
   const archiveData = {
@@ -46,9 +36,7 @@ async function exportResponsesToGlacier(runIds: string[], companyId: string): Pr
     runIds,
     archivedAt: new Date().toISOString(),
     data: {
-      visibilityResponses,
-      benchmarkResponses,
-      personalResponses,
+      fanoutResponses,
     },
   };
 
@@ -101,11 +89,7 @@ export const processArchiveJob = async (job: Job) => {
       const archiveId = await exportResponsesToGlacier(runIds, companyId);
       
       // 2. Delete from RDS in a transaction (mentions cascade delete automatically)
-      await prisma.$transaction([
-        prisma.visibilityResponse.deleteMany({ where: { runId: { in: runIds } } }),
-        prisma.benchmarkResponse.deleteMany({ where: { runId: { in: runIds } } }),
-        prisma.personalResponse.deleteMany({ where: { runId: { in: runIds } } }),
-      ]);
+      await prisma.fanoutResponse.deleteMany({ where: { runId: { in: runIds } } });
       
       console.log(`[ARCHIVE WORKER] Successfully archived and deleted ${runIds.length} runs for company ${companyId}. Archive ID: ${archiveId}`);
       

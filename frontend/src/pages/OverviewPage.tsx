@@ -19,7 +19,15 @@ const OverviewPage = () => {
   const { selectedCompany } = useCompany();
   const { data, filters, loading, refreshing, updateFilters, refreshData, lastUpdated, refreshTrigger, hasReport } = useDashboard();
   
-  const { isGenerating, generationStatus, progress, generateReport } = useReportGeneration(selectedCompany);
+  const { 
+    isGenerating, 
+    generationStatus, 
+    progress, 
+    generateReport, 
+    isButtonDisabled, 
+    generationState, 
+    completionState 
+  } = useReportGeneration(selectedCompany);
   const isTallerScreen = useMediaQuery('(min-height: 1080px)');
   
   const handleFilterChange = (filterUpdates: { [key: string]: string | string[] }) => {
@@ -52,6 +60,9 @@ const OverviewPage = () => {
           isGenerating={isGenerating}
           generationStatus={generationStatus}
           progress={progress}
+          isButtonDisabled={isButtonDisabled}
+          generationState={generationState}
+          completionState={completionState}
         />
       ) : (
         <>
@@ -111,7 +122,7 @@ const OverviewPage = () => {
                 <div className="lg:hidden h-full overflow-y-auto space-y-4">
                   <div className="grid grid-cols-2 gap-4 min-h-[200px]">
                     <BrandShareOfVoiceCard key={`${cardKey}-sov`} />
-                    <VisibilityOverTimeCard key={`${cardKey}-vot`} />
+                    <VisibilityOverTimeCard key={`${cardKey}-vot`} selectedModel={filters.aiModel} />
                   </div>
                   <div className="grid grid-cols-2 gap-4 min-h-[200px]">
                     <AverageInclusionRateCard key={`${cardKey}-air`} />
@@ -164,7 +175,7 @@ const OverviewPage = () => {
                   `
                 }}>
                   <div style={{ gridArea: 'm1' }}><BrandShareOfVoiceCard key={`${cardKey}-sov-desk`} /></div>
-                  <div style={{ gridArea: 'm2' }}><VisibilityOverTimeCard key={`${cardKey}-vot-desk`} /></div>
+                  <div style={{ gridArea: 'm2' }}><VisibilityOverTimeCard key={`${cardKey}-vot-desk`} selectedModel={filters.aiModel} /></div>
                   <div style={{ gridArea: 'm3' }}><AverageInclusionRateCard key={`${cardKey}-air-desk`} /></div>
                   <div style={{ gridArea: 'm4' }}><AveragePositionCard key={`${cardKey}-ap-desk`} /></div>
                   <div style={{ gridArea: 's1' }}><SentimentScoreDisplayCard key={`${cardKey}-ss-desk`} selectedModel={filters.aiModel} /></div>

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Scatter } from 'recharts';
 import Card from '../ui/Card';
 import { useDashboard } from '../../hooks/useDashboard';
@@ -7,15 +8,60 @@ interface SentimentOverTimeCardProps {
   selectedModel?: string;
 }
 
+interface ChartDataPoint {
+  date: string;
+  score: number;
+}
+
+interface SentimentOverTimeItem {
+  date: string;
+  aiModel: string;
+  sentimentScore: number;
+}
+
 const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedModel = 'all' }) => {
   const { data, loading } = useDashboard();
 
-  // The complex useMemo hook is no longer needed!
-  // Data is now pre-calculated on the backend.
-  const chartData = data?.sentimentOverTime || [];
+  // Filter data by selected model and format for chart
+  const chartData: ChartDataPoint[] = useMemo(() => {
+    if (!data?.sentimentOverTime || !Array.isArray(data.sentimentOverTime)) {
+      return [];
+    }
+
+    // Filter by selected model and group by date (one point per day)
+    const filteredData = data.sentimentOverTime
+      .filter((item: any) => item.aiModel === selectedModel)
+      .map((item: any) => ({
+        date: new Date(item.date).toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric',
+          year: data.sentimentOverTime.length > 30 ? undefined : '2-digit' // Show year only if less than 30 points
+        }),
+        score: item.sentimentScore,
+        fullDate: item.date // Keep original date for sorting
+      }))
+      .sort((a: any, b: any) => new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime())
+      .map(({ fullDate, ...rest }: any) => rest); // Remove fullDate from final data
+
+    return filteredData;
+  }, [data?.sentimentOverTime, selectedModel]);
+
+  // Calculate X-axis interval to prevent clipping
+  const xAxisInterval = useMemo(() => {
+    if (!chartData || chartData.length === 0) return 0;
+    
+    let interval = 0;
+    if (chartData.length > 15) {
+      interval = Math.ceil(chartData.length / 8); // Show ~8 labels max
+    } else if (chartData.length > 10) {
+      interval = Math.ceil(chartData.length / 6); // Show ~6 labels
+    }
+    
+    return interval;
+  }, [chartData]);
 
   // Get model display name with special case for 'all'
-  const getDisplayName = (model: string) => {
+  const getDisplayName = (model: string): string => {
     if (model === 'all') return 'All Models';
     return getModelDisplayName(model);
   };
@@ -50,7 +96,12 @@ const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedM
         <ResponsiveContainer width="100%" height="100%">
           <LineChart 
             data={chartData} 
-            margin={{ top: 20, right: 30, bottom: 15, left: 20 }}
+            margin={{ 
+              top: 20, 
+              right: 30, 
+              bottom: chartData.length > 10 ? 35 : 15, // More bottom margin for rotated labels
+              left: 20 
+            }}
           >
             <CartesianGrid 
               strokeDasharray="3 3" 
@@ -61,11 +112,15 @@ const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedM
               dataKey="date" 
               axisLine={false}
               tickLine={false}
-              tick={{ fontSize: 12, fill: '#64748b' }}
-              tickMargin={5}
-              interval={0}
-              angle={0}
-              height={40}
+              tick={{ 
+                fontSize: 12, 
+                fill: '#64748b',
+                textAnchor: chartData.length > 10 ? 'end' : 'middle' // Anchor for rotation
+              }}
+              tickMargin={chartData.length > 10 ? 8 : 5}
+              interval={xAxisInterval}
+              angle={chartData.length > 10 ? -45 : 0} // Rotate labels if many points
+              height={chartData.length > 10 ? 60 : 40}
             />
             <YAxis 
               domain={[0, 10]}

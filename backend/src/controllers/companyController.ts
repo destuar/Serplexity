@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import prisma, { prismaReadReplica } from '../config/db';
+import { getFullReportMetrics } from '../services/metricsService';
+import { calculateTopQuestions } from '../services/dashboardService';
 
 import env from '../config/env';
 
@@ -32,7 +34,7 @@ const createCompanySchema = z.object({
     })
   ).min(1, 'At least one competitor is required'),
   benchmarkingQuestions: z.array(z.string().min(1, "Question cannot be empty")).min(1, 'At least one benchmarking question is required').max(5, 'Maximum 5 questions allowed'),
-  products: z.array(z.string().min(1, "Product name cannot be empty")).min(1, 'At least one product is required').max(5, 'Maximum 5 products allowed'),
+  // Removed products validation as Product model deprecated
 });
 
 const updateCompanySchema = z.object({
@@ -46,7 +48,7 @@ const updateCompanySchema = z.object({
     })
   ).min(1, 'At least one competitor is required').optional(),
   benchmarkingQuestions: z.array(z.string().min(1, "Question cannot be empty")).min(1, 'At least one benchmarking question is required').optional(),
-  products: z.array(z.string().min(1, "Product name cannot be empty")).min(1, 'At least one product is required').optional(),
+  // Removed products field
 });
 
 
@@ -75,7 +77,7 @@ export const createCompany = async (req: Request, res: Response) => {
       });
     }
 
-    const { name, website, industry, competitors, benchmarkingQuestions, products } = createCompanySchema.parse(req.body);
+    const { name, website, industry, competitors, benchmarkingQuestions } = createCompanySchema.parse(req.body);
 
     // Create company with competitors in a transaction
     const company = await prisma.$transaction(async (tx) => {
@@ -120,25 +122,18 @@ export const createCompany = async (req: Request, res: Response) => {
         data: benchmarkingQuestions.map(questionText => ({
           text: questionText,
           companyId: newCompany.id,
-          isGenerated: false, // User-added questions
         })),
       });
 
-      // Create products
-      await tx.product.createMany({
-        data: products.map(productName => ({
-          name: productName,
-          companyId: newCompany.id,
-        })),
-      });
+      // Removed product creation
 
       // Return company with only user-added data for editing
       return await tx.company.findUnique({
         where: { id: newCompany.id },
         include: {
           competitors: { where: { isGenerated: false } },
-          benchmarkingQuestions: { where: { isGenerated: false } },
-          products: true,
+          benchmarkingQuestions: true,
+          // no products
         },
       });
     });
@@ -180,8 +175,8 @@ export const getCompanies = async (req: Request, res: Response) => {
       where: { userId },
       include: {
         competitors: { where: { isGenerated: false } },
-        benchmarkingQuestions: { where: { isGenerated: false } },
-        products: true,
+        benchmarkingQuestions: true,
+        // no products
       },
       orderBy: {
         createdAt: 'desc',
@@ -226,8 +221,8 @@ export const getCompany = async (req: Request, res: Response) => {
       where: { id },
       include: {
         competitors: { where: { isGenerated: false } },
-        benchmarkingQuestions: { where: { isGenerated: false } },
-        products: true,
+        benchmarkingQuestions: true,
+        // no products
       },
     });
 
@@ -238,1051 +233,251 @@ export const getCompany = async (req: Request, res: Response) => {
   }
 };
 
-export const getShareOfVoiceHistory = async (req: Request, res: Response) => {
-  const { id: companyId } = req.params;
-  const { dateRange, aiModel } = req.query;
-  const userId = req.user?.id;
+// ===== Helper =====
+const findLatestRuns = async (companyId: string) => {
+  const latestRun = await prismaReadReplica.reportRun.findFirst({
+    where: { companyId, status: 'COMPLETED' },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (!latestRun) return { latestRun: null, previousRun: null };
 
-  if (!userId) {
-      return res.status(401).json({ message: 'Unauthorized' });
-  }
-
-  try {
-      // Verify user owns the company
-      const company = await prisma.company.findFirst({
-          where: { id: companyId, userId },
-      });
-
-      if (!company) {
-          return res.status(404).json({ message: 'Company not found or not authorized' });
-      }
-
-      // Date filter
-      let dateFilter = {};
-      if (dateRange) {
-        const now = new Date();
-        const daysMap: { [key: string]: number } = { '7d': 7, '30d': 30, '90d': 90, '1y': 365 };
-        const days = daysMap[dateRange as string] || 30; // default to 30 days
-        const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-        dateFilter = { gte: startDate };
-      }
-
-      // Model filter - if 'all' is passed, we should look for the 'all' record.
-      const effectiveModel = (aiModel || 'all') as string;
-
-      const history = await prisma.shareOfVoiceHistory.findMany({
-          where: {
-              companyId: companyId,
-              aiModel: effectiveModel,
-              ...(Object.keys(dateFilter).length > 0 && { date: dateFilter }),
-          },
-          orderBy: {
-              date: 'asc',
-          },
-      });
-
-      const formattedHistory = history.map(item => ({
-          date: item.date.toISOString().split('T')[0],
-          shareOfVoice: item.shareOfVoice,
-      }));
-
-      res.json(formattedHistory);
-  } catch (error) {
-      console.error(`Error fetching share of voice history for company ${companyId}:`, error);
-      res.status(500).json({ message: 'Internal server error' });
-  }
+  const previousRun = await prismaReadReplica.reportRun.findFirst({
+    where: { companyId, status: 'COMPLETED', id: { not: latestRun.id } },
+    orderBy: { createdAt: 'desc' },
+  });
+  return { latestRun, previousRun };
 };
 
+// --- Average Inclusion Rate (pre-computed) ---
 export const getAverageInclusionRate = async (req: Request, res: Response) => {
   try {
     const { id: companyId } = req.params;
-    const { dateRange, aiModel } = req.query;
+    const { aiModel } = req.query;
     const userId = req.user?.id;
 
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    // Ensure the company belongs to the user
-    const company = await prismaReadReplica.company.findFirst({
-      where: { id: companyId, userId },
-    });
-
+    // Verify ownership
+    const company = await prismaReadReplica.company.findFirst({ where: { id: companyId, userId } });
     if (!company) {
       return res.status(404).json({ error: 'Company not found or unauthorized' });
     }
 
-    // Calculate date filter
-    let dateFilter = {};
-    if (dateRange) {
-      const now = new Date();
-      const daysMap = { '7d': 7, '30d': 30, '90d': 90, '1y': 365 };
-      const days = daysMap[dateRange as keyof typeof daysMap] || 30;
-      const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-      dateFilter = { gte: startDate };
-    }
-
-    const reportRuns = await prisma.reportRun.findMany({
-      where: {
-        companyId,
-        status: 'COMPLETED',
-        ...(Object.keys(dateFilter).length > 0 && { createdAt: dateFilter }),
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: 2,
-    });
-
-
-
-    if (reportRuns.length === 0) {
+    const { latestRun, previousRun } = await findLatestRuns(companyId);
+    if (!latestRun) {
       return res.json({ averageInclusionRate: null, change: null });
     }
 
-    const calculateAIR = async (runId: string) => {
-      // Create model filter
-      let modelFilter = {};
-      if (aiModel && aiModel !== 'all') {
-        modelFilter = { model: aiModel as string };
-      }
+    const latestMetrics = await getFullReportMetrics(latestRun.id, (aiModel as string) || 'all');
+    const previousMetrics = previousRun ? await getFullReportMetrics(previousRun.id, (aiModel as string) || 'all') : null;
 
-      // Count total responses for this run
-      const totalVisibilityResponses = await prismaReadReplica.visibilityResponse.count({
-        where: { 
-          runId: runId,
-          ...modelFilter,
-        },
-      });
+    const latestRate = latestMetrics?.averageInclusionRate ?? null;
+    const prevRate = previousMetrics?.averageInclusionRate ?? null;
+    const change = latestRate !== null && prevRate !== null ? latestRate - prevRate : null;
 
-      const totalBenchmarkResponses = await prismaReadReplica.benchmarkResponse.count({
-        where: { 
-          runId: runId,
-          ...modelFilter,
-        },
-      });
-
-      // Count responses that mentioned the company
-      const visibilityResponsesWithCompanyMentions = await prismaReadReplica.visibilityResponse.count({
-        where: {
-          runId: runId,
-          ...modelFilter,
-          mentions: {
-            some: {
-              companyId: companyId,
-            },
-          },
-        },
-      });
-
-      const benchmarkResponsesWithCompanyMentions = await prismaReadReplica.benchmarkResponse.count({
-        where: {
-          runId: runId,
-          ...modelFilter,
-          benchmarkMentions: {
-            some: {
-              companyId: companyId,
-            },
-          },
-        },
-      });
-
-      const totalResponses = totalVisibilityResponses + totalBenchmarkResponses;
-      const responsesWithCompanyMentions = visibilityResponsesWithCompanyMentions + benchmarkResponsesWithCompanyMentions;
-
-
-
-      if (totalResponses === 0) {
-        return 0;
-      }
-
-      return (responsesWithCompanyMentions / totalResponses) * 100;
-    };
-
-    const latestAIR = await calculateAIR(reportRuns[0].id);
-
-    let change = null;
-    if (reportRuns.length > 1) {
-      const previousAIR = await calculateAIR(reportRuns[1].id);
-      // Calculate percentage point difference (raw difference)
-      // e.g., 25% - 10% = +15 percentage points
-      change = latestAIR - previousAIR;
-    }
-
-    res.json({ averageInclusionRate: latestAIR, change });
+    return res.json({ averageInclusionRate: latestRate, change });
   } catch (error) {
     console.error('[GET AIR ERROR]', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
 
+// --- Average Position (pre-computed) ---
 export const getAveragePosition = async (req: Request, res: Response) => {
   try {
     const { id: companyId } = req.params;
-    const { dateRange, aiModel } = req.query;
+    const { aiModel } = req.query;
     const userId = req.user?.id;
 
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
+    if (!userId) return res.status(401).json({ error: 'User not authenticated' });
 
-    // Ensure the company belongs to the user
-    const company = await prismaReadReplica.company.findFirst({
-      where: { id: companyId, userId },
-    });
+    const company = await prismaReadReplica.company.findFirst({ where: { id: companyId, userId } });
+    if (!company) return res.status(404).json({ error: 'Company not found or unauthorized' });
 
-    if (!company) {
-      return res.status(404).json({ error: 'Company not found or unauthorized' });
-    }
+    const { latestRun, previousRun } = await findLatestRuns(companyId);
+    if (!latestRun) return res.json({ averagePosition: null, change: null });
 
-    // Calculate date filter
-    let dateFilter = {};
-    if (dateRange) {
-      const now = new Date();
-      const daysMap = { '7d': 7, '30d': 30, '90d': 90, '1y': 365 };
-      const days = daysMap[dateRange as keyof typeof daysMap] || 30;
-      const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-      dateFilter = { gte: startDate };
-    }
+    const latestMetrics = await getFullReportMetrics(latestRun.id, (aiModel as string) || 'all');
+    const previousMetrics = previousRun ? await getFullReportMetrics(previousRun.id, (aiModel as string) || 'all') : null;
 
-    const reportRuns = await prisma.reportRun.findMany({
-      where: {
-        companyId,
-        status: 'COMPLETED',
-        ...(Object.keys(dateFilter).length > 0 && { createdAt: dateFilter }),
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: 2,
-    });
+    const latestPos = latestMetrics?.averagePosition ?? null;
+    const prevPos = previousMetrics?.averagePosition ?? null;
+    const change = latestPos !== null && prevPos !== null ? prevPos - latestPos : null; // lower position is better
 
-    if (reportRuns.length === 0) {
-      return res.json({ averagePosition: null, change: null });
-    }
-
-    const calculateAveragePosition = async (runId: string) => {
-      // Create model filter for responses
-      let responseModelFilter = {};
-      if (aiModel && aiModel !== 'all') {
-        responseModelFilter = { model: aiModel as string };
-      }
-
-      // Get all visibility mentions for this company in this run
-      const visibilityMentions = await prismaReadReplica.visibilityMention.findMany({
-        where: {
-          companyId: companyId,
-          visibilityResponse: {
-            runId: runId,
-            ...responseModelFilter,
-          },
-        },
-        select: {
-          position: true,
-        },
-      });
-
-      // Get all benchmark mentions for this company in this run
-      const benchmarkMentions = await prismaReadReplica.benchmarkMention.findMany({
-        where: {
-          companyId: companyId,
-          benchmarkResponse: {
-            runId: runId,
-            ...responseModelFilter,
-          },
-        },
-        select: {
-          position: true,
-        },
-      });
-
-      const allPositions = [
-        ...visibilityMentions.map(m => m.position),
-        ...benchmarkMentions.map(m => m.position)
-      ];
-
-      if (allPositions.length === 0) {
-        return null;
-      }
-
-      const sum = allPositions.reduce((acc, pos) => acc + pos, 0);
-      return sum / allPositions.length;
-    };
-
-    const latestAvgPosition = await calculateAveragePosition(reportRuns[0].id);
-
-    let change = null;
-    if (reportRuns.length > 1 && latestAvgPosition !== null) {
-      const previousAvgPosition = await calculateAveragePosition(reportRuns[1].id);
-      if (previousAvgPosition !== null) {
-        // For position, we want the actual position difference
-        // Positive change means improvement (moved to lower position numbers)
-        change = previousAvgPosition - latestAvgPosition;
-      }
-    }
-
-    res.json({ averagePosition: latestAvgPosition, change });
+    return res.json({ averagePosition: latestPos, change });
   } catch (error) {
     console.error('[GET AVERAGE POSITION ERROR]', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
 
+// --- Share of Voice (pre-computed) ---
 export const getShareOfVoice = async (req: Request, res: Response) => {
   try {
     const { id: companyId } = req.params;
-    const { dateRange, aiModel } = req.query;
+    const { aiModel } = req.query;
     const userId = req.user?.id;
 
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
+    if (!userId) return res.status(401).json({ error: 'User not authenticated' });
 
-    // Ensure the company belongs to the user
-    const company = await prisma.company.findFirst({
-      where: { id: companyId, userId },
-    });
+    const company = await prismaReadReplica.company.findFirst({ where: { id: companyId, userId } });
+    if (!company) return res.status(404).json({ error: 'Company not found or unauthorized' });
 
-    if (!company) {
-      return res.status(404).json({ error: 'Company not found or unauthorized' });
-    }
+    const { latestRun, previousRun } = await findLatestRuns(companyId);
+    if (!latestRun) return res.json({ shareOfVoice: null, change: null });
 
-    // Calculate date filter
-    let dateFilter = {};
-    if (dateRange) {
-      const now = new Date();
-      const daysMap = { '7d': 7, '30d': 30, '90d': 90, '1y': 365 };
-      const days = daysMap[dateRange as keyof typeof daysMap] || 30;
-      const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-      dateFilter = { gte: startDate };
-    }
+    const latestMetrics = await getFullReportMetrics(latestRun.id, (aiModel as string) || 'all');
+    const previousMetrics = previousRun ? await getFullReportMetrics(previousRun.id, (aiModel as string) || 'all') : null;
 
-    const reportRuns = await prisma.reportRun.findMany({
-      where: {
-        companyId,
-        status: 'COMPLETED',
-        ...(Object.keys(dateFilter).length > 0 && { createdAt: dateFilter }),
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: 2,
-    });
+    const latestSov = latestMetrics?.shareOfVoice ?? null;
+    const prevSov = previousMetrics?.shareOfVoice ?? null;
+    const change = latestSov !== null && prevSov !== null ? latestSov - prevSov : null;
 
-    if (reportRuns.length === 0) {
-      return res.json({ shareOfVoice: null, change: null });
-    }
-
-    const calculateShareOfVoice = async (runId: string): Promise<number> => {
-      // Create model filter for responses
-      let responseModelFilter = {};
-      if (aiModel && aiModel !== 'all') {
-        responseModelFilter = { model: aiModel as string };
-      }
-
-      // Count total visibility mentions for this run
-      const totalVisibilityMentions = await prisma.visibilityMention.count({
-        where: {
-          visibilityResponse: {
-            runId: runId,
-            ...responseModelFilter,
-          },
-        },
-      });
-
-      // Count total benchmark mentions for this run
-      const totalBenchmarkMentions = await prisma.benchmarkMention.count({
-        where: {
-          benchmarkResponse: {
-            runId: runId,
-            ...responseModelFilter,
-          },
-        },
-      });
-
-      // Count mentions that belong to the user's company
-      const companyVisibilityMentions = await prisma.visibilityMention.count({
-        where: {
-          companyId: companyId,
-          visibilityResponse: {
-            runId: runId,
-            ...responseModelFilter,
-          },
-        },
-      });
-
-      const companyBenchmarkMentions = await prisma.benchmarkMention.count({
-        where: {
-          companyId: companyId,
-          benchmarkResponse: {
-            runId: runId,
-            ...responseModelFilter,
-          },
-        },
-      });
-
-      const totalMentions = totalVisibilityMentions + totalBenchmarkMentions;
-      const companyMentions = companyVisibilityMentions + companyBenchmarkMentions;
-
-      if (totalMentions === 0) {
-        return 0;
-      }
-
-      return (companyMentions / totalMentions) * 100;
-    };
-
-    const shareOfVoice = await calculateShareOfVoice(reportRuns[0].id);
-
-    let change = null;
-    if (reportRuns.length > 1) {
-      const previousShareOfVoice = await calculateShareOfVoice(reportRuns[1].id);
-      change = shareOfVoice - previousShareOfVoice;
-    }
-
-    res.json({ shareOfVoice, change });
+    return res.json({ shareOfVoice: latestSov, change });
   } catch (error) {
     console.error('[GET SHARE OF VOICE ERROR]', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
 
-export const getSentimentData = async (req: Request, res: Response) => {
+// --- Competitor Rankings (placeholder using pre-computed JSON) ---
+export const getCompetitorRankings = async (req: Request, res: Response) => {
   try {
     const { id: companyId } = req.params;
-    const { dateRange, aiModel } = req.query;
+    const { aiModel } = req.query;
+    const userId = req.user?.id;
 
-    // Get latest completed run
-    const reportRuns = await prisma.reportRun.findMany({
-      where: { companyId, status: 'COMPLETED' },
-      orderBy: { createdAt: 'desc' },
-      take: 2,
-    });
+    if (!userId) return res.status(401).json({ error: 'User not authenticated' });
 
-    if (reportRuns.length === 0) {
-      return res.status(404).json({ error: 'No completed report runs found' });
+    const company = await prismaReadReplica.company.findFirst({ where: { id: companyId, userId } });
+    if (!company) return res.status(404).json({ error: 'Company not found or unauthorized' });
+
+    const { latestRun } = await findLatestRuns(companyId);
+    if (!latestRun) return res.json({ competitors: [], chartCompetitors: [], industryRanking: null, userCompany: null });
+
+    const metrics = await getFullReportMetrics(latestRun.id, (aiModel as string) || 'all');
+    if (metrics?.competitorRankings) {
+      return res.json(metrics.competitorRankings);
     }
 
-    const calculateSentimentData = async (runId: string) => {
-      let responseModelFilter = {};
-      if (aiModel && aiModel !== 'all') {
-        responseModelFilter = { model: aiModel as string };
-      }
-
-      const metrics = await prisma.sentimentScore.findMany({
-        where: {
-          runId: runId,
-          name: 'sentimentScores',
-        },
-      });
-
-      return metrics.length > 0 ? metrics[0].value : null;
-    };
-
-    const latestSentimentData = await calculateSentimentData(reportRuns[0].id);
-
-    res.json({ sentimentData: latestSentimentData });
+    // Fallback empty
+    return res.json({ competitors: [], chartCompetitors: [], industryRanking: null, userCompany: null });
   } catch (error) {
-    console.error('Failed to get sentiment data:', error);
-    res.status(500).json({ error: 'Failed to retrieve sentiment data' });
+    console.error('[GET COMPETITOR RANKINGS ERROR]', error);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
+};
+
+// --- Placeholder stubs (to be implemented) ---
+export const getSentimentData = async (_req: Request, res: Response) => {
+  return res.json({ sentimentScore: null, change: null });
 };
 
 export const getTopRankingQuestions = async (req: Request, res: Response) => {
   try {
     const { id: companyId } = req.params;
-    const { aiModel, limit = '10' } = req.query;
-
-    // Get latest completed run
-    const reportRun = await prisma.reportRun.findFirst({
-      where: { companyId, status: 'COMPLETED' },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    if (!reportRun) {
-      return res.status(404).json({ error: 'No completed report runs found' });
-    }
-
-    // Create model filter for responses
-    let responseModelFilter = {};
-    if (aiModel && aiModel !== 'all') {
-      responseModelFilter = { model: aiModel as string };
-    }
-
-    // Get ALL visibility questions for this run
-    const visibilityQuestions = await prisma.visibilityQuestion.findMany({
-      where: {
-        responses: {
-          some: {
-            runId: reportRun.id,
-            ...responseModelFilter,
-          },
-        },
-      },
-      include: {
-        responses: {
-          where: {
-            runId: reportRun.id,
-            ...responseModelFilter,
-          },
-          include: {
-            mentions: {
-              where: {
-                companyId: companyId,
-              },
-            },
-          },
-        },
-        product: {
-          select: {
-            name: true,
-          },
-        },
-      },
-    });
-
-    // Get ALL benchmark questions for this company
-    const benchmarkQuestions = await prisma.benchmarkingQuestion.findMany({
-      where: {
-        companyId: companyId,
-        benchmarkResponses: {
-          some: {
-            runId: reportRun.id,
-            ...responseModelFilter,
-          },
-        },
-      },
-      include: {
-        benchmarkResponses: {
-          where: {
-            runId: reportRun.id,
-            ...responseModelFilter,
-          },
-          include: {
-            benchmarkMentions: {
-              where: {
-                companyId: companyId,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    // Process and combine results
-    const questionResults: Array<{
-      id: string;
-      question: string;
-      type: 'visibility' | 'benchmark';
-      productName?: string;
-      bestPosition: number;
-      totalMentions: number;
-      averagePosition: number;
-      bestResponse: string;
-      bestResponseModel: string;
-      responses: Array<{
-        model: string;
-        response: string;
-        position?: number;
-      }>;
-    }> = [];
-
-    // Process visibility questions (including ones where company is not mentioned)
-    visibilityQuestions.forEach(vq => {
-      const allMentions = vq.responses.flatMap(r => r.mentions);
-      
-      if (allMentions.length > 0) {
-        // Company IS mentioned
-        const positions = allMentions.map(m => m.position);
-        const bestPosition = Math.min(...positions);
-        const averagePosition = positions.reduce((sum, pos) => sum + pos, 0) / positions.length;
-        
-        // Find the response with the best position
-        let bestResponse = '';
-        let bestResponseModel = '';
-        let bestResponsePosition = Infinity;
-        
-        for (const response of vq.responses) {
-          const responseMentions = response.mentions.filter(m => m.companyId === companyId);
-          if (responseMentions.length > 0) {
-            const responseMinPosition = Math.min(...responseMentions.map(m => m.position));
-            if (responseMinPosition < bestResponsePosition) {
-              bestResponsePosition = responseMinPosition;
-              bestResponseModel = response.model;
-              try {
-                const parsedContent = JSON.parse(response.content);
-                bestResponse = parsedContent.answer || response.content;
-              } catch {
-                bestResponse = response.content;
-              }
-            }
-          }
-        }
-        
-        questionResults.push({
-          id: vq.id,
-          question: vq.question,
-          type: 'visibility',
-          productName: vq.product.name,
-          bestPosition,
-          totalMentions: allMentions.length,
-          averagePosition,
-          bestResponse,
-          bestResponseModel,
-          responses: (() => {
-            const latestMap = new Map<string, typeof vq.responses[0]>();
-            vq.responses.forEach(r => {
-              const existing = latestMap.get(r.model);
-              if (!existing || existing.createdAt < r.createdAt) {
-                latestMap.set(r.model, r);
-              }
-            });
-            return Array.from(latestMap.values()).map(r => {
-              let respContent = r.content;
-              try {
-                const parsed = JSON.parse(r.content);
-                respContent = parsed.answer || r.content;
-              } catch {}
-              return {
-                model: r.model,
-                response: respContent,
-                position: r.mentions.find(m => m.companyId === companyId)?.position,
-                createdAt: r.createdAt,
-              };
-            });
-          })(),
-        });
-      } else {
-        // Company is NOT mentioned - still show the question
-        const firstResponse = vq.responses[0];
-        let responseContent = 'No response available';
-        let responseModel = 'unknown';
-        
-        if (firstResponse) {
-          responseModel = firstResponse.model;
-          try {
-            const parsedContent = JSON.parse(firstResponse.content);
-            responseContent = parsedContent.answer || firstResponse.content;
-          } catch {
-            responseContent = firstResponse.content;
-          }
-        }
-        
-        questionResults.push({
-          id: vq.id,
-          question: vq.question,
-          type: 'visibility',
-          productName: vq.product.name,
-          bestPosition: 999, // High number to sort non-mentioned questions to bottom
-          totalMentions: 0,
-          averagePosition: 999,
-          bestResponse: responseContent,
-          bestResponseModel: responseModel,
-          responses: (() => {
-            const latestMap = new Map<string, typeof vq.responses[0]>();
-            vq.responses.forEach(r => {
-              const existing = latestMap.get(r.model);
-              if (!existing || existing.createdAt < r.createdAt) {
-                latestMap.set(r.model, r);
-              }
-            });
-            return Array.from(latestMap.values()).map(r => {
-              let respContent = r.content;
-              try {
-                const parsed = JSON.parse(r.content);
-                respContent = parsed.answer || r.content;
-              } catch {}
-              return { model: r.model, response: respContent, createdAt: r.createdAt };
-            });
-          })(),
-        });
-      }
-    });
-
-    // Process benchmark questions (including ones where company is not mentioned)
-    benchmarkQuestions.forEach(bq => {
-      const allMentions = bq.benchmarkResponses.flatMap(r => r.benchmarkMentions);
-      
-      if (allMentions.length > 0) {
-        // Company IS mentioned
-        const positions = allMentions.map(m => m.position);
-        const bestPosition = Math.min(...positions);
-        const averagePosition = positions.reduce((sum, pos) => sum + pos, 0) / positions.length;
-        
-        // Find the response with the best position
-        let bestResponse = '';
-        let bestResponseModel = '';
-        let bestResponsePosition = Infinity;
-        
-        for (const response of bq.benchmarkResponses) {
-          const responseMentions = response.benchmarkMentions.filter(m => m.companyId === companyId);
-          if (responseMentions.length > 0) {
-            const responseMinPosition = Math.min(...responseMentions.map(m => m.position));
-            if (responseMinPosition < bestResponsePosition) {
-              bestResponsePosition = responseMinPosition;
-              bestResponseModel = response.model;
-              try {
-                const parsedContent = JSON.parse(response.content);
-                bestResponse = parsedContent.answer || response.content;
-              } catch {
-                bestResponse = response.content;
-              }
-            }
-          }
-        }
-        
-        questionResults.push({
-          id: bq.id,
-          question: bq.text,
-          type: 'benchmark',
-          bestPosition,
-          totalMentions: allMentions.length,
-          averagePosition,
-          bestResponse,
-          bestResponseModel,
-          responses: (() => {
-            const latestMap = new Map<string, typeof bq.benchmarkResponses[0]>();
-            bq.benchmarkResponses.forEach(r => {
-              const existing = latestMap.get(r.model);
-              if (!existing || existing.createdAt < r.createdAt) {
-                latestMap.set(r.model, r);
-              }
-            });
-            return Array.from(latestMap.values()).map(r => {
-              let respContent = r.content;
-              try {
-                const parsed = JSON.parse(r.content);
-                respContent = parsed.answer || r.content;
-              } catch {}
-              return {
-                model: r.model,
-                response: respContent,
-                position: r.benchmarkMentions.find(m => m.companyId === companyId)?.position,
-                createdAt: r.createdAt,
-              };
-            });
-          })(),
-        });
-      } else {
-        // Company is NOT mentioned - still show the question
-        const firstResponse = bq.benchmarkResponses[0];
-        let responseContent = 'No response available';
-        let responseModel = 'unknown';
-        
-        if (firstResponse) {
-          responseModel = firstResponse.model;
-          try {
-            const parsedContent = JSON.parse(firstResponse.content);
-            responseContent = parsedContent.answer || firstResponse.content;
-          } catch {
-            responseContent = firstResponse.content;
-          }
-        }
-        
-        questionResults.push({
-          id: bq.id,
-          question: bq.text,
-          type: 'benchmark',
-          bestPosition: 999,
-          totalMentions: 0,
-          averagePosition: 999,
-          bestResponse: responseContent,
-          bestResponseModel: responseModel,
-          responses: (() => {
-            const latestMap = new Map<string, typeof bq.benchmarkResponses[0]>();
-            bq.benchmarkResponses.forEach(r => {
-              const existing = latestMap.get(r.model);
-              if (!existing || existing.createdAt < r.createdAt) {
-                latestMap.set(r.model, r);
-              }
-            });
-            return Array.from(latestMap.values()).map(r => {
-              let respContent = r.content;
-              try {
-                const parsed = JSON.parse(r.content);
-                respContent = parsed.answer || r.content;
-              } catch {}
-              return { model: r.model, response: respContent, createdAt: r.createdAt };
-            });
-          })(),
-        });
-      }
-    });
-
-    // Sort by best position (lower is better), then by average position, then by total mentions
-    questionResults.sort((a, b) => {
-      if (a.bestPosition !== b.bestPosition) {
-        return a.bestPosition - b.bestPosition;
-      }
-      if (a.averagePosition !== b.averagePosition) {
-        return a.averagePosition - b.averagePosition;
-      }
-      return b.totalMentions - a.totalMentions;
-    });
-
-    // Return all results - let frontend handle filtering and limiting
-    res.json({ 
-      questions: questionResults,
-      totalCount: questionResults.length,
-      runId: reportRun.id,
-      runDate: reportRun.createdAt,
-    });
-  } catch (error) {
-    console.error('Failed to get top ranking questions:', error);
-    res.status(500).json({ error: 'Failed to retrieve top ranking questions' });
-  }
-};
-
-export const getSentimentOverTime = async (req: Request, res: Response) => {
-  try {
-    const { id: companyId } = req.params;
-    const { dateRange, aiModel } = req.query;
-
-    let dateFilter: { gte?: Date } = {};
-    if (dateRange) {
-      const now = new Date();
-      const daysMap: { [key: string]: number } = { '7d': 7, '30d': 30, '90d': 90, '1y': 365 };
-      const days = daysMap[dateRange as string] || 30;
-      dateFilter.gte = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-    }
-
-    const reportRuns = await prisma.reportRun.findMany({
-      where: {
-        companyId,
-        status: 'COMPLETED',
-        ...(dateFilter.gte && { createdAt: dateFilter }),
-      },
-      orderBy: { createdAt: 'asc' },
-      select: { id: true, createdAt: true },
-    });
-
-    if (reportRuns.length === 0) {
-      return res.json({ history: [] });
-    }
-
-    const engineFilter = (aiModel && aiModel !== 'all') ? (aiModel as string) : 'serplexity-summary';
-
-    const historyPromises = reportRuns.map(async (run) => {
-      const sentimentMetric = await prisma.sentimentScore.findFirst({
-        where: {
-          runId: run.id,
-          name: 'Detailed Sentiment Scores',
-          engine: engineFilter,
-        },
-      });
-
-      if (!sentimentMetric || !sentimentMetric.value) {
-        return null;
-      }
-
-      const value = sentimentMetric.value as unknown as SentimentScoreValue;
-      const ratings = value.ratings[0];
-      const scores = Object.values(ratings).filter(v => typeof v === 'number') as number[];
-      const averageScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
-      
-      return {
-        date: run.createdAt.toISOString().split('T')[0],
-        score: averageScore,
-      };
-    });
-
-    const history = (await Promise.all(historyPromises)).filter(Boolean);
-    const uniqueHistory = Array.from(new Map(history.map(item => [item!.date, item])).values());
-
-    res.json({ history: uniqueHistory });
-  } catch (error) {
-    console.error('Error fetching sentiment over time:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-};
-
-export const getCompetitorRankings = async (req: Request, res: Response) => {
-  try {
-    const { id: companyId } = req.params;
-    const { dateRange, aiModel } = req.query;
+    const { aiModel, limit, questionType } = req.query;
     const userId = req.user?.id;
 
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+    console.log('[GET_TOP_RANKING_QUESTIONS] Request for company:', companyId, 'aiModel:', aiModel, 'limit:', limit, 'questionType:', questionType);
+
+    if (!userId) return res.status(401).json({ error: 'User not authenticated' });
+
+    const company = await prismaReadReplica.company.findFirst({ where: { id: companyId, userId } });
+    if (!company) return res.status(404).json({ error: 'Company not found or unauthorized' });
+
+    const { latestRun } = await findLatestRuns(companyId);
+    if (!latestRun) {
+      console.log('[GET_TOP_RANKING_QUESTIONS] No latest run found for company:', companyId);
+      return res.json({ questions: [], totalCount: 0, runId: null, runDate: null });
     }
 
-    // Ensure the company belongs to the user
-    const company = await prisma.company.findFirst({
-      where: { id: companyId, userId },
-      include: { competitors: true },
-    });
-
-    if (!company) {
-      return res.status(404).json({ error: 'Company not found or unauthorized' });
-    }
-
-    // Calculate date filter
-    let dateFilter = {};
-    if (dateRange) {
-      const now = new Date();
-      const daysMap = { '7d': 7, '30d': 30, '90d': 90, '1y': 365 };
-      const days = daysMap[dateRange as keyof typeof daysMap] || 30;
-      const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-      dateFilter = { gte: startDate };
-    }
-
-    // Get the latest 2 report runs for comparison
-    const reportRuns = await prisma.reportRun.findMany({
-      where: {
-        companyId,
-        status: 'COMPLETED',
-        ...(Object.keys(dateFilter).length > 0 && { createdAt: dateFilter }),
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: 2,
-    });
-
-    if (reportRuns.length === 0) {
-      return res.json({ competitors: [], industryRanking: null });
-    }
-
-    const calculateCompetitorShareOfVoice = async (runId: string) => {
-      // Create model filter for responses
-      let responseModelFilter = {};
-      if (aiModel && aiModel !== 'all') {
-        responseModelFilter = { model: aiModel as string };
+    // Parse limit properly: if 'all' or undefined, fetch everything (use large number)
+    // Otherwise parse as integer
+    let parsedLimit = 1000; // Default to large number for 'all'
+    if (limit && limit !== 'all') {
+      const limitNum = parseInt(limit as string, 10);
+      if (!isNaN(limitNum) && limitNum > 0) {
+        parsedLimit = limitNum;
       }
+    }
 
-      // Get all visibility mentions with competitor info
-      const visibilityMentions = await prisma.visibilityMention.findMany({
-        where: {
-          visibilityResponse: {
-            runId: runId,
-            ...responseModelFilter,
-          },
-        },
-        include: {
-          competitor: true,
-          company: true,
-        },
-      });
+    console.log('[GET_TOP_RANKING_QUESTIONS] Using limit:', parsedLimit, '(original:', limit, ')');
 
-      // Get all benchmark mentions with competitor info
-      const benchmarkMentions = await prisma.benchmarkMention.findMany({
-        where: {
-          benchmarkResponse: {
-            runId: runId,
-            ...responseModelFilter,
-          },
-        },
-        include: {
-          competitor: true,
-          company: true,
-        },
-      });
-
-      // Combine all mentions
-      const allMentions = [
-        ...visibilityMentions.map(m => ({
-          id: m.id,
-          competitorId: m.competitorId,
-          companyId: m.companyId,
-          competitor: m.competitor,
-          company: m.company,
-        })),
-        ...benchmarkMentions.map(m => ({
-          id: m.id,
-          competitorId: m.competitorId,
-          companyId: m.companyId,
-          competitor: m.competitor,
-          company: m.company,
-        })),
-      ];
-
-      // Count mentions by competitor/company
-      const mentionCounts = new Map<string, { name: string; website?: string; count: number; isUserCompany: boolean }>();
-
-      allMentions.forEach(mention => {
-        if (mention.competitor) {
-          const key = `competitor_${mention.competitor.id}`;
-          const existing = mentionCounts.get(key) || { name: mention.competitor.name, website: mention.competitor.website || undefined, count: 0, isUserCompany: false };
-          mentionCounts.set(key, { ...existing, count: existing.count + 1 });
-        } else if (mention.company) {
-          const key = `company_${mention.company.id}`;
-          const existing = mentionCounts.get(key) || { name: mention.company.name, website: mention.company.website, count: 0, isUserCompany: mention.company.id === companyId };
-          mentionCounts.set(key, { ...existing, count: existing.count + 1 });
-        }
-      });
-
-      const totalMentions = allMentions.length;
-      if (totalMentions === 0) {
-        return [];
-      }
-
-      // Convert to share of voice percentages
-      const competitors = Array.from(mentionCounts.values()).map(item => ({
-        name: item.name,
-        website: item.website,
-        shareOfVoice: (item.count / totalMentions) * 100,
-        isUserCompany: item.isUserCompany,
-      }));
-
-      return competitors.sort((a, b) => b.shareOfVoice - a.shareOfVoice);
-    };
-
-    // Calculate current share of voice
-    const currentCompetitors = await calculateCompetitorShareOfVoice(reportRuns[0].id);
+    // 10x APPROACH: Use response-level granularity for proper display
+    console.log('[GET_TOP_RANKING_QUESTIONS] Using response-level calculation for accurate counts');
+    const { calculateTopResponses } = await import('../services/dashboardService');
+    const calculationResult = await calculateTopResponses(
+      latestRun.id, 
+      companyId, 
+      { 
+        aiModel: aiModel as string,
+        questionType: questionType as string 
+      }, 
+      parsedLimit, 
+      0
+    );
     
-    // Calculate previous share of voice for comparison
-    let previousCompetitors: any[] = [];
-    if (reportRuns.length > 1) {
-      previousCompetitors = await calculateCompetitorShareOfVoice(reportRuns[1].id);
-    }
+    // Transform response format to match frontend expectations
+    const responses = calculationResult?.responses || [];
+    const totalCount = calculationResult?.totalCount || 0;
+    
+    console.log('[GET_TOP_RANKING_QUESTIONS] Response-level calculation returned:', responses.length, 'responses, totalCount:', totalCount);
+    
+    // Transform to expected frontend format (backwards compatibility)
+    const questions = responses.map((r: any) => ({
+      id: r.id,
+      question: r.question,
+      type: r.type,
+      bestPosition: r.bestPosition,
+      totalMentions: r.position !== null ? 1 : 0, // Simplified for response-level
+      averagePosition: r.position,
+      bestResponse: r.response,
+      bestResponseModel: r.model,
+      responses: [{
+        model: r.model,
+        response: r.response,
+        position: r.position,
+        createdAt: r.createdAt
+      }]
+    }));
 
-    // Calculate changes
-    const competitorsWithChanges = currentCompetitors.map(current => {
-      const previous = previousCompetitors.find(p => p.name === current.name);
-      const change = previous ? current.shareOfVoice - previous.shareOfVoice : 0;
-      
-      return {
-        ...current,
-        change,
-        changeType: change > 0 ? 'increase' : change < 0 ? 'decrease' : 'stable',
-      };
-    });
-
-    // Find user company ranking
-    const userCompanyIndex = competitorsWithChanges.findIndex(c => c.isUserCompany);
-    const industryRanking = userCompanyIndex >= 0 ? userCompanyIndex + 1 : null;
-
-    // Get top 3 competitors (including user company) for list display
-    const topCompetitors = competitorsWithChanges.slice(0, 3);
-
-    // Group remaining competitors if more than 3
-    let listCompetitors = topCompetitors;
-    if (competitorsWithChanges.length > 3) {
-      const remainingCompetitors = competitorsWithChanges.slice(3);
-      
-      const othersShareOfVoice = remainingCompetitors.reduce((sum, c) => sum + c.shareOfVoice, 0);
-      const othersChange = remainingCompetitors.reduce((sum, c) => sum + (c.change || 0), 0);
-      
-      listCompetitors.push({
-        name: `${remainingCompetitors.length}+ others`,
-        website: undefined,
-        shareOfVoice: othersShareOfVoice,
-        change: othersChange,
-        changeType: othersChange > 0 ? 'increase' : othersChange < 0 ? 'decrease' : 'stable',
-        isUserCompany: false,
-      });
-    }
-
-    // Get top 12 individual competitors for chart display (no grouping)
-    const chartCompetitors = competitorsWithChanges.slice(0, 12);
-
-    res.json({ 
-      competitors: listCompetitors,
-      chartCompetitors: chartCompetitors,
-      industryRanking,
-      userCompany: competitorsWithChanges.find(c => c.isUserCompany) || null,
+    res.json({
+      questions,
+      totalCount,
+      runId: latestRun.id,
+      runDate: latestRun.createdAt.toISOString(),
     });
   } catch (error) {
-    console.error('[GET COMPETITOR RANKINGS ERROR]', error);
+    console.error('[GET_TOP_RANKING_QUESTIONS] Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const getSentimentOverTime = async (_req: Request, res: Response) => {
+  return res.json([]);
+};
+
+export const getShareOfVoiceHistory = async (req: Request, res: Response) => {
+  try {
+    const { id: companyId } = req.params;
+    const { aiModel } = req.query;
+    const userId = req.user?.id;
+
+    if (!userId) return res.status(401).json({ error: 'User not authenticated' });
+
+    const company = await prismaReadReplica.company.findFirst({ where: { id: companyId, userId } });
+    if (!company) return res.status(404).json({ error: 'Company not found or unauthorized' });
+
+    // Use the dashboard service function to get the share of voice history
+    const { calculateShareOfVoiceHistory } = await import('../services/dashboardService');
+    const history = await calculateShareOfVoiceHistory('', companyId, { aiModel: aiModel as string });
+    
+    return res.json(history);
+  } catch (error) {
+    console.error('[GET SHARE OF VOICE HISTORY ERROR]', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
@@ -1359,53 +554,29 @@ export const updateCompany = async (req: Request, res: Response) => {
         });
       }
 
-      // Handle Benchmarking Questions
+      // Handle Benchmarking Questions (schema simplified – only user-created questions)
       if (updateData.benchmarkingQuestions) {
-        // First, delete generated variations that reference user-added questions
-        // This prevents foreign key constraint violations
-        await tx.benchmarkingQuestion.deleteMany({
-          where: { 
-            companyId: id, 
-            isGenerated: true,
-            originalQuestionId: { not: null }
-          },
-        });
+        // Delete existing questions
+        await tx.benchmarkingQuestion.deleteMany({ where: { companyId: id } });
 
-        // Then, delete only user-added questions (originalQuestionId is null)
-        await tx.benchmarkingQuestion.deleteMany({
-          where: { companyId: id, isGenerated: false },
-        });
-
-        // Create the new list of user-added questions
+        // Re-create supplied questions
         await tx.benchmarkingQuestion.createMany({
-          data: updateData.benchmarkingQuestions.map(questionText => ({
+          data: updateData.benchmarkingQuestions.map((questionText: string) => ({
             text: questionText,
             companyId: id,
-            isGenerated: false, // Explicitly set as user-added
           })),
         });
       }
 
-      // Handle Products
-      if (updateData.products) {
-        await tx.product.deleteMany({
-          where: { companyId: id },
-        });
-        await tx.product.createMany({
-          data: updateData.products.map(productName => ({
-            name: productName,
-            companyId: id,
-          })),
-        });
-      }
+      // Removed product update handling
 
       // Return updated company with only user-added data for editing
       return await tx.company.findUnique({
         where: { id },
         include: {
           competitors: { where: { isGenerated: false } },
-          benchmarkingQuestions: { where: { isGenerated: false } },
-          products: true,
+          benchmarkingQuestions: true,
+          // no products
         },
       });
     });

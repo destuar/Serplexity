@@ -1,8 +1,10 @@
 import { createContext, useContext } from 'react';
 import { DashboardData, DashboardFilters } from '../types/dashboard';
+import { TopRankingQuestion } from '../services/companyService';
 
 export interface DashboardContextType {
   data: DashboardData | null;
+  detailedQuestions: TopRankingQuestion[];
   filters: DashboardFilters;
   loading: boolean;
   error: string | null;

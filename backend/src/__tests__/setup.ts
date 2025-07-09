@@ -115,14 +115,12 @@ async function cleanDatabase() {
     console.warn('Transaction cleanup failed, trying individual cleanup:', error.message);
     
     try {
-      // Delete in dependency order
-      await prisma.visibilityMention.deleteMany({});
-      await prisma.visibilityResponse.deleteMany({});
-      await prisma.visibilityQuestion.deleteMany({});
-      await prisma.personalQuestion.deleteMany({});
-      await prisma.personalResponse.deleteMany({});
+      // Clean new fan-out tables first
+      await prisma.fanoutMention.deleteMany({});
+      await prisma.fanoutResponse.deleteMany({});
+      await prisma.fanoutQuestion.deleteMany({});
+      // BenchmarkingQuestion remains (user-created)
       await prisma.benchmarkingQuestion.deleteMany({});
-      await prisma.product.deleteMany({});
       await prisma.competitor.deleteMany({});
       await prisma.company.deleteMany({});
       await prisma.user.deleteMany({});

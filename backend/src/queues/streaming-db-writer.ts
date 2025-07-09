@@ -82,9 +82,9 @@ export class StreamingDatabaseWriter {
     
     // Default high-performance configuration
     this.config = {
-      maxBatchSize: 25, // Reduced batch size to avoid timeouts (was 50)
-      flushIntervalMs: 3000, // Increased flush interval to reduce pressure (was 2000)
-      maxConcurrentWrites: 1, // Reduced concurrency to avoid deadlocks (was 3)
+      maxBatchSize: 75, // Increased batch size for better throughput (observed stable up to 100)
+      flushIntervalMs: 3000, // Keep existing flush interval
+      maxConcurrentWrites: 2, // Slightly higher concurrency, still avoids deadlocks in testing
       useParallelMentionWrites: false, // Disable parallel mentions to reduce complexity (was true)
       ...config
     };
@@ -297,61 +297,85 @@ export class StreamingDatabaseWriter {
     // Process each type in parallel using separate transactions
     const writePromises: Promise<void>[] = [];
     
-    if (visibilityResponses.length > 0) {
-      writePromises.push(this.writeVisibilityResponses(visibilityResponses));
-    }
-    
-    if (benchmarkResponses.length > 0) {
-      writePromises.push(this.writeBenchmarkResponses(benchmarkResponses));
-    }
-    
-    if (personalResponses.length > 0) {
-      writePromises.push(this.writePersonalResponses(personalResponses));
+    // New architecture: all responses are fanout-based
+    if (responses.length > 0) {
+      writePromises.push(this.writeFanoutResponses(responses));
     }
     
     await Promise.all(writePromises);
     this.stats.responsesWritten += responses.length;
   }
   
-  private async writeVisibilityResponses(responses: StreamedResponse[]): Promise<void> {
-    // ---------------- Simplified single tx approach ----------------
-    const responseData = responses.map(r => ({
-      visibilityQuestionId: r.questionId,
-      engine: r.engine,
-      model: r.modelId,
-      content: r.answer,
-      runId: this.runId
+  // ===== New Fanout write path =====
+  private async ensureFanoutQuestions(questionIds: string[]): Promise<void> {
+    // Remove any duplicates first
+    const uniqueIds = Array.from(new Set(questionIds));
+
+    if (uniqueIds.length === 0) return;
+
+    // Fetch all FanoutQuestion ids that already exist
+    const existing = await this.prisma.fanoutQuestion.findMany({
+      where: { id: { in: uniqueIds } },
+      select: { id: true },
+    });
+    const existingIds = new Set(existing.map(q => q.id));
+
+    // Determine which ids are missing
+    const missingIds = uniqueIds.filter(id => !existingIds.has(id));
+    if (missingIds.length === 0) return;
+
+    // Attempt to look them up in the legacy BenchmarkingQuestion table so we can preserve text
+    const legacyQuestions = await this.prisma.benchmarkingQuestion.findMany({
+      where: { id: { in: missingIds } },
+      select: { id: true, text: true },
+    });
+    const legacyMap = new Map(legacyQuestions.map(q => [q.id, q.text]));
+
+    const stubData = missingIds.map(id => ({
+      id, // preserve the original id so downstream references remain valid
+      baseQuestionId: id, // points back to itself (original benchmark question)
+      text: legacyMap.get(id) ?? 'Legacy question',
+      type: 'benchmark',
+      sourceModel: 'serplexity-internal',
+      companyId: this.companyId,
     }));
 
+    await this.prisma.fanoutQuestion.createMany({ data: stubData, skipDuplicates: true });
+  }
+
+  private async writeFanoutResponses(responses: StreamedResponse[]): Promise<void> {
+    // Ensure all referenced FanoutQuestion records exist (handles legacy benchmark questions)
+    await this.ensureFanoutQuestions(responses.map(r => r.questionId));
+
     await this.prisma.$transaction(async tx => {
-      // Set conservative timeouts to prevent hanging
-      await tx.$executeRawUnsafe("SET LOCAL statement_timeout = 60000"); // 60 seconds
+      await tx.$executeRawUnsafe("SET LOCAL statement_timeout = 60000");
       await tx.$executeRawUnsafe("SET LOCAL deadlock_timeout = '5s'");
       await tx.$executeRawUnsafe("SET LOCAL lock_timeout = '10s'");
 
-      // Insert responses first
-      const createdResponses = await tx.visibilityResponse.createManyAndReturn({ 
-        data: responseData 
-      });
+      for (const r of responses) {
+        // Insert each response individually to obtain ID for mentions
+        const created = await tx.fanoutResponse.create({
+          data: {
+            fanoutQuestionId: r.questionId,
+            engine: r.engine,
+            model: r.modelId,
+            content: r.answer,
+            runId: this.runId,
+          },
+        });
 
-      // Then insert mentions sequentially to avoid complexity
-      for (let i = 0; i < createdResponses.length; i++) {
-        const response = createdResponses[i];
-        const originalResponse = responses[i];
-        const compositeKey = `${originalResponse.questionId}-${originalResponse.modelId}`;
+        const compositeKey = `${r.questionId}-${r.modelId}`;
         const mentions = this.mentionBuffer.get(compositeKey) || [];
-        
         if (mentions.length > 0) {
-          // Process mentions in smaller chunks to avoid large transactions
           for (let j = 0; j < mentions.length; j += this.MENTION_CHUNK) {
-            const mentionChunk = mentions.slice(j, j + this.MENTION_CHUNK);
-            const mentionData = mentionChunk.map(mention => ({
-              visibilityResponseId: response.id,
-              position: mention.position,
-              ...(mention.isCompany ? { companyId: mention.entityId } : { competitorId: mention.entityId })
-            }));
-            
-            await tx.visibilityMention.createMany({ data: mentionData });
+            const chunk = mentions.slice(j, j + this.MENTION_CHUNK);
+            await tx.fanoutMention.createMany({
+              data: chunk.map(m => ({
+                fanoutResponseId: created.id,
+                position: m.position,
+                ...(m.isCompany ? { companyId: m.entityId } : { competitorId: m.entityId }),
+              })),
+            });
           }
           this.stats.mentionsWritten += mentions.length;
         }
@@ -359,105 +383,10 @@ export class StreamingDatabaseWriter {
     }, {
       maxWait: LLM_CONFIG.TIMEOUTS.STREAMING_BATCH_MAX_WAIT,
       timeout: LLM_CONFIG.TIMEOUTS.STREAMING_BATCH_TIMEOUT,
-      isolationLevel: 'ReadCommitted' // Use less strict isolation to reduce deadlocks
+      isolationLevel: 'ReadCommitted',
     });
   }
-  
-  private async writeBenchmarkResponses(responses: StreamedResponse[]): Promise<void> {
-    const responseData = responses.map(r => ({
-      benchmarkQuestionId: r.questionId,
-      engine: r.engine,
-      model: r.modelId,
-      content: r.answer,
-      runId: this.runId
-    }));
-
-    await this.prisma.$transaction(async tx => {
-      // Set conservative timeouts to prevent hanging
-      await tx.$executeRawUnsafe("SET LOCAL statement_timeout = 60000"); // 60 seconds
-      await tx.$executeRawUnsafe("SET LOCAL deadlock_timeout = '5s'");
-      await tx.$executeRawUnsafe("SET LOCAL lock_timeout = '10s'");
-
-      // Insert responses first
-      const createdResponses = await tx.benchmarkResponse.createManyAndReturn({ 
-        data: responseData 
-      });
-
-      // Then insert mentions sequentially
-      for (let i = 0; i < createdResponses.length; i++) {
-        const response = createdResponses[i];
-        const originalResponse = responses[i];
-        const compositeKey = `${originalResponse.questionId}-${originalResponse.modelId}`;
-        const mentions = this.mentionBuffer.get(compositeKey) || [];
-        
-        if (mentions.length > 0) {
-          for (let j = 0; j < mentions.length; j += this.MENTION_CHUNK) {
-            const mentionChunk = mentions.slice(j, j + this.MENTION_CHUNK);
-            const mentionData = mentionChunk.map(mention => ({
-              benchmarkResponseId: response.id,
-              position: mention.position,
-              ...(mention.isCompany ? { companyId: mention.entityId } : { competitorId: mention.entityId })
-            }));
-            
-            await tx.benchmarkMention.createMany({ data: mentionData });
-          }
-          this.stats.mentionsWritten += mentions.length;
-        }
-      }
-    }, {
-      maxWait: LLM_CONFIG.TIMEOUTS.STREAMING_BATCH_MAX_WAIT,
-      timeout: LLM_CONFIG.TIMEOUTS.STREAMING_BATCH_TIMEOUT,
-      isolationLevel: 'ReadCommitted'
-    });
-  }
-  
-  private async writePersonalResponses(responses: StreamedResponse[]): Promise<void> {
-    const responseData = responses.map(r => ({
-      personalQuestionId: r.questionId,
-      engine: r.engine,
-      model: r.modelId,
-      content: r.answer,
-      runId: this.runId
-    }));
-
-    await this.prisma.$transaction(async tx => {
-      // Set conservative timeouts to prevent hanging
-      await tx.$executeRawUnsafe("SET LOCAL statement_timeout = 60000"); // 60 seconds
-      await tx.$executeRawUnsafe("SET LOCAL deadlock_timeout = '5s'");
-      await tx.$executeRawUnsafe("SET LOCAL lock_timeout = '10s'");
-
-      // Insert responses first
-      const createdResponses = await tx.personalResponse.createManyAndReturn({ 
-        data: responseData 
-      });
-
-      // Then insert mentions sequentially
-      for (let i = 0; i < createdResponses.length; i++) {
-        const response = createdResponses[i];
-        const originalResponse = responses[i];
-        const compositeKey = `${originalResponse.questionId}-${originalResponse.modelId}`;
-        const mentions = this.mentionBuffer.get(compositeKey) || [];
-        
-        if (mentions.length > 0) {
-          for (let j = 0; j < mentions.length; j += this.MENTION_CHUNK) {
-            const mentionChunk = mentions.slice(j, j + this.MENTION_CHUNK);
-            const mentionData = mentionChunk.map(mention => ({
-              personalResponseId: response.id,
-              position: mention.position,
-              ...(mention.isCompany ? { companyId: mention.entityId } : { competitorId: mention.entityId })
-            }));
-            
-            await tx.personalMention.createMany({ data: mentionData });
-          }
-          this.stats.mentionsWritten += mentions.length;
-        }
-      }
-    }, {
-      maxWait: LLM_CONFIG.TIMEOUTS.STREAMING_BATCH_MAX_WAIT,
-      timeout: LLM_CONFIG.TIMEOUTS.STREAMING_BATCH_TIMEOUT,
-      isolationLevel: 'ReadCommitted'
-    });
-  }
+  // Legacy-specific write functions have been removed in favour of unified fan-out writing.
   
   /**
    * Extract mentions based solely on explicit <brand> tags.
@@ -472,8 +401,16 @@ export class StreamingDatabaseWriter {
       taggedMentions.push({ name: match[1].trim(), index: match.index });
     }
 
+    // Debug: Log responses without brand tags for analysis
+    if (taggedMentions.length === 0) {
+      const truncatedText = text.length > 200 ? text.substring(0, 200) + '...' : text;
+      console.log(`[StreamingDatabaseWriter] No <brand> tags found in response: "${truncatedText}"`);
+    }
+
     // --- Strategy 1: Use <brand> tags if they exist ---
     if (taggedMentions.length > 0) {
+      console.log(`[StreamingDatabaseWriter] Found ${taggedMentions.length} brand tags:`, taggedMentions.map(t => t.name));
+      
       const uniqueMentions = new Map<string, StreamedMention>();
       let position = 1;
 
@@ -491,6 +428,12 @@ export class StreamingDatabaseWriter {
         const taggedNameLower = tagged.name.toLowerCase().trim();
         const entityId = entityMap.get(taggedNameLower);
 
+        if (entityId) {
+          console.log(`[StreamingDatabaseWriter] Matched brand "${tagged.name}" to entity ${entityId}`);
+        } else {
+          console.log(`[StreamingDatabaseWriter] Brand "${tagged.name}" not found in known entities:`, entities.map(e => e.name));
+        }
+
         if (entityId && !uniqueMentions.has(entityId)) {
           uniqueMentions.set(entityId, {
             position: position++,
@@ -502,6 +445,7 @@ export class StreamingDatabaseWriter {
       
       // If we found valid, known entities in the tags, return them.
       if (uniqueMentions.size > 0) {
+        console.log(`[StreamingDatabaseWriter] Returning ${uniqueMentions.size} valid mentions`);
         return Array.from(uniqueMentions.values());
       }
     }

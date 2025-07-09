@@ -31,13 +31,25 @@ function createMockPrisma(): PrismaClient {
     visibilityMention: { createMany: jest.fn().mockResolvedValue(undefined) },
     benchmarkMention: { createMany: jest.fn().mockResolvedValue(undefined) },
     personalMention: { createMany: jest.fn().mockResolvedValue(undefined) },
+    fanoutQuestion: {
+      findMany: jest.fn().mockResolvedValue([]),
+      createMany: jest.fn().mockResolvedValue(undefined),
+    },
+    benchmarkingQuestion: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    fanoutResponse: {
+      create: jest.fn().mockImplementation(data => Promise.resolve({ id: 'new-resp-id', ...data.data })),
+    },
+    fanoutMention: {
+      createMany: jest.fn().mockResolvedValue(undefined),
+    },
   } as any;
 
-  // When writer calls prisma.$transaction(fn, opts) we execute fn with txTemplate
   const prismaMock: any = {
     $transaction: jest.fn().mockImplementation(async (cb) => cb(txTemplate)),
   };
-  // Spread tables at top level too (writer never uses at top level, but safe)
+
   Object.assign(prismaMock, txTemplate);
   return prismaMock as unknown as PrismaClient;
 }
@@ -83,11 +95,9 @@ describe('StreamingDatabaseWriter', () => {
     const finalStats = await writer.finalize();
 
     // Ensure createMany / mentions were invoked
-    const { visibilityResponse, benchmarkResponse, visibilityMention, benchmarkMention } = prisma as any;
-    expect(visibilityResponse.createManyAndReturn).toHaveBeenCalledTimes(1);
-    expect(benchmarkResponse.createManyAndReturn).toHaveBeenCalledTimes(1);
-    expect(visibilityMention.createMany).toHaveBeenCalled();
-    expect(benchmarkMention.createMany).toHaveBeenCalled();
+    const { fanoutResponse, fanoutMention } = prisma as any;
+    expect(fanoutResponse.create).toHaveBeenCalledTimes(2);
+    expect(fanoutMention.createMany).toHaveBeenCalledTimes(2); // Once for each response with mentions
 
     // Stats updated
     expect(finalStats.responsesWritten).toBe(2);

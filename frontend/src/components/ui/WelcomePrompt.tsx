@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Loader } from 'lucide-react';
+import { Sparkles, Loader, CheckCircle, Clock } from 'lucide-react';
 import { useCompany } from '../../contexts/CompanyContext';
 
 interface WelcomePromptProps {
@@ -7,18 +7,134 @@ interface WelcomePromptProps {
   isGenerating: boolean;
   generationStatus?: string | null;
   progress?: number;
+  isButtonDisabled?: boolean;
+  generationState?: string;
+  completionState?: any;
 }
 
 const WelcomePrompt: React.FC<WelcomePromptProps> = ({
   onGenerateReport,
   isGenerating,
   generationStatus,
-  progress = 0
+  progress = 0,
+  isButtonDisabled = false,
+  generationState,
+  completionState
 }) => {
   const { selectedCompany } = useCompany();
 
   // Use the progress value directly from the hook (which already handles monotonic progression)
   const currentProgress = progress;
+
+  // Enhanced button state logic
+  const getButtonContent = () => {
+    if (completionState && !completionState.dashboardRefreshed) {
+      return (
+        <div className="flex items-center justify-center gap-3">
+          <CheckCircle size={20} className="text-green-400" />
+          <span>Report completed! Loading dashboard...</span>
+        </div>
+      );
+    }
+
+    if (isGenerating) {
+      return (
+        <>
+          <div className="flex items-center justify-center gap-3">
+            <Loader size={20} className="animate-spin" />
+            <span>{generationStatus || 'Generating your first report...'}</span>
+          </div>
+          
+          {/* Progress Bar */}
+          {currentProgress > 0 && (
+            <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
+              <div 
+                className="bg-white/80 h-full rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${currentProgress}%` }}
+              ></div>
+            </div>
+          )}
+        </>
+      );
+    }
+
+    if (generationState === 'COMPLETED') {
+      return (
+        <div className="flex items-center justify-center gap-3">
+          <CheckCircle size={20} className="text-green-400" />
+          <span>Report completed! Refresh to view dashboard</span>
+        </div>
+      );
+    }
+
+    if (generationState === 'FAILED') {
+      return (
+        <div className="flex items-center justify-center gap-3">
+          <Sparkles size={20} />
+          <span>Generate Your First Report</span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center justify-center gap-3">
+        <Sparkles size={20} />
+        <span>Generate Your First Report</span>
+      </div>
+    );
+  };
+
+  // Enhanced button class logic
+  const getButtonClass = () => {
+    const baseClass = "w-full flex flex-col gap-2 px-6 py-3 rounded-lg transition-all text-lg font-medium shadow-lg hover:shadow-xl relative overflow-hidden";
+    
+    if (completionState && !completionState.dashboardRefreshed) {
+      return `${baseClass} bg-green-600 text-white cursor-not-allowed opacity-90`;
+    }
+
+    if (isButtonDisabled) {
+      return `${baseClass} bg-gray-400 text-white cursor-not-allowed opacity-50`;
+    }
+
+    if (generationState === 'COMPLETED') {
+      return `${baseClass} bg-green-600 text-white cursor-not-allowed opacity-90`;
+    }
+
+    if (generationState === 'FAILED') {
+      return `${baseClass} bg-gradient-to-r from-[#7762ff] to-[#9e52ff] text-white hover:from-[#6650e6] hover:to-[#8a47e6]`;
+    }
+
+    return `${baseClass} bg-gradient-to-r from-[#7762ff] to-[#9e52ff] text-white hover:from-[#6650e6] hover:to-[#8a47e6]`;
+  };
+
+  // Enhanced disabled state logic
+  const getDisabledReason = () => {
+    if (!selectedCompany?.competitors?.length) {
+      return "Add at least one competitor to your company profile before generating a report.";
+    }
+
+    if (completionState && !completionState.dashboardRefreshed) {
+      return "Report has completed. Dashboard is being updated...";
+    }
+
+    if (generationState === 'REQUESTING') {
+      return "Report generation request is being processed...";
+    }
+
+    if (generationState === 'GENERATING') {
+      return "Report is currently being generated...";
+    }
+
+    if (generationState === 'COMPLETING') {
+      return "Report is being finalized...";
+    }
+
+    if (generationState === 'COMPLETED') {
+      return "Report has been completed. Refresh the page to view the dashboard.";
+    }
+
+    return null;
+  };
 
   return (
     <div className="flex-1 flex items-center justify-center">
@@ -42,78 +158,20 @@ const WelcomePrompt: React.FC<WelcomePromptProps> = ({
             insights across multiple AI platforms.
           </p>
 
-          <div className="bg-white/60 backdrop-blur-sm rounded-lg p-4 mb-6 border border-gray-200/40 shadow-sm">
-            <h3 className="font-semibold text-gray-900 mb-2">Your report will include:</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-600">
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-[#7762ff] rounded-full mr-3"></div>
-                Brand visibility analysis
-              </div>
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-[#7762ff] rounded-full mr-3"></div>
-                Competitor ranking
-              </div>
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-[#7762ff] rounded-full mr-3"></div>
-                Sentiment analysis
-              </div>
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-[#7762ff] rounded-full mr-3"></div>
-                Share of voice metrics
-              </div>
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-[#7762ff] rounded-full mr-3"></div>
-                AI platform performance data
-              </div>
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-[#7762ff] rounded-full mr-3"></div>
-                Strategic insights
-              </div>
-            </div>
-          </div>
-
           <div className="space-y-3">
             <button 
               onClick={onGenerateReport}
-              disabled={isGenerating || !selectedCompany?.competitors?.length || generationStatus === 'Report generated successfully'}
-              className="w-full flex flex-col gap-2 px-6 py-3 bg-gradient-to-r from-[#7762ff] to-[#9e52ff] text-white rounded-lg hover:from-[#6650e6] hover:to-[#8a47e6] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-lg font-medium shadow-lg hover:shadow-xl relative overflow-hidden"
+              disabled={isButtonDisabled}
+              className={getButtonClass()}
             >
-              {isGenerating ? (
-                <>
-                  <div className="flex items-center justify-center gap-3">
-                    <Loader size={20} className="animate-spin" />
-                    <span>{generationStatus || 'Generating your first report...'}</span>
-                  </div>
-                  
-                  {/* Progress Bar */}
-                  {currentProgress > 0 && (
-                    <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
-                      <div 
-                        className="bg-white/80 h-full rounded-full transition-all duration-500 ease-out"
-                        style={{ width: `${currentProgress}%` }}
-                      ></div>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="flex items-center justify-center gap-3">
-                  <Sparkles size={20} />
-                  <span>Generate Your First Report</span>
-                </div>
-              )}
+              {getButtonContent()}
             </button>
-
-            {(!selectedCompany?.competitors?.length) && (
-              <div className="bg-amber-50/80 backdrop-blur-sm border border-amber-200/50 rounded-lg p-3 shadow-sm">
-                <p className="text-sm text-amber-700">
-                  <strong>Note:</strong> Add at least one competitor to your company profile before generating a report.
-                </p>
-              </div>
-            )}
             
-            <p className="text-xs text-gray-500">
-              Report generation typically takes 2-5 minutes depending on market complexity.
-            </p>
+            {!isGenerating && !completionState && (
+              <p className="text-xs text-gray-500">
+                Report generation typically takes 2-5 minutes depending on market complexity.
+              </p>
+            )}
           </div>
         </div>
       </div>

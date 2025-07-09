@@ -1,605 +1,402 @@
+/**
+ * Lightweight, fan-out-based dashboard helpers.
+ * NOTE: These are intentionally minimal – full analytics are now computed
+ *       during the async metrics pipeline and stored in the ReportMetric table.
+ */
+
 import prisma, { prismaReadReplica } from '../config/db';
 
-// Raw database calculation functions to replace DashboardData
 export async function calculateCompetitorRankings(runId: string, companyId: string, filters?: { aiModel?: string }) {
-    // Get all competitors for this company
-    const company = await prismaReadReplica.company.findUnique({
-        where: { id: companyId },
-        include: { competitors: true }
-    });
+  // Prefer pre-computed competitorRankings if present
+  const metric = await prismaReadReplica.reportMetric.findFirst({
+    where: { reportId: runId, aiModel: (filters?.aiModel ?? 'all') },
+    select: { competitorRankings: true }
+  });
 
-    if (!company) {
-        return { competitors: [], chartCompetitors: [], industryRanking: null, userCompany: null };
+  if (metric?.competitorRankings) {
+    return metric.competitorRankings as any;
+  }
+
+  // Fallback – compute simple SoV via FanoutMention
+  const company = await prismaReadReplica.company.findUnique({
+    where: { id: companyId },
+    include: { competitors: true },
+  });
+  if (!company) return { competitors: [], chartCompetitors: [], industryRanking: null, userCompany: null };
+
+  const competitorIds = company.competitors.map(c => c.id);
+
+  const mentions = await prismaReadReplica.fanoutMention.findMany({
+    where: {
+      fanoutResponse: {
+        runId,
+        ...(filters?.aiModel && filters.aiModel !== 'all' ? { model: filters.aiModel } : {}),
+      },
+      OR: [{ companyId }, { competitorId: { in: competitorIds } }],
+    },
+    select: { companyId: true, competitorId: true },
+  });
+
+  const counts = new Map<string, number>();
+  counts.set(companyId, 0);
+  competitorIds.forEach(id => counts.set(id, 0));
+
+  mentions.forEach(m => {
+    const id = m.companyId ?? m.competitorId;
+    if (id) counts.set(id, (counts.get(id) || 0) + 1);
+  });
+
+  const total = Array.from(counts.values()).reduce((a, b) => a + b, 0) || 1;
+
+  const ranked = Array.from(counts.entries())
+    .map(([id, cnt]) => {
+      const isUserCompany = id === companyId;
+      const competitor = company.competitors.find(c => c.id === id);
+      return {
+        id,
+        name: isUserCompany ? company.name : competitor?.name ?? 'Unknown',
+        website: isUserCompany ? company.website : competitor?.website,
+        shareOfVoice: (cnt / total) * 100,
+        isUserCompany,
+      };
+    })
+    .sort((a, b) => b.shareOfVoice - a.shareOfVoice);
+
+  return {
+    competitors: ranked.filter(r => !r.isUserCompany),
+    chartCompetitors: ranked,
+    industryRanking: ranked.findIndex(r => r.isUserCompany) + 1,
+    userCompany: ranked.find(r => r.isUserCompany) || null,
+  };
+}
+
+export async function calculateTopQuestions(runId?: string, companyId?: string, filters?: { aiModel?: string; questionType?: string }, limit: number = 20, skip: number = 0) {
+  if (!runId || !companyId) {
+    return { questions: [], totalCount: 0 };
+  }
+
+  // If metrics were pre-computed into ReportMetric.topQuestions, prefer that first
+  const preComputed = await prismaReadReplica.reportMetric.findFirst({
+    where: {
+      reportId: runId,
+      aiModel: filters?.aiModel ?? 'all',
+    },
+    select: { topQuestions: true },
+  });
+
+  if (preComputed?.topQuestions && Array.isArray(preComputed.topQuestions) && preComputed.topQuestions.length > 0) {
+    console.log(`[calculateTopQuestions] Using pre-computed data for ${runId}, aiModel: ${filters?.aiModel ?? 'all'}`);
+    let questions = preComputed.topQuestions;
+    
+    // Debug: Check for questions without mentions in pre-computed data
+    const questionsWithoutMentions = questions.filter((q: any) => q.bestPosition === null);
+    console.log(`[calculateTopQuestions] Pre-computed data: ${questions.length} total, ${questionsWithoutMentions.length} without mentions`);
+    if (questionsWithoutMentions.length > 0) {
+      console.log(`[calculateTopQuestions] Sample no-mention questions:`, questionsWithoutMentions.slice(0, 3).map((q: any) => ({
+        question: q.question?.substring(0, 30),
+        bestPosition: q.bestPosition,
+        totalMentions: q.totalMentions
+      })));
     }
-
-    // Calculate share of voice for company and all competitors
-    const entityMentionCounts = new Map<string, { name: string, isUserCompany: boolean, website?: string, mentions: number }>();
     
-    // Add the user's company
-    entityMentionCounts.set(companyId, {
-        name: company.name,
-        isUserCompany: true,
-        website: company.website,
-        mentions: 0
-    });
-
-    // Add all competitors
-    company.competitors.forEach(competitor => {
-        entityMentionCounts.set(competitor.id, {
-            name: competitor.name,
-            isUserCompany: false,
-            website: competitor.website,
-            mentions: 0
-        });
-    });
-
-    // Count mentions for each entity
-    const [visibilityMentions, benchmarkMentions, personalMentions] = await Promise.all([
-        prismaReadReplica.visibilityMention.findMany({
-            where: {
-                visibilityResponse: { 
-                    runId,
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                },
-                OR: [
-                    { companyId },
-                    { competitorId: { in: company.competitors.map(c => c.id) } }
-                ]
-            }
-        }),
-        prismaReadReplica.benchmarkMention.findMany({
-            where: {
-                benchmarkResponse: { 
-                    runId,
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                },
-                OR: [
-                    { companyId },
-                    { competitorId: { in: company.competitors.map(c => c.id) } }
-                ]
-            }
-        }),
-        prismaReadReplica.personalMention.findMany({
-            where: {
-                personalResponse: { 
-                    runId,
-                    ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                },
-                OR: [
-                    { companyId },
-                    { competitorId: { in: company.competitors.map(c => c.id) } }
-                ]
-            }
-        })
-    ]);
-
-    // Count mentions for each entity
-    [...visibilityMentions, ...benchmarkMentions, ...personalMentions].forEach(mention => {
-        const entityId = mention.companyId || mention.competitorId;
-        if (entityId && entityMentionCounts.has(entityId)) {
-            entityMentionCounts.get(entityId)!.mentions++;
-        }
-    });
-
-    const totalMentions = Array.from(entityMentionCounts.values()).reduce((sum, entity) => sum + entity.mentions, 0);
+    // Apply questionType filter on pre-computed data if provided
+    if (filters?.questionType && filters.questionType !== 'all') {
+      questions = questions.filter((q: any) => q.type === filters.questionType);
+    }
     
-    // Get previous completed run for comparison
-    const previousRuns = await prismaReadReplica.reportRun.findMany({
+    const totalCount = questions.length;
+    const sliced = questions.slice(skip, skip + limit);
+    console.log(`[calculateTopQuestions] Pre-computed result: ${sliced.length} questions after pagination (skip: ${skip}, limit: ${limit})`);
+    return { questions: sliced, totalCount } as any;
+  }
+
+  console.log(`[calculateTopQuestions] Using on-the-fly calculation for ${runId}, aiModel: ${filters?.aiModel ?? 'all'}`);
+
+  // On-the-fly calculation from fan-out tables (may be slower but keeps UI functional)
+
+  // Build where clause for fanout questions
+  const questionWhere: any = { companyId };
+  
+  // Apply questionType filter if provided
+  if (filters?.questionType && filters.questionType !== 'all') {
+    questionWhere.type = filters.questionType;
+  }
+
+  // Fetch relevant fanout questions with their responses & company mentions
+  const questions = await prismaReadReplica.fanoutQuestion.findMany({
+    where: questionWhere,
+    select: {
+      id: true,
+      text: true,
+      type: true,
+      responses: {
         where: {
-            companyId,
-            status: 'COMPLETED',
-            id: { not: runId }
+          runId,
+          ...(filters?.aiModel && filters.aiModel !== 'all' ? { model: filters.aiModel } : {}),
         },
-        orderBy: { createdAt: 'desc' },
-        take: 1
-    });
+        select: {
+          id: true,
+          model: true,
+          content: true,
+          createdAt: true,
+          mentions: {
+            where: { companyId },
+            select: { position: true },
+          },
+        },
+      },
+    },
+  });
 
-    // Calculate previous share of voice for comparison
-    const previousShareOfVoice = new Map<string, number>();
-    if (previousRuns.length > 0) {
-        const previousRunId = previousRuns[0].id;
-        
-        // Get previous mention counts
-        const [prevVisibilityMentions, prevBenchmarkMentions, prevPersonalMentions] = await Promise.all([
-            prismaReadReplica.visibilityMention.findMany({
-                where: {
-                    visibilityResponse: { 
-                        runId: previousRunId,
-                        ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                    },
-                    OR: [
-                        { companyId },
-                        { competitorId: { in: company.competitors.map(c => c.id) } }
-                    ]
-                }
-            }),
-            prismaReadReplica.benchmarkMention.findMany({
-                where: {
-                    benchmarkResponse: { 
-                        runId: previousRunId,
-                        ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                    },
-                    OR: [
-                        { companyId },
-                        { competitorId: { in: company.competitors.map(c => c.id) } }
-                    ]
-                }
-            }),
-            prismaReadReplica.personalMention.findMany({
-                where: {
-                    personalResponse: { 
-                        runId: previousRunId,
-                        ...(filters?.aiModel && filters.aiModel !== 'all' ? { engine: filters.aiModel } : {})
-                    },
-                    OR: [
-                        { companyId },
-                        { competitorId: { in: company.competitors.map(c => c.id) } }
-                    ]
-                }
-            })
-        ]);
+  // Transform into TopRankingQuestion shape
+  type Q = {
+    id: string;
+    question: string;
+    type: string;
+    bestPosition: number | null; // Allow null for questions with no mentions
+    totalMentions: number;
+    averagePosition: number | null; // Allow null for questions with no mentions
+    bestResponse: string;
+    bestResponseModel: string;
+    productName?: string | null;
+    responses: Array<{ model: string; response: string; position?: number | null; createdAt?: string }>;
+  };
 
-        // Count previous mentions for each entity
-        const prevEntityMentionCounts = new Map<string, number>();
-        entityMentionCounts.forEach((_, entityId) => {
-            prevEntityMentionCounts.set(entityId, 0);
-        });
+  const transformed: Q[] = [];
 
-        [...prevVisibilityMentions, ...prevBenchmarkMentions, ...prevPersonalMentions].forEach(mention => {
-            const entityId = mention.companyId || mention.competitorId;
-            if (entityId && prevEntityMentionCounts.has(entityId)) {
-                prevEntityMentionCounts.set(entityId, (prevEntityMentionCounts.get(entityId) || 0) + 1);
-            }
-        });
+  for (const q of questions) {
+    const companyMentionsPerResponse = q.responses.map(r => ({
+      response: r,
+      positions: r.mentions.map(m => m.position),
+    }));
 
-        const prevTotalMentions = Array.from(prevEntityMentionCounts.values()).reduce((sum, count) => sum + count, 0);
-        
-        // Calculate previous share of voice percentages
-        if (prevTotalMentions > 0) {
-            prevEntityMentionCounts.forEach((mentions, entityId) => {
-                previousShareOfVoice.set(entityId, (mentions / prevTotalMentions) * 100);
-            });
-        }
-    }
+    // Always include the question, even if company was never mentioned
+    let bestPos: number | null = null;
+    let bestResp: typeof companyMentionsPerResponse[number] | null = null;
+    let totalPositions: number[] = [];
+
+    // Find best position among responses that mention the company
+    const responsesWithMentions = companyMentionsPerResponse.filter(r => r.positions.length > 0);
     
-    // Calculate share of voice and rank entities with change data
-    const rankedEntities = Array.from(entityMentionCounts.entries())
-        .map(([id, entity]) => {
-            const currentShareOfVoice = totalMentions > 0 ? (entity.mentions / totalMentions) * 100 : 0;
-            const previousValue = previousShareOfVoice.get(id) || 0;
-            const change = currentShareOfVoice - previousValue;
-            
-            let changeType: 'increase' | 'decrease' | 'stable';
-            if (Math.abs(change) < 0.1) { // Consider changes less than 0.1% as stable
-                changeType = 'stable';
-            } else if (change > 0) {
-                changeType = 'increase';
-            } else {
-                changeType = 'decrease';
-            }
+    if (responsesWithMentions.length > 0) {
+      // Company was mentioned - find best position
+      for (const { response, positions } of responsesWithMentions) {
+        const minPos = Math.min(...positions);
+        if (bestPos === null || minPos < bestPos) {
+          bestPos = minPos;
+          bestResp = { response, positions };
+        }
+        totalPositions.push(...positions);
+      }
+    }
 
-            return {
-                id,
-                name: entity.name,
-                isUserCompany: entity.isUserCompany,
-                website: entity.website,
-                shareOfVoice: currentShareOfVoice,
-                change: previousRuns.length > 0 ? change : 0,
-                changeType
-            };
-        })
-        .sort((a, b) => b.shareOfVoice - a.shareOfVoice);
+    // If no mentions found, use the first response as best response
+    if (!bestResp && q.responses.length > 0) {
+      bestResp = { response: q.responses[0], positions: [] };
+    }
 
-    // Find user company ranking
-    const userCompanyRanking = rankedEntities.findIndex(entity => entity.isUserCompany) + 1;
-    const industryRanking = userCompanyRanking > 0 ? userCompanyRanking : null;
+    if (!bestResp) continue; // Skip if no responses at all
 
-    return {
-        competitors: rankedEntities.filter(entity => !entity.isUserCompany),
-        chartCompetitors: rankedEntities,
-        industryRanking,
-        userCompany: rankedEntities.find(entity => entity.isUserCompany) || null
+    const avgPos = totalPositions.length > 0 ? totalPositions.reduce((a, b) => a + b, 0) / totalPositions.length : null;
+
+    const questionData = {
+      id: q.id,
+      question: q.text,
+      type: q.type,
+      bestPosition: bestPos, // Will be null if no mentions
+      totalMentions: totalPositions.length,
+      averagePosition: avgPos, // Will be null if no mentions
+      bestResponse: bestResp.response.content,
+      bestResponseModel: bestResp.response.model,
+      responses: q.responses.map(r => ({
+        model: r.model,
+        response: r.content,
+        position: r.mentions.find(m => m.position !== undefined)?.position || null, // null if no mention
+        createdAt: r.createdAt?.toISOString?.() ?? undefined,
+      })),
     };
-}
 
-export async function calculateTopQuestions(runId: string, companyId: string, filters?: { aiModel?: string }, limit?: number, skip?: number) {
-    const modelFilter = filters?.aiModel && filters.aiModel !== 'all' ? { model: filters.aiModel } : {};
-    
-    // Fetch ALL question types with their responses and mentions
-    const [visibilityQuestions, benchmarkQuestions, personalQuestions] = await Promise.all([
-        // Visibility questions
-        prismaReadReplica.visibilityQuestion.findMany({
-            where: {
-                responses: {
-                    some: {
-                        runId,
-                        ...modelFilter,
-                    },
-                },
-            },
-            include: {
-                responses: {
-                    where: {
-                        runId,
-                        ...modelFilter,
-                    },
-                    include: {
-                        mentions: {
-                            where: {
-                                companyId,
-                            },
-                        },
-                    },
-                },
-                product: {
-                    select: {
-                        name: true,
-                    },
-                },
-            },
-        }),
-        
-        // Benchmark questions
-        prismaReadReplica.benchmarkingQuestion.findMany({
-            where: {
-                companyId,
-                benchmarkResponses: {
-                    some: {
-                        runId,
-                        ...modelFilter,
-                    },
-                },
-            },
-            include: {
-                benchmarkResponses: {
-                    where: {
-                        runId,
-                        ...modelFilter,
-                    },
-                    include: {
-                        benchmarkMentions: {
-                            where: {
-                                companyId,
-                            },
-                        },
-                    },
-                },
-            },
-        }),
-        
-        // Personal questions
-        prismaReadReplica.personalQuestion.findMany({
-            where: {
-                companyId,
-                responses: {
-                    some: {
-                        runId,
-                        ...modelFilter,
-                    },
-                },
-            },
-            include: {
-                responses: {
-                    where: {
-                        runId,
-                        ...modelFilter,
-                    },
-                    include: {
-                        mentions: {
-                            where: {
-                                companyId,
-                            },
-                        },
-                    },
-                },
-            },
-        }),
-    ]);
-
-    interface QuestionResult {
-        id: string;
-        question: string;
-        type: 'visibility' | 'benchmark' | 'personal';
-        productName?: string;
-        bestPosition: number;
-        totalMentions: number;
-        averagePosition: number;
-        bestResponse: string;
-        bestResponseModel: string;
+    // Debug log for questions with suspicious rankings
+    if (bestPos === null && totalPositions.length === 0) {
+      console.log(`[calculateTopQuestions] Question without mentions: "${q.text.substring(0, 50)}" - bestPosition: ${bestPos}, totalMentions: ${totalPositions.length}`);
     }
 
-    const questionResults: QuestionResult[] = [];
+    transformed.push(questionData);
+  }
 
-    // Process visibility questions
-    visibilityQuestions.forEach(vq => {
-        const allMentions = vq.responses.flatMap(r => r.mentions);
-        
-        if (allMentions.length > 0) {
-            // Company IS mentioned
-            const positions = allMentions.map(m => m.position);
-            const bestPosition = Math.min(...positions);
-            const averagePosition = positions.reduce((sum, pos) => sum + pos, 0) / positions.length;
-            
-            // Find the response with the best position
-            let bestResponse = '';
-            let bestResponseModel = '';
-            let bestResponsePosition = Infinity;
-            
-            for (const response of vq.responses) {
-                const responseMentions = response.mentions.filter(m => m.companyId === companyId);
-                if (responseMentions.length > 0) {
-                    const responseMinPosition = Math.min(...responseMentions.map(m => m.position));
-                    if (responseMinPosition < bestResponsePosition) {
-                        bestResponsePosition = responseMinPosition;
-                        bestResponseModel = response.model;
-                        try {
-                            const parsedContent = JSON.parse(response.content);
-                            bestResponse = parsedContent.answer || response.content;
-                        } catch {
-                            bestResponse = response.content;
-                        }
-                    }
-                }
-            }
-            
-            questionResults.push({
-                id: vq.id,
-                question: vq.question,
-                type: 'visibility',
-                productName: vq.product?.name,
-                bestPosition,
-                totalMentions: allMentions.length,
-                averagePosition,
-                bestResponse,
-                bestResponseModel,
-            });
-        } else {
-            // Company is NOT mentioned - still include the question
-            const firstResponse = vq.responses[0];
-            let responseContent = 'No response available';
-            let responseModel = 'unknown';
-            
-            if (firstResponse) {
-                responseModel = firstResponse.model;
-                try {
-                    const parsedContent = JSON.parse(firstResponse.content);
-                    responseContent = parsedContent.answer || firstResponse.content;
-                } catch {
-                    responseContent = firstResponse.content;
-                }
-            }
-            
-            questionResults.push({
-                id: vq.id,
-                question: vq.question,
-                type: 'visibility',
-                productName: vq.product?.name,
-                bestPosition: 999, // High number to sort non-mentioned questions to bottom
-                totalMentions: 0,
-                averagePosition: 999,
-                bestResponse: responseContent,
-                bestResponseModel: responseModel,
-            });
-        }
-    });
-
-    // Process benchmark questions
-    benchmarkQuestions.forEach(bq => {
-        const allMentions = bq.benchmarkResponses.flatMap(r => r.benchmarkMentions);
-        
-        if (allMentions.length > 0) {
-            // Company IS mentioned
-            const positions = allMentions.map(m => m.position);
-            const bestPosition = Math.min(...positions);
-            const averagePosition = positions.reduce((sum, pos) => sum + pos, 0) / positions.length;
-            
-            // Find the response with the best position
-            let bestResponse = '';
-            let bestResponseModel = '';
-            let bestResponsePosition = Infinity;
-            
-            for (const response of bq.benchmarkResponses) {
-                const responseMentions = response.benchmarkMentions.filter(m => m.companyId === companyId);
-                if (responseMentions.length > 0) {
-                    const responseMinPosition = Math.min(...responseMentions.map(m => m.position));
-                    if (responseMinPosition < bestResponsePosition) {
-                        bestResponsePosition = responseMinPosition;
-                        bestResponseModel = response.model;
-                        try {
-                            const parsedContent = JSON.parse(response.content);
-                            bestResponse = parsedContent.answer || response.content;
-                        } catch {
-                            bestResponse = response.content;
-                        }
-                    }
-                }
-            }
-            
-            questionResults.push({
-                id: bq.id,
-                question: bq.text,
-                type: 'benchmark',
-                bestPosition,
-                totalMentions: allMentions.length,
-                averagePosition,
-                bestResponse,
-                bestResponseModel,
-            });
-        } else {
-            // Company is NOT mentioned - still include the question
-            const firstResponse = bq.benchmarkResponses[0];
-            let responseContent = 'No response available';
-            let responseModel = 'unknown';
-            
-            if (firstResponse) {
-                responseModel = firstResponse.model;
-                try {
-                    const parsedContent = JSON.parse(firstResponse.content);
-                    responseContent = parsedContent.answer || firstResponse.content;
-                } catch {
-                    responseContent = firstResponse.content;
-                }
-            }
-            
-            questionResults.push({
-                id: bq.id,
-                question: bq.text,
-                type: 'benchmark',
-                bestPosition: 999,
-                totalMentions: 0,
-                averagePosition: 999,
-                bestResponse: responseContent,
-                bestResponseModel: responseModel,
-            });
-        }
-    });
-
-    // Process personal questions
-    personalQuestions.forEach(pq => {
-        const allMentions = pq.responses.flatMap(r => r.mentions);
-        
-        if (allMentions.length > 0) {
-            // Company IS mentioned
-            const positions = allMentions.map(m => m.position);
-            const bestPosition = Math.min(...positions);
-            const averagePosition = positions.reduce((sum, pos) => sum + pos, 0) / positions.length;
-            
-            // Find the response with the best position
-            let bestResponse = '';
-            let bestResponseModel = '';
-            let bestResponsePosition = Infinity;
-            
-            for (const response of pq.responses) {
-                const responseMentions = response.mentions.filter(m => m.companyId === companyId);
-                if (responseMentions.length > 0) {
-                    const responseMinPosition = Math.min(...responseMentions.map(m => m.position));
-                    if (responseMinPosition < bestResponsePosition) {
-                        bestResponsePosition = responseMinPosition;
-                        bestResponseModel = response.model;
-                        try {
-                            const parsedContent = JSON.parse(response.content);
-                            bestResponse = parsedContent.answer || response.content;
-                        } catch {
-                            bestResponse = response.content;
-                        }
-                    }
-                }
-            }
-            
-            questionResults.push({
-                id: pq.id,
-                question: pq.question,
-                type: 'personal',
-                bestPosition,
-                totalMentions: allMentions.length,
-                averagePosition,
-                bestResponse,
-                bestResponseModel,
-            });
-        } else {
-            // Company is NOT mentioned - still include the question
-            const firstResponse = pq.responses[0];
-            let responseContent = 'No response available';
-            let responseModel = 'unknown';
-            
-            if (firstResponse) {
-                responseModel = firstResponse.model;
-                try {
-                    const parsedContent = JSON.parse(firstResponse.content);
-                    responseContent = parsedContent.answer || firstResponse.content;
-                } catch {
-                    responseContent = firstResponse.content;
-                }
-            }
-            
-            questionResults.push({
-                id: pq.id,
-                question: pq.question,
-                type: 'personal',
-                bestPosition: 999,
-                totalMentions: 0,
-                averagePosition: 999,
-                bestResponse: responseContent,
-                bestResponseModel: responseModel,
-            });
-        }
-    });
-
-    // Sort by best position (lower is better), then by average position, then by total mentions
-    questionResults.sort((a, b) => {
-        if (a.bestPosition !== b.bestPosition) {
-            return a.bestPosition - b.bestPosition;
-        }
-        if (a.averagePosition !== b.averagePosition) {
-            return a.averagePosition - b.averagePosition;
-        }
-        return b.totalMentions - a.totalMentions;
-    });
-
-    // Apply limit and skip if provided
-    let finalResults = questionResults;
-    if (skip !== undefined) {
-        finalResults = finalResults.slice(skip);
+  // Sort by best position asc (nulls last), then totalMentions desc
+  transformed.sort((a, b) => {
+    // Put questions with mentions first, ordered by bestPosition (question-level ranking)
+    if (a.bestPosition !== null && b.bestPosition !== null) {
+      return a.bestPosition - b.bestPosition;
     }
-    if (limit !== undefined) {
-        finalResults = finalResults.slice(0, limit);
+    if (a.bestPosition !== null && b.bestPosition === null) {
+      return -1; // a has mentions, b doesn't - a comes first
     }
+    if (a.bestPosition === null && b.bestPosition !== null) {
+      return 1; // b has mentions, a doesn't - b comes first
+    }
+    // Both have no mentions - sort by total mentions count, then alphabetically
+    if (a.totalMentions !== b.totalMentions) {
+      return b.totalMentions - a.totalMentions;
+    }
+    return a.question.localeCompare(b.question);
+  });
 
-    return finalResults;
+  const totalCount = transformed.length;
+  const paginated = transformed.slice(skip, skip + limit);
+
+  console.log(`[calculateTopQuestions] On-the-fly result: ${totalCount} total questions, ${paginated.length} after pagination (skip: ${skip}, limit: ${limit})`);
+  
+  return { questions: paginated, totalCount };
 }
 
-export async function calculateSentimentOverTime(runId: string, companyId: string, filters?: { aiModel?: string }) {
-    const aiModel = filters?.aiModel || 'all';
-    console.log(`[SENTIMENT_OVER_TIME] Fetching normalized history for company ${companyId}, model ${aiModel}...`);
-    
-    const sentimentHistory = await prismaReadReplica.sentimentOverTime.findMany({
-        where: {
-            companyId,
-            aiModel
-        },
-        orderBy: { date: 'asc' },
-        select: {
-            date: true,
-            sentimentScore: true
-        }
-    });
+/**
+ * NEW 10x APPROACH: Return response-level granularity instead of question-level aggregation
+ * This gives the frontend one row per (question, model) combination, enabling:
+ * - All 4 responses for benchmark questions
+ * - Proper N/A display for questions with no mentions
+ * - Accurate limits that aren't artificially capped by question count
+ */
+export async function calculateTopResponses(
+  runId?: string,
+  companyId?: string,
+  filters: { aiModel?: string; questionType?: string } = {},
+  limit: number = 1000,
+  skip: number = 0
+) {
+  if (!runId || !companyId) {
+    return { responses: [], totalCount: 0 };
+  }
 
-    // Format for chart display
-    return sentimentHistory.map(item => ({
-        date: item.date.toLocaleDateString('en-US', { 
-            year: 'numeric', 
-            month: 'short', 
-            day: 'numeric' 
-        }),
-        score: item.sentimentScore
-    }));
+  console.log(`[calculateTopResponses] Computing response-level data for ${runId}, filters:`, filters);
+
+  // Build where clauses
+  const whereResponse: any = {
+    runId,
+    ...(filters.aiModel && filters.aiModel !== 'all' ? { model: filters.aiModel } : {})
+  };
+
+  const whereQuestion: any = {
+    companyId,
+    ...(filters.questionType && filters.questionType !== 'all' ? { type: filters.questionType } : {})
+  };
+
+  // Get all responses with their questions and mentions
+  const responses = await prismaReadReplica.fanoutResponse.findMany({
+    where: {
+      ...whereResponse,
+      fanoutQuestion: whereQuestion
+    },
+    include: {
+      fanoutQuestion: {
+        select: { id: true, text: true, type: true }
+      },
+      mentions: {
+        where: { companyId },
+        select: { position: true }
+      }
+    },
+    orderBy: [
+      { fanoutQuestion: { text: 'asc' } },
+      { model: 'asc' }
+    ]
+  });
+
+  console.log(`[calculateTopResponses] Found ${responses.length} total responses before pagination`);
+
+  // Pre-compute best position per question for ranking
+  const questionBestPosition = new Map<string, number>();
+  responses.forEach(r => {
+    if (r.mentions.length > 0) {
+      const minPos = Math.min(...r.mentions.map(m => m.position));
+      const current = questionBestPosition.get(r.fanoutQuestionId);
+      if (current === undefined || minPos < current) {
+        questionBestPosition.set(r.fanoutQuestionId, minPos);
+      }
+    }
+  });
+
+  // Transform to flat response format
+  type FlatResponse = {
+    id: string;              // questionId
+    question: string;
+    type: string;
+    model: string;
+    response: string;
+    position: number | null; // this model's position (or null)
+    bestPosition: number | null; // question-level best across all models
+    createdAt: string;
+  };
+
+  const flatResponses: FlatResponse[] = responses.map(r => ({
+    id: r.fanoutQuestionId,
+    question: r.fanoutQuestion!.text,
+    type: r.fanoutQuestion!.type,
+    model: r.model,
+    response: r.content,
+    position: r.mentions.length > 0 ? Math.min(...r.mentions.map(m => m.position)) : null,
+    bestPosition: questionBestPosition.get(r.fanoutQuestionId) ?? null,
+    createdAt: r.createdAt.toISOString()
+  }));
+
+  // Sort: primary by bestPosition (nulls last), secondary by question text, tertiary by model
+  flatResponses.sort((a, b) => {
+    // Primary sort: questions with mentions (bestPosition !== null) come first
+    if (a.bestPosition !== null && b.bestPosition !== null) {
+      // Both have mentions - sort by best position (ascending = rank 1 first)
+      const posDiff = a.bestPosition - b.bestPosition;
+      if (posDiff !== 0) return posDiff;
+    } else if (a.bestPosition !== null && b.bestPosition === null) {
+      return -1; // a has mentions, b doesn't - a comes first
+    } else if (a.bestPosition === null && b.bestPosition !== null) {
+      return 1; // b has mentions, a doesn't - b comes first
+    }
+    // If both have no mentions (bestPosition === null), continue to secondary sort
+
+    // Secondary sort by question text
+    const questionDiff = a.question.localeCompare(b.question);
+    if (questionDiff !== 0) return questionDiff;
+
+    // Tertiary sort by model
+    return a.model.localeCompare(b.model);
+  });
+
+  const totalCount = flatResponses.length;
+  const paginated = flatResponses.slice(skip, skip + limit);
+
+  console.log(`[calculateTopResponses] Response-level result: ${totalCount} total responses, ${paginated.length} after pagination (skip: ${skip}, limit: ${limit})`);
+  
+  // Debug stats
+  const responsesWithMentions = flatResponses.filter(r => r.position !== null).length;
+  const responsesWithoutMentions = flatResponses.filter(r => r.position === null).length;
+  console.log(`[calculateTopResponses] Breakdown: ${responsesWithMentions} with mentions, ${responsesWithoutMentions} without mentions (N/A)`);
+
+  return { responses: paginated, totalCount };
 }
 
-export async function calculateShareOfVoiceHistory(runId: string, companyId: string, filters?: { aiModel?: string }) {
-    const aiModel = filters?.aiModel || 'all';
-    console.log(`[SHARE_OF_VOICE_HISTORY] Fetching normalized history for company ${companyId}, model ${aiModel}...`);
-    
-    const shareOfVoiceHistory = await prismaReadReplica.shareOfVoiceHistory.findMany({
-        where: {
-            companyId,
-            aiModel
-        },
-        orderBy: { date: 'asc' },
-        select: {
-            date: true,
-            shareOfVoice: true
-        }
-    });
+// runId is ignored in new pipeline but kept for backward compatibility
+export async function calculateShareOfVoiceHistory(_runId: string, companyId: string, filters?: { aiModel?: string }) {
+  const whereClause: any = { companyId };
+  
+  // Apply aiModel filter if provided
+  if (filters?.aiModel && filters.aiModel !== 'all') {
+    whereClause.aiModel = filters.aiModel;
+  }
+  
+  const history = await prismaReadReplica.shareOfVoiceHistory.findMany({
+    where: whereClause,
+    orderBy: { date: 'asc' },
+  });
+  return history;
+}
 
-    // Format for chart display
-    return shareOfVoiceHistory.map(item => ({
-        date: item.date.toLocaleDateString('en-US', { 
-            year: 'numeric', 
-            month: 'short', 
-            day: 'numeric' 
-        }),
-        shareOfVoice: item.shareOfVoice
-    }));
+export async function calculateSentimentOverTime(_runId: string, companyId: string, _filters?: { aiModel?: string }) {
+  const history = await prismaReadReplica.sentimentOverTime.findMany({
+    where: { companyId },
+    orderBy: { date: 'asc' },
+  });
+  return history;
 }
 
 // New utility functions to save data to normalized tables

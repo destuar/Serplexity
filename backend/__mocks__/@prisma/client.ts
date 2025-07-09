@@ -42,6 +42,22 @@ export const PrismaClient = jest.fn(() => ({
     count: jest.fn(),
     deleteMany: jest.fn(),
   },
+  // ---- New Fan-out tables ----
+  fanoutResponse: {
+    findMany: jest.fn(),
+    count: jest.fn(),
+    deleteMany: jest.fn(),
+  },
+  fanoutMention: {
+    findMany: jest.fn(),
+    count: jest.fn(),
+    deleteMany: jest.fn(),
+  },
+  fanoutQuestion: {
+    findMany: jest.fn(),
+    createMany: jest.fn(),
+    deleteMany: jest.fn(),
+  },
   reportRun: {
     findMany: jest.fn(),
   },

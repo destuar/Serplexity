@@ -1,7 +1,9 @@
 export interface Question {
     id: string;
     text: string;
-    type: 'visibility' | 'benchmark' | 'personal';
+    type: 'benchmark' | 'fanout';
+    fanoutType?: string;
+    sourceModel?: string;
 }
 
 // Enhanced mention detection result for debugging and analytics

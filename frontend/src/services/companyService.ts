@@ -10,6 +10,7 @@ export interface ShareOfVoiceResponse {
 export type ShareOfVoiceHistoryResponse = Array<{
   date: string;
   shareOfVoice: number;
+  aiModel: string;
 }>;
 
 export const updateCompany = async (companyId: string, updates: Partial<Company>): Promise<{ company: Company }> => {
@@ -45,17 +46,20 @@ export const getSentimentData = async (companyId: string, filters: { dateRange?:
 export interface TopRankingQuestion {
   id: string;
   question: string;
-  type: 'visibility' | 'benchmark' | 'personal';
+  // Supports legacy types as well as new fan-out keys.  Fallback to string keeps TS happy on future additions.
+  type: 'visibility' | 'benchmark' | 'personal' |
+        'paraphrase' | 'comparison' | 'temporal' | 'topical' | 'entity_broader' | 'entity_narrower' |
+        'session_context' | 'user_profile' | 'vertical' | 'safety_probe' | string;
   productName?: string;
-  bestPosition: number;
+  bestPosition: number | null; // Allow null when company not mentioned
   totalMentions: number;
-  averagePosition: number;
+  averagePosition: number | null; // Allow null when company not mentioned
   bestResponse: string;
   bestResponseModel: string;
   responses?: Array<{
     model: string;
     response: string;
-    position?: number;
+    position?: number | null; // Allow null when company not mentioned
     createdAt?: string;
   }>;
 }
@@ -83,9 +87,10 @@ export interface CompetitorRankingsResponse {
   userCompany: CompetitorRanking | null;
 }
 
-export const getTopRankingQuestions = async (companyId: string, filters?: { aiModel?: string; limit?: number }): Promise<TopRankingQuestionsResponse> => {
+export const getTopRankingQuestions = async (companyId: string, filters?: { aiModel?: string; limit?: number; questionType?: string }): Promise<TopRankingQuestionsResponse> => {
   const params = new URLSearchParams();
   if (filters?.aiModel) params.append('aiModel', filters.aiModel);
+  if (filters?.questionType) params.append('questionType', filters.questionType);
   // Note: We don't send limit parameter anymore - fetch all questions and filter on frontend
   
   const { data } = await apiClient.get(`/companies/${companyId}/top-ranking-questions?${params.toString()}`);

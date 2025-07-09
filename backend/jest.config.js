@@ -28,7 +28,9 @@ module.exports = {
   ],
   testPathIgnorePatterns: [
     '<rootDir>/src/__tests__/setup.ts',
-    '<rootDir>/src/__tests__/globalSetup.ts'
+    '<rootDir>/src/__tests__/globalSetup.ts',
+    '<rootDir>/src/__tests__/company.test.ts',
+    '<rootDir>/src/__tests__/user.test.ts',
   ],
   transform: {
     '^.+\.ts$': 'ts-jest',

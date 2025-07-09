@@ -112,6 +112,20 @@ const ModelShareOfVoiceChart: React.FC<{ data: TimeSeriesDataPoint[]; modelIds: 
     return { yAxisMax: finalMax, ticks: tickValues };
   }, [data, modelIds]);
 
+  // Calculate X-axis interval to prevent clipping
+  const xAxisInterval = useMemo(() => {
+    if (!data || data.length === 0) return 0;
+    
+    let interval = 0;
+    if (data.length > 15) {
+      interval = Math.ceil(data.length / 8); // Show ~8 labels max
+    } else if (data.length > 10) {
+      interval = Math.ceil(data.length / 6); // Show ~6 labels
+    }
+    
+    return interval;
+  }, [data]);
+
   if (!data || data.length === 0) {
     return (
       <Card className="h-full flex items-center justify-center">
@@ -144,14 +158,29 @@ const ModelShareOfVoiceChart: React.FC<{ data: TimeSeriesDataPoint[]; modelIds: 
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Visibility Over Time</h3>
         <div className="flex-1">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 5, right: 5, bottom: -15, left: 20 }}>
+            <LineChart 
+              data={data} 
+              margin={{ 
+                top: 5, 
+                right: 5, 
+                bottom: data.length > 10 ? 25 : 15, // More bottom margin for rotated labels
+                left: 20 
+              }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeWidth={1} horizontalPoints={[0]} />
               <XAxis
                 dataKey="date"
                 axisLine={{ stroke: '#e2e8f0', strokeWidth: 1 }}
                 tickLine={false}
-                tick={{ fontSize: 11, fill: '#64748b' }}
-                tickMargin={0}
+                tick={{ 
+                  fontSize: 11, 
+                  fill: '#64748b',
+                  textAnchor: data.length > 10 ? 'end' : 'middle' // Anchor for rotation
+                }}
+                tickMargin={data.length > 10 ? 8 : 0}
+                interval={xAxisInterval}
+                angle={data.length > 10 ? -45 : 0} // Rotate labels if many points
+                height={data.length > 10 ? 50 : 30}
               />
               <YAxis
                 domain={[0, yAxisMax]}
@@ -251,9 +280,8 @@ const ModelMetricsTable: React.FC<{
 
   return (
     <Card className="h-full flex flex-col overflow-hidden">
-      <div className="p-4 flex flex-col h-full">
-        <h3 className="text-lg font-semibold text-gray-900 flex-shrink-0">Key Metrics Comparison</h3>
-        <div className="mt-4 flex-1 overflow-auto">
+      <div className="px-4 pb-4 pt-0 flex flex-col h-full">
+        <div className="flex-1 overflow-auto">
           <table className="min-w-full divide-y divide-gray-300">
             <thead>
               <tr>
@@ -334,7 +362,15 @@ const ModelComparisonPage: React.FC = () => {
     hasReport,
   } = useDashboard();
 
-  const { isGenerating, generationStatus, progress, generateReport } = useReportGeneration(selectedCompany);
+  const { 
+    isGenerating, 
+    generationStatus, 
+    progress, 
+    generateReport, 
+    isButtonDisabled, 
+    generationState, 
+    completionState 
+  } = useReportGeneration(selectedCompany);
   const { data: comparisonData, loading: comparisonLoading, refreshData: refreshComparison } = useModelComparison();
   
   const [sortBy, setSortBy] = useState<SortField>('shareOfVoice');
@@ -360,24 +396,28 @@ const ModelComparisonPage: React.FC = () => {
       inclusionRateChange: modelData.averageInclusionChange,
     }));
 
+    // Build history data from the global shareOfVoiceHistory
+    // The data structure should be: [{ date: "Jan 15", "gpt-4.1-mini": 7.5, "claude-3-5-haiku": 6.2, ... }]
     const historyAccumulator: Record<string, TimeSeriesDataPoint> = {};
-    comparisonData.forEach(modelData => {
-      if (modelData.shareOfVoiceHistory) {
-        modelData.shareOfVoiceHistory.forEach(pt => {
+    
+    // Merge shareOfVoiceHistory from every model (exclude the aggregated 'all')
+    comparisonData.forEach(model => {
+      (model.shareOfVoiceHistory || []).forEach((pt: any) => {
+        if (pt.aiModel !== 'all') {
           const dateKey = new Date(pt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
           if (!historyAccumulator[dateKey]) {
-            historyAccumulator[dateKey] = { date: dateKey };
+            historyAccumulator[dateKey] = { date: dateKey } as TimeSeriesDataPoint;
           }
-          historyAccumulator[dateKey][modelData.aiModel!] = pt.shareOfVoice;
-        });
-      }
+          historyAccumulator[dateKey][pt.aiModel] = pt.shareOfVoice;
+        }
+      });
     });
 
     const history = Object.values(historyAccumulator).sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
     );
 
-    const ids = comparisonData.map(d => d.aiModel!);
+    const ids = comparisonData.map(d => d.aiModel!).filter(id => id !== 'all');
 
     return { metricRows: rows, historyData: history, modelIds: ids };
   }, [comparisonData]);
@@ -420,6 +460,9 @@ const ModelComparisonPage: React.FC = () => {
           isGenerating={isGenerating}
           generationStatus={generationStatus}
           progress={progress}
+          isButtonDisabled={isButtonDisabled}
+          generationState={generationState}
+          completionState={completionState}
         />
       ) : (
         <>

@@ -10,10 +10,18 @@ import WelcomePrompt from '../components/ui/WelcomePrompt';
 import BlankLoadingState from '../components/ui/BlankLoadingState';
 import { DashboardFilters, getModelFilterOptions } from '../types/dashboard';
 
-const SentimentAnalysisPage = () => {
+const SentimentAnalysisPage: React.FC = () => {
   const { selectedCompany } = useCompany();
   const { data, filters, updateFilters, refreshing, refreshData, loading, lastUpdated, hasReport, refreshTrigger } = useDashboard();
-  const { isGenerating, generationStatus, progress, generateReport } = useReportGeneration(selectedCompany);
+  const { 
+    isGenerating, 
+    generationStatus, 
+    progress, 
+    generateReport, 
+    isButtonDisabled, 
+    generationState, 
+    completionState 
+  } = useReportGeneration(selectedCompany);
 
   const dateRangeOptions = [
     { value: '7d', label: 'Last 7 days' },
@@ -40,6 +48,9 @@ const SentimentAnalysisPage = () => {
           isGenerating={isGenerating}
           generationStatus={generationStatus}
           progress={progress}
+          isButtonDisabled={isButtonDisabled}
+          generationState={generationState}
+          completionState={completionState}
         />
       ) : (
         <>

@@ -10,10 +10,12 @@ interface TriggerReportResponse {
 /**
  * Triggers the generation of a new report for a given company.
  * @param companyId The ID of the company to generate the report for.
+ * @param force Optional flag to force generation even if one exists today.
  * @returns An object containing the message and the runId of the report job.
  */
-export const triggerReportGeneration = async (companyId: string): Promise<TriggerReportResponse> => {
-  const { data } = await apiClient.post('/reports', { companyId });
+export const triggerReportGeneration = async (companyId: string, force?: boolean): Promise<TriggerReportResponse> => {
+  const params = force ? { force: 'true' } : {};
+  const { data } = await apiClient.post(`/reports/companies/${companyId}`, {}, { params });
   return data;
 };
 

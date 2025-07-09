@@ -554,7 +554,7 @@ describe('Company Management System', () => {
           { name: 'New Competitor', website: 'https://new-competitor.com' }
         ],
         benchmarkingQuestions: ['New question?'],
-        products: ['New Product']
+        // Product field removed
       };
 
       const response = await request(app)
@@ -660,10 +660,7 @@ describe('Company Management System', () => {
       });
       expect(questions).toHaveLength(0);
 
-      const products = await prisma.product.findMany({
-        where: { companyId: company.id }
-      });
-      expect(products).toHaveLength(0);
+      // Product model removed, no product checks
     });
 
     it('should require authentication', async () => {
@@ -718,14 +715,14 @@ describe('Company Management System', () => {
         include: {
           competitors: true,
           benchmarkingQuestions: true,
-          products: true
+          // Product include removed
         }
       });
 
       expect(dbCompany).toBeTruthy();
       expect(dbCompany?.competitors.length).toBeGreaterThan(0);
       expect(dbCompany?.benchmarkingQuestions.length).toBeGreaterThan(0);
-      expect(dbCompany?.products.length).toBeGreaterThan(0);
+      // Product model removed
     });
   });
 }); 

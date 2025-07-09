@@ -56,13 +56,7 @@ async function monitorActiveRuns(): Promise<void> {
         const runId = run.id;
         
         // Get response count for this run
-        const [visibilityCount, benchmarkCount, personalCount] = await Promise.all([
-          prisma.visibilityResponse.count({ where: { runId } }),
-          prisma.benchmarkResponse.count({ where: { runId } }),
-          prisma.personalResponse.count({ where: { runId } })
-        ]);
-        
-        const totalResponses = visibilityCount + benchmarkCount + personalCount;
+        const totalResponses = await prisma.fanoutResponse.count({ where: { runId } });
         
         let stats = monitoredRuns.get(runId);
         

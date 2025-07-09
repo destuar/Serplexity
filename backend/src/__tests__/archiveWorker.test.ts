@@ -25,15 +25,7 @@ jest.mock('../config/db', () => ({
     reportRun: {
       findMany: jest.fn(),
     },
-    visibilityResponse: {
-      findMany: jest.fn(),
-      deleteMany: jest.fn(),
-    },
-    benchmarkResponse: {
-      findMany: jest.fn(),
-      deleteMany: jest.fn(),
-    },
-    personalResponse: {
+    fanoutResponse: {
       findMany: jest.fn(),
       deleteMany: jest.fn(),
     },
@@ -44,9 +36,7 @@ jest.mock('../config/db', () => ({
 // Cast prisma to a mocked type for easier access to mock methods
 const mockedPrisma = prisma as jest.Mocked<PrismaClient & {
   reportRun: { findMany: jest.Mock };
-  visibilityResponse: { findMany: jest.Mock; deleteMany: jest.Mock };
-  benchmarkResponse: { findMany: jest.Mock; deleteMany: jest.Mock };
-  personalResponse: { findMany: jest.Mock; deleteMany: jest.Mock };
+  fanoutResponse: { findMany: jest.Mock; deleteMany: jest.Mock };
   $transaction: jest.Mock;
 }>;
 
@@ -66,12 +56,8 @@ describe('archiveWorker', () => {
 
     // Reset mock implementations for prisma methods
     mockedPrisma.reportRun.findMany.mockReset();
-    mockedPrisma.visibilityResponse.findMany.mockReset();
-    mockedPrisma.visibilityResponse.deleteMany.mockReset();
-    mockedPrisma.benchmarkResponse.findMany.mockReset();
-    mockedPrisma.benchmarkResponse.deleteMany.mockReset();
-    mockedPrisma.personalResponse.findMany.mockReset();
-    mockedPrisma.personalResponse.deleteMany.mockReset();
+    mockedPrisma.fanoutResponse.findMany.mockReset();
+    mockedPrisma.fanoutResponse.deleteMany.mockReset();
     mockedPrisma.$transaction.mockReset();
   });
 
@@ -100,16 +86,12 @@ describe('archiveWorker', () => {
       { id: 'run2', createdAt: oldDate },
       { id: 'run1', createdAt: oldDate },
     ]);
-    mockedPrisma.visibilityResponse.findMany.mockResolvedValueOnce([]);
-    mockedPrisma.benchmarkResponse.findMany.mockResolvedValueOnce([]);
-    mockedPrisma.personalResponse.findMany.mockResolvedValueOnce([]);
+    mockedPrisma.fanoutResponse.findMany.mockResolvedValueOnce([]);
     mockGlacierClientSend.mockResolvedValueOnce({ archiveId: 'glacier-archive-id' });
     mockedPrisma.$transaction.mockImplementation(async (callback: (tx: any) => Promise<any>) => {
       // Create a mock transaction client that includes the necessary deleteMany methods
       const mockTx = {
-        visibilityResponse: { deleteMany: jest.fn() },
-        benchmarkResponse: { deleteMany: jest.fn() },
-        personalResponse: { deleteMany: jest.fn() },
+        fanoutResponse: { deleteMany: jest.fn() },
         $executeRawUnsafe: jest.fn().mockResolvedValue(undefined),
         $queryRaw: jest.fn().mockResolvedValue([]),
       };
@@ -124,9 +106,7 @@ describe('archiveWorker', () => {
     expect(mockGlacierClientSend).toHaveBeenCalledTimes(1);
     expect(mockGlacierClientSend).toHaveBeenCalledWith(expect.any(UploadArchiveCommand));
     expect(mockedPrisma.$transaction).toHaveBeenCalledTimes(1);
-    expect(mockedPrisma.visibilityResponse.deleteMany).toHaveBeenCalledWith({ where: { runId: { in: ['run2', 'run1'] } } });
-    expect(mockedPrisma.benchmarkResponse.deleteMany).toHaveBeenCalledWith({ where: { runId: { in: ['run2', 'run1'] } } });
-    expect(mockedPrisma.personalResponse.deleteMany).toHaveBeenCalledWith({ where: { runId: { in: ['run2', 'run1'] } } });
+    expect(mockedPrisma.fanoutResponse.deleteMany).toHaveBeenCalledWith({ where: { runId: { in: ['run2', 'run1'] } } });
   });
 
   it('should handle errors during archiving', async () => {
@@ -172,6 +152,6 @@ describe('archiveWorker', () => {
     expect(mockedPrisma.reportRun.findMany).toHaveBeenCalledTimes(1);
     expect(mockGlacierClientSend).toHaveBeenCalledTimes(1);
     expect(mockedPrisma.$transaction).toHaveBeenCalledTimes(1);
-    expect(mockedPrisma.visibilityResponse.deleteMany).toHaveBeenCalledTimes(1);
+    expect(mockedPrisma.fanoutResponse.deleteMany).toHaveBeenCalledTimes(1);
   });
 });

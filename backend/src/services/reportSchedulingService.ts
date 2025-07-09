@@ -167,11 +167,6 @@ export async function queueReport(companyId: string, force = false): Promise<Que
             where: { id: companyId },
             include: { 
                 competitors: true,
-                products: {
-                    include: {
-                        visibilityQuestions: true
-                    }
-                },
                 benchmarkingQuestions: true
             },
         });
@@ -200,11 +195,11 @@ export async function queueReport(companyId: string, force = false): Promise<Que
                 companyName: company.name,
                 industry: company.industry,
                 competitorsCount: company.competitors.length,
-                productsCount: company.products.length,
-                visibilityQuestionsCount: company.products.flatMap(p => p.visibilityQuestions).length,
+                productsCount: 0,
+                visibilityQuestionsCount: 0,
                 benchmarkQuestionsCount: company.benchmarkingQuestions.length
             }
-        }, `Company loaded: ${company.name} (${company.competitors.length} competitors, ${company.products.length} products)`);
+        }, `Company loaded: ${company.name} (${company.competitors.length} competitors)`);
 
         // Create new report run
         const reportCreateTimer = Date.now();

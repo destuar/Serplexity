@@ -63,8 +63,7 @@ describe('Report Generation Flow', () => {
 
   it('should require authentication when creating a report', async () => {
     await request(app)
-      .post('/api/reports')
-      .send({ companyId })
+      .post(`/api/reports/companies/${companyId}`)
       .expect(401);
   });
 
@@ -76,9 +75,7 @@ describe('Report Generation Flow', () => {
     }
 
     await request(app)
-      .post('/api/reports')
-      .set('Authorization', `Bearer ${accessToken}`)
-      .send({ companyId })
+      .post(`/api/reports/companies/${companyId}`)
       .expect(403);
   });
 
@@ -90,9 +87,7 @@ describe('Report Generation Flow', () => {
     } as any);
 
     const res = await request(app)
-      .post('/api/reports')
-      .set('Authorization', `Bearer ${accessToken}`)
-      .send({ companyId })
+      .post(`/api/reports/companies/${companyId}`)
       .expect(202);
 
     expect(res.body).toEqual({
@@ -111,9 +106,7 @@ describe('Report Generation Flow', () => {
     } as any);
 
     const res = await request(app)
-      .post('/api/reports')
-      .set('Authorization', `Bearer ${accessToken}`)
-      .send({ companyId })
+      .post(`/api/reports/companies/${companyId}`)
       .expect(200);
 
     expect(res.body).toEqual({

@@ -11,7 +11,15 @@ import OptimizationChecklistCard from '../components/dashboard/OptimizationCheck
 const VisibilityReportPage: React.FC = () => {
   const { selectedCompany } = useCompany();
   const { data, loading, hasReport, refreshing, refreshData, lastUpdated } = useDashboard();
-  const { isGenerating, generationStatus, progress, generateReport } = useReportGeneration(selectedCompany);
+  const { 
+    isGenerating, 
+    generationStatus, 
+    progress, 
+    generateReport, 
+    isButtonDisabled, 
+    generationState, 
+    completionState 
+  } = useReportGeneration(selectedCompany);
 
   const handleRefresh = () => {
     refreshData();
@@ -28,6 +36,9 @@ const VisibilityReportPage: React.FC = () => {
           isGenerating={isGenerating}
           generationStatus={generationStatus}
           progress={progress}
+          isButtonDisabled={isButtonDisabled}
+          generationState={generationState}
+          completionState={completionState}
         />
       ) : (
         <>

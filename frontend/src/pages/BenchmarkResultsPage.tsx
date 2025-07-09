@@ -8,7 +8,15 @@ import BlankLoadingState from '../components/ui/BlankLoadingState';
 const BenchmarkResultsPage: React.FC = () => {
   const { selectedCompany } = useCompany();
   const { data, loading, hasReport } = useDashboard();
-  const { isGenerating, generationStatus, progress, generateReport } = useReportGeneration(selectedCompany);
+  const { 
+    isGenerating, 
+    generationStatus, 
+    progress, 
+    generateReport, 
+    isButtonDisabled, 
+    generationState, 
+    completionState 
+  } = useReportGeneration(selectedCompany);
 
   return (
     <div className="h-full flex flex-col">
@@ -20,6 +28,9 @@ const BenchmarkResultsPage: React.FC = () => {
           isGenerating={isGenerating}
           generationStatus={generationStatus}
           progress={progress}
+          isButtonDisabled={isButtonDisabled}
+          generationState={generationState}
+          completionState={completionState}
         />
       ) : !data || Object.keys(data).length === 0 ? (
         <BlankLoadingState message="Processing benchmark data..." />

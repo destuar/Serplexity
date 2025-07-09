@@ -4,7 +4,7 @@ import { getDashboardData } from '../services/dashboardService';
 import { useCompany } from '../hooks/useCompany';
 import { DashboardContext } from '../hooks/useDashboard';
 import { useLocation } from 'react-router-dom';
-import { getShareOfVoiceHistory } from '../services/companyService';
+import { getShareOfVoiceHistory, getTopRankingQuestions, TopRankingQuestion } from '../services/companyService';
 
 interface ApiError {
   message: string;
@@ -46,6 +46,8 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
   }, [globalFilters, aiModelByPath, location.pathname]);
 
   const [data, setData] = useState<DashboardData | null>(null);
+  // Store detailed question responses for tooltips
+  const [detailedQuestions, setDetailedQuestions] = useState<TopRankingQuestion[]>([]);
   // Start in a loading state so pages can show a proper spinner until the
   // first data-fetch attempt completes. This prevents the WelcomePrompt from
   // flashing while data is still on the way.
@@ -62,9 +64,9 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
   const prevCompanyIdRef = useRef<string | null>(null);
 
   // Simple in-memory cache for dashboard responses keyed by company & filters
-  const cacheRef = useRef<Record<string, DashboardData | null>>({});
+  const cacheRef = useRef<Record<string, { data: DashboardData | null; detailedQuestions: TopRankingQuestion[] }>>({});
 
-  // Fetch dashboard data
+  // Fetch dashboard data and detailed questions in parallel
   const fetchData = useCallback(async (isRefresh: boolean = false) => {
     // Skip fetching when on routes that don't rely on dashboard data
     if (location.pathname === '/experimental-search') {
@@ -92,10 +94,20 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
       const cacheKey = `${selectedCompany.id}|${filters.dateRange}|${filters.aiModel}`;
 
       if (!isRefresh && cacheRef.current[cacheKey]) {
-        setData(cacheRef.current[cacheKey]!);
-        if (cacheRef.current[cacheKey]?.lastUpdated) {
-          setLastUpdated(cacheRef.current[cacheKey]!.lastUpdated!);
+        const cached = cacheRef.current[cacheKey];
+        setData(cached.data);
+        setDetailedQuestions(cached.detailedQuestions);
+        if (cached.data?.lastUpdated) {
+          setLastUpdated(cached.data.lastUpdated);
         }
+        
+        // Update hasReport based on cached data
+        if (cached.data && hasReport !== true) {
+          setHasReport(true);
+        }
+        
+        setLoading(false);
+        setRefreshing(false);
         return;
       }
 
@@ -105,13 +117,25 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
         aiModel: filters.aiModel,
       };
 
-      const dashboardData = await getDashboardData(selectedCompany.id, currentFilters);
+      // Use current AI-model filter if not "all" for detailed questions
+      const modelParam = filters.aiModel && filters.aiModel !== 'all' ? filters.aiModel : undefined;
 
-      // Fetch full Share of Voice history respecting the same filters
-      const sovHistory = await getShareOfVoiceHistory(selectedCompany.id, currentFilters);
-      const fullHistory = sovHistory.map(({ date, shareOfVoice }) => ({
-        date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      // Fetch all data in parallel
+      const [dashboardData, sovHistory, detailedQuestionsData] = await Promise.all([
+        getDashboardData(selectedCompany.id, currentFilters),
+        getShareOfVoiceHistory(selectedCompany.id, currentFilters),
+        getTopRankingQuestions(selectedCompany.id, { aiModel: modelParam })
+          .then(result => result.questions)
+          .catch(err => {
+            console.warn('[DashboardContext] Failed to fetch detailed questions:', err);
+            return []; // Don't fail the whole request if detailed questions fail
+          })
+      ]);
+
+      const fullHistory = sovHistory.map(({ date, shareOfVoice, aiModel }) => ({
+        date, // Keep original date format for filtering
         shareOfVoice,
+        aiModel, // Preserve the aiModel field for filtering
       }));
 
       const mergedData: DashboardData | null = dashboardData
@@ -119,12 +143,15 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
         : null;
 
       console.log('[DashboardContext] Data received from service:', mergedData);
+      console.log('[DashboardContext] Detailed questions received:', detailedQuestionsData);
 
       setData(mergedData);
-      // Update hasReport only if we haven't determined it yet. Once true, keep it.
-      if (mergedData && hasReport !== true) {
+      setDetailedQuestions(detailedQuestionsData);
+      
+      // Update hasReport based on new data
+      if (mergedData) {
         setHasReport(true);
-      } else if (!mergedData && hasReport === null) {
+      } else if (hasReport === null) {
         // Only set false the first time when we know no report exists
         setHasReport(false);
       }
@@ -134,7 +161,10 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
       }
 
       // Persist to cache
-      cacheRef.current[cacheKey] = mergedData;
+      cacheRef.current[cacheKey] = {
+        data: mergedData,
+        detailedQuestions: detailedQuestionsData
+      };
     } catch (err) {
       const apiErr = err as ApiError;
       console.error('Failed to fetch dashboard data:', apiErr);
@@ -148,7 +178,51 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedCompany, filters, location.pathname, data, hasReport]);
+  }, [selectedCompany, filters, location.pathname, hasReport]);
+
+  // Listen for report completion events to update state immediately
+  useEffect(() => {
+    if (!selectedCompany) return;
+
+    const handleReportCompletion = (e: CustomEvent) => {
+      const { companyId } = e.detail;
+      
+      if (companyId === selectedCompany.id) {
+        console.log('[DashboardContext] Report completion detected for company:', companyId);
+        
+        // Clear cache to force fresh data fetch
+        cacheRef.current = {};
+        
+        // Update hasReport immediately
+        setHasReport(true);
+        
+        // Trigger data refresh to load the new report
+        setTimeout(() => {
+          fetchData(true).then(() => {
+            // Mark dashboard as refreshed in completion state
+            const completionKey = `serplexity_completion_state_${companyId}`;
+            const storedCompletion = localStorage.getItem(completionKey);
+            if (storedCompletion) {
+              const completion = JSON.parse(storedCompletion);
+              completion.dashboardRefreshed = true;
+              localStorage.setItem(completionKey, JSON.stringify(completion));
+              
+              // Dispatch event to notify other components
+              window.dispatchEvent(new CustomEvent('dashboardRefreshed', {
+                detail: { companyId }
+              }));
+            }
+          });
+        }, 2000); // Small delay to ensure backend has committed the data
+      }
+    };
+
+    window.addEventListener('reportCompleted', handleReportCompletion as EventListener);
+    
+    return () => {
+      window.removeEventListener('reportCompleted', handleReportCompletion as EventListener);
+    };
+  }, [selectedCompany, fetchData]);
 
   // Fetch on meaningful filter changes (dateRange/aiModel) or company switch
   useEffect(() => {
@@ -207,6 +281,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
 
   const value = useMemo(() => ({
     data,
+    detailedQuestions,
     filters,
     loading,
     error,
@@ -218,6 +293,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
     hasReport,
   }), [
     data,
+    detailedQuestions,
     filters,
     loading,
     error,

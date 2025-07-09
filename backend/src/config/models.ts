@@ -1,3 +1,5 @@
+import { FANOUT_RESPONSE_SYSTEM_PROMPT } from '../prompts';
+
 export const enum ModelEngine {
   OPENAI = 'openai',
   ANTHROPIC = 'anthropic',
@@ -7,11 +9,9 @@ export const enum ModelEngine {
 
 export const enum ModelTask {
   SENTIMENT = 'sentiment',
-  VISIBILITY = 'visibility',
-  BENCHMARKING = 'benchmarking',
+  FANOUT_GENERATION = 'fanout_generation',
   SENTIMENT_SUMMARY = 'sentiment_summary',
   WEBSITE_ANALYSIS = 'website_analysis',
-  PERSONAL_QUESTION_GENERATION = 'personal_question_generation',
   QUESTION_ANSWERING = 'question_answering',
   WEBSITE_ENRICHMENT = 'website_enrichment',
   OPTIMIZATION_TASKS = 'optimization_tasks',
@@ -27,17 +27,16 @@ export interface Model {
 // All LLM behavior parameters are controlled here
 
 export const LLM_CONFIG = {
-  // Question generation parameters
-  VISIBILITY_QUESTIONS_COUNT: 20,
-  BENCHMARK_VARIATIONS_COUNT: 20,
-  PERSONAL_QUESTIONS_COUNT: 20,
+  // Fanout generation parameters
+  FANOUT_CONCURRENCY: 4, // Increased to allow more parallel fanout generation (tuned for current rate limits)
+  FANOUT_MAX_QUERIES_PER_TYPE: 4, // Allow up to 4 queries per type per model for comprehensive coverage
   
   // Response length configuration
   MAX_TOKENS: 8192, // Maximum tokens for model responses to prevent truncation
   
   // Worker parameters
-  WORKER_CONCURRENCY: 10,
-  QUESTION_ANSWERING_CONCURRENCY: 8, // Reduced from 25 to prevent overwhelming the database writer
+  WORKER_CONCURRENCY: 15, // Allow the worker to process more jobs concurrently
+  QUESTION_ANSWERING_CONCURRENCY: 12, // Increased but still below original 25 to balance DB load
   WORKER_RATE_LIMIT: {
     max: 10,
     duration: 1000, // milliseconds
@@ -83,6 +82,9 @@ export const LLM_CONFIG = {
     ENABLE_PUNCTUATION_PATTERNS: true,     // Match names followed by punctuation
     ENABLE_QUOTED_PATTERNS: true,          // Match names in quotes/parentheses
   },
+
+  // Fanout response system prompt for brand tagging – centralised constant
+  FANOUT_RESPONSE_SYSTEM_PROMPT: FANOUT_RESPONSE_SYSTEM_PROMPT,
 } as const;
 
 // This record now represents the single source of truth for all models in the application.
@@ -93,8 +95,7 @@ export const MODELS: Record<string, Model> = {
     engine: ModelEngine.OPENAI,
     task: [
       ModelTask.SENTIMENT,                        // ✅ Used for sentiment analysis
-      ModelTask.VISIBILITY,                       // ✅ Used for visibility question generation
-      ModelTask.BENCHMARKING,                     // ✅ Used for benchmark question generation  
+      ModelTask.FANOUT_GENERATION,               // ✅ Used for fanout query generation
       ModelTask.SENTIMENT_SUMMARY,                // ✅ Used for sentiment summaries
       ModelTask.QUESTION_ANSWERING,               // ✅ Used for answering questions
       ModelTask.OPTIMIZATION_TASKS                // ✅ Used for generating optimization tasks and summaries
@@ -105,6 +106,7 @@ export const MODELS: Record<string, Model> = {
     engine: ModelEngine.ANTHROPIC,
     task: [
       ModelTask.SENTIMENT,                        // ✅ Used for sentiment analysis
+      ModelTask.FANOUT_GENERATION,               // ✅ Used for fanout query generation
       ModelTask.QUESTION_ANSWERING                // ✅ Used for answering questions
     ],
   },
@@ -113,6 +115,7 @@ export const MODELS: Record<string, Model> = {
     engine: ModelEngine.GOOGLE,
     task: [
         ModelTask.SENTIMENT,                      // ✅ Used for sentiment analysis
+        ModelTask.FANOUT_GENERATION,             // ✅ Used for fanout query generation
         ModelTask.QUESTION_ANSWERING,             // ✅ Used for answering questions
         ModelTask.WEBSITE_ENRICHMENT,             // ✅ Used for enriching competitors with websites
         ModelTask.OPTIMIZATION_TASKS              // ✅ Now used for generating optimization tasks and summaries
@@ -123,9 +126,9 @@ export const MODELS: Record<string, Model> = {
     engine: ModelEngine.PERPLEXITY,
     task: [
         ModelTask.SENTIMENT,                      // ✅ Used for sentiment analysis
+        ModelTask.FANOUT_GENERATION,             // ✅ Used for fanout query generation
         ModelTask.WEBSITE_ANALYSIS,               // ✅ Used for website analysis (has web search)
-        ModelTask.QUESTION_ANSWERING,             // ✅ Used for answering questions (has web search)
-        ModelTask.PERSONAL_QUESTION_GENERATION    // ✅ Used for personal question generation
+        ModelTask.QUESTION_ANSWERING              // ✅ Used for answering questions (has web search)
       ],
   },
 };

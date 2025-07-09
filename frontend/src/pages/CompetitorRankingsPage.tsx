@@ -24,7 +24,15 @@ const CompetitorRankingsPage = () => {
   const [error, setError] = useState<string | null>(null);
 
   // Report generation logic handled by custom hook
-  const { isGenerating, generationStatus, progress, generateReport } = useReportGeneration(selectedCompany);
+  const { 
+    isGenerating, 
+    generationStatus, 
+    progress, 
+    generateReport, 
+    isButtonDisabled, 
+    generationState, 
+    completionState 
+  } = useReportGeneration(selectedCompany);
 
   // Local state for competitor rankings specific features
   const [sortBy, setSortBy] = useState<SortOption>('shareOfVoice');
@@ -136,8 +144,17 @@ const CompetitorRankingsPage = () => {
     return competitors;
   }, [rankingsData?.chartCompetitors, sortBy, sortDirection, displayLimit]);
 
-  const getChangeDisplay = (change: number, changeType: string) => {
-    // Show gray dash for 0% change (centered to match "0.0%" width)
+  const getChangeDisplay = (change: number | null | undefined, changeType: string) => {
+    // Handle missing, NaN, or non-finite values – show gray dash
+    if (change === null || change === undefined || !Number.isFinite(change)) {
+      return (
+        <div className="flex items-center justify-center text-xs text-gray-400 w-12">
+          <span>—</span>
+        </div>
+      );
+    }
+
+    // Show gray dash for ~0% change (centered to match "0.0%" width)
     if (Math.abs(change) < 0.1) {
       return (
         <div className="flex items-center justify-center text-xs text-gray-400 w-12">
@@ -259,6 +276,9 @@ const CompetitorRankingsPage = () => {
           isGenerating={isGenerating}
           generationStatus={generationStatus}
           progress={progress}
+          isButtonDisabled={isButtonDisabled}
+          generationState={generationState}
+          completionState={completionState}
         />
       ) : (
         <>

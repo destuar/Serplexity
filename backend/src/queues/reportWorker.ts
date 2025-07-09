@@ -6,16 +6,14 @@ import { Prisma, PrismaClient } from '.prisma/client';
 import { 
     generateSentimentScores, 
     generateOverallSentimentSummary, 
-    generateVisibilityQuestions,
-    generatePersonalQuestionsFromWebsite,
     generateQuestionResponse,
-    generateBenchmarkQuestionVariations,
     generateWebsiteForCompetitors,
     SentimentScores,
     CompetitorInfo,
     QuestionInput,
     TokenUsage
 } from '../services/llmService';
+import { generateCompleteFanout, flattenFanoutQueries } from '../services/fanoutService';
 import { getModelsByTask, ModelTask, LLM_CONFIG } from '../config/models';
 import { z } from 'zod';
 import { Question } from '../types/reports';
@@ -121,6 +119,136 @@ const log = (context: LogContext | string, message?: string, _logType?: any) => 
 
 // Create a single concurrency limiter for all LLM calls in this worker
 const limit = pLimit(LLM_CONFIG.WORKER_CONCURRENCY);
+
+// Competitor enrichment pipeline for parallel processing
+class CompetitorEnrichmentPipeline {
+    private brandQueue: string[] = [];
+    private processingBatches = new Set<Promise<void>>();
+    private enrichmentLimit = pLimit(3); // Allow 3 parallel enrichment calls
+    private isFinalized = false;
+    private totalPromptTokens = 0;
+    private totalCompletionTokens = 0;
+    private processedBrands = new Set<string>();
+    private enrichedCompetitors: CompetitorInfo[] = [];
+    private readonly BATCH_SIZE = 20;
+    
+    constructor(
+        private runId: string,
+        private companyId: string,
+        private fullCompany: any,
+        private onProgressUpdate: (processed: number, total: number) => Promise<void>
+    ) {}
+
+    async addBrand(brandName: string): Promise<void> {
+        if (this.isFinalized || this.processedBrands.has(brandName)) {
+            return;
+        }
+        
+        this.processedBrands.add(brandName);
+        this.brandQueue.push(brandName);
+        
+        // Process batch if we have enough brands
+        if (this.brandQueue.length >= this.BATCH_SIZE) {
+            await this.processBatch();
+        }
+    }
+
+    private async processBatch(): Promise<void> {
+        if (this.brandQueue.length === 0) return;
+        
+        const batch = this.brandQueue.splice(0, this.BATCH_SIZE);
+        
+        const batchPromise = this.enrichmentLimit(async () => {
+            try {
+                log({
+                    runId: this.runId,
+                    stage: 'BRAND_DISCOVERY',
+                    step: 'PIPELINE_BATCH_START',
+                    metadata: {
+                        batchSize: batch.length,
+                        queueSize: this.brandQueue.length,
+                        activeBatches: this.processingBatches.size
+                    }
+                }, `Starting pipeline enrichment for batch of ${batch.length} brands`);
+
+                const { data: enrichedCompetitors, usage: websiteUsage } = await generateWebsiteForCompetitors(batch);
+                
+                this.totalPromptTokens += websiteUsage.promptTokens;
+                this.totalCompletionTokens += websiteUsage.completionTokens;
+                
+                // Store enriched competitors for later deduplication and saving
+                this.enrichedCompetitors.push(...enrichedCompetitors);
+                
+                log({
+                    runId: this.runId,
+                    stage: 'BRAND_DISCOVERY',
+                    step: 'PIPELINE_BATCH_COMPLETE',
+                    tokenUsage: {
+                        prompt: websiteUsage.promptTokens,
+                        completion: websiteUsage.completionTokens,
+                        total: websiteUsage.totalTokens
+                    },
+                    metadata: {
+                        batchSize: batch.length,
+                        enrichedCount: enrichedCompetitors.length,
+                        totalEnriched: this.enrichedCompetitors.length
+                    }
+                }, `Pipeline enriched ${enrichedCompetitors.length}/${batch.length} competitors`);
+                
+                // Update progress
+                await this.onProgressUpdate(this.enrichedCompetitors.length, this.processedBrands.size);
+                
+            } catch (error) {
+                log({
+                    runId: this.runId,
+                    stage: 'BRAND_DISCOVERY',
+                    step: 'PIPELINE_BATCH_ERROR',
+                    error,
+                    metadata: { batchSize: batch.length }
+                }, `Pipeline enrichment batch failed`, 'ERROR');
+            }
+        });
+        
+        this.processingBatches.add(batchPromise);
+        batchPromise.finally(() => {
+            this.processingBatches.delete(batchPromise);
+        });
+    }
+
+    async finalize(): Promise<{ 
+        enrichedCompetitors: CompetitorInfo[], 
+        totalPromptTokens: number, 
+        totalCompletionTokens: number 
+    }> {
+        this.isFinalized = true;
+        
+        // Process any remaining brands in the queue
+        if (this.brandQueue.length > 0) {
+            await this.processBatch();
+        }
+        
+        // Wait for all batches to complete
+        await Promise.all(Array.from(this.processingBatches));
+        
+        log({
+            runId: this.runId,
+            stage: 'BRAND_DISCOVERY',
+            step: 'PIPELINE_FINALIZED',
+            metadata: {
+                totalBrandsProcessed: this.processedBrands.size,
+                totalEnriched: this.enrichedCompetitors.length,
+                totalPromptTokens: this.totalPromptTokens,
+                totalCompletionTokens: this.totalCompletionTokens
+            }
+        }, `Pipeline finalized: ${this.enrichedCompetitors.length} competitors enriched from ${this.processedBrands.size} brands`);
+        
+        return {
+            enrichedCompetitors: this.enrichedCompetitors,
+            totalPromptTokens: this.totalPromptTokens,
+            totalCompletionTokens: this.totalCompletionTokens
+        };
+    }
+}
 
 // Performance timing helper
 class Timer {
@@ -546,6 +674,87 @@ async function generateAndSaveSentiments(runId: string, company: { id: string; n
 // Dashboard data is now calculated dynamically in the API controller using raw database queries
 // This provides better flexibility for filtering and real-time data access
 
+// Enhanced progress tracking with more realistic time distribution
+const PROGRESS = {
+  // Initial setup phase
+  SETUP_START: 0,
+  SETUP_END: 5,
+  
+  // Question preparation
+  QUESTIONS_START: 5,
+  QUESTIONS_END: 15,
+  
+  // LLM processing phase (main work)
+  FANOUT_START: 15,
+  FANOUT_END: 55,
+  
+  // Competitor analysis (previously hidden)
+  COMPETITOR_ANALYSIS_START: 55,
+  COMPETITOR_ANALYSIS_END: 65,
+  
+  // Database streaming writes
+  STREAM_START: 65,
+  STREAM_END: 82,
+  
+  // Metrics calculation
+  METRICS_START: 82,
+  METRICS_END: 87,
+  
+  // Post-completion optimization tasks (first reports)
+  OPTIMIZATION_START: 87,
+  OPTIMIZATION_END: 97,
+  
+  // Final completion
+  FINAL_START: 97,
+  FINAL_END: 100,
+} as const;
+
+// Time-based progress estimation weights for different phases
+const PHASE_TIME_WEIGHTS = {
+  SETUP: 0.05,           // 5% of total time
+  QUESTIONS: 0.08,       // 8% of total time  
+  FANOUT: 0.40,          // 40% of total time (main LLM work)
+  COMPETITOR: 0.10,      // 10% of total time
+  STREAMING: 0.17,       // 17% of total time (database writes)
+  METRICS: 0.05,         // 5% of total time
+  OPTIMIZATION: 0.10,    // 10% of total time (for first reports)
+  FINAL: 0.05,           // 5% of total time
+} as const;
+
+function mapProgress(localPct: number, start: number, end: number): number {
+  if (localPct < 0) localPct = 0;
+  if (localPct > 100) localPct = 100;
+  return Math.round(start + (end - start) * (localPct / 100));
+}
+
+// Enhanced progress update function with time estimation
+async function updateProgress(
+  prisma: any,
+  runId: string,
+  phase: string,
+  localProgress: number,
+  phaseStart: number,
+  phaseEnd: number,
+  statusMessage?: string,
+  forceUpdate: boolean = false
+): Promise<void> {
+  const globalProgress = mapProgress(localProgress, phaseStart, phaseEnd);
+  const defaultMessage = `${phase} (${globalProgress}%)`;
+  const message = statusMessage || defaultMessage;
+  
+  // Update more frequently during critical phases, less during long-running phases
+  const shouldUpdate = forceUpdate || 
+    globalProgress % (phase.includes('OPTIMIZATION') ? 1 : 2) === 0 || 
+    localProgress === 100;
+    
+  if (shouldUpdate) {
+    await prisma.reportRun.update({
+      where: { id: runId },
+      data: { stepStatus: message },
+    });
+  }
+}
+
 const processJob = async (job: Job) => {
     const jobTimer = new Timer();
     const { runId, company, force } = job.data;
@@ -586,13 +795,14 @@ const processJob = async (job: Job) => {
         });
     }
     
+    // Initial progress update
+    await updateProgress(prisma, runId, 'Setting up report generation', 0, PROGRESS.SETUP_START, PROGRESS.SETUP_END, undefined, true);
+    
     let fullCompany = await prisma.company.findUnique({ 
         where: { id: company.id },
         include: { 
             competitors: true, 
-            products: { include: { visibilityQuestions: true } }, 
             benchmarkingQuestions: true,
-            personalQuestions: true,
         }
     });
 
@@ -616,12 +826,9 @@ const processJob = async (job: Job) => {
         metadata: { 
             companyName: fullCompany.name,
             competitorsCount: fullCompany.competitors.length,
-            productsCount: fullCompany.products.length,
-            visibilityQuestionsCount: fullCompany.products.flatMap(p => p.visibilityQuestions).length,
-            benchmarkQuestionsCount: fullCompany.benchmarkingQuestions.length,
-            personalQuestionsCount: fullCompany.personalQuestions.length
+            benchmarkQuestionsCount: fullCompany.benchmarkingQuestions.length
         }
-    }, `Company data loaded: ${fullCompany.competitors.length} competitors, ${fullCompany.products.length} products, ${fullCompany.products.flatMap(p => p.visibilityQuestions).length} visibility, ${fullCompany.benchmarkingQuestions.length} benchmark questions`);
+    }, `Company data loaded: ${fullCompany.competitors.length} competitors, ${fullCompany.benchmarkingQuestions.length} benchmark questions`);
 
     let totalPromptTokens = 0;
     let totalCompletionTokens = 0;
@@ -634,124 +841,121 @@ const processJob = async (job: Job) => {
     // --- Skip AI competitor generation - competitors will be discovered from responses ---
     log({ runId, stage: 'DATA_GATHERING', step: 'COMPETITORS_SKIP' }, 'Skipping AI competitor generation - will discover competitors from responses');
 
-    // --- Stage 1.2: Generate Missing Questions ---
-    const questionGenTimer = new Timer();
-    await prisma.reportRun.update({ where: { id: runId }, data: { stepStatus: 'Preparing Questions' } });
-    log({ runId, stage: 'DATA_GATHERING', step: 'QUESTION_GENERATION_START' }, 'Checking for and generating missing questions');
+    // --- Stage 1.2: Generate Fanout Questions ---
+    const fanoutGenTimer = new Timer();
+    await updateProgress(prisma, runId, 'Preparing Questions', 0, PROGRESS.QUESTIONS_START, PROGRESS.QUESTIONS_END, 'Expanding "Fan-Out" Questions', true);
+    log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_GENERATION_START' }, 'Generating missing fanout questions for user benchmarking questions');
 
-    const questionGenerationPromises: Promise<any>[] = [];
-
-    // --- Prepare Visibility Question Generation ---
-    for (const product of fullCompany.products) {
-        const currentCount = product.visibilityQuestions.length;
-        const targetCount = LLM_CONFIG.VISIBILITY_QUESTIONS_COUNT;
-        
-        if (currentCount < targetCount) {
-            const neededCount = targetCount - currentCount;
-            log({ runId, stage: 'DATA_GATHERING', step: 'VISIBILITY_QUESTION_GEN_PREPARE', metadata: { productName: product.name, neededCount } }, `Preparing to generate ${neededCount} questions for ${product.name}`);
-            
-            const promise = generateVisibilityQuestions(product.name, fullCompany.industry || '', neededCount)
-                .then(async ({ data: questions, usage }) => {
-                    totalPromptTokens += usage.promptTokens;
-                    totalCompletionTokens += usage.completionTokens;
-                    if (questions && questions.length > 0) {
-                        await prisma.visibilityQuestion.createMany({
-                            data: questions.map(q => ({ question: q, productId: product.id }))
-                        });
-                        log({ runId, stage: 'DATA_GATHERING', step: 'VISIBILITY_QUESTION_CREATED', metadata: { count: questions.length, productName: product.name } }, `Created ${questions.length} new visibility questions for ${product.name}`);
-                    }
-                })
-                .catch(error => {
-                    log({ runId, stage: 'DATA_GATHERING', step: 'VISIBILITY_QUESTION_GEN_ERROR', error, metadata: { productName: product.name } }, `Failed to generate visibility questions for ${product.name}`, 'ERROR');
-                });
-            questionGenerationPromises.push(promise);
-        }
-    }
-
-    // --- Prepare Benchmark Variation Generation ---
-    const originalBenchmarkQuestions = fullCompany.benchmarkingQuestions.filter(q => !q.originalQuestionId);
-    for (const bq of originalBenchmarkQuestions) {
-        const currentVariationCount = fullCompany.benchmarkingQuestions.filter(q => q.originalQuestionId === bq.id).length;
-        const targetVariationCount = LLM_CONFIG.BENCHMARK_VARIATIONS_COUNT;
-        
-        if (currentVariationCount < targetVariationCount) {
-            const neededVariationCount = targetVariationCount - currentVariationCount;
-            log({ runId, stage: 'DATA_GATHERING', step: 'BENCHMARK_VARIATION_GEN_PREPARE', metadata: { questionText: bq.text, neededVariationCount } }, `Preparing to generate ${neededVariationCount} variations for "${bq.text}"`);
-
-            const promise = generateBenchmarkQuestionVariations(bq.text, fullCompany.industry || '', fullCompany.products[0]?.name || fullCompany.name, neededVariationCount)
-                .then(async ({ data: questions, usage }) => {
-                    totalPromptTokens += usage.promptTokens;
-                    totalCompletionTokens += usage.completionTokens;
-                    if (questions && questions.length > 0) {
-                        await prisma.benchmarkingQuestion.createMany({
-                            data: questions.map(q => ({
-                                text: q,
-                                companyId: fullCompany!.id,
-                                isGenerated: true,
-                                originalQuestionId: bq.id,
-                            })),
-                        });
-                        log({ runId, stage: 'DATA_GATHERING', step: 'BENCHMARK_VARIATION_CREATED', metadata: { count: questions.length, originalQuestion: bq.text } }, `Created ${questions.length} variations for benchmark question`);
-                    }
-                })
-                .catch(error => {
-                    log({ runId, stage: 'DATA_GATHERING', step: 'BENCHMARK_VARIATION_GEN_ERROR', error, metadata: { questionId: bq.id } }, `Failed to generate variations for benchmark question ${bq.id}`, 'ERROR');
-                });
-            questionGenerationPromises.push(promise);
-        }
-    }
-
-    // --- Prepare Personal Question Generation ---
-    const existingPersonalQuestionsCount = fullCompany.personalQuestions.length;
-    const targetPersonalCount = LLM_CONFIG.PERSONAL_QUESTIONS_COUNT;
-    if (existingPersonalQuestionsCount < targetPersonalCount) {
-        const neededCount = targetPersonalCount - existingPersonalQuestionsCount;
-        log({ runId, stage: 'DATA_GATHERING', step: 'PERSONAL_QUESTION_GEN_PREPARE', metadata: { companyName: fullCompany.name, neededCount } }, `Preparing to generate ${neededCount} personal questions for ${fullCompany.name}`);
-        
-        const companyId = fullCompany.id; // Capture the ID to avoid null reference issues in async callbacks
-        const companyName = fullCompany.name; // Capture the name for logging
-        const promise = generatePersonalQuestionsFromWebsite(fullCompany.name, fullCompany.website, neededCount)
-            .then(async ({ data: questions, usage }) => {
-                totalPromptTokens += usage.promptTokens;
-                totalCompletionTokens += usage.completionTokens;
-                if (questions && questions.length > 0) {
-                    await prisma.personalQuestion.createMany({
-                        data: questions.map(q => ({ question: q, companyId: companyId }))
-                    });
-                    log({ runId, stage: 'DATA_GATHERING', step: 'PERSONAL_QUESTION_CREATED', metadata: { count: questions.length, companyName } }, `Created ${questions.length} new personal questions for ${companyName}`);
-                }
-            })
-            .catch(error => {
-                log({ runId, stage: 'DATA_GATHERING', step: 'PERSONAL_QUESTION_GEN_ERROR', error, metadata: { companyName } }, `Failed to generate personal questions for ${companyName}`, 'ERROR');
-            });
-        questionGenerationPromises.push(promise);
-    }
-
-    // --- Execute all question generation in parallel ---
-    if (questionGenerationPromises.length > 0) {
-        log({ runId, stage: 'DATA_GATHERING', step: 'QUESTION_GENERATION_EXECUTE', metadata: { count: questionGenerationPromises.length } }, `Executing ${questionGenerationPromises.length} question generation tasks in parallel.`);
-        await Promise.all(questionGenerationPromises);
+    // Get only user-created benchmarking questions (no generated variations)
+    const userBenchmarkQuestions = fullCompany.benchmarkingQuestions;
+    
+    if (userBenchmarkQuestions.length === 0) {
+        log({ runId, stage: 'DATA_GATHERING', step: 'NO_BENCHMARK_QUESTIONS' }, 'No user-created benchmarking questions found. Skipping fanout generation.', 'WARN');
     } else {
-        log({ runId, stage: 'DATA_GATHERING', step: 'QUESTION_GENERATION_SKIP' }, 'All products and questions already have sufficient data. No new questions needed.');
-    }
+        log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_QUESTIONS_FOUND', metadata: { count: userBenchmarkQuestions.length } }, `Found ${userBenchmarkQuestions.length} user benchmarking questions for fanout generation`);
 
-    // Refetch company data to include newly generated questions for the run
-    const refreshedCompany = await prisma.company.findUnique({
-        where: { id: company.id },
-        include: {
-            competitors: true,
-            products: { include: { visibilityQuestions: true } },
-            benchmarkingQuestions: true,
-            personalQuestions: true
-        }
-    });
+        // Import fanout service functions  
+        const { getMissingFanoutCounts, generateCompleteFanout, flattenFanoutQueries } = await import('../services/fanoutService');
+        type FanoutQueryType = import('../services/fanoutService').FanoutQueryType;
 
-    if (!refreshedCompany) {
-        log({ runId, stage: 'DATA_GATHERING', step: 'CRITICAL_ERROR' }, 'Company data disappeared after question generation.', 'ERROR');
-        throw new Error(`Could not re-find company with id ${company.id}`);
+        // Generate fanout for each benchmarking question that needs it
+        const fanoutGenerationPromises = userBenchmarkQuestions.map(async (question, index) => {
+            try {
+                log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_GENERATION_CHECK_QUESTION', metadata: { questionId: question.id, questionText: question.text, questionIndex: index + 1, totalQuestions: userBenchmarkQuestions.length } }, `Checking fanout variations for question: "${question.text}"`);
+
+                // Check what fanout questions are missing per model and type
+                const missingCounts = await getMissingFanoutCounts(question.id, fullCompany.id);
+                
+                // Check if we need to generate any fanout questions
+                const totalMissing = Object.values(missingCounts).reduce((sum, modelCounts) => 
+                    sum + Object.values(modelCounts).reduce((modelSum, count) => modelSum + count, 0), 0);
+
+                if (totalMissing === 0) {
+                    log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_GENERATION_SKIP_QUESTION', metadata: { questionId: question.id } }, `Skipping fanout generation for "${question.text}" - all fanout questions already exist (4 per type per model)`);
+                    return { questionId: question.id, success: true, queriesGenerated: 0, skipped: true };
+                }
+
+                log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_GENERATION_START_QUESTION', metadata: { questionId: question.id, totalMissing, missingCounts } }, `Generating ${totalMissing} missing fanout variations for question: "${question.text}"`);
+
+                const fanoutOptions = {
+                    company_name: fullCompany.name,
+                    industry: fullCompany.industry || 'Technology'
+                };
+
+                const fanoutData = await generateCompleteFanout(question.text, fanoutOptions);
+                
+                totalPromptTokens += fanoutData.totalTokenUsage.promptTokens;
+                totalCompletionTokens += fanoutData.totalTokenUsage.completionTokens;
+
+                // Flatten all generated queries
+                const flattenedQueries = flattenFanoutQueries(fanoutData);
+                
+                // Filter to only save the queries we actually need based on missing counts
+                const newQueriesToSave = flattenedQueries.filter(query => {
+                    const modelMissing = missingCounts[query.sourceModel];
+                    return modelMissing && modelMissing[query.type as FanoutQueryType] > 0;
+                });
+                
+                if (newQueriesToSave.length > 0) {
+                    // Group queries by (model, type) to ensure we don't exceed the needed count
+                    const groupedQueries: Record<string, any[]> = {};
+                    newQueriesToSave.forEach(query => {
+                        const key = `${query.sourceModel}|||${query.type}`; // Use ||| as separator to avoid conflicts with model IDs containing hyphens
+                        if (!groupedQueries[key]) groupedQueries[key] = [];
+                        groupedQueries[key].push(query);
+                    });
+
+                    // Slice each group to match the missing count
+                    const finalQueriesToSave = [];
+                    for (const [key, queries] of Object.entries(groupedQueries)) {
+                        const [modelId, type] = key.split('|||'); // Split by ||| to properly separate model ID from type
+                        const needed = missingCounts[modelId][type as FanoutQueryType] || 0;
+                        finalQueriesToSave.push(...queries.slice(0, needed));
+                    }
+
+                    await prisma.fanoutQuestion.createMany({
+                        data: finalQueriesToSave.map(query => ({
+                            baseQuestionId: question.id,
+                            text: query.text,
+                            type: query.type,
+                            sourceModel: query.sourceModel,
+                            companyId: fullCompany.id
+                        })),
+                        skipDuplicates: true // Handle potential race conditions
+                    });
+
+                    log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_QUESTIONS_SAVED', metadata: { questionId: question.id, generatedCount: finalQueriesToSave.length, tokenUsage: fanoutData.totalTokenUsage } }, `Saved ${finalQueriesToSave.length} new fanout questions for "${question.text}"`);
+                }
+
+                // Store complete fanout data in ReportRun for later reference
+                const currentFanoutData = await prisma.reportRun.findUnique({
+                    where: { id: runId },
+                    select: { fanoutData: true }
+                });
+
+                const existingFanoutData = currentFanoutData?.fanoutData as any || {};
+                existingFanoutData[question.id] = fanoutData;
+
+                await prisma.reportRun.update({
+                    where: { id: runId },
+                    data: { fanoutData: existingFanoutData }
+                });
+
+                return { questionId: question.id, success: true, queriesGenerated: newQueriesToSave.length, skipped: false };
+            } catch (error) {
+                log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_GENERATION_ERROR', error, metadata: { questionId: question.id, questionText: question.text } }, `Failed to generate fanout for question: "${question.text}"`, 'ERROR');
+                return { questionId: question.id, success: false, error, skipped: false };
+            }
+        });
+
+        // Execute fanout generation for all questions in parallel
+        const fanoutResults = await Promise.all(fanoutGenerationPromises);
+        const successfulGenerations = fanoutResults.filter(r => r.success);
+        const skippedGenerations = fanoutResults.filter(r => r.success && r.skipped);
+        const totalFanoutQueries = successfulGenerations.reduce((sum, r) => sum + (r.queriesGenerated || 0), 0);
+
+        log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_GENERATION_COMPLETE', duration: fanoutGenTimer.elapsed(), metadata: { successfulQuestions: successfulGenerations.length, skippedQuestions: skippedGenerations.length, totalQuestions: userBenchmarkQuestions.length, totalFanoutQueries } }, `Generated ${totalFanoutQueries} new fanout questions from ${successfulGenerations.length}/${userBenchmarkQuestions.length} benchmarking questions (${skippedGenerations.length} skipped - already complete)`);
     }
-    fullCompany = refreshedCompany; // Use the refreshed data for the rest of the job
-    log({ runId, stage: 'DATA_GATHERING', step: 'QUESTION_GENERATION_COMPLETE', duration: questionGenTimer.elapsed() }, 'Finished question generation phase');
 
     // 1.2: Generate Sentiment Scores
     const sentimentTimer = new Timer();
@@ -813,15 +1017,21 @@ const processJob = async (job: Job) => {
         }
     }, `Sentiment score generation completed: ${successfulSentiments}/${sentimentModels.length} models succeeded`);
     
-    // 1.3: Generate Visibility & Benchmark Responses
+    // 1.3: Generate Fanout Responses  
     const responseGenerationTimer = new Timer();
-    log({ runId, stage: 'DATA_GATHERING', step: 'RESPONSE_GENERATION_START' }, 'Generating visibility and benchmark responses');
-    await prisma.reportRun.update({ where: { id: runId }, data: { stepStatus: 'Running Visibility Analysis' } });
+    log({ runId, stage: 'DATA_GATHERING', step: 'RESPONSE_GENERATION_START' }, 'Generating responses for fanout questions');
+    await prisma.reportRun.update({ where: { id: runId }, data: { stepStatus: `Analyzing Visibility Questions (${PROGRESS.FANOUT_START}%)` } });
     
+    // Get all fanout questions generated for this company
+    const fanoutQuestions = await prisma.fanoutQuestion.findMany({
+        where: { companyId: fullCompany.id },
+        include: { baseQuestion: true }
+    });
+    
+    // Also include the original user benchmarking questions
     const allQuestions: Question[] = [
-        ...fullCompany.products.flatMap(p => p.visibilityQuestions.map(q => ({ id: q.id, text: q.question, type: 'visibility' as const }))),
         ...fullCompany.benchmarkingQuestions.map(q => ({ id: q.id, text: q.text, type: 'benchmark' as const })),
-        ...fullCompany.personalQuestions.map(q => ({ id: q.id, text: q.question, type: 'personal' as const }))
+        ...fanoutQuestions.map(q => ({ id: q.id, text: q.text, type: 'fanout' as const, fanoutType: q.type, sourceModel: q.sourceModel }))
     ];
     
     const totalQuestionsToProcess = allQuestions.length;
@@ -833,11 +1043,14 @@ const processJob = async (job: Job) => {
         step: 'QUESTIONS_COLLECTED', 
         metadata: {
             totalQuestions: totalQuestionsToProcess,
-            visibilityCount: fullCompany.products.flatMap(p => p.visibilityQuestions).length,
             benchmarkCount: fullCompany.benchmarkingQuestions.length,
-            personalCount: fullCompany.personalQuestions.length,
+            fanoutCount: fanoutQuestions.length,
+            fanoutByType: fanoutQuestions.reduce((acc, q) => {
+                acc[q.type] = (acc[q.type] || 0) + 1;
+                return acc;
+            }, {} as Record<string, number>)
         }
-    }, `Collected a total of ${totalQuestionsToProcess} questions to be answered.`);
+    }, `Collected a total of ${totalQuestionsToProcess} questions to be answered (${fullCompany.benchmarkingQuestions.length} original + ${fanoutQuestions.length} fanout).`);
 
     const models = getModelsByTask(ModelTask.QUESTION_ANSWERING);
 
@@ -855,28 +1068,64 @@ const processJob = async (job: Job) => {
     const questionLimit = pLimit(LLM_CONFIG.QUESTION_ANSWERING_CONCURRENCY);
 
     // Create individual question-model combinations for parallel processing
-    const questionModelCombinations = allQuestions.flatMap(question => 
-        models.map(model => ({ question, model }))
-    );
+    const questionModelCombinations = allQuestions.flatMap(question => {
+        if (question.type === 'fanout') {
+            // Fanout questions should only be answered by the model that generated them
+            const availableModels = models.filter(model => model.id === question.sourceModel);
+            if (availableModels.length === 0) {
+                log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_MODEL_UNAVAILABLE', metadata: { questionId: question.id, sourceModel: question.sourceModel, availableModels: models.map(m => m.id) } }, `Skipping fanout question ${question.id} - source model ${question.sourceModel} not available`, 'WARN');
+                return [];
+            }
+            return availableModels.map(model => ({ question, model }));
+        } else {
+            // Benchmark questions are answered by all models
+            return models.map(model => ({ question, model }));
+        }
+    });
+
+    // Calculate expected combinations for new fanout system
+    const benchmarkQuestionCount = fullCompany.benchmarkingQuestions.length;
+    const fanoutQuestionCount = fanoutQuestions.length;
+    const expectedBenchmarkCombinations = benchmarkQuestionCount * models.length;
+    const expectedFanoutCombinations = fanoutQuestionCount; // 1:1 with source model
+    const expectedTotal = expectedBenchmarkCombinations + expectedFanoutCombinations;
 
     log({ 
         runId, 
         stage: 'DATA_GATHERING', 
         step: 'PARALLEL_SETUP',
         metadata: { 
-            totalCombinations: questionModelCombinations.length,
+            actualCombinations: questionModelCombinations.length,
+            expectedCombinations: expectedTotal,
+            benchmarkCombinations: expectedBenchmarkCombinations,
+            fanoutCombinations: expectedFanoutCombinations,
             questionsCount: allQuestions.length,
             modelsCount: models.length,
             concurrency: LLM_CONFIG.QUESTION_ANSWERING_CONCURRENCY
         }
-    }, `Prepared ${questionModelCombinations.length} question-model combinations for streaming parallel processing`);
+    }, `Prepared ${questionModelCombinations.length} question-model combinations (${expectedBenchmarkCombinations} benchmark + ${questionModelCombinations.length - expectedBenchmarkCombinations} fanout) for streaming parallel processing`);
 
     // Track completed responses for progress calculation
     let completedResponses = 0;
 
-    // Process all question-model combinations in parallel with streaming writes
+    // Initialize competitor enrichment pipeline (runs in background, no progress display)
+    const competitorPipeline = new CompetitorEnrichmentPipeline(
+        runId,
+        fullCompany.id,
+        fullCompany,
+        async (processed: number, total: number) => {
+            // Competitor enrichment runs in background - no progress updates to avoid UI clutter
+            // Progress is implicitly covered by the extended FANOUT phase (0-55%)
+        }
+    );
+
+    // Process all question-model combinations in parallel with streaming brand extraction
     const questionProcessingPromises = questionModelCombinations.map(async ({ question, model }) => {
-        const questionInput: QuestionInput = { id: question.id, text: question.text };
+        const questionInput: QuestionInput = { 
+            id: question.id, 
+            text: question.text,
+            systemPrompt: LLM_CONFIG.FANOUT_RESPONSE_SYSTEM_PROMPT // Add brand tagging prompt
+        };
         const startTime = Date.now();
         
         try {
@@ -885,60 +1134,69 @@ const processJob = async (job: Job) => {
             totalPromptTokens += usage.promptTokens;
             totalCompletionTokens += usage.completionTokens;
 
-            // Determine question type for streaming
-            let questionType: 'visibility' | 'benchmark' | 'personal';
-            const originalQuestion = allQuestions.find(q => q.id === question.id);
-            if (originalQuestion) {
-                questionType = originalQuestion.type;
-            } else {
-                // Fallback logic
-                if (fullCompany.products.some(p => p.visibilityQuestions.some(vq => vq.id === question.id))) {
-                    questionType = 'visibility';
-                } else if (fullCompany.benchmarkingQuestions.some(bq => bq.id === question.id)) {
-                    questionType = 'benchmark';
-                } else {
-                    questionType = 'personal';
+            // Extract brands from answer and stream to pipeline immediately
+            const brandRegex = /<brand>(.*?)<\/brand>/gi;
+            let match;
+            while ((match = brandRegex.exec(answer)) !== null) {
+                const brandName = match[1].trim();
+                if (brandName) {
+                    // Stream brand to pipeline for immediate processing
+                    await competitorPipeline.addBrand(brandName);
                 }
             }
 
-            // Create response data structure
+            // Defer saving of all responses; StreamingDatabaseWriter will persist them in bulk to avoid duplicates
+            log({ 
+                runId, 
+                stage: 'DATA_GATHERING', 
+                step: 'RESPONSE_SAVE_DEFERRED', 
+                metadata: { questionId: question.id, modelId: model.id, questionType: question.type } 
+            }, `Deferred save for ${question.type} question ${question.id}`, 'DEBUG');
+
+            // Create response data structure for processing
             const responseData = {
                 questionId: question.id,
-                questionType,
+                questionType: question.type,
+                fanoutType: question.fanoutType,
+                sourceModel: question.sourceModel,
                 answer,
                 modelId: model.id,
             };
 
             // Update progress tracking
             completedResponses++;
-            const currentProgress = Math.round((completedResponses / questionModelCombinations.length) * 100);
+            const localFanoutPct = Math.round((completedResponses / questionModelCombinations.length) * 100);
             
-            // Update progress every 5% or on significant milestones
-            if (currentProgress % 5 === 0 || completedResponses === questionModelCombinations.length) {
-                await prisma.reportRun.update({ 
-                    where: { id: runId }, 
-                    data: { stepStatus: `Analyzing Visibility (${currentProgress}%)` } 
-                });
-            }
+            // Use new enhanced progress tracking
+            await updateProgress(
+                prisma, 
+                runId, 
+                'Analyzing Visibility Questions', 
+                localFanoutPct, 
+                PROGRESS.FANOUT_START, 
+                PROGRESS.FANOUT_END
+            );
 
             const duration = Date.now() - startTime;
             log({
                 runId,
                 stage: 'DATA_GATHERING',
-                step: 'QUESTION_STREAMED',
+                step: 'FANOUT_RESPONSE_SAVED',
                 duration,
-                progress: currentProgress,
+                progress: mapProgress(localFanoutPct, PROGRESS.FANOUT_START, PROGRESS.FANOUT_END),
                 tokenUsage: { prompt: usage.promptTokens, completion: usage.completionTokens, total: usage.totalTokens },
                 metadata: {
                     questionId: question.id,
                     modelId: model.id,
-                    questionType,
+                    questionType: question.type,
+                    fanoutType: question.fanoutType,
+                    sourceModel: question.sourceModel,
                     success: true,
                     answerLength: answer.length,
                     completedCombinations: completedResponses,
                     totalExpected: questionModelCombinations.length
                 },
-            }, `Successfully processed and streamed question ${question.id} with ${model.id} (${currentProgress}% complete)`);
+            }, `Successfully processed fanout response ${question.id} with ${model.id} (${mapProgress(localFanoutPct, PROGRESS.FANOUT_START, PROGRESS.FANOUT_END)}% complete)`);
 
             return { response: responseData, success: true };
         } catch (error) {
@@ -946,15 +1204,16 @@ const processJob = async (job: Job) => {
             log({
                 runId,
                 stage: 'DATA_GATHERING',
-                step: 'QUESTION_ERROR',
+                step: 'FANOUT_RESPONSE_ERROR',
                 duration,
                 error,
                 metadata: {
                     questionId: question.id,
                     modelId: model.id,
+                    questionType: question.type,
                     success: false
                 },
-            }, `Failed to process question ${question.id} with ${model.id}`, 'ERROR');
+            }, `Failed to process fanout response ${question.id} with ${model.id}`, 'ERROR');
             
             return { response: null, success: false };
         }
@@ -963,181 +1222,96 @@ const processJob = async (job: Job) => {
     // Process all combinations with streaming database writes
     const allResults = await Promise.allSettled(questionProcessingPromises);
     
-    // --- Step 2.1: Extract discovered brands from all responses ---
-    await prisma.reportRun.update({ where: { id: runId }, data: { stepStatus: 'Analyzing Competitors (0%)' } });
-    await job.updateProgress(70); // Start competitor analysis at 70%
+    // --- Step 2.1: Finalize competitor enrichment pipeline ---
+    await updateProgress(prisma, runId, 'Analyzing Competitors', 0, PROGRESS.COMPETITOR_ANALYSIS_START, PROGRESS.COMPETITOR_ANALYSIS_END, undefined, true);
     
     const collectedResponses = allResults
         .filter((result): result is PromiseFulfilledResult<{ response: any; success: true; }> => 
             result.status === 'fulfilled' && result.value.success)
         .map(result => result.value.response);
 
-    const brandNameSet = new Set<string>();
-    const brandRegex = /<brand>(.*?)<\/brand>/gi;
-
-    // Process responses with progress tracking
-    let processedResponses = 0;
-    for (const response of collectedResponses) {
-        let match;
-        while ((match = brandRegex.exec(response.answer)) !== null) {
-            const brandName = match[1].trim();
-            if (brandName) {
-                brandNameSet.add(brandName);
-            }
-        }
-        
-        processedResponses++;
-        const extractionProgress = Math.round((processedResponses / collectedResponses.length) * 25); // 0-25% of this phase
-        if (extractionProgress % 5 === 0 || processedResponses === collectedResponses.length) {
-            await prisma.reportRun.update({ where: { id: runId }, data: { stepStatus: `Analyzing Competitors (${extractionProgress}%)` } });
-        }
-    }
+    // Finalize the competitor enrichment pipeline
+    const pipelineResults = await competitorPipeline.finalize();
     
-    const discoveredBrands = Array.from(brandNameSet);
+    totalPromptTokens += pipelineResults.totalPromptTokens;
+    totalCompletionTokens += pipelineResults.totalCompletionTokens;
+    
     log({
         runId,
         stage: 'BRAND_DISCOVERY',
-        step: 'EXTRACTION_COMPLETE',
+        step: 'PIPELINE_COMPLETE',
         metadata: {
-            discoveredCount: discoveredBrands.length,
-            sample: discoveredBrands.slice(0, 10)
+            enrichedCount: pipelineResults.enrichedCompetitors.length,
+            sample: pipelineResults.enrichedCompetitors.slice(0, 10).map(c => ({ name: c.name, website: c.website }))
         }
-    }, `Extracted ${discoveredBrands.length} unique brand names from responses.`);
+    }, `Pipeline completed: ${pipelineResults.enrichedCompetitors.length} competitors enriched`);
 
-    await prisma.reportRun.update({ where: { id: runId }, data: { stepStatus: 'Analyzing Competitors (25%)' } });
-
-    // --- Step 2.2: Enrich discovered brands with websites (if any were found) ---
-    if (discoveredBrands.length > 0) {
-        log({ runId, stage: 'BRAND_DISCOVERY', step: 'WEBSITE_ENRICHMENT_START' }, 'Enriching discovered brands with website data...');
-        await prisma.reportRun.update({ where: { id: runId }, data: { stepStatus: 'Analyzing Competitors (30%)' } });
+    // --- Step 2.2: Save enriched competitors to database ---
+    if (pipelineResults.enrichedCompetitors.length > 0) {
+        // Competitor saving happens in background, no status update needed
         
         try {
-            const { data: enrichedCompetitors, usage: websiteUsage } = await generateWebsiteForCompetitors(discoveredBrands);
-
-            // --- Fine-grained progress tracking for competitor enrichment (30-70 %) ---
-            const totalEnriched = enrichedCompetitors.length || 1; // safeguard against division by zero
-            let processedEnriched = 0;
-            let lastProgressPct = 30;
-            const updateCompetitorProgress = async (pct: number) => {
-                // only update on 5 % boundaries and if progress increased
-                if (pct > lastProgressPct && (pct % 5 === 0 || pct === 70)) {
-                    lastProgressPct = pct;
-                    await prisma.reportRun.update({ where: { id: runId }, data: { stepStatus: `Analyzing Competitors (${pct}%)` } });
-                }
-            };
-
-            // We will call updateCompetitorProgress inside loops below
-            totalPromptTokens += websiteUsage.promptTokens;
-            totalCompletionTokens += websiteUsage.completionTokens;
-
-            log({
-                runId,
-                stage: 'BRAND_DISCOVERY',
-                step: 'WEBSITE_ENRICHMENT_COMPLETE',
-                tokenUsage: {
-                    prompt: websiteUsage.promptTokens,
-                    completion: websiteUsage.completionTokens,
-                    total: websiteUsage.totalTokens
-                },
-                metadata: {
-                    enrichedCount: enrichedCompetitors.length,
-                    sample: enrichedCompetitors.slice(0, 5)
-                }
-            }, `Successfully enriched ${enrichedCompetitors.length} brands with websites.`);
-
-            await prisma.reportRun.update({ where: { id: runId }, data: { stepStatus: 'Analyzing Competitors (75%)' } });
-
-            // --- Step 2.3: Save new competitors to the database ---
             const standardizeWebsite = (website: string | null | undefined): string => {
                 if (!website) return '';
                 return website.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
             };
 
-            // Standardize and then deduplicate the list of newly discovered competitors against itself.
-            // A website is the strongest unique identifier.
+            // Deduplicate enriched competitors
             const uniqueNewCompetitorsMap = new Map<string, CompetitorInfo>();
-            for (const competitor of enrichedCompetitors) {
+            for (const competitor of pipelineResults.enrichedCompetitors) {
                 const standardizedWebsite = standardizeWebsite(competitor.website);
                 if (standardizedWebsite && !uniqueNewCompetitorsMap.has(standardizedWebsite)) {
                     uniqueNewCompetitorsMap.set(standardizedWebsite, {
                         ...competitor,
-                        website: standardizedWebsite, // Ensure the stored website is the standardized one
+                        website: standardizedWebsite,
                     });
                 }
-
-                // progress: 30 -> 70 across enrichment list
-                processedEnriched++;
-                const pct = 30 + Math.round((processedEnriched / totalEnriched) * 40); // 30-70
-                await updateCompetitorProgress(pct);
             }
 
-            // Create sets of existing normalized names and standardized websites for efficient filtering.
+            // Filter out existing competitors
             const existingCompetitorNames = new Set(fullCompany.competitors.map(c => normalizeNameForDeduplication(c.name)));
             const existingCompetitorWebsites = new Set(fullCompany.competitors.map(c => standardizeWebsite(c.website)));
-
-            // Add the user's own company to the sets to prevent it from being added as a competitor.
             existingCompetitorNames.add(normalizeNameForDeduplication(fullCompany.name));
             existingCompetitorWebsites.add(standardizeWebsite(fullCompany.website));
 
             const newCompetitorsToSave = Array.from(uniqueNewCompetitorsMap.values()).filter(
                 (newComp: CompetitorInfo) => {
                     const normalizedNewName = normalizeNameForDeduplication(newComp.name);
-
-                    // Check against existing websites AND normalized names.
-                    const websiteExists = existingCompetitorWebsites.has(newComp.website); // Already standardized
+                    const websiteExists = existingCompetitorWebsites.has(newComp.website);
                     const nameExists = existingCompetitorNames.has(normalizedNewName);
-
-                    if (websiteExists || nameExists) {
-                        log({
-                            runId,
-                            stage: 'BRAND_DISCOVERY',
-                            step: 'DUPLICATE_COMPETITOR_SKIPPED',
-                            metadata: { companyName: newComp.name, companyWebsite: newComp.website, reason: websiteExists ? 'website exists' : 'name exists' }
-                        }, `Skipping adding duplicate competitor '${newComp.name}'.`);
-                        return false;
-                    }
-                    return true;
+                    return !(websiteExists || nameExists);
                 }
             );
 
             if (newCompetitorsToSave.length > 0) {
-                try {
-                    await prisma.competitor.createMany({
-                        data: newCompetitorsToSave.map((c: CompetitorInfo) => ({
-                            name: c.name, // Keep the original, human-readable name
-                            website: c.website, // Save the standardized website for uniqueness
-                            companyId: fullCompany.id,
-                            isGenerated: true,
-                        })),
-                        skipDuplicates: true, // This is now a secondary guard, but good to keep.
-                    });
-                    log({ runId, stage: 'BRAND_DISCOVERY', step: 'NEW_COMPETITORS_SAVED', metadata: { count: newCompetitorsToSave.length } }, `Saved ${newCompetitorsToSave.length} newly discovered competitors.`);
-                } catch (error) {
-                    // Handle unique constraint violations gracefully - this can happen in a race condition
-                    // or if the logic above has a flaw.
-                    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
-                        log({
-                            runId,
-                            stage: 'BRAND_DISCOVERY',
-                            step: 'DUPLICATE_COMPETITORS_SKIPPED_ON_WRITE',
-                            metadata: { attemptedCount: newCompetitorsToSave.length }
-                        },
-                        'Some discovered competitors were skipped due to a unique constraint violation during database write.', 'WARN');
-                    } else {
-                        // Re-throw other critical errors
-                        throw error;
+                await prisma.competitor.createMany({
+                    data: newCompetitorsToSave.map((c: CompetitorInfo) => ({
+                        name: c.name,
+                        website: c.website,
+                        companyId: fullCompany.id,
+                        isGenerated: true,
+                    })),
+                    skipDuplicates: true,
+                });
+                
+                log({
+                    runId,
+                    stage: 'BRAND_DISCOVERY',
+                    step: 'COMPETITORS_SAVED',
+                    metadata: {
+                        savedCount: newCompetitorsToSave.length,
+                        totalEnriched: pipelineResults.enrichedCompetitors.length,
+                        duplicatesFiltered: pipelineResults.enrichedCompetitors.length - newCompetitorsToSave.length
                     }
-                }
+                }, `Saved ${newCompetitorsToSave.length} new competitors to database`);
             }
         } catch (error) {
-            log({ runId, stage: 'BRAND_DISCOVERY', step: 'WEBSITE_ENRICHMENT_ERROR', error }, 'Failed to enrich brands with websites.', 'ERROR');
+            log({ runId, stage: 'BRAND_DISCOVERY', step: 'COMPETITOR_SAVE_ERROR', error }, 'Failed to save enriched competitors', 'ERROR');
         }
     }
 
-    await prisma.reportRun.update({ where: { id: runId }, data: { stepStatus: 'Analyzing Competitors (100%)' } });
-
     // --- Step 2.4: Use optimized StreamingDatabaseWriter for batch operations ---
-    await prisma.reportRun.update({ where: { id: runId }, data: { stepStatus: 'Preparing Dashboard (0%)' } });
+    await updateProgress(prisma, runId, 'Streaming to Database', 0, PROGRESS.STREAM_START, PROGRESS.STREAM_END, undefined, true);
     
     log({ runId, stage: 'DATABASE_WRITE', step: 'BATCH_WRITE_START' }, `Starting optimized batch-write for ${collectedResponses.length} responses.`);
     
@@ -1154,7 +1328,7 @@ const processJob = async (job: Job) => {
     ];
     const entityMap = new Map(allKnownEntities.map(e => [e.name.toLowerCase(), e]));
 
-    await prisma.reportRun.update({ where: { id: runId }, data: { stepStatus: 'Preparing Dashboard (15%)' } });
+    // initial write phase already set to 55 %
 
     // Initialize StreamingDatabaseWriter with proper configuration
     const streamWriter = new StreamingDatabaseWriter(
@@ -1187,16 +1361,21 @@ const processJob = async (job: Job) => {
         await streamWriter.streamResponse(streamedResponse);
         
         processedStreamingResponses++;
-        const streamingProgress = Math.round((processedStreamingResponses / collectedResponses.length) * 50) + 15; // 15-65% range
-        if (streamingProgress % 10 === 0 || processedStreamingResponses === collectedResponses.length) {
-            await prisma.reportRun.update({ where: { id: runId }, data: { stepStatus: `Preparing Dashboard (${streamingProgress}%)` } });
-        }
+        const localStreamPct = Math.round((processedStreamingResponses / collectedResponses.length) * 100);
+        
+        // Use enhanced progress tracking for streaming
+        await updateProgress(
+            prisma, 
+            runId, 
+            'Streaming to Database', 
+            localStreamPct, 
+            PROGRESS.STREAM_START, 
+            PROGRESS.STREAM_END
+        );
     }
 
-    await prisma.reportRun.update({ where: { id: runId }, data: { stepStatus: 'Preparing Dashboard (70%)' } });
-
-    // Finalize all batch writes
-    await prisma.reportRun.update({ where: { id: runId }, data: { stepStatus: 'Preparing Dashboard (80%)' } });
+    // Move to metrics calculation phase
+    await updateProgress(prisma, runId, 'Calculating Metrics', 0, PROGRESS.METRICS_START, PROGRESS.METRICS_END, undefined, true);
     
     const writeStats = await streamWriter.finalize();
     log({ 
@@ -1211,8 +1390,6 @@ const processJob = async (job: Job) => {
         }
     }, `Optimized batch-write completed: ${writeStats.responsesWritten} responses, ${writeStats.mentionsWritten} mentions in ${writeStats.batchesProcessed} batches`);
 
-    await prisma.reportRun.update({ where: { id: runId }, data: { stepStatus: 'Preparing Dashboard (90%)' } });
-
     // Collect successful responses for final statistics
     let successfulResponses = 0;
     let failedResponses = 0;
@@ -1225,15 +1402,15 @@ const processJob = async (job: Job) => {
         }
     }
 
-    // Update progress to 100% after all processing is complete
+    // Update progress to end of fanout phase after all processing is complete
     questionsProcessed = allQuestions.length;
-    const finalProgress = 100;
+    const fanoutCompleteProgress = PROGRESS.FANOUT_END;
     
     log({
         runId,
         stage: 'DATA_GATHERING',
         step: 'PARALLEL_PROCESSING_COMPLETE',
-        progress: finalProgress,
+        progress: fanoutCompleteProgress,
         metadata: {
             totalCombinations: questionModelCombinations.length,
             successfulResponses,
@@ -1244,7 +1421,7 @@ const processJob = async (job: Job) => {
         },
     }, `Parallel processing complete: ${successfulResponses}/${questionModelCombinations.length} successful responses (${Math.round((successfulResponses / questionModelCombinations.length) * 100)}% success rate)`);
     
-    await prisma.reportRun.update({ where: { id: runId }, data: { stepStatus: `Analyzing Visibility (${finalProgress}%)` } });
+    await prisma.reportRun.update({ where: { id: runId }, data: { stepStatus: `Analyzing Visibility Questions (${fanoutCompleteProgress}%)` } });
     
     log({ runId, stage: 'DATA_GATHERING', step: 'ANALYSIS_COMPLETE' }, 'Finished answering all questions.');
 
@@ -1334,122 +1511,144 @@ const processJob = async (job: Job) => {
         }
     }, 'All database writes completed successfully');
 
-    await prisma.reportRun.update({ where: { id: runId }, data: { stepStatus: 'Preparing Dashboard (100%)' } });
-
-    // --- Stage 3: Data Aggregation & Finalization ---
-    const aggregationTimer = new Timer();
-    log({ runId, stage: 'FINALIZATION', step: 'AGGREGATION_START' }, 'STARTING FINALIZATION PHASE - Calculating dashboard metrics and completing report');
-    
-    // Note: Dashboard data is now calculated dynamically in the API controller
-    // No need to pre-calculate and store dashboard data anymore
-    
-    const aggregationDuration = aggregationTimer.elapsed();
+    // --- Data aggregation completed ---
     log({ 
         runId, 
         stage: 'FINALIZATION', 
-        step: 'AGGREGATION_COMPLETE',
-        duration: aggregationDuration
+        step: 'AGGREGATION_COMPLETE'
     }, 'Data aggregation completed - dashboard data will be calculated on-demand');
 
-    // --- Finalization ---
+    // ===== Prepare overall usage & timing metrics =====
     const finalTokenUsage = totalPromptTokens + totalCompletionTokens;
     const totalJobDuration = jobTimer.elapsed();
-    
-    await prisma.reportRun.update({
-        where: { id: runId },
-        data: { 
-            status: 'COMPLETED',
-            stepStatus: 'COMPLETED',
-            tokensUsed: finalTokenUsage,
-        },
-    });
-    
-    // --- Post-completion processing ---
+
+    // Move to post-completion optimization phase
+    await updateProgress(prisma, runId, 'Generating Optimization Tasks', 0, PROGRESS.OPTIMIZATION_START, PROGRESS.OPTIMIZATION_END, undefined, true);
+
+    // ────────────────────────────────────────────────────────────────
+    // Post-processing (metrics + optimisation + summary)
+    // ────────────────────────────────────────────────────────────────
     try {
-        // Compute and persist dashboard metrics
-        log({ runId, stage: 'POST_COMPLETION', step: 'METRICS_START' }, 'Computing and persisting dashboard metrics...');
-        await computeAndPersistMetrics(runId, company.id);
-        log({ runId, stage: 'POST_COMPLETION', step: 'METRICS_SUCCESS' }, 'Successfully computed and persisted dashboard metrics');
-        
-        // Generate optimization tasks and summary
-        log({ runId, stage: 'POST_COMPLETION', step: 'OPTIMIZATION_START' }, 'Generating optimization tasks and visibility summary...');
-        
+        // 1️⃣  Compute and persist dashboard metrics (quick step)
         try {
+            log({ runId, stage: 'POST_COMPLETION', step: 'METRICS_START' }, 'Computing and persisting dashboard metrics…');
+            await computeAndPersistMetrics(runId, company.id);
+            await updateProgress(prisma, runId, 'Generating Optimization Tasks', 25, PROGRESS.OPTIMIZATION_START, PROGRESS.OPTIMIZATION_END, 'Computed dashboard metrics');
+            log({ runId, stage: 'POST_COMPLETION', step: 'METRICS_SUCCESS' }, 'Successfully computed and persisted dashboard metrics');
+        } catch (metricsError) {
+            log({ 
+                runId, 
+                stage: 'POST_COMPLETION', 
+                step: 'METRICS_ERROR',
+                error: metricsError,
+                metadata: { errorType: metricsError instanceof Error ? metricsError.name : 'Unknown' }
+            }, 'Error computing and persisting metrics (report still continuing)', 'ERROR');
+        }
+
+        // 2️⃣  Generate optimisation tasks + visibility summary (first report only)
+        try {
+            log({ runId, stage: 'POST_COMPLETION', step: 'OPTIMIZATION_START' }, 'Generating optimisation tasks and AI visibility summary…');
+            await updateProgress(prisma, runId, 'Generating Optimization Tasks', 30, PROGRESS.OPTIMIZATION_START, PROGRESS.OPTIMIZATION_END, 'Starting task generation');
+
             const { generateOptimizationTasksAndSummary, persistOptimizationTasks } = await import('../services/optimizationTaskService');
             
-            const optimizationResult = await generateOptimizationTasksAndSummary(runId, company.id, prisma);
-            
-            // Persist tasks if any were generated (first report only)
-            if (optimizationResult.tasks.length > 0) {
-                await persistOptimizationTasks(optimizationResult.tasks, runId, company.id, prisma);
+            await updateProgress(prisma, runId, 'Generating Optimization Tasks', 50, PROGRESS.OPTIMIZATION_START, PROGRESS.OPTIMIZATION_END, 'Processing with AI models');
+            const optimisationResult = await generateOptimizationTasksAndSummary(runId, company.id, prisma, false);
+            await updateProgress(prisma, runId, 'Generating Optimization Tasks', 90, PROGRESS.OPTIMIZATION_START, PROGRESS.OPTIMIZATION_END, 'Tasks generated');
+
+            if (optimisationResult.tasks.length > 0) {
+                await persistOptimizationTasks(optimisationResult.tasks, runId, company.id, prisma);
+                await updateProgress(prisma, runId, 'Generating Optimization Tasks', 95, PROGRESS.OPTIMIZATION_START, PROGRESS.OPTIMIZATION_END, 'Tasks saved');
                 log({ 
                     runId, 
                     stage: 'POST_COMPLETION', 
                     step: 'OPTIMIZATION_TASKS_PERSISTED',
-                    metadata: { tasksCount: optimizationResult.tasks.length }
-                }, `Persisted ${optimizationResult.tasks.length} optimization tasks`);
+                    metadata: { tasksCount: optimisationResult.tasks.length }
+                }, `Persisted ${optimisationResult.tasks.length} optimisation tasks`);
             }
-            
-            // Always update the summary on the report run
+
+            // Store the AI-visibility summary on the run
             await prisma.reportRun.update({
                 where: { id: runId },
-                data: { aiVisibilitySummary: optimizationResult.summary }
+                data: { aiVisibilitySummary: optimisationResult.summary }
             });
-            
+
             // Update token usage
             await prisma.reportRun.update({
                 where: { id: runId },
                 data: { 
-                    tokensUsed: finalTokenUsage + optimizationResult.tokenUsage.totalTokens
+                    tokensUsed: finalTokenUsage + optimisationResult.tokenUsage.totalTokens
                 }
             });
+
+            await updateProgress(prisma, runId, 'Generating Optimization Tasks', 100, PROGRESS.OPTIMIZATION_START, PROGRESS.OPTIMIZATION_END, 'Optimization complete');
             
             log({ 
                 runId, 
                 stage: 'POST_COMPLETION', 
                 step: 'OPTIMIZATION_SUCCESS',
                 tokenUsage: { 
-                    prompt: optimizationResult.tokenUsage.promptTokens, 
-                    completion: optimizationResult.tokenUsage.completionTokens, 
-                    total: optimizationResult.tokenUsage.totalTokens 
+                    prompt: optimisationResult.tokenUsage.promptTokens, 
+                    completion: optimisationResult.tokenUsage.completionTokens, 
+                    total: optimisationResult.tokenUsage.totalTokens 
                 },
                 metadata: { 
-                    tasksGenerated: optimizationResult.tasks.length > 0,
+                    tasksGenerated: optimisationResult.tasks.length > 0,
                     summaryGenerated: true
                 }
-            }, 'Successfully generated optimization tasks and summary');
-            
-        } catch (optimizationError) {
+            }, 'Optimisation tasks and summary generation complete');
+        } catch (optimisationError) {
             log({ 
                 runId, 
                 stage: 'POST_COMPLETION', 
                 step: 'OPTIMIZATION_ERROR',
-                error: optimizationError,
-                metadata: { errorType: optimizationError instanceof Error ? optimizationError.name : 'Unknown' }
-            }, 'Error generating optimization tasks/summary (report still completed)', 'ERROR');
+                error: optimisationError,
+                metadata: { errorType: optimisationError instanceof Error ? optimisationError.name : 'Unknown' }
+            }, 'Error generating optimisation tasks / summary (report still continuing)', 'ERROR');
         }
-        
-        // Schedule archive job for old responses
-        log({ runId, stage: 'POST_COMPLETION', step: 'ARCHIVE_SCHEDULE' }, 'Scheduling archive job for old responses...');
+
+    } catch (postError) {
+        log({ 
+            runId, 
+            stage: 'POST_COMPLETION', 
+            step: 'ERROR',
+            error: postError,
+            metadata: { errorType: postError instanceof Error ? postError.name : 'Unknown' }
+        }, 'Unexpected error during post-processing', 'ERROR');
+    }
+
+    // 3️⃣  Schedule archive job (non-blocking)
+    try {
+        log({ runId, stage: 'POST_COMPLETION', step: 'ARCHIVE_SCHEDULE' }, 'Scheduling archive job for old responses…');
         await archiveQueue.add('archive-old-responses', { companyId: company.id }, {
             removeOnComplete: true,
             removeOnFail: 5,
             attempts: 3,
             backoff: { type: 'exponential', delay: 30000 }
         });
-        log({ runId, stage: 'POST_COMPLETION', step: 'ARCHIVE_SCHEDULED' }, 'Successfully scheduled archive job');
-        
-    } catch (error) {
+        log({ runId, stage: 'POST_COMPLETION', step: 'ARCHIVE_SCHEDULED' }, 'Archive job scheduled');
+    } catch (archiveError) {
         log({ 
             runId, 
             stage: 'POST_COMPLETION', 
-            step: 'ERROR',
-            error,
-            metadata: { errorType: error instanceof Error ? error.name : 'Unknown' }
-        }, 'Error in post-completion processing (report still marked as completed)', 'ERROR');
-        // Note: We don't re-throw here because the report itself completed successfully
-        // The metrics computation and archiving are supplementary processes
+            step: 'ARCHIVE_ERROR',
+            error: archiveError,
+            metadata: { errorType: archiveError instanceof Error ? archiveError.name : 'Unknown' }
+        }, 'Error scheduling archive job (report still completing)', 'ERROR');
     }
+
+    // ────────────────────────────────────────────────────────────────
+    // FINAL: hit 100 % and mark COMPLETED
+    // ────────────────────────────────────────────────────────────────
+    await updateProgress(prisma, runId, 'Finalizing Report', 100, PROGRESS.FINAL_START, PROGRESS.FINAL_END, 'Report Complete', true);
+
+    await prisma.reportRun.update({
+        where: { id: runId },
+        data: {
+            status: 'COMPLETED',
+            stepStatus: 'COMPLETED'
+        }
+    });
     
     log({ 
         runId, 

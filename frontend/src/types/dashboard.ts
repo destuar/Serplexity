@@ -147,7 +147,7 @@ export interface DashboardData {
   competitorRankings: CompetitorRankingsResponse;
   topQuestions: TopRankingQuestion[];
   sentimentOverTime: { date: string; score: number }[];
-  shareOfVoiceHistory: { date: string; shareOfVoice: number }[];
+  shareOfVoiceHistory: { date: string; shareOfVoice: number; aiModel: string; }[];
 
   // Report metadata
   lastUpdated: string;

@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../ui/Card';
+import FormattedResponseViewer from '../ui/FormattedResponseViewer';
 import { useDashboard } from '../../hooks/useDashboard';
-import { useCompany } from '../../contexts/CompanyContext';
 import { TopRankingQuestion } from '../../services/companyService';
 import { getModelDisplayName } from '../../types/dashboard';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
@@ -16,75 +16,21 @@ const stripBrandTags = (text: string): string => {
     return text.replace(/<\/?brand>/g, '');
 };
 
-/**
- * A component to format and display response text.
- * It handles markdown bolding and highlights brand mentions.
- */
-const FormattedResponseViewer: React.FC<{ text: string }> = ({ text }) => {
-    const { selectedCompany } = useCompany();
-    // Get company name from the selected company context
-    const companyName = selectedCompany?.name;
-    
-    const renderFormattedText = (str: string): React.ReactNode => {
-        if (!str) return null;
+// Now using the enhanced FormattedResponseViewer from ../ui/FormattedResponseViewer
 
-        // First handle markdown bolding
-        const boldPattern = '(\\*\\*.*?\\*\\*)';
-        const parts = str.split(new RegExp(boldPattern, 'gi'));
-
-        return (
-            <>
-                {parts.filter(Boolean).map((part, index) => {
-                    if (part.startsWith('**') && part.endsWith('**')) {
-                        const boldText = part.slice(2, -2);
-                        return <strong key={index}>{highlightBrandName(boldText)}</strong>;
-                    }
-                    return <React.Fragment key={index}>{highlightBrandName(part)}</React.Fragment>;
-                })}
-            </>
-        );
-    };
-
-    const highlightBrandName = (text: string): React.ReactNode => {
-        if (!companyName || !text) return text;
-
-        // Create case-insensitive regex for the brand name
-        const brandRegex = new RegExp(`(${companyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-        const parts = text.split(brandRegex);
-
-        return (
-            <>
-                {parts.map((part, index) => {
-                    if (part.toLowerCase() === companyName.toLowerCase()) {
-                        return (
-                            <span key={index} className="font-bold text-[#7762ff]">
-                                {part}
-                            </span>
-                        );
-                    }
-                    return <React.Fragment key={index}>{part}</React.Fragment>;
-                })}
-            </>
-        );
-    };
-
-    return (
-        <div className="bg-gray-50 rounded-lg p-4 border-l-4 border-green-500">
-            <p className="text-sm text-gray-800 leading-relaxed">
-                {renderFormattedText(text)}
-            </p>
-        </div>
-    );
-};
+type ResponseMeta = { response: string; model: string };
 
 interface TooltipProps {
   question: TopRankingQuestion;
+  meta?: ResponseMeta;
   children: React.ReactNode;
 }
 
-const Tooltip: React.FC<TooltipProps> = ({ question, children }) => {
+const Tooltip: React.FC<TooltipProps> = ({ question, meta, children }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const handleMouseEnter = (e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -99,9 +45,40 @@ const Tooltip: React.FC<TooltipProps> = ({ question, children }) => {
     setIsVisible(false);
   };
 
+  // Check if content is overflowing
+  useEffect(() => {
+    const checkOverflow = () => {
+      if (contentRef.current) {
+        const { scrollHeight, clientHeight } = contentRef.current;
+        setIsOverflowing(scrollHeight > clientHeight);
+      }
+    };
+
+    if (isVisible) {
+      // Check overflow after a brief delay to ensure content is rendered
+      const timer = setTimeout(checkOverflow, 10);
+      return () => clearTimeout(timer);
+    }
+  }, [isVisible, meta, question]);
+
   // Using centralized model display name function
   const formatModelName = (model: string) => {
     return getModelDisplayName(model);
+  };
+
+  // Shape stored in the local map for quick lookup
+  const getBestResponseText = (q: TopRankingQuestion): string => {
+    if (meta && meta.response) return meta.response;
+    if (q.bestResponse && q.bestResponse.trim()) return q.bestResponse;
+    if (q.responses && q.responses.length > 0) return q.responses[0].response || '';
+    return '';
+  };
+
+  const getBestResponseModel = (q: TopRankingQuestion): string => {
+    if (meta?.model) return meta.model;
+    if (q.bestResponseModel) return q.bestResponseModel;
+    if (q.responses && q.responses.length > 0) return q.responses[0].model;
+    return 'unknown';
   };
 
   // Calculate positioning to prevent going off-screen with extra space
@@ -173,11 +150,31 @@ const Tooltip: React.FC<TooltipProps> = ({ question, children }) => {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="bg-[#7762ff]/10 text-[#7762ff] px-3 py-1 rounded-full text-xs font-medium border border-[#7762ff]/20">
-                    {formatModelName(question.bestResponseModel)}
+                    {formatModelName(getBestResponseModel(question))}
                   </span>
                 </div>
               </div>
-              <FormattedResponseViewer text={stripBrandTags(question.bestResponse)} />
+              <div className="relative">
+                <div 
+                  ref={contentRef}
+                  className="max-h-80 overflow-y-auto pr-1"
+                >
+                  <FormattedResponseViewer 
+                    text={stripBrandTags(getBestResponseText(question))}
+                    compact={true}
+                    className="bg-gray-50 rounded-lg p-4 border-l-4 border-green-500"
+                  />
+                </div>
+                {isOverflowing && (
+                  <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none">
+                    <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2">
+                      <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded-md shadow-sm border">
+                        Click question to see more
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {question.productName && (
@@ -207,19 +204,31 @@ const Tooltip: React.FC<TooltipProps> = ({ question, children }) => {
 };
 
 const TopRankingQuestionsCard = () => {
-  const { data, loading, error } = useDashboard();
+  const { data, detailedQuestions, loading, error } = useDashboard();
   const navigate = useNavigate();
   const isTallerScreen = useMediaQuery('(min-height: 900px)');
 
   const questions = data?.topQuestions || [];
+
+  // Build detailed data map from context data (no additional fetching needed)
+  const detailedById = React.useMemo(() => {
+    const map: Record<string, ResponseMeta> = {};
+    detailedQuestions.forEach((q) => {
+      const first = q.responses && q.responses.length > 0 ? q.responses[0] : undefined;
+      const respText = first?.response ?? q.bestResponse ?? '';
+      const respModel = first?.model ?? q.bestResponseModel ?? 'unknown';
+      map[q.id] = { response: respText, model: respModel };
+    });
+    return map;
+  }, [detailedQuestions]);
   
   // Debug logging to understand the data structure
   console.log('[TopRankingQuestionsCard] Raw data:', data);
   console.log('[TopRankingQuestionsCard] Top questions:', questions);
   console.log('[TopRankingQuestionsCard] First question structure:', questions[0]);
 
-  const handleQuestionClick = () => {
-    navigate('/response-details');
+  const handleQuestionClick = (id: string) => {
+    navigate(`/response-details?questionId=${id}`);
   };
 
   if (loading) {
@@ -265,10 +274,10 @@ const TopRankingQuestionsCard = () => {
       
       <div className="flex-1 space-y-2 mb-1">
         {questions.slice(0, isTallerScreen ? 5 : 4).map((question, index) => (
-          <Tooltip key={question.id} question={question}>
+          <Tooltip key={question.id} question={question} meta={detailedById[question.id]}>
             <div 
               className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-              onClick={handleQuestionClick}
+              onClick={() => handleQuestionClick(question.id)}
             >
               <div className="flex-shrink-0">
                 <span className="text-sm font-medium text-gray-700 w-6">#{index + 1}</span>

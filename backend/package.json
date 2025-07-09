@@ -19,7 +19,15 @@
     "test-sentiment": "ts-node src/scripts/test-sentiment-scores.ts",
     "validate-metrics": "ts-node src/scripts/validate-metrics-system.ts",
     "recalculate-metrics": "ts-node src/scripts/recalculate-all-metrics.ts",
-    "regenerate-summaries": "ts-node scripts/regenerate-visibility-summaries.ts"
+    "regenerate-summaries": "ts-node scripts/regenerate-visibility-summaries.ts",
+    "backfill:mentions": "ts-node src/scripts/backfill-fanout-mentions.ts",
+    "backfill:report-metrics": "ts-node src/scripts/backfill-report-metrics.ts",
+    "recompute:latest-metrics": "ts-node src/scripts/recompute-latest-metrics.ts",
+    "monitor:post-completion": "ts-node src/scripts/monitor-post-completion-issues.ts",
+    "repair:failed-reports": "ts-node src/scripts/repair-failed-reports.ts",
+    "repair:failed-reports:execute": "ts-node src/scripts/repair-failed-reports.ts -- --repair",
+    "check:history": "ts-node src/scripts/check-share-of-voice-history.ts",
+    "backfill:history": "ts-node src/scripts/backfill-share-of-voice-history.ts"
   },
   "keywords": [],
   "author": "",
