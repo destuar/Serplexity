@@ -6,7 +6,7 @@ WORKDIR /app
 # Copy package files first for better layer caching
 COPY frontend/package*.json ./
 RUN echo "Dependencies - Installing..."
-RUN npm ci --only=production --no-audit --no-fund && \
+RUN npm ci --no-audit --no-fund && \
     npm cache clean --force
 RUN echo "Dependencies - Installed"
 
@@ -21,7 +21,7 @@ RUN echo "Application - Building..."
 RUN npm run build
 RUN echo "Application - Built"
 
-# Clean up unnecessary files
+# Clean up unnecessary files but keep dist
 RUN rm -rf node_modules src public *.json *.config.* *.md
 RUN echo "------ Build Stage Finished ------"
 
