@@ -391,9 +391,16 @@ export async function calculateShareOfVoiceHistory(_runId: string, companyId: st
   return history;
 }
 
-export async function calculateSentimentOverTime(_runId: string, companyId: string, _filters?: { aiModel?: string }) {
+export async function calculateSentimentOverTime(_runId: string, companyId: string, filters?: { aiModel?: string }) {
+  const whereClause: any = { companyId };
+  
+  // Apply aiModel filter if provided
+  if (filters?.aiModel && filters.aiModel !== 'all') {
+    whereClause.aiModel = filters.aiModel;
+  }
+  
   const history = await prismaReadReplica.sentimentOverTime.findMany({
-    where: { companyId },
+    where: whereClause,
     orderBy: { date: 'asc' },
   });
   return history;

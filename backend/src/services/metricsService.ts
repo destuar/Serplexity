@@ -331,7 +331,7 @@ export async function computeAndPersistMetrics(reportId: string, companyId: stri
         sentimentScore: overallSentimentScore,
         sentimentChange: overallSentimentChange,
         competitorRankings: competitorRankings,
-        topQuestions: topQuestions,
+        topQuestions: topQuestions.questions,
         sentimentDetails: sentimentDetails,
       },
       create: {
@@ -349,7 +349,7 @@ export async function computeAndPersistMetrics(reportId: string, companyId: stri
         sentimentScore: overallSentimentScore,
         sentimentChange: overallSentimentChange,
         competitorRankings: competitorRankings,
-        topQuestions: topQuestions,
+        topQuestions: topQuestions.questions,
         sentimentDetails: sentimentDetails,
       },
     });
@@ -384,6 +384,15 @@ export async function computeAndPersistMetrics(reportId: string, companyId: stri
       const previousModelMetric = await getPreviousReportMetric(companyId, reportId, model);
       const modelSentimentChange = previousModelMetric?.sentimentScore ? modelSentiment - previousModelMetric.sentimentScore : null;
 
+      // Build model-specific sentiment details
+      const modelSentimentDetails = rawSentiments
+        .filter(s => s.engine === model)
+        .map(s => ({
+          name: s.name,
+          engine: s.engine || '',
+          value: s.value,
+        }));
+
       // Also compute and enrich competitor rankings for the specific model
       const compRankModel = await calculateCompetitorRankings(reportId, companyId, { aiModel: model });
       if (previousModelMetric?.competitorRankings && (previousModelMetric.competitorRankings as any).chartCompetitors) {
@@ -416,7 +425,8 @@ export async function computeAndPersistMetrics(reportId: string, companyId: stri
           sentimentScore: modelSentiment,
           sentimentChange: modelSentimentChange,
           competitorRankings: compRankModel,
-          topQuestions: topQuestionsModel,
+          topQuestions: topQuestionsModel.questions,
+          sentimentDetails: modelSentimentDetails,
         },
         create: {
           reportId,
@@ -433,8 +443,8 @@ export async function computeAndPersistMetrics(reportId: string, companyId: stri
           sentimentScore: modelSentiment,
           sentimentChange: modelSentimentChange,
           competitorRankings: compRankModel,
-          topQuestions: topQuestionsModel,
-          sentimentDetails: [],
+          topQuestions: topQuestionsModel.questions,
+          sentimentDetails: modelSentimentDetails,
         },
       });
 
