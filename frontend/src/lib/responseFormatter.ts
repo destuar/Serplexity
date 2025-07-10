@@ -112,7 +112,7 @@ export const formatResponseText = (raw: string): string => {
   }
 
   // Handle structured data patterns like "method: title\ndetails: content"
-  text = text.replace(/^(\s*)(method|technology|tip|step|item):\s*(.+)\n(\s*)details:\s*(.+)/gmi, (match, indent, label, title, detailIndent, details) => {
+  text = text.replace(/^(\s*)(method|technology|tip|step|item):\s*(.+)\n(\s*)details:\s*(.+)/gmi, (_match, indent, _label, title, _detailIndent, details) => {
     return `${indent}- ${title}: ${details}`;
   });
 
@@ -147,7 +147,7 @@ export const formatResponseText = (raw: string): string => {
 
   // Normalize bullet points while avoiding double conversion
   // Only convert non-dash bullet characters to markdown dashes
-  text = text.replace(/^(\s*)([•●◦‣⁃*+])(\s+)(.+)/gm, (match, indent: string, bullet: string, space: string, content: string) => {
+  text = text.replace(/^(\s*)([•●◦‣⁃*+])(\s+)(.+)/gm, (match, indent: string, _bullet: string, _space: string, content: string) => {
     // Skip if it's already a markdown dash (check the whole line pattern)
     if (match.trim().startsWith('- ')) {
       return match;

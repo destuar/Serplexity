@@ -3,12 +3,20 @@ FROM node:20-alpine AS builder
 RUN echo "------ Build Stage Started ------"
 WORKDIR /app
 
+# Install system dependencies
+RUN echo "System dependencies - Installing..." && \
+    apk add --no-cache \
+        postgresql-client \
+        openssl \
+        curl && \
+    echo "System dependencies - Installed"
+
 # Copy package files first for better layer caching
 COPY backend/package*.json ./
-RUN echo "Dependencies - Installing..."
-RUN npm ci --no-audit --no-fund && \
-    npm cache clean --force
-RUN echo "Dependencies - Installed"
+RUN echo "Dependencies - Installing..." && \
+    npm ci --no-audit --no-fund && \
+    npm cache clean --force && \
+    echo "Dependencies - Installed"
 
 # Copy source code and config
 COPY backend/tsconfig.json ./tsconfig.json
@@ -20,58 +28,61 @@ RUN npx prisma generate
 RUN echo "Prisma - Client generated"
 
 RUN echo "TypeScript - Compiling..."
-RUN NODE_OPTIONS=--max-old-space-size=2048 npm run build || { \
+RUN NODE_OPTIONS="--max-old-space-size=1024" npm run build || { \
         echo "Build failed. Check the logs above for errors."; \
         exit 1; \
     }
 RUN echo "TypeScript - Compiled"
 
-# Clean up build dependencies
+# Clean up dev dependencies after build
+RUN npm prune --production && \
+    npm cache clean --force
+
+# Clean up unnecessary files
 RUN rm -rf src tsconfig.json
-RUN echo "------ Build Stage Finished ------"
 
-# ============================= PRODUCTION STAGE ==============================
-FROM node:20-alpine
+# ============================= PRODUCTION STAGE =====================================
+FROM node:20-alpine AS production
 RUN echo "------ Production Stage Started ------"
-
-# Create non-root user
-RUN addgroup -S nodejs && \
-    adduser -S nodejs -G nodejs
-
 WORKDIR /app
 
-# Install system dependencies in single layer
-RUN echo "System dependencies - Installing..." && \
+# Install only runtime system dependencies
+RUN echo "Runtime dependencies - Installing..." && \
     apk add --no-cache \
         postgresql-client \
         openssl \
         curl && \
-    echo "System dependencies - Installed"
+    echo "Runtime dependencies - Installed"
 
-# Copy package files and install production dependencies
+# Copy package files
 COPY backend/package*.json ./
-RUN echo "Dependencies - Installing for production..." && \
+
+# Install only production dependencies
+RUN echo "Production dependencies - Installing..." && \
     npm ci --omit=dev --no-audit --no-fund && \
     npm cache clean --force && \
-    echo "Dependencies - Installed"
+    echo "Production dependencies - Installed"
 
-# Copy built application and necessary files
-COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
-COPY --from=builder --chown=nodejs:nodejs /app/prisma ./prisma
-COPY --from=builder --chown=nodejs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+# Copy built application from builder stage
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
-# Generate Prisma client for production
-RUN echo "Prisma - Generating client for production..." && \
-    npx prisma generate && \
-    echo "Prisma - Client generated"
+# Copy scripts if any
+COPY backend/scripts/ ./scripts/
 
-# Switch to non-root user
-USER nodejs
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S backend -u 1001
+
+# Change ownership of the app directory
+RUN chown -R backend:nodejs /app
+USER backend
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:8000/api/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
 
 EXPOSE 8000
-CMD ["node", "dist/server.js"]
-RUN echo "------ Production Stage Finished ------" 
+
+CMD ["node", "dist/server.js"] 
