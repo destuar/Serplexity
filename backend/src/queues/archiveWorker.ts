@@ -74,7 +74,7 @@ export const processArchiveJob = async (job: Job) => {
     });
 
     if (allRuns.length <= 3) {
-      console.log(`[ARCHIVE WORKER] Company ${companyId} has ${allRuns.length} runs. Nothing to archive.`);
+      console.log(`[ARCHIVE WORKER] Company ${companyId} has ${allRuns.length} completed runs. Nothing to archive.`);
       return;
     }
 
@@ -100,7 +100,10 @@ export const processArchiveJob = async (job: Job) => {
   }
 };
 
-const archiveWorker = new Worker('archive-jobs', processArchiveJob, { connection });
+const archiveWorker = new Worker('archive-jobs', processArchiveJob, { 
+  connection,
+  lockDuration: 1000 * 60 * 5, // 5 minutes
+});
 
 archiveWorker.on('completed', (job: Job) => {
   console.log(`Archive job ${job.id} has completed.`);

@@ -1677,6 +1677,7 @@ if (env.NODE_ENV !== 'test') {
         port: env.REDIS_PORT,
     },
     concurrency: LLM_CONFIG.WORKER_CONCURRENCY,
+    lockDuration: 1000 * 60 * 15, // 15 minutes
     limiter: {
         max: LLM_CONFIG.WORKER_RATE_LIMIT.max,
         duration: LLM_CONFIG.WORKER_RATE_LIMIT.duration,

@@ -87,10 +87,9 @@ const VisibilityOverTimeCard: React.FC<VisibilityOverTimeCardProps> = ({ selecte
           return null;
         }
         return {
-          date: date.toLocaleDateString('en-US', { 
-            month: 'short', 
+          date: date.toLocaleDateString('en-US', {
+            month: 'short',
             day: 'numeric',
-            year: uniqueFilteredData.length > 30 ? undefined : '2-digit' // Use '2-digit' for proper year abbreviation
           }),
           shareOfVoice: item.shareOfVoice,
           fullDate: item.date // Keep original date for sorting
@@ -147,7 +146,7 @@ const VisibilityOverTimeCard: React.FC<VisibilityOverTimeCardProps> = ({ selecte
     if (model === 'all') return 'All Models';
     const modelMap: Record<string, string> = {
       'gpt-4.1-mini': 'GPT-4o Mini',
-      'claude-3-5-haiku-20241022': 'Claude 3.5 Haiku',
+      'claude-3.5-haiku-20241022': 'Claude 3.5 Haiku',
       'gemini-2.5-flash': 'Gemini 2.5 Flash',
       'sonar': 'Perplexity Sonar'
     };
@@ -194,8 +193,8 @@ const VisibilityOverTimeCard: React.FC<VisibilityOverTimeCardProps> = ({ selecte
             data={chartData} 
             margin={{ 
               top: 5, 
-              right: 5, 
-              bottom: chartData.length > 10 ? 10 : 5, // Further reduced bottom margin
+              right: 15, 
+              bottom: 0, // Further reduced bottom margin
               left: 20 
             }}
           >
@@ -226,7 +225,7 @@ const VisibilityOverTimeCard: React.FC<VisibilityOverTimeCardProps> = ({ selecte
               axisLine={{ stroke: '#e2e8f0', strokeWidth: 1 }}
               tickLine={false}
               tick={{ fontSize: 11, fill: '#64748b' }}
-              tickFormatter={(value) => `${value}%`}
+              tickFormatter={(value) => (value === 0 ? '' : `${value}%`)}
               width={20}
             />
             <Tooltip 

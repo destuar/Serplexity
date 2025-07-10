@@ -38,6 +38,7 @@ if (env.NODE_ENV !== 'test') {
 }, {
     connection: { host: env.REDIS_HOST, port: env.REDIS_PORT },
     concurrency: 1, // Only one of these scheduler jobs should run at a time.
+    lockDuration: 1000 * 60 * 5, // 5 minutes
 });
 
 worker.on('completed', (job: Job) => { 
