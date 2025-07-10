@@ -1,0 +1,91 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+*.md
+docs/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files (keep backend/.env but exclude local dev files)
+.env.local
+.env.*.local
+.env.example
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Test files and directories
+**/__tests__/
+**/__mocks__/
+**/*.test.*
+**/*.spec.*
+**/test/
+**/tests/
+coverage/
+.nyc_output/
+jest.config.*
+vitest.config.*
+**/*.test.ts
+**/*.test.js
+**/*.test.tsx
+**/*.test.jsx
+**/*.spec.ts
+**/*.spec.js
+**/*.spec.tsx
+**/*.spec.jsx
+
+# Build artifacts
+dist/
+build/
+
+# Frontend specific
+frontend/dist/
+frontend/build/
+frontend/node_modules/
+
+# Backend specific
+backend/dist/
+backend/build/
+backend/node_modules/
+backend/coverage/
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Development tools
+.eslintrc*
+.prettierrc*
+
+# Additional test-related files
+setupTests.*
+setup.ts
+setup.js
+globalSetup.*
+teardown.* 
