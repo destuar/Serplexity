@@ -23,6 +23,18 @@
     <meta property="og:url" content="https://serplexity.com" />
     <meta property="og:type" content="website" />
 
+    <!-- Google Analytics 4 -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-J5R6K4M5SR"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-J5R6K4M5SR', {
+        // Enhanced ecommerce and user engagement tracking
+        send_page_view: false // We'll handle page views manually for SPA
+      });
+    </script>
+
   </head>
   <body>
     <div id="root"></div>

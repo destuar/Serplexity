@@ -10,6 +10,51 @@ afterEach(() => {
   cleanup();
 });
 
+// Mock Web Animations API (CRITICAL: Fixes star.animate error)
+Object.defineProperty(Element.prototype, 'animate', {
+  writable: true,
+  value: function() {
+    return {
+      play: () => {},
+      pause: () => {},
+      cancel: () => {},
+      finish: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      onfinish: null,
+      oncancel: null,
+      currentTime: 0,
+      duration: 1000,
+      playbackRate: 1,
+      playState: 'finished' as AnimationPlayState,
+      ready: Promise.resolve(),
+      finished: Promise.resolve(),
+    };
+  },
+});
+
+// Mock Animation constructor
+global.Animation = class Animation {
+  constructor() {
+    return {
+      play: () => {},
+      pause: () => {},
+      cancel: () => {},
+      finish: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      onfinish: null,
+      oncancel: null,
+      currentTime: 0,
+      duration: 1000,
+      playbackRate: 1,
+      playState: 'finished' as AnimationPlayState,
+      ready: Promise.resolve(),
+      finished: Promise.resolve(),
+    };
+  }
+} as unknown as typeof Animation;
+
 // Mock matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,

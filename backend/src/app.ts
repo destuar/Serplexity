@@ -40,31 +40,37 @@ app.use(helmet({
     crossOriginEmbedderPolicy: false, // Disable for Stripe compatibility
 }));
 
-// Global rate limiting
+// Global rate limiting - DISABLED in test environment
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 1000, // Limit each IP to 1000 requests per windowMs
+    max: process.env.NODE_ENV === 'test' ? 0 : 1000, // Disable in test environment
     message: {
         error: 'Too many requests from this IP, please try again later.',
     },
     standardHeaders: true,
     legacyHeaders: false,
     skip: (req) => {
-        // Skip rate limiting for health checks
-        return req.path === '/api/health' || req.path === '/api/health/deep';
+        // Skip rate limiting for health checks and in test environment
+        return req.path === '/api/health' || 
+               req.path === '/api/health/deep' || 
+               process.env.NODE_ENV === 'test';
     },
 });
 
-// Authentication rate limiting (stricter)
+// Authentication rate limiting (stricter) - DISABLED in test environment
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // Limit each IP to 10 auth requests per windowMs
+    max: process.env.NODE_ENV === 'test' ? 0 : 10, // Disable in test environment
     message: {
         error: 'Too many authentication attempts, please try again later.',
     },
     standardHeaders: true,
     legacyHeaders: false,
     skipSuccessfulRequests: true, // Don't count successful requests
+    skip: (req) => {
+        // Skip rate limiting in test environment
+        return process.env.NODE_ENV === 'test';
+    },
 });
 
 app.use(globalLimiter);

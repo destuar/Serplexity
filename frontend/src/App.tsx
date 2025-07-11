@@ -23,6 +23,7 @@ import PaymentPage from './pages/PaymentPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import ExperimentalSearchPage from './pages/ExperimentalSearchPage';
+import { usePageTracking, useSessionTracking } from './hooks/useAnalytics';
 
 const DashboardRoutes: React.FC = () => (
   <DashboardLayout>
@@ -62,6 +63,10 @@ const ProtectedArea: React.FC = () => (
 );
 
 function App() {
+  // Initialize analytics tracking
+  usePageTracking();
+  useSessionTracking();
+
   return (
     <Router>
       <Routes>

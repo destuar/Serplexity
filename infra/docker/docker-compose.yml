@@ -21,8 +21,7 @@ services:
       - ../../backend/.env
     environment:
       - NODE_ENV=production
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      # Redis configuration comes from .env file for cloud Redis
       # OpenTelemetry Configuration
       - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://jaeger:4318/v1/traces
     ports:
@@ -38,8 +37,6 @@ services:
     restart: unless-stopped
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
 
   frontend:
