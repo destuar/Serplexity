@@ -1,6 +1,7 @@
 import { Worker, Job } from 'bullmq';
 import pLimit from 'p-limit';
 import env from '../config/env';
+import { getBullMQConnection } from '../config/bullmq';
 import prisma from '../config/db';
 import { Prisma, PrismaClient } from '.prisma/client';
 import { 
@@ -1672,10 +1673,7 @@ let worker: Worker | null = null;
 
 if (env.NODE_ENV !== 'test') {
   worker = new Worker('report-generation', processJob, {
-    connection: {
-        host: env.REDIS_HOST,
-        port: env.REDIS_PORT,
-    },
+    connection: getBullMQConnection(),
     concurrency: LLM_CONFIG.WORKER_CONCURRENCY,
     lockDuration: 1000 * 60 * 15, // 15 minutes
     limiter: {

@@ -1,5 +1,6 @@
 import { Queue } from 'bullmq';
 import env from '../config/env';
+import { getBullMQOptions } from '../config/bullmq';
 
 // Enhanced logging for queue setup
 const queueLog = (message: string, level: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG' = 'INFO', metadata?: Record<string, any>) => {
@@ -22,12 +23,7 @@ queueLog('Initializing report generation queue', 'INFO', {
   queueName: 'report-generation'
 });
 
-reportGenerationQueue = new Queue('report-generation', {
-  connection: {
-    host: env.REDIS_HOST,
-    port: env.REDIS_PORT,
-  },
-});
+reportGenerationQueue = new Queue('report-generation', getBullMQOptions());
 
 export { reportGenerationQueue };
 
