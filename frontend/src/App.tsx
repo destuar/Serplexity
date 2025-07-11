@@ -62,24 +62,28 @@ const ProtectedArea: React.FC = () => (
   </CompanyProvider>
 );
 
-function App() {
-  // Initialize analytics tracking
+const AnalyticsWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   usePageTracking();
   useSessionTracking();
+  return <>{children}</>;
+};
 
+function App() {
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/terms" element={<TermsOfServicePage />} />
-        <Route path="/privacy" element={<PrivacyPolicyPage />} />
-        <Route path="/oauth-callback" element={<OAuthCallbackPage />} />
-        <Route element={<ProtectedRoute />}>
-          <Route path="/*" element={<ProtectedArea />} />
-        </Route>
-      </Routes>
+      <AnalyticsWrapper>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/terms" element={<TermsOfServicePage />} />
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />
+          <Route path="/oauth-callback" element={<OAuthCallbackPage />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/*" element={<ProtectedArea />} />
+          </Route>
+        </Routes>
+      </AnalyticsWrapper>
     </Router>
   );
 }
