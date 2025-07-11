@@ -1,9 +1,9 @@
 import {
-  BarChart2,
   ChevronDown,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Flag,
   Sparkles,
   Wrench,
 } from "lucide-react";
@@ -25,7 +25,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const location = useLocation();
   const [openSections, setOpenSections] = useState({
     aiPerformance: true,
-    marketAnalysis: true,
+    actionCenter: true,
     aiContentTools: true,
   });
 
@@ -106,14 +106,17 @@ const Sidebar: React.FC<SidebarProps> = ({
               <Link to="/overview" className={getLinkClass('/overview')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
                 {!isDesktopCollapsed && <span className="ml-3 font-medium">Overview</span>}
               </Link>
-              <Link to="/visibility-report" className={getLinkClass('/visibility-report')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
-                {!isDesktopCollapsed && <span className="ml-3">Visibility Report</span>}
-              </Link>
               <Link to="/sentiment-analysis" className={getLinkClass('/sentiment-analysis')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
                 {!isDesktopCollapsed && <span className="ml-3">Sentiment Analysis</span>}
               </Link>
               <Link to="/response-details" className={getLinkClass('/response-details')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
                 {!isDesktopCollapsed && <span className="ml-3">Response Details</span>}
+              </Link>
+              <Link to="/competitor-rankings" className={getLinkClass('/competitor-rankings')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
+                {!isDesktopCollapsed && <span className="ml-3">Competitor Rankings</span>}
+              </Link>
+              <Link to="/model-comparison" className={getLinkClass('/model-comparison')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
+                {!isDesktopCollapsed && <span className="ml-3">Model Comparison</span>}
               </Link>
             </nav>
           )}
@@ -121,21 +124,18 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div>
           <div 
             className={getSectionHeaderClass()}
-            onClick={(e) => handleSectionClick('marketAnalysis', e)}
+            onClick={(e) => handleSectionClick('actionCenter', e)}
           >
             <div className={`flex items-center ${isDesktopCollapsed ? 'justify-center' : ''}`}>
-              <BarChart2 className="text-gray-600" size={20} />
-              {!isDesktopCollapsed && <span className="ml-2 text-gray-700 font-medium">Market Analysis</span>}
+              <Flag className="text-gray-600" size={20} />
+              {!isDesktopCollapsed && <span className="ml-2 text-gray-700 font-medium">Action Center</span>}
             </div>
-            {!isDesktopCollapsed && (openSections.marketAnalysis ? <ChevronDown className="text-gray-500" size={16} /> : <ChevronRight className="text-gray-500" size={16} />)}
+            {!isDesktopCollapsed && (openSections.actionCenter ? <ChevronDown className="text-gray-500" size={16} /> : <ChevronRight className="text-gray-500" size={16} />)}
           </div>
-          {(!isDesktopCollapsed && openSections.marketAnalysis) && (
+          {(!isDesktopCollapsed && openSections.actionCenter) && (
             <nav className="flex flex-col space-y-1 mt-2">
-              <Link to="/competitor-rankings" className={getLinkClass('/competitor-rankings')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
-                {!isDesktopCollapsed && <span className="ml-3">Competitor Rankings</span>}
-              </Link>
-              <Link to="/model-comparison" className={getLinkClass('/model-comparison')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
-                {!isDesktopCollapsed && <span className="ml-3">Model Comparison</span>}
+              <Link to="/visibility-report" className={getLinkClass('/visibility-report')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
+                {!isDesktopCollapsed && <span className="ml-3">Visibility Report</span>}
               </Link>
             </nav>
           )}
@@ -155,12 +155,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             <nav className="flex flex-col space-y-1 mt-2">
               <Link to="/experimental-search" className={getLinkClass('/experimental-search')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
                 {!isDesktopCollapsed && <span className="ml-3">Experimental Search</span>}
-              </Link>
-              <Link to="/ai-optimization-tool" className={getLinkClass('/ai-optimization-tool')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
-                {!isDesktopCollapsed && <span className="ml-3">AI Content Optimizer</span>}
-              </Link>
-              <Link to="/json-translation-tool" className={getLinkClass('/json-translation-tool')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
-                {!isDesktopCollapsed && <span className="ml-3">GEO Content Guides</span>}
               </Link>
             </nav>
           )}

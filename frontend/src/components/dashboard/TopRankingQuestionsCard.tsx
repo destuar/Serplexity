@@ -1,231 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../ui/Card';
-import FormattedResponseViewer from '../ui/FormattedResponseViewer';
 import { useDashboard } from '../../hooks/useDashboard';
 import { TopRankingQuestion } from '../../services/companyService';
-import { getModelDisplayName } from '../../types/dashboard';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 
-/**
- * Removes <brand> tags from a string, returning the clean text.
- * e.g., "Check out <brand>Apple</brand>." -> "Check out Apple."
- */
-const stripBrandTags = (text: string): string => {
-    if (!text) return '';
-    return text.replace(/<\/?brand>/g, '');
-};
-
-// Now using the enhanced FormattedResponseViewer from ../ui/FormattedResponseViewer
-
-type ResponseMeta = { response: string; model: string };
-
-interface TooltipProps {
-  question: TopRankingQuestion;
-  meta?: ResponseMeta;
-  children: React.ReactNode;
-}
-
-const Tooltip: React.FC<TooltipProps> = ({ question, meta, children }) => {
-  const [isVisible, setIsVisible] = useState(false);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [isOverflowing, setIsOverflowing] = useState(false);
-  const contentRef = useRef<HTMLDivElement>(null);
-
-  const handleMouseEnter = (e: React.MouseEvent) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    setPosition({
-      x: rect.left + rect.width / 2,
-      y: rect.top - 10
-    });
-    setIsVisible(true);
-  };
-
-  const handleMouseLeave = () => {
-    setIsVisible(false);
-  };
-
-  // Check if content is overflowing
-  useEffect(() => {
-    const checkOverflow = () => {
-      if (contentRef.current) {
-        const { scrollHeight, clientHeight } = contentRef.current;
-        setIsOverflowing(scrollHeight > clientHeight);
-      }
-    };
-
-    if (isVisible) {
-      // Check overflow after a brief delay to ensure content is rendered
-      const timer = setTimeout(checkOverflow, 10);
-      return () => clearTimeout(timer);
-    }
-  }, [isVisible, meta, question]);
-
-  // Using centralized model display name function
-  const formatModelName = (model: string) => {
-    return getModelDisplayName(model);
-  };
-
-  // Shape stored in the local map for quick lookup
-  const getBestResponseText = (q: TopRankingQuestion): string => {
-    if (meta && meta.response) return meta.response;
-    if (q.bestResponse && q.bestResponse.trim()) return q.bestResponse;
-    if (q.responses && q.responses.length > 0) return q.responses[0].response || '';
-    return '';
-  };
-
-  const getBestResponseModel = (q: TopRankingQuestion): string => {
-    if (meta?.model) return meta.model;
-    if (q.bestResponseModel) return q.bestResponseModel;
-    if (q.responses && q.responses.length > 0) return q.responses[0].model;
-    return 'unknown';
-  };
-
-  // Calculate positioning to prevent going off-screen with extra space
-  const getTooltipStyle = () => {
-    const tooltipWidth = 900;
-    const margin = 48; // Large margin from screen edge for extra space
-    const halfWidth = tooltipWidth / 2;
-    
-    // Check if tooltip would extend beyond left edge
-    const wouldGoOffLeft = position.x - halfWidth < margin;
-    
-    let transform = 'translate(-50%, -100%)';
-    let left = position.x;
-    let arrowLeft = '50%';
-    
-    if (wouldGoOffLeft) {
-      // Position tooltip so its left edge is at the margin
-      left = margin + halfWidth;
-      transform = 'translate(-50%, -100%)';
-      // Adjust arrow position to point to the original hover point
-      const arrowOffset = ((position.x - margin) / tooltipWidth) * 100;
-      arrowLeft = Math.max(8, Math.min(92, arrowOffset)) + '%'; // Keep arrow within tooltip bounds
-    }
-    
-    return {
-      left: `${left}px`,
-      top: `${position.y}px`,
-      transform,
-      arrowLeft,
-      boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-    };
-  };
-
-  const tooltipStyle = getTooltipStyle();
-
-  return (
-    <div
-      className="relative"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      {children}
-      {isVisible && (
-        <div
-          className="fixed z-50 bg-white border border-gray-200 shadow-2xl rounded-xl p-6 w-[900px] max-w-[95vw] transition-all duration-200 ease-out"
-          style={{
-            left: tooltipStyle.left,
-            top: tooltipStyle.top,
-            transform: tooltipStyle.transform,
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-          }}
-        >
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-2 h-2 bg-[#7762ff] rounded-full"></div>
-                <h4 className="font-semibold text-sm text-gray-600 uppercase tracking-wide">Question</h4>
-              </div>
-              <p className="text-base text-gray-900 leading-relaxed font-medium">
-                {question.question}
-              </p>
-            </div>
-            
-            <div className="border-t border-gray-100 pt-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <h4 className="font-semibold text-sm text-gray-600 uppercase tracking-wide">Best Response</h4>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="bg-[#7762ff]/10 text-[#7762ff] px-3 py-1 rounded-full text-xs font-medium border border-[#7762ff]/20">
-                    {formatModelName(getBestResponseModel(question))}
-                  </span>
-                </div>
-              </div>
-              <div className="relative">
-                <div 
-                  ref={contentRef}
-                  className="max-h-80 overflow-y-auto pr-1"
-                >
-                  <FormattedResponseViewer 
-                    text={stripBrandTags(getBestResponseText(question))}
-                    compact={true}
-                    className="bg-gray-50 rounded-lg p-4 border-l-4 border-green-500"
-                  />
-                </div>
-                {isOverflowing && (
-                  <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none">
-                    <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2">
-                      <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded-md shadow-sm border">
-                        Click question to see more
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {question.productName && (
-              <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
-                <span className="text-xs text-gray-500">Product:</span>
-                <span className="bg-[#7762ff]/10 text-[#7762ff] px-2 py-1 rounded-md text-xs font-medium border border-[#7762ff]/20">
-                  {question.productName}
-                </span>
-              </div>
-            )}
-          </div>
-          
-          {/* Arrow pointing down with dynamic positioning */}
-          <div 
-            className="absolute bottom-0 transform -translate-x-1/2 translate-y-full"
-            style={{ left: tooltipStyle.arrowLeft }}
-          >
-            <div className="w-0 h-0 border-l-[8px] border-r-[8px] border-t-[8px] border-transparent border-t-white"></div>
-            <div className="absolute top-[-9px] left-1/2 transform -translate-x-1/2">
-              <div className="w-0 h-0 border-l-[9px] border-r-[9px] border-t-[9px] border-transparent border-t-gray-200"></div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
 const TopRankingQuestionsCard = () => {
-  const { data, detailedQuestions, loading, error } = useDashboard();
+  const { data, loading, error } = useDashboard();
   const navigate = useNavigate();
   const isTallerScreen = useMediaQuery('(min-height: 900px)');
 
   const questions = data?.topQuestions || [];
-
-  // Build detailed data map from context data (no additional fetching needed)
-  const detailedById = React.useMemo(() => {
-    const map: Record<string, ResponseMeta> = {};
-    detailedQuestions.forEach((q) => {
-      const first = q.responses && q.responses.length > 0 ? q.responses[0] : undefined;
-      const respText = first?.response ?? q.bestResponse ?? '';
-      const respModel = first?.model ?? q.bestResponseModel ?? 'unknown';
-      map[q.id] = { response: respText, model: respModel };
-    });
-    return map;
-  }, [detailedQuestions]);
-  
-  // Debug logging to understand the data structure
-  console.log('[TopRankingQuestionsCard] Raw data:', data);
-  console.log('[TopRankingQuestionsCard] Top questions:', questions);
-  console.log('[TopRankingQuestionsCard] First question structure:', questions[0]);
 
   const handleQuestionClick = (id: string) => {
     navigate(`/response-details?questionId=${id}`);
@@ -274,9 +59,9 @@ const TopRankingQuestionsCard = () => {
       
       <div className="flex-1 space-y-2 mb-1">
         {questions.slice(0, isTallerScreen ? 5 : 4).map((question, index) => (
-          <Tooltip key={question.id} question={question} meta={detailedById[question.id]}>
             <div 
-              className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+              key={question.id}
+              className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg transition-colors cursor-pointer"
               onClick={() => handleQuestionClick(question.id)}
             >
               <div className="flex-shrink-0">
@@ -295,7 +80,6 @@ const TopRankingQuestionsCard = () => {
                 </span>
               </div>
             </div>
-          </Tooltip>
         ))}
       </div>
     </Card>

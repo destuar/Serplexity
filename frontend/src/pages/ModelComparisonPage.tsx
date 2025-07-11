@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react';
-import { Loader, Calendar, RefreshCw, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
+import { Loader, Calendar, RefreshCw, ArrowUpDown, ChevronUp, ChevronDown, Sparkles } from 'lucide-react';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';
 import { useModelComparison } from '../hooks/useModelComparison';
 import WelcomePrompt from '../components/ui/WelcomePrompt';
 import BlankLoadingState from '../components/ui/BlankLoadingState';
 import Card from '../components/ui/Card';
+import MultiSelectDropdown from '../components/ui/MultiSelectDropdown';
 import {
   LineChart,
   Line,
@@ -105,7 +106,7 @@ const ModelShareOfVoiceChart: React.FC<{ data: TimeSeriesDataPoint[]; modelIds: 
     const finalMax = Math.ceil(dynamicMax / increment) * increment;
 
     const tickValues = [];
-    for (let i = 0; i <= finalMax; i += increment) {
+    for (let i = increment; i <= finalMax; i += increment) {
       tickValues.push(i);
     }
     
@@ -162,8 +163,8 @@ const ModelShareOfVoiceChart: React.FC<{ data: TimeSeriesDataPoint[]; modelIds: 
               data={data} 
               margin={{ 
                 top: 5, 
-                right: 5, 
-                bottom: data.length > 10 ? 25 : 15, // More bottom margin for rotated labels
+                right: 15, // Increased right margin to prevent clipping
+                bottom: data.length > 10 ? 15 : 5, // Reduced bottom margin
                 left: 20 
               }}
             >
@@ -375,6 +376,19 @@ const ModelComparisonPage: React.FC = () => {
   
   const [sortBy, setSortBy] = useState<SortField>('shareOfVoice');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  
+  // Local state for selected models (independent of global dashboard filters)
+  const [selectedModels, setSelectedModels] = useState<string[]>([]);
+  const [hasInitialized, setHasInitialized] = useState(false);
+
+  // Initialize selected models when comparison data is first loaded (only once)
+  useMemo(() => {
+    if (comparisonData && comparisonData.length > 0 && !hasInitialized) {
+      const availableModels = comparisonData.map(d => d.aiModel!).filter(id => id !== 'all');
+      setSelectedModels(availableModels);
+      setHasInitialized(true);
+    }
+  }, [comparisonData, hasInitialized]);
 
   /***************************************************************************
    *  Derive model-specific metrics & history (memoized)
@@ -384,7 +398,12 @@ const ModelComparisonPage: React.FC = () => {
       return { metricRows: [], historyData: [], modelIds: [] };
     }
 
-    const rows: ModelMetricRow[] = comparisonData.map(modelData => ({
+    // Filter comparison data to only include selected models
+    const filteredComparisonData = comparisonData.filter(modelData => 
+      selectedModels.length > 0 && selectedModels.includes(modelData.aiModel!)
+    );
+
+    const rows: ModelMetricRow[] = filteredComparisonData.map(modelData => ({
       modelId: modelData.aiModel!,
       displayName: getModelDisplayName(modelData.aiModel!),
       logoUrl: MODEL_CONFIGS[modelData.aiModel!]?.logoUrl,
@@ -400,10 +419,10 @@ const ModelComparisonPage: React.FC = () => {
     // The data structure should be: [{ date: "Jan 15", "gpt-4.1-mini": 7.5, "claude-3-5-haiku": 6.2, ... }]
     const historyAccumulator: Record<string, TimeSeriesDataPoint> = {};
     
-    // Merge shareOfVoiceHistory from every model (exclude the aggregated 'all')
-    comparisonData.forEach(model => {
+    // Merge shareOfVoiceHistory from filtered models (exclude the aggregated 'all')
+    filteredComparisonData.forEach(model => {
       (model.shareOfVoiceHistory || []).forEach((pt: { date: string; shareOfVoice: number; aiModel: string; }) => {
-        if (pt.aiModel !== 'all') {
+        if (pt.aiModel !== 'all' && selectedModels.length > 0 && selectedModels.includes(pt.aiModel)) {
           const dateKey = new Date(pt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
           if (!historyAccumulator[dateKey]) {
             historyAccumulator[dateKey] = { date: dateKey } as TimeSeriesDataPoint;
@@ -417,10 +436,10 @@ const ModelComparisonPage: React.FC = () => {
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
     );
 
-    const ids = comparisonData.map(d => d.aiModel!).filter(id => id !== 'all');
+    const ids = filteredComparisonData.map(d => d.aiModel!).filter(id => id !== 'all');
 
     return { metricRows: rows, historyData: history, modelIds: ids };
-  }, [comparisonData]);
+  }, [comparisonData, selectedModels]);
 
   const dateRangeOptions = [
     { value: '7d', label: 'Last 7 days' },
@@ -428,6 +447,21 @@ const ModelComparisonPage: React.FC = () => {
     { value: '90d', label: 'Last 90 days' },
     { value: '1y', label: 'Last year' },
   ];
+
+  const modelOptions = useMemo(() => {
+    if (!comparisonData || comparisonData.length === 0) return [];
+    
+    const availableModels = comparisonData
+      .map(d => d.aiModel!)
+      .filter(id => id !== 'all')
+      .map(modelId => ({
+        value: modelId,
+        label: getModelDisplayName(modelId),
+        logoUrl: MODEL_CONFIGS[modelId]?.logoUrl,
+      }));
+    
+    return availableModels;
+  }, [comparisonData]);
 
   const handleSort = (field: SortField) => {
     if (sortBy === field) {
@@ -476,7 +510,7 @@ const ModelComparisonPage: React.FC = () => {
                 </p>
               )}
             </div>
-            <div className="grid grid-cols-2 lg:flex items-center gap-2 w-full lg:w-auto">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex items-center gap-2 w-full lg:w-auto">
               <FilterDropdown
                 label="Date Range"
                 value={filters.dateRange}
@@ -485,10 +519,19 @@ const ModelComparisonPage: React.FC = () => {
                 icon={Calendar}
                 disabled={loading || refreshing}
               />
+              <MultiSelectDropdown
+                label="Models"
+                selectedValues={selectedModels}
+                options={modelOptions}
+                onChange={setSelectedModels}
+                icon={Sparkles}
+                placeholder="Select models"
+                disabled={loading || refreshing}
+              />
               <button
                 onClick={refreshData}
                 disabled={loading || refreshing}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-[#7762ff] text-white rounded-lg hover:bg-[#6650e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2"
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-[#7762ff] text-white rounded-lg hover:bg-[#6650e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2 sm:col-span-3"
               >
                 {refreshing || loading ? (
                   <><Loader size={16} className="animate-spin" /><span>Refreshing...</span></>
