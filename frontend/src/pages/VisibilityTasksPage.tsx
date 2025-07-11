@@ -22,7 +22,6 @@ const VisibilityTasksPage: React.FC = () => {
   } = useReportGeneration(selectedCompany);
 
   const [tasks, setTasks] = useState<OptimizationTask[]>([]);
-  const [isUpdating, setIsUpdating] = useState(false);
 
   // Sync tasks from dashboard data
   useEffect(() => {
@@ -44,30 +43,35 @@ const VisibilityTasksPage: React.FC = () => {
     const task = tasks.find(t => t.taskId === taskId);
     if (!task) return;
 
-    setIsUpdating(true);
+    // Store original state for potential rollback
+    const originalStatus = task.status;
+    const originalIsCompleted = task.isCompleted;
     
-    try {
-      // Optimistic update
-      setTasks(prev => prev.map(t => 
-        t.taskId === taskId 
-          ? { ...t, status: newStatus, isCompleted: newStatus === TaskStatus.COMPLETED }
-          : t
-      ));
+    // Immediate optimistic update - no loading state
+    setTasks(prev => prev.map(t => 
+      t.taskId === taskId 
+        ? { ...t, status: newStatus, isCompleted: newStatus === TaskStatus.COMPLETED }
+        : t
+    ));
 
+    try {
+      // Background API call
       await updateTaskStatus(task.reportRunId, taskId, newStatus);
       
-      // Refresh data to ensure consistency
-      await refreshData();
+      // Silent refresh to ensure consistency - no loading state
+      refreshData();
     } catch (error) {
       console.error('Error updating task status:', error);
+      
       // Revert optimistic update on error
       setTasks(prev => prev.map(t => 
         t.taskId === taskId 
-          ? { ...t, status: task.status, isCompleted: task.isCompleted }
+          ? { ...t, status: originalStatus, isCompleted: originalIsCompleted }
           : t
       ));
-    } finally {
-      setIsUpdating(false);
+      
+      // Show error toast or notification here if needed
+      // For now, we'll just log the error
     }
   };
 
@@ -87,7 +91,7 @@ const VisibilityTasksPage: React.FC = () => {
         />
       ) : (
         <>
-          <div className="flex-shrink-0 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-6">
+          <div className="flex-shrink-0 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-2">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Visibility Tasks</h1>
               {lastUpdated && (
@@ -99,7 +103,7 @@ const VisibilityTasksPage: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={handleRefresh}
-                disabled={refreshing || isGenerating || isUpdating}
+                disabled={refreshing || isGenerating}
                 className="flex items-center justify-center gap-2 px-4 py-2 bg-[#7762ff] text-white rounded-lg hover:bg-[#6650e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
               >
                 {refreshing ? (
@@ -120,11 +124,10 @@ const VisibilityTasksPage: React.FC = () => {
           {!data || Object.keys(data).length === 0 ? (
             <BlankLoadingState message="Processing visibility tasks..." />
           ) : (
-            <div className="flex-1 min-h-0 relative">
+            <div className="flex-1 min-h-0 p-1 relative" style={{ overflow: 'visible' }}>
               <KanbanBoard 
                 tasks={tasks}
                 onStatusChange={handleStatusChange}
-                isUpdating={isUpdating}
               />
             </div>
           )}

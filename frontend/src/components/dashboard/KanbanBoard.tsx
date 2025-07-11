@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import React, { useState, useMemo, useEffect } from 'react';
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, DragOverEvent, PointerSensor, useSensor, useSensors, rectIntersection } from '@dnd-kit/core';
 import { OptimizationTask, TaskStatus } from '../../services/reportService';
 import KanbanColumn from './KanbanColumn';
 import KanbanTaskCard from './KanbanTaskCard';
@@ -7,41 +7,37 @@ import KanbanTaskCard from './KanbanTaskCard';
 interface KanbanBoardProps {
   tasks: OptimizationTask[];
   onStatusChange: (taskId: string, newStatus: TaskStatus) => Promise<void>;
-  isUpdating?: boolean;
 }
 
-const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks, onStatusChange, isUpdating = false }) => {
-  const [activeId, setActiveId] = useState<string | null>(null);
+interface InsertionIndicator {
+  taskId: string;
+  position: 'above' | 'below';
+  status: TaskStatus;
+}
 
-  // Configure sensors for better drag experience
+const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks: initialTasks, onStatusChange }) => {
+  const [tasks, setTasks] = useState<OptimizationTask[]>(initialTasks);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [insertionIndicator, setInsertionIndicator] = useState<InsertionIndicator | null>(null);
+
+  useEffect(() => {
+    // Sync with parent state
+    setTasks(initialTasks);
+  }, [initialTasks]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // Prevent accidental drags
+        distance: 8,
       },
     })
   );
 
-  const columns = [
-    { 
-      id: TaskStatus.NOT_STARTED, 
-      title: 'Not Started', 
-      color: 'bg-gray-100',
-      description: 'Tasks ready to begin'
-    },
-    { 
-      id: TaskStatus.IN_PROGRESS, 
-      title: 'In Progress', 
-      color: 'bg-blue-100',
-      description: 'Tasks currently being worked on'
-    },
-    { 
-      id: TaskStatus.COMPLETED, 
-      title: 'Completed', 
-      color: 'bg-green-100',
-      description: 'Tasks that have been finished'
-    }
-  ];
+  const columns = useMemo(() => [
+    { id: TaskStatus.NOT_STARTED, title: 'Not Started', color: 'bg-gray-100' },
+    { id: TaskStatus.IN_PROGRESS, title: 'In Progress', color: 'bg-[#7762ff]/10' },
+    { id: TaskStatus.COMPLETED, title: 'Completed', color: 'bg-[#7762ff]/20' }
+  ], []);
 
   const tasksByStatus = useMemo(() => {
     return tasks.reduce((acc, task) => {
@@ -53,84 +49,177 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks, onStatusChange, isUpda
   }, [tasks]);
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
+    setActiveId(String(event.active.id));
   };
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
     
-    setActiveId(null);
-    
-    if (!over || isUpdating) return;
-    
-    const taskId = active.id as string;
-    const newStatus = over.id as TaskStatus;
-    
-    // Find the current task
-    const currentTask = tasks.find(t => t.taskId === taskId);
-    if (!currentTask) return;
-    
-    // Don't update if the status is the same
-    if (currentTask.status === newStatus) return;
-    
-    // Validate the new status
-    if (!Object.values(TaskStatus).includes(newStatus)) {
-      console.error('Invalid task status:', newStatus);
+    if (!over || !active) {
+      setInsertionIndicator(null);
       return;
     }
+
+    const activeId = String(active.id);
+    const overId = String(over.id);
+
+    // Skip if dragging over self
+    if (activeId === overId) {
+      setInsertionIndicator(null);
+      return;
+    }
+
+    // Check if we're dragging over a task
+    const overTask = tasks.find(t => t.taskId === overId);
+    if (!overTask) {
+      setInsertionIndicator(null);
+      return;
+    }
+
+    // Get the over element's rectangle
+    const overRect = over.rect;
+    if (!overRect) {
+      setInsertionIndicator(null);
+      return;
+    }
+
+    // Determine if we're in the top or bottom half
+    const pointerY = event.activatorEvent instanceof MouseEvent ? event.activatorEvent.clientY : 0;
+    const overMiddleY = overRect.top + overRect.height / 2;
+    const isAbove = pointerY < overMiddleY;
+
+    setInsertionIndicator({
+      taskId: overId,
+      position: isAbove ? 'above' : 'below',
+      status: overTask.status || TaskStatus.NOT_STARTED
+    });
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+    setInsertionIndicator(null);
+
+    if (!over) return;
+
+    const activeId = String(active.id);
+    const overId = String(over.id);
+
+    if (activeId === overId) return;
+
+    const activeTask = tasks.find(t => t.taskId === activeId);
+    if (!activeTask) return;
+
+    const activeContainer = activeTask.status || TaskStatus.NOT_STARTED;
+    let overContainerId = over.data.current?.sortable?.containerId || over.id;
     
-    try {
-      await onStatusChange(taskId, newStatus);
-    } catch (error) {
-      console.error('Error updating task status:', error);
+    // Handle gutter drops
+    if (String(overContainerId).endsWith('-gutter')) {
+        overContainerId = String(overContainerId).replace('-gutter', '') as TaskStatus;
+    }
+    
+    // Check if we're dropping over a task
+    const overTask = tasks.find(t => t.taskId === overId);
+    if (overTask) {
+      overContainerId = overTask.status || TaskStatus.NOT_STARTED;
+    }
+    
+    if (!Object.values(TaskStatus).includes(overContainerId as TaskStatus)) return;
+    const overContainer = overContainerId as TaskStatus;
+
+    // Optimistic UI update
+    setTasks(currentTasks => {
+        const tasksByStatusMap: Record<string, OptimizationTask[]> = {
+            [TaskStatus.NOT_STARTED]: [],
+            [TaskStatus.IN_PROGRESS]: [],
+            [TaskStatus.COMPLETED]: [],
+        };
+        
+        currentTasks.forEach(t => {
+            const status = t.status || TaskStatus.NOT_STARTED;
+            tasksByStatusMap[status].push(t);
+        });
+
+        const sourceColumnItems = tasksByStatusMap[activeContainer];
+        const destColumnItems = tasksByStatusMap[overContainer];
+
+        const activeIndex = sourceColumnItems.findIndex(t => t.taskId === activeId);
+        if (activeIndex === -1) return currentTasks;
+
+        const [movedItem] = sourceColumnItems.splice(activeIndex, 1);
+        movedItem.status = overContainer;
+
+        // Handle precise positioning
+        if (overTask && insertionIndicator) {
+          const overIndex = destColumnItems.findIndex(t => t.taskId === overId);
+          if (overIndex !== -1) {
+            const insertIndex = insertionIndicator.position === 'above' ? overIndex : overIndex + 1;
+            destColumnItems.splice(insertIndex, 0, movedItem);
+          } else {
+            destColumnItems.push(movedItem);
+          }
+        } else {
+          // Default: add to end
+          destColumnItems.push(movedItem);
+        }
+
+        return [
+            ...tasksByStatusMap[TaskStatus.NOT_STARTED],
+            ...tasksByStatusMap[TaskStatus.IN_PROGRESS],
+            ...tasksByStatusMap[TaskStatus.COMPLETED]
+        ];
+    });
+
+    // Only call API if status actually changed
+    if (activeContainer !== overContainer) {
+        // Fire and forget - don't await to keep drag operation instant
+        onStatusChange(activeId, overContainer);
     }
   };
 
   const handleDragCancel = () => {
     setActiveId(null);
+    setInsertionIndicator(null);
   };
 
   const activeTask = activeId ? tasks.find(t => t.taskId === activeId) : null;
 
   return (
-    <div className={`h-full ${isUpdating ? 'opacity-50 pointer-events-none' : ''}`}>
+    <div className="h-full relative" style={{ overflow: 'visible' }}>
       <DndContext
         sensors={sensors}
+        collisionDetection={rectIntersection}
         onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-full">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-full min-h-0 overflow-visible">
           {columns.map((column) => (
-            <KanbanColumn
-              key={column.id}
-              id={column.id}
-              title={column.title}
-              color={column.color}
-              tasks={tasksByStatus[column.id] || []}
-              count={tasksByStatus[column.id]?.length || 0}
-            />
+            <div key={column.id} className="min-h-0 flex flex-col overflow-visible">
+              <KanbanColumn
+                id={column.id}
+                title={column.title}
+                color={column.color}
+                tasks={tasksByStatus[column.id] || []}
+                count={tasksByStatus[column.id]?.length || 0}
+                isDragging={Boolean(activeId)}
+                insertionIndicator={insertionIndicator}
+              />
+            </div>
           ))}
         </div>
         
         <DragOverlay>
           {activeTask && (
-            <div className="rotate-3 transform-gpu">
+            <div className="rotate-2 transform-gpu">
               <KanbanTaskCard task={activeTask} isDragging />
             </div>
           )}
         </DragOverlay>
       </DndContext>
 
-      {/* Progress indicator */}
-      {isUpdating && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20 rounded-lg">
-          <div className="bg-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
-            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-sm font-medium text-gray-700">Updating...</span>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 };

@@ -182,7 +182,7 @@ const CompetitorRankingsPage = () => {
     return (
       <div
         key={competitor.name}
-        className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-200"
+        className="bg-white rounded-xl shadow-md border border-gray-100 p-6 hover:shadow-lg transition-all duration-200"
       >
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center space-x-4 min-w-0 flex-1 mr-4">
@@ -348,7 +348,7 @@ const CompetitorRankingsPage = () => {
           ) : (
             <div className="flex-1 min-h-0 p-1">
               <div className="h-full w-full">
-                <div className="h-full overflow-y-auto space-y-6">
+                <div className="h-full overflow-y-auto p-2 space-y-6">
                   {/* Competitors Grid */}
                   {processedCompetitors.length === 0 ? (
                     <div className="flex items-center justify-center h-64">

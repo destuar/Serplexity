@@ -60,7 +60,7 @@ const ResponseItem: React.FC<{ item: FlattenedResponse; autoExpand?: boolean }> 
     const hasIndividualPosition = item.position !== null && item.position !== item.bestPosition;
 
     return (
-        <div id={`question-${item.questionId}`} className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200">
+        <div id={`question-${item.questionId}`} className="bg-white rounded-lg shadow-md border border-gray-100 overflow-hidden hover:shadow-lg transition-all duration-200">
             {/* Clickable Question Header */}
             <div 
                 className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
@@ -378,7 +378,7 @@ const ResponseDetailsPage: React.FC = () => {
                     ) : (
                         <div className="flex-1 min-h-0 p-1">
                             <div className="h-full w-full">
-                                <div className="h-full overflow-y-auto">
+                                <div className="h-full overflow-y-auto p-2">
                                     {/* Response Cards Grid */}
                                     {processedResponses.length === 0 ? (
                                         <div className="flex items-center justify-center h-64">
@@ -393,7 +393,7 @@ const ResponseDetailsPage: React.FC = () => {
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="space-y-3">
+                                        <div className="space-y-3 pb-2">
                                             {processedResponses.map((item, index) => (
                                                 <ResponseItem 
                                                     key={`${item.questionType}-${item.model}-${index}-${item.question.substring(0,20)}`}

@@ -1,5 +1,5 @@
 import React, { KeyboardEvent } from 'react';
-import { Search } from 'lucide-react';
+import { Search, ArrowRight } from 'lucide-react';
 
 interface SearchBarProps {
   value: string;
@@ -17,7 +17,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ value, onChange, onSubmit }) => {
 
   return (
     <div className="w-full flex justify-center px-2">
-      <div className="flex items-center w-full max-w-xl h-11 bg-white/50 dark:bg-white/10 backdrop-blur-lg border border-white/30 rounded-full px-5 shadow-md">
+      <div className="flex items-center w-full max-w-xl h-11 bg-white/50 dark:bg-white/10 backdrop-blur-lg border border-white/30 rounded-full pl-5 pr-2 shadow-md">
         <button
           onClick={onSubmit}
           type="button"
@@ -32,6 +32,13 @@ const SearchBar: React.FC<SearchBarProps> = ({ value, onChange, onSubmit }) => {
           placeholder="Enter your question ..."
           className="flex-1 bg-transparent outline-none text-gray-900 placeholder-gray-500 text-sm"
         />
+        <button
+          onClick={onSubmit}
+          type="button"
+          className="focus:outline-none ml-8 p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 rounded-full transition-all duration-200"
+        >
+          <ArrowRight size={16} strokeWidth={2} />
+        </button>
       </div>
     </div>
   );

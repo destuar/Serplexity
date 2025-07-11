@@ -25,25 +25,40 @@ const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({ task, isDragging = fals
   };
 
   const priorityColors = {
-    High: 'bg-red-100 text-red-700 border-red-200',
-    Medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    Low: 'bg-green-100 text-green-700 border-green-200'
+    High: 'bg-red-50 text-red-700 border-red-200',
+    Medium: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+    Low: 'bg-green-50 text-green-700 border-green-200'
   };
 
   return (
     <div
       ref={setNodeRef}
-      style={style}
       {...attributes}
       {...listeners}
       className={cn(
-        'bg-white rounded-lg p-4 border shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing',
-        isDragging || isSortableDragging ? 'opacity-50 shadow-lg rotate-3' : '',
-        'touch-manipulation select-none' // Better mobile support
+        'group relative bg-white rounded-lg p-4 shadow-md border border-gray-100 hover:shadow-lg transition-all duration-200 cursor-grab active:cursor-grabbing',
+        isSortableDragging ? 'opacity-0' : '',
+        isDragging ? 'opacity-100 shadow-xl rotate-2 scale-105 z-50' : '',
+        'touch-manipulation select-none'
       )}
+      style={{
+        ...style,
+        transformOrigin: 'center center',
+        position: 'relative',
+        zIndex: isDragging || isSortableDragging ? 50 : 'auto'
+      }}
     >
-      <div className="flex items-start justify-between mb-2">
-        <h4 className="font-medium text-gray-800 text-sm leading-tight pr-2">
+      {/* Drag handle indicator */}
+      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-40 transition-opacity duration-200">
+        <div className="flex flex-col space-y-1">
+          <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+          <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+          <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+        </div>
+      </div>
+
+      <div className="flex items-start justify-between mb-3">
+        <h4 className="font-semibold text-gray-800 text-sm leading-tight pr-6">
           {task.title}
         </h4>
         <span className={cn(
@@ -54,22 +69,17 @@ const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({ task, isDragging = fals
         </span>
       </div>
       
-      <p className="text-xs text-gray-600 mb-3 line-clamp-3">
+      <p className="text-xs text-gray-600 mb-4 line-clamp-3 leading-relaxed">
         {task.description}
       </p>
       
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md border border-gray-200 font-medium">
           {task.category}
         </span>
-        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+        <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md border border-gray-200 font-medium">
           {task.impactMetric}
         </span>
-      </div>
-      
-      {/* Add a subtle grip indicator */}
-      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-30 transition-opacity">
-        <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
       </div>
     </div>
   );
