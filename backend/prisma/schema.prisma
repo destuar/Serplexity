@@ -244,6 +244,7 @@ model VisibilityOptimizationTask {
   priority       String   // High, Medium, Low
   impactMetric   String   // shareOfVoice, inclusionRate, etc.
   dependencies   Json     // Array of task IDs
+  status         String   @default("NOT_STARTED") // NOT_STARTED, IN_PROGRESS, COMPLETED
   isCompleted    Boolean  @default(false)
   completedAt    DateTime?
   createdAt      DateTime @default(now())
@@ -254,6 +255,7 @@ model VisibilityOptimizationTask {
   @@unique([reportRunId, taskId])
   @@index([companyId])
   @@index([reportRunId])
+  @@index([status])
 }
 
 enum Role {

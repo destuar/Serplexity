@@ -345,13 +345,55 @@ export async function toggleTaskCompletion(
     throw new Error(`Task not found: ${taskId}`);
   }
   
+  const newStatus = task.isCompleted ? 'NOT_STARTED' : 'COMPLETED';
+  
   return prisma.visibilityOptimizationTask.update({
     where: { 
       reportRunId_taskId: { reportRunId, taskId }
     },
     data: {
+      status: newStatus,
       isCompleted: !task.isCompleted,
       completedAt: !task.isCompleted ? new Date() : null
+    }
+  });
+}
+
+export enum TaskStatus {
+  NOT_STARTED = 'NOT_STARTED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED'
+}
+
+export async function updateTaskStatus(
+  taskId: string,
+  reportRunId: string,
+  newStatus: TaskStatus,
+  prisma: PrismaClient
+) {
+  const task = await prisma.visibilityOptimizationTask.findUnique({
+    where: { 
+      reportRunId_taskId: { reportRunId, taskId }
+    }
+  });
+  
+  if (!task) {
+    throw new Error(`Task not found: ${taskId}`);
+  }
+
+  // Validate the new status
+  if (!Object.values(TaskStatus).includes(newStatus)) {
+    throw new Error(`Invalid task status: ${newStatus}`);
+  }
+  
+  return prisma.visibilityOptimizationTask.update({
+    where: { 
+      reportRunId_taskId: { reportRunId, taskId }
+    },
+    data: {
+      status: newStatus,
+      isCompleted: newStatus === TaskStatus.COMPLETED,
+      completedAt: newStatus === TaskStatus.COMPLETED ? new Date() : null
     }
   });
 } 

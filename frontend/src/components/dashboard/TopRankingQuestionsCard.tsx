@@ -1,8 +1,6 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../ui/Card';
 import { useDashboard } from '../../hooks/useDashboard';
-import { TopRankingQuestion } from '../../services/companyService';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 const TopRankingQuestionsCard = () => {

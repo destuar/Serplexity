@@ -31,8 +31,7 @@ const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedM
       .map((item: SentimentPoint): ChartPointWithDate => ({
         date: new Date(item.date).toLocaleDateString('en-US', { 
           month: 'short', 
-          day: 'numeric',
-          year: data.sentimentOverTime.length > 30 ? undefined : '2-digit' // Show year only if less than 30 points
+          day: 'numeric'
         }),
         score: item.sentimentScore,
         fullDate: item.date // Keep original date for sorting
@@ -121,7 +120,7 @@ const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedM
             />
             <YAxis 
               domain={[0, 10]}
-              ticks={[0, 2, 4, 6, 8, 10]}
+              ticks={[2, 4, 6, 8, 10]}
               axisLine={false}
               tickLine={false}
               tick={{ fontSize: 12, fill: '#64748b' }}

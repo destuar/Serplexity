@@ -88,6 +88,12 @@ export const getReportResponses = async (runId: string, companyId: string, aiMod
 };
 
 // Optimization Tasks API
+export enum TaskStatus {
+  NOT_STARTED = 'NOT_STARTED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED'
+}
+
 export interface OptimizationTask {
   id: string;
   taskId: string;
@@ -98,6 +104,7 @@ export interface OptimizationTask {
   priority: 'High' | 'Medium' | 'Low';
   impactMetric: string;
   dependencies: string[];
+  status: TaskStatus;
   isCompleted: boolean;
   completedAt?: string;
   createdAt: string;
@@ -111,6 +118,11 @@ export const getOptimizationTasks = async (companyId: string): Promise<Optimizat
 
 export const toggleTaskCompletion = async (reportRunId: string, taskId: string): Promise<OptimizationTask> => {
   const { data } = await apiClient.patch(`/reports/reports/${reportRunId}/tasks/${taskId}/toggle`);
+  return data.task;
+};
+
+export const updateTaskStatus = async (reportRunId: string, taskId: string, status: TaskStatus): Promise<OptimizationTask> => {
+  const { data } = await apiClient.patch(`/reports/reports/${reportRunId}/tasks/${taskId}/status`, { status });
   return data.task;
 };
 

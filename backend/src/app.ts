@@ -3,6 +3,8 @@ import cors from 'cors';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import passport from './config/passport'; 
 import authRouter from './routes/authRoutes';
 import companyRouter from './routes/companyRoutes';
@@ -19,6 +21,53 @@ import prisma from './config/db'; // Use singleton prisma
 dotenv.config();
 
 const app: Application = express();
+
+// Security headers with helmet
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            scriptSrc: ["'self'"],
+            imgSrc: ["'self'", "data:", "https:"],
+            connectSrc: ["'self'", "https://api.stripe.com"],
+            frameSrc: ["'self'", "https://js.stripe.com"],
+            objectSrc: ["'none'"],
+            upgradeInsecureRequests: [],
+        },
+    },
+    crossOriginEmbedderPolicy: false, // Disable for Stripe compatibility
+}));
+
+// Global rate limiting
+const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 1000, // Limit each IP to 1000 requests per windowMs
+    message: {
+        error: 'Too many requests from this IP, please try again later.',
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req) => {
+        // Skip rate limiting for health checks
+        return req.path === '/api/health' || req.path === '/api/health/deep';
+    },
+});
+
+// Authentication rate limiting (stricter)
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10, // Limit each IP to 10 auth requests per windowMs
+    message: {
+        error: 'Too many authentication attempts, please try again later.',
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true, // Don't count successful requests
+});
+
+app.use(globalLimiter);
 
 const corsOptions = {
     origin: env.CORS_ORIGIN,
@@ -67,8 +116,8 @@ app.get('/api/health/deep', async (req: Request, res: Response) => {
     }
 });
 
-// Auth routes (public)
-app.use('/api/auth', authRouter);
+// Auth routes (public) with stricter rate limiting
+app.use('/api/auth', authLimiter, authRouter);
 
 // Protected routes
 app.use('/api/companies', companyRouter);
