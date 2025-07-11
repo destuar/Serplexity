@@ -1,9 +1,8 @@
 import { Queue } from 'bullmq';
 import env from '../config/env';
+import { getBullMQOptions } from '../config/bullmq';
 
-export const masterSchedulerQueue = new Queue('master-scheduler', {
-  connection: { host: env.REDIS_HOST, port: env.REDIS_PORT },
-});
+export const masterSchedulerQueue = new Queue('master-scheduler', getBullMQOptions());
 
 /**
  * Schedules the daily job to trigger report generation for all companies.

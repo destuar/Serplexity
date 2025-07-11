@@ -1,12 +1,10 @@
 import { Worker, Job, Queue } from 'bullmq';
 import env from '../config/env';
+import { getBullMQConnection } from '../config/bullmq';
 import prisma from '../config/db';
 import { GlacierClient, UploadArchiveCommand } from '@aws-sdk/client-glacier';
 
-const connection = {
-  host: env.REDIS_HOST,
-  port: env.REDIS_PORT,
-};
+const connection = getBullMQConnection();
 
 // Initialize Glacier client
 const glacierClient = new GlacierClient({

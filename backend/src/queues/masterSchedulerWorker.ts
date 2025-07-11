@@ -1,5 +1,6 @@
 import { Worker, Job } from 'bullmq';
 import env from '../config/env';
+import { getBullMQConnection } from '../config/bullmq';
 import prisma from '../config/db';
 import { queueReport } from '../services/reportSchedulingService';
 
@@ -36,7 +37,7 @@ if (env.NODE_ENV !== 'test') {
         console.log('[Scheduler Worker] Finished queuing daily reports for all companies.');
     }
 }, {
-    connection: { host: env.REDIS_HOST, port: env.REDIS_PORT },
+    connection: getBullMQConnection(),
     concurrency: 1, // Only one of these scheduler jobs should run at a time.
     lockDuration: 1000 * 60 * 5, // 5 minutes
 });
