@@ -17,7 +17,7 @@ const MemoizedModelComparisonPage = React.memo(MockModelComparisonPage);
 
 const pages = [
   { name: 'Overview', component: <MemoizedOverviewPage /> },
-  { name: 'Visibility Report', component: <MemoizedVisibilityReportPage /> },
+  { name: 'Progress Report', component: <MemoizedVisibilityReportPage /> },
   { name: 'Sentiment Analysis', component: <MemoizedSentimentAnalysisPage /> },
   { name: 'Response Details', component: <MemoizedResponseDetailsPage /> },
   { name: 'Competitor Rankings', component: <MemoizedCompetitorRankingsPage /> },

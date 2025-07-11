@@ -53,8 +53,11 @@ const MockSidebar: React.FC<MockSidebarProps> = ({ activePage }) => {
             <div className={getLinkClass("Overview")}>
               <span className="ml-3 font-medium">Overview</span>
             </div>
-            <div className={getLinkClass("Visibility Report")}>
-              <span className="ml-3">Visibility Report</span>
+            <div className={getLinkClass("Progress Report")}>
+              <span className="ml-3">Progress Report</span>
+            </div>
+            <div className={getLinkClass("Visibility Tasks")}>
+              <span className="ml-3">Visibility Tasks</span>
             </div>
             <div className={getLinkClass("Sentiment Analysis")}>
               <span className="ml-3">Sentiment Analysis</span>

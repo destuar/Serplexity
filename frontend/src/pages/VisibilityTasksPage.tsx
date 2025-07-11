@@ -5,9 +5,9 @@ import WelcomePrompt from '../components/ui/WelcomePrompt';
 import BlankLoadingState from '../components/ui/BlankLoadingState';
 import { useReportGeneration } from '../hooks/useReportGeneration';
 import { RefreshCw, Loader } from 'lucide-react';
-import AiVisibilitySummaryCard from '../components/dashboard/AiVisibilitySummaryCard';
+import OptimizationChecklistCard from '../components/dashboard/OptimizationChecklistCard';
 
-const VisibilityReportPage: React.FC = () => {
+const VisibilityTasksPage: React.FC = () => {
   const { selectedCompany } = useCompany();
   const { data, loading, hasReport, refreshing, refreshData, lastUpdated } = useDashboard();
   const { 
@@ -22,13 +22,13 @@ const VisibilityReportPage: React.FC = () => {
 
   const handleRefresh = () => {
     refreshData();
-    // The summary and tasks will be automatically refreshed when new reports are generated
+    // The tasks will be automatically refreshed when new reports are generated
   };
 
   return (
     <div className="h-full flex flex-col">
       {loading || hasReport === null ? (
-        <BlankLoadingState message="Loading progress report..." />
+        <BlankLoadingState message="Loading visibility tasks..." />
       ) : hasReport === false ? (
         <WelcomePrompt
           onGenerateReport={generateReport}
@@ -43,7 +43,7 @@ const VisibilityReportPage: React.FC = () => {
         <>
           <div className="flex-shrink-0 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-2">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Progress Report</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Visibility Tasks</h1>
               {lastUpdated && (
                 <p className="text-sm text-gray-500 mt-1">
                   Last updated: {new Date(lastUpdated).toLocaleString()}
@@ -72,10 +72,10 @@ const VisibilityReportPage: React.FC = () => {
           </div>
 
           {!data || Object.keys(data).length === 0 ? (
-            <BlankLoadingState message="Processing progress data..." />
+            <BlankLoadingState message="Processing visibility tasks..." />
           ) : (
             <div className="flex-1 min-h-0 pt-1">
-              <AiVisibilitySummaryCard />
+              <OptimizationChecklistCard />
             </div>
           )}
         </>
@@ -84,4 +84,4 @@ const VisibilityReportPage: React.FC = () => {
   );
 };
 
-export default VisibilityReportPage;
+export default VisibilityTasksPage; 

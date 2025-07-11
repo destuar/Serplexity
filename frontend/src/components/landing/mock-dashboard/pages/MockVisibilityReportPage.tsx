@@ -5,10 +5,10 @@ import MockOptimizationChecklistCard from '../cards/MockOptimizationChecklistCar
 
 const MockVisibilityReportPage: React.FC = () => {
   return (
-    <MockDashboardLayout activePage="Visibility Report">
+    <MockDashboardLayout activePage="Progress Report">
       <div className="flex-shrink-0 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Visibility Report</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Progress Report</h1>
           <p className="text-sm text-gray-500 mt-1">
             Last updated: 6/29/2025, 9:00:00 AM
           </p>

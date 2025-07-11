@@ -7,6 +7,7 @@ import PaymentGuard from './components/auth/PaymentGuard';
 import DashboardLayout from './components/layout/DashboardLayout';
 import OverviewPage from './pages/OverviewPage';
 import VisibilityReportPage from './pages/VisibilityReportPage';
+import VisibilityTasksPage from './pages/VisibilityTasksPage';
 import SentimentAnalysisPage from './pages/SentimentAnalysisPage';
 import ResponseDetailsPage from './pages/ResponseDetailsPage';
 import CompetitorRankingsPage from './pages/CompetitorRankingsPage';
@@ -27,7 +28,8 @@ const DashboardRoutes: React.FC = () => (
   <DashboardLayout>
     <Routes>
       <Route path="/overview" element={<OverviewPage />} />
-      <Route path="/visibility-report" element={<VisibilityReportPage />} />
+      <Route path="/progress-report" element={<VisibilityReportPage />} />
+      <Route path="/visibility-tasks" element={<VisibilityTasksPage />} />
       <Route path="/sentiment-analysis" element={<SentimentAnalysisPage />} />
       <Route path="/response-details" element={<ResponseDetailsPage />} />
       <Route path="/competitor-rankings" element={<CompetitorRankingsPage />} />
