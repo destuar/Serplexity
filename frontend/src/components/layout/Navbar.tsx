@@ -34,9 +34,9 @@ export function Navbar() {
   // Navigation items for landing page
   const landingNavItems = [
     { label: 'Product', sectionId: 'product-preview' },
-    { label: 'About', sectionId: 'solutions' },
+    { label: 'Research', sectionId: 'research' },
+    { label: 'About', sectionId: 'comparison' },
     { label: 'Pricing', sectionId: 'pricing' },
-    { label: 'Resources', sectionId: 'faq' },
   ];
   
   useEffect(() => {

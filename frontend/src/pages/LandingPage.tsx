@@ -579,7 +579,7 @@ const LandingPage: React.FC = () => {
         <Navbar />
         
         {/* Hero Section */}
-        <section className="relative flex flex-col items-center px-4 pt-28 md:pt-36 pb-4">
+        <section className="relative flex flex-col items-center px-4 pt-28 md:pt-36 pb-20 md:pb-24">
           
           {/* Top Divider for Hero Section */}
           <div className="absolute -top-8 left-0 right-0">
@@ -726,9 +726,9 @@ const LandingPage: React.FC = () => {
                           logo.file === 'copilot-logo.png'
                             ? '48px'
                             : logo.file === 'Grok-feb-2025-logo.svg.png'
-                              ? '48px'
+                              ? '42px'
                               : logo.file === 'DeepSeek_logo.svg.png'
-                                ? '48px'
+                                ? '56px'
                                 : '48px',
                         filter: 'brightness(0) invert(1)',
                       }}
@@ -740,116 +740,126 @@ const LandingPage: React.FC = () => {
           </div>
         </section>
 
-        {/* Divider: Hero → Story */}
-        <div className="section-divider hidden md:block"></div>
-
-        {/* Story Section */}
-        <section id="story" className="py-20 md:pt-16 md:pb-24">
-          <div className="max-w-6xl mx-auto px-6 lg:px-8">
-
-            <div className="flex flex-col space-y-40">
-              <FadeIn direction="right" className="self-start">
-                <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-3xl text-left">
-                  AI answers now appear in <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">over 50% of Google searches,</span> fundamentally changing how brands connect with their customers.
+        {/* Research Section */}
+        <SlideIn>
+          <section id="research" className="pt-12 md:pt-16 pb-12 md:pb-16">
+            <div className="max-w-6xl mx-auto px-6 lg:px-8">
+              <div className="text-center mb-16">
+                <h2 className="text-4xl font-bold tracking-tight text-white mb-4">
+                  Latest Research & Insights
+                </h2>
+                <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+                  Access state of the industry reports and leading research on AI search.
                 </p>
-              </FadeIn>
-              <FadeIn delay={100} direction="left" className="self-end">
-                <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-3xl text-right">
-                This is more than a trend—AI Overview footprints have more than <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">doubled in the last year</span>.
-                </p>
-              </FadeIn>
-              <FadeIn delay={200} direction="right" className="self-start">
-                <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-3xl text-left">
-                  On mobile, these AI answers can <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">dominate nearly half the screen,</span> pushing out traditional results.
-                </p>
-              </FadeIn>
-              <FadeIn delay={300} direction="left" className="self-end">
-                <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-3xl text-right">
-                  Brands not cited lose <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">up to 35% of potential traffic</span> when an AI Overview appears for their query.
-                </p>
-              </FadeIn>
-              <FadeIn delay={400} direction="right" className="self-start">
-                <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-3xl text-left">
-                  This is an opportunity—pages that <em>are</em> cited inside AI answers <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">receive 40% more traffic</span> than traditional blue links with clicks worth 4.4x more.
-                </p>
-              </FadeIn>
-              <FadeIn delay={500} direction="left" className="self-end">
-                <p className="text-lg sm:text-2xl md:text-3xl font-semibold leading-tight max-w-4xl text-right">
-                  The brands that adapt will <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">dominate the next decade</span>. We are building for the era of AI-powered search.
-                </p>
-              </FadeIn>
-            </div>
-
-            {/* Divider: Story → Solutions */}
-            <div className="section-divider hidden md:block"></div>
-
-            {/* Feature Showcase (moved inside story section) */}
-            <SlideIn>
-              <div id="solutions" className="mt-24 relative hidden md:block">
-                {/* Liquid Glass Container - Made wider */}
-                <div className="relative bg-black/5 backdrop-blur-xl rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-8 md:p-12 lg:p-16 overflow-hidden max-w-7xl mx-auto">
-                  {/* Glass morphism border glow */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-[#5271ff]/10 via-[#7662ff]/10 to-[#9e52ff]/10 rounded-3xl blur-xl"></div>
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/5 rounded-3xl"></div>
-                  
-                  {/* Inner content with relative positioning */}
-                  <div className="relative z-10">
-                    <div className="text-center mb-16">
-                      <h2 className="text-4xl font-bold tracking-tight text-white mb-4">
-                        Your Opportunity to Win AI Search
-                      </h2>
-                      <p className="text-xl text-gray-300 max-w-4xl mx-auto">
-                        Your brand could be missing from the conversation entirely. Here is everything you need to measure, improve, and build your AI search presence.
-                      </p>
-                    </div>
-                    
-                    {/* Two-column layout: Features on left, Tweet on right */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-                      {/* Left column - Features stacked vertically */}
-                      <div className="space-y-8 flex flex-col h-full">
-                        {[
-                          { icon: Sparkles, title: "AI Visibility Analytics", desc: "Discover if you're being cited in AI answers across Google AI Overviews, ChatGPT, Perplexity, and Claude. Track your share of voice and see which queries are driving citations." },
-                          { icon: BarChart2, title: "Citation-Ready Content Optimization", desc: "Transform your existing content into AI-preferred formats. Our tool analyzes your pages and provides specific rewrites that increase your visibility." },
-                          { icon: Target, title: "Competitive Intelligence Reports", desc: "See exactly which competitors are dominating AI citations in your space. Receive daily insights and actionable strategies to outrank them." }
-                        ].map((feature, i) => (
-                          <div key={i} className="bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-6 hover:bg-black/10 transition-all duration-200 group flex-grow">
-                            {/* Icon with gradient background */}
-                            <div className="flex items-center justify-center h-12 w-12 rounded-full bg-gradient-to-r from-[#5271ff] to-[#9e52ff] mb-6 group-hover:shadow-lg transition-all duration-200">
-                              <feature.icon className="h-6 w-6 text-white" />
-                            </div>
-                            <h3 className="text-xl font-semibold text-white mb-3">{feature.title}</h3>
-                            <p className="text-gray-300 leading-relaxed">{feature.desc}</p>
-                          </div>
-                        ))}
+              </div>
+              
+              {/* Blog Posts - Mobile Swipeable, Desktop Grid */}
+              <div className="md:hidden">
+                {/* Mobile: Horizontal scrollable */}
+                <div className="flex overflow-x-auto gap-6 px-4 -mx-4 pb-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                  {[1, 2, 3].map((post, i) => (
+                    <div key={i} className="bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-6 hover:bg-black/10 transition-all duration-200 group cursor-pointer flex-shrink-0 w-80">
+                      {/* Blog Post Image Placeholder */}
+                      <div className="w-full h-48 bg-gradient-to-br from-[#5271ff]/20 to-[#9e52ff]/20 rounded-xl mb-6 flex items-center justify-center">
+                        <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center">
+                          <svg className="w-8 h-8 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
                       </div>
                       
-                      {/* Right column - Twitter Embed */}
-                      <div className="flex justify-center lg:justify-end h-full">
-                        <div className="bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-4 md:p-8 hover:bg-black/10 transition-all duration-200 w-full max-w-md">
-                          <div className="flex justify-center items-center h-full">
-                            <blockquote className="twitter-tweet" data-theme="dark" data-align="center">
-                              <p lang="en" dir="ltr">
-                                SEO is slowly losing its dominance. Welcome to GEO.<br/><br/>
-                                In the age of ChatGPT, Perplexity, and Claude, Generative Engine Optimization is positioned to become the new playbook for brand visibility.<br/><br/>
-                                It&#39;s not about gaming the algorithm — it&#39;s about being cited by it.<br/><br/>
-                                The brands that… <a href="https://t.co/jsjZ4ee8Z6">pic.twitter.com/jsjZ4ee8Z6</a>
-                              </p>
-                              &mdash; a16z (@a16z) <a href="https://twitter.com/a16z/status/1927766844062011834?ref_src=twsrc%5Etfw">May 28, 2025</a>
-                            </blockquote>
-                          </div>
+                      {/* Blog Post Content */}
+                      <div className="space-y-4">
+                        {/* Category Tag */}
+                        <div className="flex items-center gap-2">
+                          <span className="px-3 py-1 bg-[#5271ff]/20 text-[#5271ff] rounded-full text-xs font-medium">
+                            {/* Category placeholder */}
+                          </span>
+                          <span className="text-gray-400 text-xs">
+                            {/* Date placeholder */}
+                          </span>
+                        </div>
+                        
+                        {/* Title */}
+                        <h3 className="text-xl font-semibold text-white group-hover:text-gray-100 transition-colors line-clamp-2">
+                          {/* Title placeholder */}
+                        </h3>
+                        
+                        {/* Description */}
+                        <p className="text-gray-300 text-sm line-clamp-3">
+                          {/* Description placeholder */}
+                        </p>
+                        
+                        {/* Read More Link */}
+                        <div className="flex items-center text-[#5271ff] text-sm font-medium group-hover:text-[#7662ff] transition-colors">
+                          <span>{/* Read more placeholder */}</span>
+                          <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
                         </div>
                       </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
               </div>
-            </SlideIn>
-          </div>
-        </section>
+              
+              {/* Desktop: Grid layout */}
+              <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {[1, 2, 3].map((post, i) => (
+                  <div key={i} className="bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-6 hover:bg-black/10 transition-all duration-200 group cursor-pointer">
+                    {/* Blog Post Image Placeholder */}
+                    <div className="w-full h-48 bg-gradient-to-br from-[#5271ff]/20 to-[#9e52ff]/20 rounded-xl mb-6 flex items-center justify-center">
+                      <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center">
+                        <svg className="w-8 h-8 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                    </div>
+                    
+                    {/* Blog Post Content */}
+                    <div className="space-y-4">
+                      {/* Category Tag */}
+                      <div className="flex items-center gap-2">
+                        <span className="px-3 py-1 bg-[#5271ff]/20 text-[#5271ff] rounded-full text-xs font-medium">
+                          {/* Category placeholder */}
+                        </span>
+                        <span className="text-gray-400 text-xs">
+                          {/* Date placeholder */}
+                        </span>
+                      </div>
+                      
+                      {/* Title */}
+                      <h3 className="text-xl font-semibold text-white group-hover:text-gray-100 transition-colors line-clamp-2">
+                        {/* Title placeholder */}
+                      </h3>
+                      
+                      {/* Description */}
+                      <p className="text-gray-300 text-sm line-clamp-3">
+                        {/* Description placeholder */}
+                      </p>
+                      
+                      {/* Read More Link */}
+                      <div className="flex items-center text-[#5271ff] text-sm font-medium group-hover:text-[#7662ff] transition-colors">
+                        <span>{/* Read more placeholder */}</span>
+                        <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* View All Posts Button */}
+              <div className="text-center mt-6 md:mt-12">
+                <button className="bg-white/10 text-white hover:bg-white/20 px-8 py-3 rounded-full font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2 mx-auto">
+                  See More
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </section>
+        </SlideIn>
 
         {/* Comparison Table Section */}
         <SlideIn>
-          <section id="comparison" className="py-24 relative hidden md:block">
+          <section id="comparison" className="pt-12 md:pt-16 pb-20 md:pb-24 relative hidden md:block">
             <div className="max-w-6xl mx-auto px-6 lg:px-8">
               <div className="text-center mb-20">
                 <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-white mb-6">
@@ -973,7 +983,7 @@ const LandingPage: React.FC = () => {
 
         {/* Pricing Section */}
         <SlideIn>
-          <section id="pricing" className="py-24 hidden md:block">
+          <section id="pricing" className="py-20 md:py-24 hidden md:block">
             <div className="max-w-6xl mx-auto px-6 lg:px-8">
               <div className="text-center mb-16">
                 <h2 className="text-4xl font-bold tracking-tight text-white mb-4">
@@ -1080,12 +1090,9 @@ const LandingPage: React.FC = () => {
           </section>
         </SlideIn>
 
-        {/* Divider: Pricing → FAQ */}
-        <div className="section-divider hidden md:block"></div>
-
         {/* FAQ Accordion Section */}
         <SlideIn>
-          <section id="faq" className="py-20 md:py-24">
+          <section id="faq" className="pt-12 md:pt-16 pb-12 md:pb-16">
             <div className="max-w-4xl mx-auto px-6 lg:px-8">
               <div className="text-center mb-16">
                 <h2 className="text-4xl font-bold tracking-tight text-white mb-4">
@@ -1100,9 +1107,6 @@ const LandingPage: React.FC = () => {
             </div>
           </section>
         </SlideIn>
-
-        {/* Divider: FAQ → Footer */}
-        <div className="section-divider hidden md:block"></div>
 
         {/* Landing Page Footer */}
         <footer className="bg-transparent">
