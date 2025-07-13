@@ -28,7 +28,7 @@ describe('masterScheduler', () => {
             {},
             {
               repeat: {
-                pattern: '0 5 * * *',
+                cron: '0 5 * * *',
               },
               jobId: 'daily-report-trigger',
             }
@@ -57,7 +57,7 @@ describe('masterScheduler', () => {
       {},
       {
         repeat: {
-          pattern: '0 5 * * *',
+          cron: '0 5 * * *',
         },
         jobId: 'daily-report-trigger',
       }

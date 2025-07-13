@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createReport, getReportStatus, getLatestReport, getCompetitorRankingsForReport, getReportResponses } from '../controllers/reportController';
+import { createReport, getReportStatus, getLatestReport, getCompetitorRankingsForReport, getReportResponses, emergencyTriggerCompanyReport, emergencyTriggerAllReports, getSystemHealth } from '../controllers/reportController';
 import { getCompanyOptimizationTasks, toggleOptimizationTaskCompletion, updateOptimizationTaskStatus, getCompanyVisibilitySummary } from '../controllers/optimizationController';
 import { authenticate } from '../middleware/authMiddleware';
 import { paymentGuard } from '../middleware/paymentGuard';
@@ -24,5 +24,12 @@ router.get('/companies/:companyId/optimization-tasks', authenticate, getCompanyO
 router.patch('/reports/:reportRunId/tasks/:taskId/toggle', authenticate, toggleOptimizationTaskCompletion);
 router.patch('/reports/:reportRunId/tasks/:taskId/status', authenticate, updateOptimizationTaskStatus);
 router.get('/companies/:companyId/visibility-summary', authenticate, getCompanyVisibilitySummary);
+
+// Emergency endpoints (admin/system use - may need additional admin authentication in production)
+router.post('/emergency/companies/:companyId/trigger-report', authenticate, emergencyTriggerCompanyReport);
+router.post('/emergency/trigger-all-reports', authenticate, emergencyTriggerAllReports);
+
+// System health endpoint
+router.get('/system/health', getSystemHealth);
 
 export default router; 

@@ -3,6 +3,7 @@ import env from '../config/env';
 import { getBullMQConnection } from '../config/bullmq';
 import prisma from '../config/db';
 import { queueReport } from '../services/reportSchedulingService';
+import { alertingService } from '../services/alertingService';
 
 let worker: Worker | null = null;
 
@@ -46,11 +47,18 @@ worker.on('completed', (job: Job) => {
     console.log(`[Scheduler Worker] Master scheduler job ${job.id} has completed.`);
 });
 
-worker.on('failed', (job: Job | undefined, err: Error) => { 
+worker.on('failed', async (job: Job | undefined, err: Error) => { 
     if (job) {
         console.error(`[Scheduler Worker] Master scheduler job ${job.id} has failed with ${err.message}`);
     } else {
         console.error(`[Scheduler Worker] A master scheduler job has failed with ${err.message}`);
+    }
+    
+    // Send alert for scheduler failure
+    try {
+        await alertingService.alertSchedulerFailure(err, new Date());
+    } catch (alertError) {
+        console.error('[Scheduler Worker] Failed to send scheduler failure alert:', alertError);
     }
 });
 }

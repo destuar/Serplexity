@@ -50,8 +50,14 @@ module.exports = {
           "50%": { transform: "translateY(-5px)" },
         },
         "glow": {
-          "0%, 100%": { opacity: "0.15" },
-          "50%": { opacity: "0.25" },
+          "0%, 100%": { 
+            opacity: "0.6",
+            transform: "scale(1)"
+          },
+          "50%": { 
+            opacity: "0.8",
+            transform: "scale(1.05)"
+          },
         },
       },
       animation: {

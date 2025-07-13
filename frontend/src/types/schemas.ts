@@ -51,6 +51,11 @@ export const UserSchema = z.object({
     companies: z.array(CompanySchema).optional(),
 });
 
+export enum Role {
+  USER = 'USER',
+  ADMIN = 'ADMIN'
+}
+
 export type User = z.infer<typeof UserSchema>;
 export type Company = z.infer<typeof CompanySchema>;
 export type Competitor = z.infer<typeof CompetitorSchema>;

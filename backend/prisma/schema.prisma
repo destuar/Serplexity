@@ -23,6 +23,7 @@ model User {
   stripeCustomerId   String?   @unique
   subscriptionStatus String?
   companies          Company[]
+  blogPosts          BlogPost[]
 }
 
 model Company {
@@ -256,6 +257,40 @@ model VisibilityOptimizationTask {
   @@index([companyId])
   @@index([reportRunId])
   @@index([status])
+}
+
+model BlogPost {
+  id          String      @id @default(cuid())
+  title       String
+  slug        String      @unique
+  content     String      // Rich HTML content from editor
+  excerpt     String?     // Auto-generated or manual excerpt
+  coverImage  String?     // URL to cover image
+  published   Boolean     @default(false)
+  publishedAt DateTime?
+  authorId    String
+  author      User        @relation(fields: [authorId], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  media       BlogMedia[]
+
+  @@index([published])
+  @@index([publishedAt])
+  @@index([authorId])
+}
+
+model BlogMedia {
+  id         String   @id @default(cuid())
+  url        String   // Full URL to the media file
+  filename   String   // Original filename
+  mimeType   String   // image/jpeg, image/png, etc.
+  size       Int      // File size in bytes
+  alt        String?  // Alt text for accessibility
+  blogPostId String
+  blogPost   BlogPost @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([blogPostId])
 }
 
 enum Role {

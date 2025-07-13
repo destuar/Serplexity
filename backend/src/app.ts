@@ -12,6 +12,7 @@ import paymentRouter from './routes/paymentRoutes';
 import reportRouter from './routes/reportRoutes';
 import searchRouter from './routes/searchRoutes';
 import userRouter from './routes/userRoutes';
+import blogRouter from './routes/blogRoutes';
 import { authenticate } from './middleware/authMiddleware';
 import env from './config/env';
 import { PrismaClient } from '@prisma/client';
@@ -131,6 +132,9 @@ app.use('/api/payments', paymentRouter);
 app.use('/api/reports', reportRouter);
 app.use('/api/users', userRouter);
 app.use('/api/search', searchRouter);
+
+// Blog routes (mixed public/admin)
+app.use('/api/blog', blogRouter);
 
 app.get('/', (req: Request, res: Response) => {
     res.send('Hello from the Serplexity backend!');

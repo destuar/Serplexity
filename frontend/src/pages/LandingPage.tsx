@@ -1,11 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import { Navbar } from '../components/layout/Navbar';
-import { BarChart2, Sparkles, Target, Check, X, ArrowRight } from 'lucide-react';
+import { Target, Check, X, ArrowRight } from 'lucide-react';
 import { FaLinkedin } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { FadeIn } from '../components/ui/FadeIn';
+// import { FadeIn } from '../components/ui/FadeIn';
 import { SlideIn } from '../components/ui/SlideIn';
 import { Accordion } from '../components/ui/Accordion';
 import { loadStripe } from '@stripe/stripe-js';
@@ -757,7 +757,7 @@ const LandingPage: React.FC = () => {
               <div className="md:hidden">
                 {/* Mobile: Horizontal scrollable */}
                 <div className="flex overflow-x-auto gap-6 px-4 -mx-4 pb-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                  {[1, 2, 3].map((post, i) => (
+                  {[1, 2, 3].map((_, i) => (
                     <div key={i} className="bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-6 hover:bg-black/10 transition-all duration-200 group cursor-pointer flex-shrink-0 w-80">
                       {/* Blog Post Image Placeholder */}
                       <div className="w-full h-48 bg-gradient-to-br from-[#5271ff]/20 to-[#9e52ff]/20 rounded-xl mb-6 flex items-center justify-center">
@@ -803,7 +803,7 @@ const LandingPage: React.FC = () => {
               
               {/* Desktop: Grid layout */}
               <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {[1, 2, 3].map((post, i) => (
+                {[1, 2, 3].map((_, i) => (
                   <div key={i} className="bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-6 hover:bg-black/10 transition-all duration-200 group cursor-pointer">
                     {/* Blog Post Image Placeholder */}
                     <div className="w-full h-48 bg-gradient-to-br from-[#5271ff]/20 to-[#9e52ff]/20 rounded-xl mb-6 flex items-center justify-center">
@@ -848,7 +848,10 @@ const LandingPage: React.FC = () => {
               
               {/* View All Posts Button */}
               <div className="text-center mt-6 md:mt-12">
-                <button className="bg-white/10 text-white hover:bg-white/20 px-8 py-3 rounded-full font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2 mx-auto">
+                <button 
+                  onClick={() => navigate('/research')}
+                  className="bg-white/10 text-white hover:bg-white/20 px-8 py-3 rounded-full font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2 mx-auto"
+                >
                   See More
                   <ArrowRight className="w-4 h-4" />
                 </button>

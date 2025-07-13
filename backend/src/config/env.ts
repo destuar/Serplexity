@@ -56,6 +56,15 @@ const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
   PERPLEXITY_API_KEY: z.string().optional(),
+
+  // Email & Notifications
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.string().transform(val => val ? parseInt(val, 10) : 587).optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  SMTP_FROM_EMAIL: z.string().email().optional(),
+  ALERT_WEBHOOK_URL: z.string().url().optional(),
+  ADMIN_EMAIL: z.string().email().optional(),
 });
 
 

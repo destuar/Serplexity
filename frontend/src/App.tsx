@@ -23,6 +23,9 @@ import PaymentPage from './pages/PaymentPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import ExperimentalSearchPage from './pages/ExperimentalSearchPage';
+import ResearchPage from './pages/ResearchPage';
+import BlogPostPage from './pages/BlogPostPage';
+import BlogEditorPage from './pages/BlogEditorPage';
 import { usePageTracking, useSessionTracking } from './hooks/useAnalytics';
 
 const DashboardRoutes: React.FC = () => (
@@ -78,6 +81,10 @@ function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/terms" element={<TermsOfServicePage />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
+          <Route path="/research" element={<ResearchPage />} />
+          <Route path="/research/new" element={<BlogEditorPage />} />
+          <Route path="/research/edit/:id" element={<BlogEditorPage />} />
+          <Route path="/research/:slug" element={<BlogPostPage />} />
           <Route path="/oauth-callback" element={<OAuthCallbackPage />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/*" element={<ProtectedArea />} />

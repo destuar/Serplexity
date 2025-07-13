@@ -6,7 +6,9 @@ import prisma from './config/db';
 import './queues/reportWorker'; // This initializes and starts the worker process
 import './queues/archiveWorker'; // This initializes and starts the archive worker process
 import './queues/masterSchedulerWorker'; // This initializes the daily report scheduler worker
+import './queues/backupSchedulerWorker'; // This initializes the backup scheduler worker
 import { scheduleDailyReportTrigger } from './queues/masterScheduler';
+import { scheduleBackupDailyReportTrigger } from './queues/backupScheduler';
 
 const PORT = env.PORT;
 
@@ -25,6 +27,10 @@ const startServer = async () => {
   // Initialize daily report scheduler
   await scheduleDailyReportTrigger();
   console.log('Daily report scheduler initialized.');
+
+  // Initialize backup scheduler
+  await scheduleBackupDailyReportTrigger();
+  console.log('Backup report scheduler initialized.');
 
   server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);

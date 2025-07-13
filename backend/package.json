@@ -29,7 +29,9 @@
     "check:history": "ts-node src/scripts/check-share-of-voice-history.ts",
     "backfill:history": "ts-node src/scripts/backfill-share-of-voice-history.ts",
     "test:redis": "ts-node src/scripts/test-redis-connection.ts",
-    "monitor:queues": "ts-node src/scripts/monitor-redis-queues.ts"
+    "monitor:queues": "ts-node src/scripts/monitor-redis-queues.ts",
+    "fix:scheduler": "ts-node src/scripts/fix-scheduler-cron.ts",
+    "health:daily": "ts-node src/scripts/daily-health-monitor.ts"
   },
   "keywords": [],
   "author": "",
@@ -43,6 +45,8 @@
     "@opentelemetry/resources": "^2.0.1",
     "@opentelemetry/sdk-node": "^0.202.0",
     "@prisma/client": "^6.10.0",
+    "@types/multer": "^2.0.0",
+    "@types/nodemailer": "^6.4.17",
     "aws-sdk": "^2.1692.0",
     "axios": "^1.10.0",
     "bcrypt": "^6.0.0",
@@ -57,6 +61,8 @@
     "ioredis": "^5.6.1",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
+    "multer": "^2.0.1",
+    "nodemailer": "^7.0.5",
     "openai": "^5.5.1",
     "p-limit": "^6.2.0",
     "passport": "^0.7.0",

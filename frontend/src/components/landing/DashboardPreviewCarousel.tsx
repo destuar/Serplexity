@@ -173,7 +173,9 @@ const DashboardPreviewCarousel: React.FC = () => {
         aria-label="Dashboard Preview Carousel"
         tabIndex={0}
       >
-        <div className="absolute -inset-4 bg-gradient-to-r from-[#7762ff] to-purple-600 rounded-full blur-3xl animate-glow pointer-events-none"></div>
+        {/* Subtle rectangular glow effect */}
+        <div className="absolute -inset-6 bg-gradient-to-r from-[#7762ff]/20 to-purple-600/20 rounded-2xl blur-[60px] animate-glow pointer-events-none"></div>
+        <div className="absolute -inset-4 bg-gradient-to-r from-[#7762ff]/15 to-purple-600/15 rounded-xl blur-[40px] animate-glow pointer-events-none" style={{ animationDelay: '1s' }}></div>
         <div 
           className="relative bg-black backdrop-blur-xl rounded-lg md:rounded-2xl aspect-[32/17] overflow-hidden shadow-2xl drop-shadow-2xl focus:outline-none focus:ring-2 focus:ring-[#7762ff] focus:ring-offset-2"
           onTouchStart={onTouchStart}

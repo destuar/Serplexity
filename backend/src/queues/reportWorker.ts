@@ -14,6 +14,7 @@ import {
     QuestionInput,
     TokenUsage
 } from '../services/llmService';
+import { generateResilientQuestionResponse } from '../services/resilientLlmService';
 import { generateCompleteFanout, flattenFanoutQueries } from '../services/fanoutService';
 import { getModelsByTask, ModelTask, LLM_CONFIG } from '../config/models';
 import { z } from 'zod';
@@ -21,6 +22,7 @@ import { Question } from '../types/reports';
 import { StreamingDatabaseWriter } from './streaming-db-writer';
 import { computeAndPersistMetrics } from '../services/metricsService';
 import { archiveQueue } from './archiveWorker';
+import { alertingService } from '../services/alertingService';
 
 // Simple log types instead of complex levels
 type LogType = 'STAGE' | 'CONTENT' | 'PERFORMANCE' | 'TECHNICAL' | 'ERROR';
@@ -1130,7 +1132,11 @@ const processJob = async (job: Job) => {
         const startTime = Date.now();
         
         try {
-            const { data: answer, usage } = await questionLimit(() => generateQuestionResponse(questionInput, model));
+            const { data: answer, usage } = await questionLimit(() => generateResilientQuestionResponse(questionInput, model, {
+                enableFallbacks: true,
+                alertOnFallback: true,
+                context: `report_${runId}_question_${questionInput.text.substring(0, 30)}`
+            }));
             
             totalPromptTokens += usage.promptTokens;
             totalCompletionTokens += usage.completionTokens;
@@ -1726,6 +1732,20 @@ worker.on('failed', async (job, err) => {
                         status: 'FAILED',
                         stepStatus: `FAILED: ${err.message.substring(0, 200)}`,
                     },
+                });
+                
+                // Send alert for failed report
+                await alertingService.alertReportFailure({
+                    runId,
+                    companyId: company?.id || 'unknown',
+                    companyName: company?.name || 'Unknown Company',
+                    stage: existingReportRun.stepStatus || 'UNKNOWN_STAGE',
+                    errorMessage: err.message,
+                    progress: 0, // ReportRun doesn't have progress field
+                    timestamp: new Date(),
+                    attemptNumber: job?.attemptsMade || 1
+                }).catch(alertError => {
+                    console.error('[ReportWorker] Failed to send failure alert:', alertError);
                 });
                 
                 log({ 

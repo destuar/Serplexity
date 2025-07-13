@@ -3,6 +3,8 @@ import { z } from 'zod';
 import prisma, { prismaReadReplica } from '../config/db';
 import redis from '../config/redis';
 import { queueReport } from '../services/reportSchedulingService';
+import { scheduleEmergencyReportTrigger } from '../queues/backupScheduler';
+import { alertingService } from '../services/alertingService';
 import { MODELS } from '../config/models';
 import { getFullReportMetrics } from '../services/metricsService';
 import {
@@ -642,6 +644,305 @@ export const getReportResponses = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(`Failed to get responses for report ${runId}`, error);
     return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+/**
+ * Emergency endpoint to manually trigger report generation for a specific company
+ * Should be used when the daily scheduler fails or when immediate report is needed
+ */
+export const emergencyTriggerCompanyReport = async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  const { companyId } = req.params;
+  const { reason = 'Manual emergency trigger' } = req.body;
+
+  controllerLog({
+    endpoint: 'POST /emergency/companies/:companyId/trigger-report',
+    companyId,
+    metadata: { reason }
+  }, 'Emergency report trigger requested');
+
+  try {
+    // Validate company exists
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { id: true, name: true }
+    });
+
+    if (!company) {
+      const duration = Date.now() - startTime;
+      controllerLog({
+        endpoint: 'POST /emergency/companies/:companyId/trigger-report',
+        companyId,
+        duration,
+        statusCode: 404
+      }, 'Company not found for emergency trigger', 'ERROR');
+      return res.status(404).json({ error: 'Company not found' });
+    }
+
+    // Force=true to bypass daily cache for emergency
+    const result = await queueReport(companyId, true);
+    
+    const duration = Date.now() - startTime;
+    controllerLog({
+      endpoint: 'POST /emergency/companies/:companyId/trigger-report',
+      companyId,
+      duration,
+      statusCode: 200,
+      metadata: { 
+        runId: result.runId,
+        isNew: result.isNew,
+        status: result.status,
+        reason
+      }
+    }, `Emergency report trigger successful for ${company.name}`);
+
+    // Send alert about manual trigger
+    await alertingService.alertSystemIssue({
+      component: 'SCHEDULER',
+      message: `Manual emergency report triggered for company: ${company.name}`,
+      details: {
+        companyId,
+        companyName: company.name,
+        runId: result.runId,
+        reason,
+        isNew: result.isNew,
+        triggeredBy: 'manual_api_call'
+      },
+      timestamp: new Date()
+    }).catch(alertError => {
+      console.error('[ReportController] Failed to send manual trigger alert:', alertError);
+    });
+
+    res.status(200).json({
+      success: true,
+      runId: result.runId,
+      isNew: result.isNew,
+      status: result.status,
+      message: `Emergency report triggered for ${company.name}`,
+      reason
+    });
+
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    controllerLog({
+      endpoint: 'POST /emergency/companies/:companyId/trigger-report',
+      companyId,
+      duration,
+      statusCode: 500,
+      error
+    }, 'Emergency report trigger failed', 'ERROR');
+
+    res.status(500).json({ 
+      error: 'Failed to trigger emergency report',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
+ * Emergency endpoint to trigger reports for ALL eligible companies
+ * Should be used only in case of catastrophic scheduler failure
+ */
+export const emergencyTriggerAllReports = async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  const { reason = 'Manual emergency trigger for all companies', delayMinutes = 0 } = req.body;
+
+  controllerLog({
+    endpoint: 'POST /emergency/trigger-all-reports',
+    metadata: { reason, delayMinutes }
+  }, 'Emergency all-reports trigger requested');
+
+  try {
+    // Validate delay is reasonable (max 24 hours)
+    const maxDelayMinutes = 24 * 60;
+    if (delayMinutes < 0 || delayMinutes > maxDelayMinutes) {
+      return res.status(400).json({ 
+        error: `Delay must be between 0 and ${maxDelayMinutes} minutes (24 hours)` 
+      });
+    }
+
+    // Get count of eligible companies for response
+    const eligibleCompaniesCount = await prisma.company.count({
+      where: {
+        runs: {
+          some: {
+            status: 'COMPLETED',
+          },
+        },
+      },
+    });
+
+    if (eligibleCompaniesCount === 0) {
+      const duration = Date.now() - startTime;
+      controllerLog({
+        endpoint: 'POST /emergency/trigger-all-reports',
+        duration,
+        statusCode: 200,
+        metadata: { eligibleCompaniesCount: 0 }
+      }, 'No eligible companies found for emergency trigger');
+      
+      return res.status(200).json({
+        success: true,
+        message: 'No eligible companies found (companies need at least one completed report)',
+        eligibleCompaniesCount: 0
+      });
+    }
+
+    // Schedule the emergency trigger
+    await scheduleEmergencyReportTrigger(delayMinutes);
+    
+    const duration = Date.now() - startTime;
+    const scheduledTime = new Date(Date.now() + delayMinutes * 60 * 1000);
+    
+    controllerLog({
+      endpoint: 'POST /emergency/trigger-all-reports',
+      duration,
+      statusCode: 200,
+      metadata: { 
+        eligibleCompaniesCount,
+        delayMinutes,
+        scheduledTime: scheduledTime.toISOString(),
+        reason
+      }
+    }, `Emergency all-reports trigger scheduled for ${eligibleCompaniesCount} companies`);
+
+    // Send immediate alert about the emergency trigger
+    await alertingService.alertSystemIssue({
+      component: 'SCHEDULER',
+      message: `Emergency trigger scheduled for ALL companies`,
+      details: {
+        eligibleCompaniesCount,
+        reason,
+        delayMinutes,
+        scheduledTime: scheduledTime.toISOString(),
+        triggeredBy: 'manual_api_call'
+      },
+      timestamp: new Date()
+    }).catch(alertError => {
+      console.error('[ReportController] Failed to send emergency all-trigger alert:', alertError);
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Emergency report generation scheduled for ${eligibleCompaniesCount} companies`,
+      eligibleCompaniesCount,
+      scheduledTime: scheduledTime.toISOString(),
+      delayMinutes,
+      reason
+    });
+
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    controllerLog({
+      endpoint: 'POST /emergency/trigger-all-reports',
+      duration,
+      statusCode: 500,
+      error
+    }, 'Emergency all-reports trigger failed', 'ERROR');
+
+    res.status(500).json({ 
+      error: 'Failed to schedule emergency report generation',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
+ * System health check endpoint that validates all critical components
+ */
+export const getSystemHealth = async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  
+  try {
+    const healthChecks = {
+      database: { status: 'unknown', details: {} as any },
+      redis: { status: 'unknown', details: {} as any },
+      scheduler: { status: 'unknown', details: {} as any },
+      recentReports: { status: 'unknown', details: {} as any }
+    };
+
+    // Check database connection
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      healthChecks.database.status = 'healthy';
+    } catch (dbError) {
+      healthChecks.database.status = 'unhealthy';
+      healthChecks.database.details = { error: dbError instanceof Error ? dbError.message : 'Unknown error' };
+    }
+
+    // Check Redis connection
+    try {
+      await redis.ping();
+      healthChecks.redis.status = 'healthy';
+    } catch (redisError) {
+      healthChecks.redis.status = 'unhealthy';
+      healthChecks.redis.details = { error: redisError instanceof Error ? redisError.message : 'Unknown error' };
+    }
+
+    // Check recent report generation (last 24 hours)
+    try {
+      const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recentReports = await prisma.reportRun.count({
+        where: { createdAt: { gte: last24Hours } }
+      });
+      const failedReports = await prisma.reportRun.count({
+        where: { 
+          createdAt: { gte: last24Hours },
+          status: 'FAILED'
+        }
+      });
+      
+      healthChecks.recentReports.status = recentReports > 0 ? 'healthy' : 'warning';
+      healthChecks.recentReports.details = {
+        totalReports: recentReports,
+        failedReports,
+        successRate: recentReports > 0 ? ((recentReports - failedReports) / recentReports * 100).toFixed(1) + '%' : 'N/A'
+      };
+    } catch (reportsError) {
+      healthChecks.recentReports.status = 'unhealthy';
+      healthChecks.recentReports.details = { error: reportsError instanceof Error ? reportsError.message : 'Unknown error' };
+    }
+
+    // Overall health status
+    const allHealthy = Object.values(healthChecks).every(check => check.status === 'healthy');
+    const hasUnhealthy = Object.values(healthChecks).some(check => check.status === 'unhealthy');
+    
+    const overallStatus = allHealthy ? 'healthy' : hasUnhealthy ? 'unhealthy' : 'degraded';
+    const statusCode = overallStatus === 'healthy' ? 200 : overallStatus === 'degraded' ? 200 : 503;
+
+    const duration = Date.now() - startTime;
+    
+    controllerLog({
+      endpoint: 'GET /system/health',
+      duration,
+      statusCode,
+      metadata: { overallStatus, ...healthChecks }
+    }, `System health check completed - Status: ${overallStatus}`);
+
+    res.status(statusCode).json({
+      status: overallStatus,
+      timestamp: new Date().toISOString(),
+      checks: healthChecks,
+      duration: `${duration}ms`
+    });
+
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    controllerLog({
+      endpoint: 'GET /system/health',
+      duration,
+      statusCode: 500,
+      error
+    }, 'System health check failed', 'ERROR');
+
+    res.status(500).json({
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      error: 'Health check failed',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      duration: `${duration}ms`
+    });
   }
 };
 
