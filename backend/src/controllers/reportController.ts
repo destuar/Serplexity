@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import prisma, { prismaReadReplica } from '../config/db';
-import redis from '../config/redis';
+import { redis } from '../config/redis';
 import { queueReport } from '../services/reportSchedulingService';
 import { scheduleEmergencyReportTrigger } from '../queues/backupScheduler';
 import { alertingService } from '../services/alertingService';
@@ -13,6 +13,8 @@ import {
     calculateShareOfVoiceHistory,
     calculateSentimentOverTime,
 } from '../services/dashboardService';
+import { checkRedisHealth } from '../config/redis';
+import { checkBullMQHealth } from '../config/bullmq';
 
 // Enhanced logging system for the report controller
 interface ControllerLogContext {
@@ -855,94 +857,145 @@ export const getSystemHealth = async (req: Request, res: Response) => {
   const startTime = Date.now();
   
   try {
-    const healthChecks = {
-      database: { status: 'unknown', details: {} as any },
-      redis: { status: 'unknown', details: {} as any },
-      scheduler: { status: 'unknown', details: {} as any },
-      recentReports: { status: 'unknown', details: {} as any }
+    // Comprehensive health checks
+    const [databaseHealth, redisHealth, bullmqHealth, recentReportsHealth] = await Promise.allSettled([
+      checkDatabaseHealth(),
+      checkRedisHealth(),
+      checkBullMQHealth(),
+      checkRecentReportsHealth()
+    ]);
+    
+    // Process health check results
+    const checks = {
+      database: processHealthResult(databaseHealth),
+      redis: processHealthResult(redisHealth),
+      bullmq: processHealthResult(bullmqHealth),
+      recentReports: processHealthResult(recentReportsHealth),
     };
-
-    // Check database connection
-    try {
-      await prisma.$queryRaw`SELECT 1`;
-      healthChecks.database.status = 'healthy';
-    } catch (dbError) {
-      healthChecks.database.status = 'unhealthy';
-      healthChecks.database.details = { error: dbError instanceof Error ? dbError.message : 'Unknown error' };
-    }
-
-    // Check Redis connection
-    try {
-      await redis.ping();
-      healthChecks.redis.status = 'healthy';
-    } catch (redisError) {
-      healthChecks.redis.status = 'unhealthy';
-      healthChecks.redis.details = { error: redisError instanceof Error ? redisError.message : 'Unknown error' };
-    }
-
-    // Check recent report generation (last 24 hours)
-    try {
-      const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const recentReports = await prisma.reportRun.count({
-        where: { createdAt: { gte: last24Hours } }
-      });
-      const failedReports = await prisma.reportRun.count({
-        where: { 
-          createdAt: { gte: last24Hours },
-          status: 'FAILED'
-        }
-      });
-      
-      healthChecks.recentReports.status = recentReports > 0 ? 'healthy' : 'warning';
-      healthChecks.recentReports.details = {
-        totalReports: recentReports,
-        failedReports,
-        successRate: recentReports > 0 ? ((recentReports - failedReports) / recentReports * 100).toFixed(1) + '%' : 'N/A'
-      };
-    } catch (reportsError) {
-      healthChecks.recentReports.status = 'unhealthy';
-      healthChecks.recentReports.details = { error: reportsError instanceof Error ? reportsError.message : 'Unknown error' };
-    }
-
-    // Overall health status
-    const allHealthy = Object.values(healthChecks).every(check => check.status === 'healthy');
-    const hasUnhealthy = Object.values(healthChecks).some(check => check.status === 'unhealthy');
     
-    const overallStatus = allHealthy ? 'healthy' : hasUnhealthy ? 'unhealthy' : 'degraded';
-    const statusCode = overallStatus === 'healthy' ? 200 : overallStatus === 'degraded' ? 200 : 503;
-
-    const duration = Date.now() - startTime;
+    // Determine overall system status
+    const allHealthy = Object.values(checks).every(check => check.status === 'healthy');
+    const anyUnhealthy = Object.values(checks).some(check => check.status === 'unhealthy');
     
-    controllerLog({
-      endpoint: 'GET /system/health',
-      duration,
-      statusCode,
-      metadata: { overallStatus, ...healthChecks }
-    }, `System health check completed - Status: ${overallStatus}`);
-
-    res.status(statusCode).json({
+    const overallStatus = allHealthy ? 'healthy' : anyUnhealthy ? 'unhealthy' : 'degraded';
+    const duration = `${Date.now() - startTime}ms`;
+    
+    const response = {
       status: overallStatus,
       timestamp: new Date().toISOString(),
-      checks: healthChecks,
-      duration: `${duration}ms`
-    });
-
-  } catch (error) {
-    const duration = Date.now() - startTime;
-    controllerLog({
-      endpoint: 'GET /system/health',
+      checks,
       duration,
-      statusCode: 500,
-      error
-    }, 'System health check failed', 'ERROR');
-
+      version: process.env.npm_package_version || '1.0.0',
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+    };
+    
+    // Log health check results
+    controllerLog(
+      {
+        endpoint: 'GET /system/health',
+        duration: Date.now() - startTime,
+        statusCode: overallStatus === 'healthy' ? 200 : overallStatus === 'degraded' ? 200 : 503,
+        metadata: { overallStatus, ...checks }
+      },
+      `System health check completed - Status: ${overallStatus}`
+    );
+    
+    // Return appropriate HTTP status
+    const statusCode = overallStatus === 'healthy' ? 200 : 
+                      overallStatus === 'degraded' ? 200 : 503;
+    
+    res.status(statusCode).json(response);
+  } catch (error) {
+    const duration = `${Date.now() - startTime}ms`;
+    controllerLog(
+      {
+        endpoint: 'GET /system/health',
+        duration: Date.now() - startTime,
+        statusCode: 500,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      },
+      'System health check failed',
+      'ERROR'
+    );
+    
     res.status(500).json({
       status: 'error',
       timestamp: new Date().toISOString(),
-      error: 'Health check failed',
-      details: error instanceof Error ? error.message : 'Unknown error',
-      duration: `${duration}ms`
+      error: error instanceof Error ? error.message : 'Health check failed',
+      duration,
     });
+  }
+};
+
+// Helper function to process health check results
+const processHealthResult = (result: PromiseSettledResult<any>) => {
+  if (result.status === 'fulfilled') {
+    return result.value;
+  } else {
+    return {
+      status: 'unhealthy',
+      error: result.reason instanceof Error ? result.reason.message : 'Unknown error',
+    };
+  }
+};
+
+// Enhanced database health check
+const checkDatabaseHealth = async () => {
+  try {
+    const start = Date.now();
+    await prisma.$queryRaw`SELECT 1`;
+    const latency = Date.now() - start;
+    
+    return {
+      status: 'healthy',
+      latency,
+      connection: 'active',
+    };
+  } catch (error) {
+    return {
+      status: 'unhealthy',
+      error: error instanceof Error ? error.message : 'Database connection failed',
+    };
+  }
+};
+
+// Enhanced recent reports health check
+const checkRecentReportsHealth = async () => {
+  try {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    
+    const recentReports = await prisma.reportRun.findMany({
+      where: {
+        createdAt: {
+          gte: twentyFourHoursAgo,
+        },
+      },
+      select: {
+        status: true,
+      },
+    });
+    
+    const totalReports = recentReports.length;
+    const failedReports = recentReports.filter(report => report.status === 'FAILED').length;
+    const successRate = totalReports > 0 ? ((totalReports - failedReports) / totalReports * 100).toFixed(1) : '0.0';
+    
+    const isHealthy = totalReports === 0 || (failedReports / totalReports) < 0.1; // Less than 10% failure rate
+    
+    return {
+      status: isHealthy ? 'healthy' : 'degraded',
+      details: {
+        totalReports,
+        failedReports,
+        successRate: `${successRate}%`,
+        period: '24h',
+      },
+    };
+  } catch (error) {
+    return {
+      status: 'unhealthy',
+      error: error instanceof Error ? error.message : 'Failed to check recent reports',
+    };
   }
 };
 

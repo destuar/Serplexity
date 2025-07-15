@@ -209,6 +209,7 @@ export async function queueReport(companyId: string, force = false): Promise<Que
             data: {
                 companyId,
                 status: 'PENDING',
+                stepStatus: 'Queued for processing',
             },
         });
 

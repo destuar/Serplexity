@@ -1,5 +1,6 @@
-import redis from '../config/redis';
+import { redis } from '../config/redis';
 import logger from '../utils/logger';
+import { z } from 'zod';
 
 export interface UserEvent {
   userId?: string;
@@ -107,13 +108,17 @@ export class AnalyticsService {
       const userKey = `analytics:user:${userId}:events`;
       
       const events = await redis.lrange(userKey, 0, -1);
-      const parsedEvents = events.map(event => JSON.parse(event))
-        .filter(event => {
-          const daysDiff = (Date.now() - event.timestamp) / (1000 * 60 * 60 * 24);
-          return daysDiff <= days;
+      if (!events || events.length === 0) {
+        return [];
+      }
+  
+      const parsedEvents = events.map((event: string) => JSON.parse(event))
+        .filter((event: UserEvent): event is UserEvent => {
+          // Basic validation, can be enhanced with Zod
+          return event && typeof event.timestamp === 'number' && typeof event.event === 'string';
         })
-        .sort((a, b) => a.timestamp - b.timestamp);
-
+        .sort((a: UserEvent, b: UserEvent) => a.timestamp - b.timestamp);
+  
       return parsedEvents;
 
     } catch (error) {
@@ -131,13 +136,13 @@ export class AnalyticsService {
   private async getEventsByDate(dateKey: string): Promise<any[]> {
     const key = `analytics:events:${dateKey}`;
     const events = await redis.lrange(key, 0, -1);
-    return events.map(event => JSON.parse(event));
+    return events.map((event: string) => JSON.parse(event));
   }
 
   private async getPageViewsByDate(dateKey: string): Promise<any[]> {
     const key = `analytics:pageviews:${dateKey}`;
     const pageViews = await redis.lrange(key, 0, -1);
-    return pageViews.map(pv => JSON.parse(pv));
+    return pageViews.map((pv: string) => JSON.parse(pv));
   }
 
   private async getUniquePagesByDate(dateKey: string): Promise<Record<string, number>> {
@@ -160,7 +165,7 @@ export class AnalyticsService {
       .slice(0, 10);
   }
 
-  private getEventBreakdown(events: any[]): Record<string, number> {
+  private getEventBreakdown(events: UserEvent[]): Record<string, number> {
     const breakdown: Record<string, number> = {};
     events.forEach(event => {
       breakdown[event.event] = (breakdown[event.event] || 0) + 1;
@@ -192,3 +197,27 @@ export const ANALYTICS_EVENTS = {
   SUBSCRIPTION_STARTED: 'subscription_started',
   PAYMENT_COMPLETED: 'payment_completed',
 } as const;
+
+export async function getRawEvents(companyId: string): Promise<any[]> {
+  const key = `raw_events:${companyId}`;
+  try {
+    const events = await redis.lrange(key, 0, -1);
+    if (!events) return [];
+    return events.map((event: string) => JSON.parse(event));
+  } catch (error) {
+    logger.error('Error fetching raw events from Redis:', error);
+    return [];
+  }
+}
+
+export async function getRawPageViews(companyId: string): Promise<any[]> {
+  const key = `raw_page_views:${companyId}`;
+  try {
+    const pageViews = await redis.lrange(key, 0, -1);
+    if (!pageViews) return [];
+    return pageViews.map((pv: string) => JSON.parse(pv));
+  } catch (error) {
+    logger.error('Error fetching raw page views from Redis:', error);
+    return [];
+  }
+}

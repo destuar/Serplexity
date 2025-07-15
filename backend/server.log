@@ -1,0 +1,40 @@
+
+> backend@1.0.0 start
+> node dist/server.js
+
+OpenTelemetry tracing initialized successfully.
+[Prisma] Initializing primary client with host: serplexity-replica.cluster-c1y8u4sey2wa.us-east-2.rds.amazonaws.com
+[Prisma] Initializing read replica client with host: serplexity-replica.cluster-ro-c1y8u4sey2wa.us-east-2.rds.amazonaws.com
+[2025-07-15T00:24:32.156Z][ReportGenerationQueue][INFO] Initializing report generation queue | Meta: {"redisHost":"redis-13701.c11.us-east-1-3.ec2.redns.redis-cloud.com","redisPort":13701,"queueName":"report-generation"}
+[2025-07-15T00:24:32.157Z][ReportGenerationQueue][INFO] Report generation queue initialized successfully | Meta: {"queueName":"report-generation","redisConnection":"redis-13701.c11.us-east-1-3.ec2.redns.redis-cloud.com:13701"}
+[AlertingService] Email not configured - missing SMTP settings
+[LLM:INFO] 2025-07-15T00:24:32.277Z {
+  timestamp: '2025-07-15T00:24:32.277Z',
+  level: 'INFO',
+  service: 'LLM',
+  modelId: 'system',
+  engine: 'INIT',
+  operation: 'CLIENT_SETUP',
+  metadata: {
+    openaiAvailable: true,
+    perplexityAvailable: true,
+    anthropicAvailable: true,
+    geminiAvailable: true
+  },
+  message: 'LLM service initialized with available clients'
+}
+Report worker process started...
+[Redis] Connection established
+[Redis] Connection ready
+Database connection successful.
+[Scheduler] Daily report trigger job scheduled to run at 5:00 AM UTC.
+Daily report scheduler initialized.
+[Backup Scheduler] Backup daily report trigger job scheduled to run at 6:00 AM UTC.
+Backup report scheduler initialized.
+Server is running on port 8001
+🚀 Automated daily reporting system is active!
+[0mGET /api/health [32m200[0m 1.060 ms - 15[0m
+[0mPOST /api/reports/companies/1 [33m401[0m 1.090 ms - 36[0m
+[2025-07-15T00:25:23.539Z][ReportController][GET /system/health][INFO][554ms][HTTP:200] System health check completed - Status: degraded | Meta: {"overallStatus":"degraded","database":{"status":"healthy","details":{}},"redis":{"status":"healthy","details":{}},"scheduler":{"status":"unknown","details":{}},"recentReports":{"status":"healthy","details":{"totalReports":2,"failedReports":0,"successRate":"100.0%"}}}
+[0mGET /api/reports/system/health [32m200[0m 557.013 ms - 330[0m
+Tracing terminated

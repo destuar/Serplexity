@@ -38,4 +38,42 @@ const startServer = async () => {
   });
 };
 
+// Graceful shutdown handling
+const gracefulShutdown = async (signal: string) => {
+  console.log(`\n[${signal}] Received shutdown signal, starting graceful shutdown...`);
+  
+  try {
+    // Stop accepting new connections
+    if (server) {
+      server.close(() => {
+        console.log('HTTP server closed');
+      });
+    }
+    
+    // Give existing connections time to finish
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    
+    console.log('Graceful shutdown completed');
+    process.exit(0);
+  } catch (error) {
+    console.error('Error during graceful shutdown:', error);
+    process.exit(1);
+  }
+};
+
+// Register shutdown handlers
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  gracefulShutdown('UNCAUGHT_EXCEPTION');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  gracefulShutdown('UNHANDLED_REJECTION');
+});
+
 startServer(); 

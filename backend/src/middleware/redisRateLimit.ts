@@ -1,5 +1,5 @@
-import redis from '../config/redis';
 import { Request, Response, NextFunction } from 'express';
+import { redis } from '../config/redis';
 import logger from '../utils/logger';
 
 export interface RateLimitOptions {

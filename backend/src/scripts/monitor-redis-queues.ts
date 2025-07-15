@@ -1,4 +1,5 @@
-import redis from '../config/redis';
+import { redis } from '../config/redis';
+import { Queue } from 'bullmq';
 import logger from '../utils/logger';
 
 async function monitorQueues() {

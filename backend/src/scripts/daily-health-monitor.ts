@@ -284,9 +284,9 @@ async function checkSystemComponents(report: HealthReport): Promise<void> {
     // Check Redis
     const redisHealth = await checkRedisHealth();
     componentChecks.redis = { 
-      healthy: redisHealth.isHealthy, 
-      isHealthy: redisHealth.isHealthy, 
-      details: redisHealth.details 
+      healthy: redisHealth.status === 'healthy',
+      isHealthy: redisHealth.status === 'healthy',
+      details: redisHealth.error ? { error: redisHealth.error } : { latency: redisHealth.latency }
     };
 
     const unhealthyComponents = Object.entries(componentChecks)

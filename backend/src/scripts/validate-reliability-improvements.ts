@@ -35,19 +35,15 @@ async function validateReliabilityImplementation(): Promise<void> {
   console.log('🤖 Checking AI Model Resilience...');
   results.push(await validateAIResilience());
   
-  // 5. Validate Redis Connection Pool
-  console.log('📡 Checking Redis Connection Pool...');
-  results.push(await validateRedisPool());
-  
-  // 6. Validate Health Monitoring
+  // 5. Validate Health Monitoring
   console.log('🩺 Checking Health Monitoring...');
   results.push(await validateHealthMonitoring());
   
-  // 7. Validate Server Integration
+  // 6. Validate Server Integration
   console.log('⚙️ Checking Server Integration...');
   results.push(await validateServerIntegration());
   
-  // 8. Validate TypeScript Compilation
+  // 7. Validate TypeScript Compilation
   console.log('📝 Checking TypeScript Compilation...');
   results.push(await validateCompilation());
   
@@ -238,44 +234,6 @@ async function validateAIResilience(): Promise<ValidationResult> {
     }
   } catch (error) {
     return { component: 'AI Model Resilience', status: 'FAIL', message: 'Validation error' };
-  }
-}
-
-async function validateRedisPool(): Promise<ValidationResult> {
-  try {
-    const poolFile = 'src/config/redisPool.ts';
-    const bullmqFile = 'src/config/bullmq.ts';
-    
-    if (!fs.existsSync(poolFile)) {
-      return { component: 'Redis Connection Pool', status: 'FAIL', message: 'Redis pool not found' };
-    }
-    
-    const poolContent = fs.readFileSync(poolFile, 'utf8');
-    const bullmqContent = fs.readFileSync(bullmqFile, 'utf8');
-    
-    const poolFeatures = [
-      'RedisConnectionPool',
-      'getMainConnection',
-      'getBullMQConnection',
-      'getHealthCheckConnection',
-      'maxConnections'
-    ];
-    
-    const poolOk = poolFeatures.every(feature => poolContent.includes(feature));
-    const bullmqIntegrated = bullmqContent.includes('getBullMQConnection');
-    
-    if (poolOk && bullmqIntegrated) {
-      return {
-        component: 'Redis Connection Pool',
-        status: 'PASS',
-        message: 'Connection pool fully implemented',
-        details: ['Shared connections', 'Connection limits', 'BullMQ integration', 'Health monitoring']
-      };
-    } else {
-      return { component: 'Redis Connection Pool', status: 'FAIL', message: 'Missing pool features' };
-    }
-  } catch (error) {
-    return { component: 'Redis Connection Pool', status: 'FAIL', message: 'Validation error' };
   }
 }
 

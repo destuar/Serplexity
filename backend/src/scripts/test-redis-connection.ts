@@ -1,4 +1,4 @@
-import redis from '../config/redis';
+import { redis } from '../config/redis';
 import logger from '../utils/logger';
 
 async function testRedisConnection() {
