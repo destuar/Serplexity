@@ -216,6 +216,7 @@ if (env.NODE_ENV !== 'test') {
     }
 }, {
     connection: getBullMQConnection(),
+    prefix: env.BULLMQ_QUEUE_PREFIX,
     concurrency: 1, // Only one backup scheduler job should run at a time
     lockDuration: 1000 * 60 * 10, // 10 minutes
 });

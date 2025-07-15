@@ -16,7 +16,10 @@ const glacierClient = new GlacierClient({
 });
 
 // --- Queue for scheduling ---
-export const archiveQueue = new Queue('archive-jobs', { connection });
+export const archiveQueue = new Queue('archive-jobs', { 
+  connection,
+  prefix: env.BULLMQ_QUEUE_PREFIX 
+});
 
 // Helper function to export responses to Glacier
 async function exportResponsesToGlacier(runIds: string[], companyId: string): Promise<string> {
@@ -100,6 +103,7 @@ export const processArchiveJob = async (job: Job) => {
 
 const archiveWorker = new Worker('archive-jobs', processArchiveJob, { 
   connection,
+  prefix: env.BULLMQ_QUEUE_PREFIX,
   lockDuration: 1000 * 60 * 5, // 5 minutes
 });
 

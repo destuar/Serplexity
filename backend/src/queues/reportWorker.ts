@@ -1680,6 +1680,7 @@ let worker: Worker | null = null;
 if (env.NODE_ENV !== 'test') {
   worker = new Worker('report-generation', processJob, {
     connection: getBullMQConnection(),
+    prefix: env.BULLMQ_QUEUE_PREFIX, // 🔧 FIX: Add missing prefix to match queue
     concurrency: LLM_CONFIG.WORKER_CONCURRENCY,
     lockDuration: 1000 * 60 * 15, // 15 minutes
     limiter: {
