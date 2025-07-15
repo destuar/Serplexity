@@ -107,6 +107,7 @@ export const MODELS: Record<string, Model> = {
     task: [
       ModelTask.SENTIMENT,                        // ✅ Used for sentiment analysis
       ModelTask.FANOUT_GENERATION,               // ✅ Used for fanout query generation
+      ModelTask.SENTIMENT_SUMMARY,                // ✅ Used for sentiment summaries
       ModelTask.QUESTION_ANSWERING                // ✅ Used for answering questions
     ],
   },
