@@ -16,7 +16,7 @@ export function Navbar() {
   const profileDropdownRef = useRef<HTMLDivElement>(null);
   
   const isLandingPage = location.pathname === '/';
-  const isLandingStylePage = location.pathname === '/' || location.pathname === '/terms' || location.pathname === '/privacy';
+  const isLandingStylePage = location.pathname === '/' || location.pathname === '/terms' || location.pathname === '/privacy' || location.pathname === '/research' || location.pathname.startsWith('/research/');
   const shouldApplyScrollStyles = isLandingStylePage && isScrolled;
 
   // Smooth scroll function
@@ -161,6 +161,44 @@ export function Navbar() {
                       {item.label}
                     </button>
                   ))}
+                </>
+              ) : location.pathname === '/research' ? (
+                // Research page navigation
+                <>
+                  <Link 
+                    to="/" 
+                    className="text-base font-medium text-gray-300 hover:text-white transition-colors"
+                  >
+                    Home
+                  </Link>
+                  <Link 
+                    to="/overview" 
+                    className="text-base font-medium text-gray-300 hover:text-white transition-colors"
+                  >
+                    Dashboard
+                  </Link>
+                </>
+              ) : location.pathname.startsWith('/research/') ? (
+                // Blog post page navigation
+                <>
+                  <Link 
+                    to="/" 
+                    className="text-base font-medium text-gray-300 hover:text-white transition-colors"
+                  >
+                    Home
+                  </Link>
+                  <Link 
+                    to="/research" 
+                    className="text-base font-medium text-gray-300 hover:text-white transition-colors"
+                  >
+                    Research
+                  </Link>
+                  <Link 
+                    to="/overview" 
+                    className="text-base font-medium text-gray-300 hover:text-white transition-colors"
+                  >
+                    Dashboard
+                  </Link>
                 </>
               ) : !isLandingStylePage ? (
                 // Dashboard navigation
@@ -326,6 +364,137 @@ export function Navbar() {
                       {item.label}
                     </button>
                   ))}
+                  <div className="border-t border-white/10 pt-4 space-y-4">
+                    {user ? (
+                      <>
+                        <button 
+                          onClick={() => {
+                            setShowProfileModal(true);
+                            setIsMobileMenuOpen(false);
+                          }}
+                          className="block w-full text-left text-base font-medium text-gray-300 hover:text-white py-2 flex items-center gap-2"
+                        >
+                          <Settings size={16} />
+                          Edit Profile
+                        </button>
+                        <button 
+                          onClick={() => {
+                            logout();
+                            setIsMobileMenuOpen(false);
+                          }}
+                          className="block w-full text-left text-base font-medium text-gray-300 hover:text-white py-2 flex items-center gap-2"
+                        >
+                          <LogOut size={16} />
+                          Logout
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Link 
+                          to="/login" 
+                          className="block text-base font-medium text-gray-300 hover:text-white py-2"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          Login
+                        </Link>
+                        <Link 
+                          to="/register"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          <button className="w-full bg-[#7762ff] hover:bg-[#6650e6] text-white text-base rounded-lg px-4 py-2 font-medium shadow-lg hover:shadow-xl transition-all duration-200">
+                            Sign up
+                          </button>
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                </>
+              ) : location.pathname === '/research' ? (
+                // Research page mobile navigation
+                <>
+                  <Link 
+                    to="/" 
+                    className="block text-base font-medium text-gray-300 hover:text-white py-2"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Home
+                  </Link>
+                  <Link 
+                    to="/overview" 
+                    className="block text-base font-medium text-gray-300 hover:text-white py-2"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Dashboard
+                  </Link>
+                  <div className="border-t border-white/10 pt-4 space-y-4">
+                    {user ? (
+                      <>
+                        <button 
+                          onClick={() => {
+                            setShowProfileModal(true);
+                            setIsMobileMenuOpen(false);
+                          }}
+                          className="block w-full text-left text-base font-medium text-gray-300 hover:text-white py-2 flex items-center gap-2"
+                        >
+                          <Settings size={16} />
+                          Edit Profile
+                        </button>
+                        <button 
+                          onClick={() => {
+                            logout();
+                            setIsMobileMenuOpen(false);
+                          }}
+                          className="block w-full text-left text-base font-medium text-gray-300 hover:text-white py-2 flex items-center gap-2"
+                        >
+                          <LogOut size={16} />
+                          Logout
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Link 
+                          to="/login" 
+                          className="block text-base font-medium text-gray-300 hover:text-white py-2"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          Login
+                        </Link>
+                        <Link 
+                          to="/register"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          <button className="w-full bg-[#7762ff] hover:bg-[#6650e6] text-white text-base rounded-lg px-4 py-2 font-medium shadow-lg hover:shadow-xl transition-all duration-200">
+                            Sign up
+                          </button>
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                </>
+              ) : location.pathname.startsWith('/research/') ? (
+                // Blog post page mobile navigation
+                <>
+                  <Link 
+                    to="/" 
+                    className="block text-base font-medium text-gray-300 hover:text-white py-2"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Home
+                  </Link>
+                  <Link 
+                    to="/research" 
+                    className="block text-base font-medium text-gray-300 hover:text-white py-2"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Research
+                  </Link>
+                  <Link 
+                    to="/overview" 
+                    className="block text-base font-medium text-gray-300 hover:text-white py-2"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Dashboard
+                  </Link>
                   <div className="border-t border-white/10 pt-4 space-y-4">
                     {user ? (
                       <>

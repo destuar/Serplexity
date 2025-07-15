@@ -41,7 +41,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       StarterKit.configure({
         heading: {
           levels: [1, 2, 3]
-        }
+        },
+        link: false // Exclude link from StarterKit to avoid conflicts
       }),
       Image.configure({
         HTMLAttributes: {
@@ -65,7 +66,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-lg max-w-none focus:outline-none min-h-[300px] p-4 border border-gray-300 rounded-md'
+        class: 'prose prose-lg max-w-none focus:outline-none min-h-[400px] p-6 text-gray-900'
       }
     }
   });
@@ -109,15 +110,16 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   }
 
   return (
-    <div className="border border-gray-300 rounded-lg overflow-hidden">
+    <div className="w-full">
       {/* Toolbar */}
-      <div className="border-b border-gray-300 bg-gray-50 p-2 flex flex-wrap gap-1">
+      <div className="border-b border-gray-200 bg-gray-50 px-4 py-3 flex flex-wrap gap-2">
         {/* Text formatting */}
         <Button
           type="button"
           variant={editor.isActive('bold') ? 'default' : 'ghost'}
           size="sm"
           onClick={() => editor.chain().focus().toggleBold().run()}
+          className={editor.isActive('bold') ? 'bg-[#7762ff] hover:bg-[#6650e6] text-white' : ''}
         >
           <Bold className="h-4 w-4" />
         </Button>
@@ -127,6 +129,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           variant={editor.isActive('italic') ? 'default' : 'ghost'}
           size="sm"
           onClick={() => editor.chain().focus().toggleItalic().run()}
+          className={editor.isActive('italic') ? 'bg-[#7762ff] hover:bg-[#6650e6] text-white' : ''}
         >
           <Italic className="h-4 w-4" />
         </Button>

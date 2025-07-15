@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Navbar } from '../components/layout/Navbar';
-import { Target, Check, X, ArrowRight } from 'lucide-react';
+import { Target, Check, X, ArrowRight, Clock, Calendar } from 'lucide-react';
 import { FaLinkedin } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
 import { useAuth } from '../hooks/useAuth';
@@ -12,6 +12,8 @@ import { loadStripe } from '@stripe/stripe-js';
 import { createCheckoutSession } from '../services/paymentService';
 import DashboardPreviewCarousel from '../components/landing/DashboardPreviewCarousel';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useBlogPosts } from '../hooks/useBlogPosts';
+import { formatBlogDate, estimateReadTime, extractFirstCategory, truncateText, stripHtmlTags } from '../utils/blogUtils';
 
 const LandingPage: React.FC = () => {
   const { user } = useAuth();
@@ -19,6 +21,7 @@ const LandingPage: React.FC = () => {
   const starContainerRef = useRef<HTMLDivElement>(null);
   const timeoutIdRef = useRef<number | null>(null);
   const isLargeScreen = useMediaQuery('(min-width: 1024px)');
+  const { posts: blogPosts, loading: postsLoading, error: postsError } = useBlogPosts({ limit: 3 });
 
   const handleGetStarted = () => navigate('/register');
   const handleDashboard = () => navigate('/overview');
@@ -753,98 +756,177 @@ const LandingPage: React.FC = () => {
                 </p>
               </div>
               
-              {/* Blog Posts - Mobile Swipeable, Desktop Grid */}
-              <div className="md:hidden">
-                {/* Mobile: Horizontal scrollable */}
-                <div className="flex overflow-x-auto gap-6 px-4 -mx-4 pb-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                  {[1, 2, 3].map((_, i) => (
-                    <div key={i} className="bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-6 hover:bg-black/10 transition-all duration-200 group cursor-pointer flex-shrink-0 w-80">
-                      {/* Blog Post Image Placeholder */}
-                      <div className="w-full h-48 bg-gradient-to-br from-[#5271ff]/20 to-[#9e52ff]/20 rounded-xl mb-6 flex items-center justify-center">
-                        <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center">
-                          <svg className="w-8 h-8 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                        </div>
-                      </div>
-                      
-                      {/* Blog Post Content */}
-                      <div className="space-y-4">
-                        {/* Category Tag */}
-                        <div className="flex items-center gap-2">
-                          <span className="px-3 py-1 bg-[#5271ff]/20 text-[#5271ff] rounded-full text-xs font-medium">
-                            {/* Category placeholder */}
-                          </span>
-                          <span className="text-gray-400 text-xs">
-                            {/* Date placeholder */}
-                          </span>
-                        </div>
-                        
-                        {/* Title */}
-                        <h3 className="text-xl font-semibold text-white group-hover:text-gray-100 transition-colors line-clamp-2">
-                          {/* Title placeholder */}
-                        </h3>
-                        
-                        {/* Description */}
-                        <p className="text-gray-300 text-sm line-clamp-3">
-                          {/* Description placeholder */}
-                        </p>
-                        
-                        {/* Read More Link */}
-                        <div className="flex items-center text-[#5271ff] text-sm font-medium group-hover:text-[#7662ff] transition-colors">
-                          <span>{/* Read more placeholder */}</span>
-                          <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+              {/* Blog Posts - Loading State */}
+              {postsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#7762ff] mx-auto mb-4"></div>
+                    <p className="text-gray-300">Loading latest research...</p>
+                  </div>
                 </div>
-              </div>
-              
-              {/* Desktop: Grid layout */}
-              <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {[1, 2, 3].map((_, i) => (
-                  <div key={i} className="bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-6 hover:bg-black/10 transition-all duration-200 group cursor-pointer">
-                    {/* Blog Post Image Placeholder */}
-                    <div className="w-full h-48 bg-gradient-to-br from-[#5271ff]/20 to-[#9e52ff]/20 rounded-xl mb-6 flex items-center justify-center">
-                      <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center">
-                        <svg className="w-8 h-8 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                      </div>
-                    </div>
-                    
-                    {/* Blog Post Content */}
-                    <div className="space-y-4">
-                      {/* Category Tag */}
-                      <div className="flex items-center gap-2">
-                        <span className="px-3 py-1 bg-[#5271ff]/20 text-[#5271ff] rounded-full text-xs font-medium">
-                          {/* Category placeholder */}
-                        </span>
-                        <span className="text-gray-400 text-xs">
-                          {/* Date placeholder */}
-                        </span>
-                      </div>
-                      
-                      {/* Title */}
-                      <h3 className="text-xl font-semibold text-white group-hover:text-gray-100 transition-colors line-clamp-2">
-                        {/* Title placeholder */}
-                      </h3>
-                      
-                      {/* Description */}
-                      <p className="text-gray-300 text-sm line-clamp-3">
-                        {/* Description placeholder */}
-                      </p>
-                      
-                      {/* Read More Link */}
-                      <div className="flex items-center text-[#5271ff] text-sm font-medium group-hover:text-[#7662ff] transition-colors">
-                        <span>{/* Read more placeholder */}</span>
-                        <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
-                      </div>
+              ) : postsError ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-red-500/20 rounded-full flex items-center justify-center">
+                    <svg className="h-6 w-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-white mb-2">Unable to load articles</h3>
+                  <p className="text-gray-400">{postsError}</p>
+                </div>
+              ) : blogPosts.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-white/10 rounded-full flex items-center justify-center">
+                    <svg className="w-8 h-8 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-white mb-2">No articles yet</h3>
+                  <p className="text-gray-400">Check back soon for insights and research from our team.</p>
+                </div>
+              ) : (
+                <>
+                  {/* Mobile: Horizontal scrollable */}
+                  <div className="md:hidden">
+                    <div className="flex overflow-x-auto gap-6 px-4 -mx-4 pb-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                      {blogPosts.map((post) => (
+                        <article
+                          key={post.id}
+                          onClick={() => navigate(`/research/${post.slug}`)}
+                          className="bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-6 hover:bg-black/10 transition-all duration-200 group cursor-pointer flex-shrink-0 w-80"
+                        >
+                          {/* Blog Post Image */}
+                          <div className="w-full h-48 bg-gradient-to-br from-[#5271ff]/20 to-[#9e52ff]/20 rounded-xl mb-6 overflow-hidden">
+                            {post.coverImage ? (
+                              <img
+                                src={post.coverImage}
+                                alt={post.title}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center">
+                                  <svg className="w-8 h-8 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Blog Post Content */}
+                          <div className="space-y-4">
+                            {/* Category Tag & Date */}
+                            <div className="flex items-center gap-2">
+                              <span className="px-3 py-1 bg-[#5271ff]/20 text-[#5271ff] rounded-full text-xs font-medium">
+                                {extractFirstCategory(post.tags)}
+                              </span>
+                              <span className="text-gray-400 text-xs flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                {formatBlogDate(post.publishedAt || post.createdAt)}
+                              </span>
+                            </div>
+                            
+                            {/* Title */}
+                            <h3 className="text-xl font-semibold text-white group-hover:text-gray-100 transition-colors line-clamp-2">
+                              {post.title}
+                            </h3>
+                            
+                            {/* Description */}
+                            <p className="text-gray-300 text-sm line-clamp-3">
+                              {post.excerpt 
+                                ? truncateText(stripHtmlTags(post.excerpt), 120)
+                                : truncateText(stripHtmlTags(post.content), 120)
+                              }
+                            </p>
+                            
+                            {/* Read More Link & Read Time */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center text-[#5271ff] text-sm font-medium group-hover:text-[#7662ff] transition-colors">
+                                <span>Read more</span>
+                                <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                              </div>
+                              <div className="flex items-center text-gray-400 text-xs gap-1">
+                                <Clock className="w-3 h-3" />
+                                <span>{estimateReadTime(post.content)} min read</span>
+                              </div>
+                            </div>
+                          </div>
+                        </article>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
+                  
+                  {/* Desktop: Grid layout */}
+                  <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {blogPosts.map((post) => (
+                      <article
+                        key={post.id}
+                        onClick={() => navigate(`/research/${post.slug}`)}
+                        className="bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-6 hover:bg-black/10 transition-all duration-200 group cursor-pointer"
+                      >
+                        {/* Blog Post Image */}
+                        <div className="w-full h-48 bg-gradient-to-br from-[#5271ff]/20 to-[#9e52ff]/20 rounded-xl mb-6 overflow-hidden">
+                          {post.coverImage ? (
+                            <img
+                              src={post.coverImage}
+                              alt={post.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center">
+                                <svg className="w-8 h-8 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Blog Post Content */}
+                        <div className="space-y-4">
+                          {/* Category Tag & Date */}
+                          <div className="flex items-center gap-2">
+                            <span className="px-3 py-1 bg-[#5271ff]/20 text-[#5271ff] rounded-full text-xs font-medium">
+                              {extractFirstCategory(post.tags)}
+                            </span>
+                            <span className="text-gray-400 text-xs flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {formatBlogDate(post.publishedAt || post.createdAt)}
+                            </span>
+                          </div>
+                          
+                          {/* Title */}
+                          <h3 className="text-xl font-semibold text-white group-hover:text-gray-100 transition-colors line-clamp-2">
+                            {post.title}
+                          </h3>
+                          
+                          {/* Description */}
+                          <p className="text-gray-300 text-sm line-clamp-3">
+                            {post.excerpt 
+                              ? truncateText(stripHtmlTags(post.excerpt), 120)
+                              : truncateText(stripHtmlTags(post.content), 120)
+                            }
+                          </p>
+                          
+                          {/* Read More Link & Read Time */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center text-[#5271ff] text-sm font-medium group-hover:text-[#7662ff] transition-colors">
+                              <span>Read more</span>
+                              <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                            </div>
+                            <div className="flex items-center text-gray-400 text-xs gap-1">
+                              <Clock className="w-3 h-3" />
+                              <span>{estimateReadTime(post.content)} min read</span>
+                            </div>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </>
+              )}
               
               {/* View All Posts Button */}
               <div className="text-center mt-6 md:mt-12">

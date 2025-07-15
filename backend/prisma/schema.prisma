@@ -260,23 +260,33 @@ model VisibilityOptimizationTask {
 }
 
 model BlogPost {
-  id          String      @id @default(cuid())
-  title       String
-  slug        String      @unique
-  content     String      // Rich HTML content from editor
-  excerpt     String?     // Auto-generated or manual excerpt
-  coverImage  String?     // URL to cover image
-  published   Boolean     @default(false)
-  publishedAt DateTime?
-  authorId    String
-  author      User        @relation(fields: [authorId], references: [id])
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  media       BlogMedia[]
+  id                String      @id @default(cuid())
+  title             String
+  slug              String      @unique
+  content           String      // Rich HTML content from editor
+  excerpt           String?     // Auto-generated or manual excerpt
+  coverImage        String?     // URL to cover image
+  published         Boolean     @default(false)
+  publishedAt       DateTime?
+  authorId          String
+  author            User        @relation(fields: [authorId], references: [id])
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  media             BlogMedia[]
+  // SEO Fields
+  metaTitle         String?     // SEO title (defaults to title if not set)
+  metaDescription   String?     // SEO meta description
+  canonicalUrl      String?     // Canonical URL for SEO
+  openGraphImage    String?     // Open Graph image (defaults to coverImage)
+  twitterCard       String?     @default("summary_large_image") // Twitter card type
+  tags              String[]    // Article tags for categorization
+  estimatedReadTime Int?        // Estimated read time in minutes
 
   @@index([published])
   @@index([publishedAt])
   @@index([authorId])
+  @@index([slug])
+  @@index([tags])
 }
 
 model BlogMedia {

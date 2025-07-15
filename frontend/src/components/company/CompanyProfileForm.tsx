@@ -7,18 +7,19 @@ import { FormInput } from '../ui/FormInput';
 import { Button } from '../ui/Button';
 import { useCompany, CompanyFormData, Company } from '../../contexts/CompanyContext';
 import { Product, Competitor, BenchmarkingQuestion } from '../../types/schemas';
+import { flexibleUrlSchema } from '../../utils/urlNormalizer';
 
 // Form validation schema
 const companyFormSchema = z.object({
   name: z.string().min(1, 'Company name is required'),
-  website: z.string().url('Please enter a valid website URL'),
+  website: flexibleUrlSchema,
   industry: z.string().min(1, 'Industry is required'),
   products: z.array(z.object({
     name: z.string().min(1, 'Product name is required'),
   })).min(1, 'At least one product is required').max(5, 'You can add up to 5 products'),
   competitors: z.array(z.object({
     name: z.string().min(1, 'Competitor name is required'),
-    website: z.string().url('Please enter a valid website URL'),
+    website: flexibleUrlSchema,
   })).min(1, 'At least one competitor is required'),
   benchmarkingQuestions: z.array(z.object({
     text: z.string().min(1, 'Question is required'),

@@ -5,6 +5,7 @@ import { Role } from '@prisma/client';
 import {
   getAllBlogPosts,
   getBlogPostBySlug,
+  getBlogPostById,
   createBlogPost,
   updateBlogPost,
   deleteBlogPost
@@ -46,6 +47,7 @@ router.get('/uploads/:filename', (req, res) => {
 });
 
 // Admin-only routes
+router.get('/admin/:id', authenticate, authorize(Role.ADMIN), getBlogPostById);
 router.post('/', authenticate, authorize(Role.ADMIN), createBlogPost);
 router.put('/:id', authenticate, authorize(Role.ADMIN), updateBlogPost);
 router.delete('/:id', authenticate, authorize(Role.ADMIN), deleteBlogPost);

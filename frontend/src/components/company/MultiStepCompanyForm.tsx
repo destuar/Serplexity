@@ -6,11 +6,12 @@ import { Building, Globe, Factory, Users, Loader, Plus, X, HelpCircle, ShoppingB
 import { FormInput } from '../ui/FormInput';
 import { Button } from '../ui/Button';
 import { useCompany, CompanyFormData } from '../../contexts/CompanyContext';
+import { flexibleUrlSchema } from '../../utils/urlNormalizer';
 
 // Step-specific validation schemas
 const step1Schema = z.object({
   name: z.string().min(1, 'Company name is required'),
-  website: z.string().url('Please enter a valid website URL'),
+  website: flexibleUrlSchema,
   industry: z.string().min(1, 'Industry is required'),
 });
 
@@ -23,7 +24,7 @@ const step2Schema = z.object({
 const step3Schema = z.object({
   competitors: z.array(z.object({
     name: z.string().min(1, 'Competitor name is required'),
-    website: z.string().url('Please enter a valid website URL'),
+    website: flexibleUrlSchema,
   })).min(1, 'At least one competitor is required'),
 });
 

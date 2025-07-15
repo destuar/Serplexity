@@ -7,7 +7,26 @@ const createBlogPostSchema = z.object({
   title: z.string().min(1).max(200),
   content: z.string().min(1),
   excerpt: z.string().optional(),
-  coverImage: z.string().url().optional(),
+  coverImage: z.string()
+    .refine((val) => {
+      // Allow uploaded images (relative paths starting with /api/blog/uploads/)
+      if (val.startsWith('/api/blog/uploads/')) {
+        return true;
+      }
+      // For external images, validate as URL
+      try {
+        new URL(val);
+        return true;
+      } catch {
+        return false;
+      }
+    }, {
+      message: "Must be a valid URL or uploaded image path"
+    })
+    .optional(),
+  metaTitle: z.string().max(60).optional(),
+  metaDescription: z.string().max(160).optional(),
+  tags: z.array(z.string()).default([]),
   published: z.boolean().default(false),
 });
 
@@ -39,6 +58,15 @@ const ensureUniqueSlug = async (baseSlug: string, excludeId?: string): Promise<s
     slug = `${baseSlug}-${counter}`;
     counter++;
   }
+};
+
+// Calculate reading time based on content
+const calculateReadingTime = (content: string): number => {
+  // Strip HTML tags and count words
+  const text = content.replace(/<[^>]*>/g, '');
+  const wordCount = text.split(/\s+/).filter(word => word.length > 0).length;
+  // Average reading speed is 200 words per minute
+  return Math.ceil(wordCount / 200);
 };
 
 export const getAllBlogPosts = async (req: Request, res: Response) => {
@@ -105,6 +133,36 @@ export const getBlogPostBySlug = async (req: Request, res: Response) => {
   }
 };
 
+export const getBlogPostById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const isAdmin = req.user?.role === Role.ADMIN;
+
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const post = await prisma.blogPost.findUnique({
+      where: { id },
+      include: {
+        author: {
+          select: { id: true, name: true, email: true }
+        },
+        media: true
+      }
+    });
+
+    if (!post) {
+      return res.status(404).json({ error: 'Blog post not found' });
+    }
+
+    res.json(post);
+  } catch (error) {
+    console.error('Error fetching blog post by ID:', error);
+    res.status(500).json({ error: 'Failed to fetch blog post' });
+  }
+};
+
 export const createBlogPost = async (req: Request, res: Response) => {
   try {
     const validatedData = createBlogPostSchema.parse(req.body);
@@ -112,12 +170,14 @@ export const createBlogPost = async (req: Request, res: Response) => {
 
     const baseSlug = generateSlug(validatedData.title);
     const slug = await ensureUniqueSlug(baseSlug);
+    const estimatedReadTime = calculateReadingTime(validatedData.content);
 
     const post = await prisma.blogPost.create({
       data: {
         ...validatedData,
         slug,
         authorId: userId,
+        estimatedReadTime,
         publishedAt: validatedData.published ? new Date() : null
       },
       include: {
@@ -160,12 +220,16 @@ export const updateBlogPost = async (req: Request, res: Response) => {
 
     const wasUnpublished = !existingPost.published;
     const willBePublished = validatedData.published === true;
+    
+    // Recalculate reading time if content changed
+    const estimatedReadTime = validatedData.content ? calculateReadingTime(validatedData.content) : undefined;
 
     const post = await prisma.blogPost.update({
       where: { id },
       data: {
         ...validatedData,
         slug,
+        estimatedReadTime,
         publishedAt: wasUnpublished && willBePublished ? new Date() : undefined
       },
       include: {
