@@ -14,7 +14,7 @@
  * - TaskDetailsModal: The main task details modal component.
  */
 import React from 'react';
-import { X, Calendar, Clock, Target, Tag, AlertCircle, CheckCircle2, Circle, ArrowRight } from 'lucide-react';
+import { X, Calendar, Clock, Target, Tag, CheckCircle2, Circle, ArrowRight } from 'lucide-react';
 import { OptimizationTask, TaskStatus } from '../../services/reportService';
 import { cn } from '../../lib/utils';
 
@@ -59,9 +59,6 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
       bgColor: 'bg-green-100'
     }
   };
-
-  const currentStatus = statusConfig[task.status];
-  const StatusIcon = currentStatus.icon;
 
   const handleStatusChange = (newStatus: TaskStatus) => {
     if (onStatusChange) {
