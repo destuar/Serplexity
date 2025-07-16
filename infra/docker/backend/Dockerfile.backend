@@ -25,7 +25,7 @@ RUN echo "Dependencies - Installing..." && \
 # Copy and install Python requirements
 COPY backend/requirements.txt ./
 RUN echo "Python dependencies - Installing..." && \
-    pip3 install --no-cache-dir -r requirements.txt && \
+    pip3 install --no-cache-dir --break-system-packages -r requirements.txt && \
     echo "Python dependencies - Installed"
 
 # Copy source code and config
@@ -78,7 +78,7 @@ RUN echo "Production dependencies - Installing..." && \
 # Copy and install Python requirements
 COPY backend/requirements.txt ./
 RUN echo "Python dependencies - Installing..." && \
-    pip3 install --no-cache-dir -r requirements.txt && \
+    pip3 install --no-cache-dir --break-system-packages -r requirements.txt && \
     echo "Python dependencies - Installed"
 
 # Copy built application from builder stage
