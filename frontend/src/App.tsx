@@ -34,7 +34,6 @@ import SentimentAnalysisPage from './pages/SentimentAnalysisPage';
 import ResponseDetailsPage from './pages/ResponseDetailsPage';
 import CompetitorRankingsPage from './pages/CompetitorRankingsPage';
 import ModelComparisonPage from './pages/ModelComparisonPage';
-import AiOptimizationToolPage from './pages/AiOptimizationToolPage';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -60,7 +59,6 @@ const DashboardRoutes: React.FC = () => (
       <Route path="/response-details" element={<ResponseDetailsPage />} />
       <Route path="/competitor-rankings" element={<CompetitorRankingsPage />} />
       <Route path="/model-comparison" element={<ModelComparisonPage />} />
-      <Route path="/ai-optimization-tool" element={<AiOptimizationToolPage />} />
       <Route path="/experimental-search" element={<ExperimentalSearchPage />} />
     </Routes>
   </DashboardLayout>

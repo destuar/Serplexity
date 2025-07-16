@@ -37,6 +37,7 @@ interface KanbanColumnProps {
   count: number;
   isDragging?: boolean;
   insertionIndicator?: InsertionIndicator | null;
+  onTaskClick?: (task: OptimizationTask) => void;
 }
 
 const KanbanColumn: React.FC<KanbanColumnProps> = ({ 
@@ -46,7 +47,8 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   tasks, 
   count,
   isDragging = false,
-  insertionIndicator = null
+  insertionIndicator = null,
+  onTaskClick
 }) => {
   const { isOver, setNodeRef } = useDroppable({
     id: id,
@@ -122,7 +124,10 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                     </div>
                   )}
                   
-                  <KanbanTaskCard task={task} />
+                  <KanbanTaskCard 
+                    task={task} 
+                    onClick={onTaskClick}
+                  />
                   
                   {/* Insertion indicator below */}
                   {insertionIndicator && 

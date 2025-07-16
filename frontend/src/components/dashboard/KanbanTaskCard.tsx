@@ -15,7 +15,7 @@
  * @exports
  * - KanbanTaskCard: React functional component for a Kanban task card.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { cn } from '../../lib/utils';
@@ -24,9 +24,16 @@ import { OptimizationTask } from '../../services/reportService';
 interface KanbanTaskCardProps {
   task: OptimizationTask;
   isDragging?: boolean;
+  onClick?: (task: OptimizationTask) => void;
 }
 
-const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({ task, isDragging = false }) => {
+const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({ 
+  task, 
+  isDragging = false, 
+  onClick 
+}) => {
+  const [isDragStarted, setIsDragStarted] = useState(false);
+  
   const {
     attributes,
     listeners,
@@ -47,11 +54,36 @@ const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({ task, isDragging = fals
     Low: 'bg-green-50 text-green-700 border-green-200'
   };
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Only trigger click if we're not in the middle of a drag
+    if (!isDragStarted && !isSortableDragging && onClick) {
+      onClick(task);
+    }
+  };
+
+  const handleMouseDown = () => {
+    setIsDragStarted(false);
+  };
+
+  const handleDragStart = () => {
+    setIsDragStarted(true);
+  };
+
+  const handleDragEnd = () => {
+    setIsDragStarted(false);
+  };
+
   return (
     <div
       ref={setNodeRef}
       {...attributes}
       {...listeners}
+      onMouseDown={handleMouseDown}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
       className={cn(
         'group relative bg-white rounded-lg p-4 shadow-md border border-gray-100 hover:shadow-lg transition-all duration-200 cursor-grab active:cursor-grabbing',
         isSortableDragging ? 'opacity-0' : '',
@@ -74,29 +106,35 @@ const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({ task, isDragging = fals
         </div>
       </div>
 
-      <div className="flex items-start justify-between mb-3">
-        <h4 className="font-semibold text-gray-800 text-sm leading-tight pr-6">
-          {task.title}
-        </h4>
-        <span className={cn(
-          'text-xs px-2 py-1 rounded-full font-medium border flex-shrink-0',
-          priorityColors[task.priority]
-        )}>
-          {task.priority}
-        </span>
-      </div>
-      
-      <p className="text-xs text-gray-600 mb-4 line-clamp-3 leading-relaxed">
-        {task.description}
-      </p>
-      
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md border border-gray-200 font-medium">
-          {task.category}
-        </span>
-        <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md border border-gray-200 font-medium">
-          {task.impactMetric}
-        </span>
+      {/* Clickable content area */}
+      <div 
+        onClick={handleCardClick}
+        className="cursor-pointer"
+      >
+        <div className="flex items-start justify-between mb-3">
+          <h4 className="font-semibold text-gray-800 text-sm leading-tight pr-6">
+            {task.title}
+          </h4>
+          <span className={cn(
+            'text-xs px-2 py-1 rounded-full font-medium border flex-shrink-0',
+            priorityColors[task.priority]
+          )}>
+            {task.priority}
+          </span>
+        </div>
+        
+        <p className="text-xs text-gray-600 mb-4 line-clamp-3 leading-relaxed">
+          {task.description}
+        </p>
+        
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md border border-gray-200 font-medium">
+            {task.category}
+          </span>
+          <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md border border-gray-200 font-medium">
+            {task.impactMetric}
+          </span>
+        </div>
       </div>
     </div>
   );

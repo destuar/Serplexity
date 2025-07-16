@@ -20,6 +20,7 @@ import BlankLoadingState from '../components/ui/BlankLoadingState';
 import { useReportGeneration } from '../hooks/useReportGeneration';
 import { RefreshCw, Loader } from 'lucide-react';
 import KanbanBoard from '../components/dashboard/KanbanBoard';
+import TaskDetailsModal from '../components/dashboard/TaskDetailsModal';
 import { OptimizationTask, TaskStatus, updateTaskStatus } from '../services/reportService';
 
 const VisibilityTasksPage: React.FC = () => {
@@ -36,6 +37,8 @@ const VisibilityTasksPage: React.FC = () => {
   } = useReportGeneration(selectedCompany);
 
   const [tasks, setTasks] = useState<OptimizationTask[]>([]);
+  const [selectedTask, setSelectedTask] = useState<OptimizationTask | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Sync tasks from dashboard data
   useEffect(() => {
@@ -68,6 +71,15 @@ const VisibilityTasksPage: React.FC = () => {
         : t
     ));
 
+    // Also update the selected task if it's currently being viewed
+    if (selectedTask && selectedTask.taskId === taskId) {
+      setSelectedTask(prev => prev ? {
+        ...prev,
+        status: newStatus,
+        isCompleted: newStatus === TaskStatus.COMPLETED
+      } : null);
+    }
+
     try {
       // Background API call
       await updateTaskStatus(task.reportRunId, taskId, newStatus);
@@ -83,10 +95,29 @@ const VisibilityTasksPage: React.FC = () => {
           ? { ...t, status: originalStatus, isCompleted: originalIsCompleted }
           : t
       ));
+
+      // Also revert the selected task if needed
+      if (selectedTask && selectedTask.taskId === taskId) {
+        setSelectedTask(prev => prev ? {
+          ...prev,
+          status: originalStatus,
+          isCompleted: originalIsCompleted
+        } : null);
+      }
       
       // Show error toast or notification here if needed
       // For now, we'll just log the error
     }
+  };
+
+  const handleTaskClick = (task: OptimizationTask) => {
+    setSelectedTask(task);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedTask(null);
   };
 
   return (
@@ -142,9 +173,18 @@ const VisibilityTasksPage: React.FC = () => {
               <KanbanBoard 
                 tasks={tasks}
                 onStatusChange={handleStatusChange}
+                onTaskClick={handleTaskClick}
               />
             </div>
           )}
+
+          {/* Task Details Modal */}
+          <TaskDetailsModal
+            task={selectedTask}
+            isOpen={isModalOpen}
+            onClose={handleCloseModal}
+            onStatusChange={handleStatusChange}
+          />
         </>
       )}
     </div>

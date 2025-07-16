@@ -24,6 +24,7 @@ import KanbanTaskCard from './KanbanTaskCard';
 interface KanbanBoardProps {
   tasks: OptimizationTask[];
   onStatusChange: (taskId: string, newStatus: TaskStatus) => Promise<void>;
+  onTaskClick?: (task: OptimizationTask) => void;
 }
 
 interface InsertionIndicator {
@@ -32,7 +33,11 @@ interface InsertionIndicator {
   status: TaskStatus;
 }
 
-const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks: initialTasks, onStatusChange }) => {
+const KanbanBoard: React.FC<KanbanBoardProps> = ({ 
+  tasks: initialTasks, 
+  onStatusChange, 
+  onTaskClick 
+}) => {
   const [tasks, setTasks] = useState<OptimizationTask[]>(initialTasks);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [insertionIndicator, setInsertionIndicator] = useState<InsertionIndicator | null>(null);
@@ -222,6 +227,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks: initialTasks, onStatus
                 count={tasksByStatus[column.id]?.length || 0}
                 isDragging={Boolean(activeId)}
                 insertionIndicator={insertionIndicator}
+                onTaskClick={onTaskClick}
               />
             </div>
           ))}
@@ -235,8 +241,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks: initialTasks, onStatus
           )}
         </DragOverlay>
       </DndContext>
-
-
     </div>
   );
 };
