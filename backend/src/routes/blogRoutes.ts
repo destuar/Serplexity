@@ -25,10 +25,10 @@ router.post('/upload', authenticate, authorize(Role.ADMIN), upload.single('image
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const fileUrl = getFileUrl(req.file.filename);
+    const fileUrl = getFileUrl((req.file as any).key);
     res.json({ 
       url: fileUrl,
-      filename: req.file.filename,
+      filename: (req.file as any).key,
       originalName: req.file.originalname,
       size: req.file.size,
       mimeType: req.file.mimetype
@@ -37,13 +37,6 @@ router.post('/upload', authenticate, authorize(Role.ADMIN), upload.single('image
     console.error('Upload error:', error);
     res.status(500).json({ error: 'Failed to upload file' });
   }
-});
-
-// Serve uploaded files (public)
-router.get('/uploads/:filename', (req, res) => {
-  const filename = req.params.filename;
-  const filepath = path.join(process.cwd(), 'uploads/blog', filename);
-  res.sendFile(filepath);
 });
 
 // Admin-only routes

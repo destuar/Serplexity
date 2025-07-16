@@ -1,22 +1,23 @@
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
+import AWS from 'aws-sdk';
+const multerS3 = require('multer-s3');
 
-const uploadDir = path.join(process.cwd(), 'uploads/blog');
+const s3 = new AWS.S3({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION,
+});
 
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
+const storage = multerS3({
+  s3: s3,
+  bucket: process.env.AWS_BUCKET_NAME!,
+  key: (req: any, file: Express.Multer.File, cb: any) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const extension = path.extname(file.originalname);
-    cb(null, `blog-${uniqueSuffix}${extension}`);
-  }
+    cb(null, `blog/${uniqueSuffix}${extension}`);
+  },
+  contentType: multerS3.AUTO_CONTENT_TYPE,
 });
 
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
@@ -40,5 +41,5 @@ export const upload = multer({
 });
 
 export const getFileUrl = (filename: string): string => {
-  return `/api/blog/uploads/${filename}`;
+  return `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${filename}`;
 };
