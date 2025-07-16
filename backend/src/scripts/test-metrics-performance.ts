@@ -1,9 +1,10 @@
 #!/usr/bin/env ts-node
 
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 import { getFullReportMetrics } from '../services/metricsService';
 
 async function testMetricsPerformance(): Promise<void> {
+  const prisma = await getDbClient();
   console.log('🔍 Testing pre-computed metrics system...\n');
 
   try {
@@ -95,6 +96,7 @@ async function testMetricsPerformance(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  const prisma = await getDbClient();
   try {
     await testMetricsPerformance();
     console.log('\n🎯 Performance test completed successfully!');

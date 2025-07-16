@@ -28,9 +28,15 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().default('8000'),
 
-  // Database
-  DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
+  // Database - Legacy environment variables (optional when using cloud secrets)
+  DATABASE_URL: z.string().optional(),
   READ_REPLICA_URL: z.string().optional(),
+  
+  // Cloud Secrets Configuration
+  SECRETS_PROVIDER: z.enum(['aws', 'azure', 'gcp', 'environment', 'vault']).default('environment'),
+  DATABASE_SECRET_NAME: z.string().optional(), // Name of the database secret in the secrets provider
+  READ_REPLICA_SECRET_NAME: z.string().optional(), // Name of the read replica secret
+  USE_AWS_SECRETS: z.string().transform(val => val === 'true').default('false'), // Legacy flag for backward compatibility
 
   // Redis
   REDIS_HOST: z.string(),
@@ -89,16 +95,35 @@ const parsedEnv = envSchema.safeParse(process.env);
 
 if (!parsedEnv.success) {
   console.error('❌ Invalid environment variables:', parsedEnv.error.format());
-  // Find the specific error for DATABASE_URL for a more direct message
-  const dbUrlError = parsedEnv.error.errors.find(e => e.path.includes('DATABASE_URL'));
-  if (dbUrlError) {
-    throw new Error('FATAL ERROR: DATABASE_URL is not defined.');
-  }
   throw new Error('Invalid environment variables.');
 }
 
-// Export the validated and typed environment variables
-const env = parsedEnv.data;
+// Additional validation for database configuration
+const envData = parsedEnv.data;
+
+// Determine secrets provider (support legacy USE_AWS_SECRETS flag)
+let secretsProvider = envData.SECRETS_PROVIDER;
+if (envData.USE_AWS_SECRETS && secretsProvider === 'environment') {
+  secretsProvider = 'aws';
+  console.log('⚠️  Using legacy USE_AWS_SECRETS flag. Consider migrating to SECRETS_PROVIDER=aws');
+}
+
+if (secretsProvider !== 'environment') {
+  // When using cloud secrets, DATABASE_SECRET_NAME is required
+  if (!envData.DATABASE_SECRET_NAME) {
+    throw new Error(`FATAL ERROR: DATABASE_SECRET_NAME is required when SECRETS_PROVIDER=${secretsProvider}`);
+  }
+  console.log(`✅ Using ${secretsProvider.toUpperCase()} secrets provider for database credentials`);
+} else {
+  // When using environment variables, DATABASE_URL is required
+  if (!envData.DATABASE_URL) {
+    throw new Error('FATAL ERROR: DATABASE_URL is required when SECRETS_PROVIDER=environment');
+  }
+  console.log('✅ Using environment variables for database credentials');
+}
+
+// Export the validated and typed environment variables with computed secrets provider
+const env = { ...envData, COMPUTED_SECRETS_PROVIDER: secretsProvider };
 
 
 export default env; 

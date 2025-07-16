@@ -1,6 +1,6 @@
 import { Job } from 'bullmq';
 import { processArchiveJob } from '../queues/archiveWorker';
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 import { GlacierClient, UploadArchiveCommand } from '@aws-sdk/client-glacier';
 
 // Mock Glacier client and commands

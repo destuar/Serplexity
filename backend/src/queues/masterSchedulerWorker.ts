@@ -18,7 +18,7 @@
 import { Worker, Job } from 'bullmq';
 import env from '../config/env';
 import { getBullMQConnection } from '../config/bullmq';
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 import { queueReport } from '../services/reportSchedulingService';
 import { alertingService } from '../services/alertingService';
 
@@ -28,6 +28,7 @@ if (env.NODE_ENV !== 'test') {
   worker = new Worker('master-scheduler', async (job: Job) => {
     if (job.name === 'trigger-daily-reports') {
         console.log('[Scheduler Worker] Starting to queue daily reports for all companies...');
+        const prisma = await getDbClient();
         const companies = await prisma.company.findMany({
             where: {
                 // Only select companies that have at least one completed report run.

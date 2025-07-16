@@ -1,8 +1,9 @@
 #!/usr/bin/env ts-node
 
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 
 async function backfillCompetitorChange(): Promise<void> {
+  const prisma = await getDbClient();
   console.log('🔄 Starting backfill of competitor change metrics...\n');
 
   try {

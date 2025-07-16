@@ -1,9 +1,10 @@
 #!/usr/bin/env ts-node
 
 import { masterSchedulerQueue, scheduleDailyReportTrigger } from '../queues/masterScheduler';
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 
 async function fixSchedulerCron() {
+  const prisma = await getDbClient();
     console.log('🔧 Fixing scheduler cron job configuration...');
     
     try {

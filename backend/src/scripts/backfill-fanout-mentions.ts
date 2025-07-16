@@ -1,4 +1,4 @@
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 
 // --- Helper utilities copied from reportWorker.ts (keep in sync) ---
 
@@ -30,6 +30,7 @@ function slugify(text: string): string {
 }
 
 async function main() {
+  const prisma = await getDbClient();
   const companies = await prisma.company.findMany({
     include: { competitors: true },
   });
@@ -182,4 +183,7 @@ main()
     console.error('[BACKFILL] Fatal error:', err);
     process.exit(1);
   })
-  .finally(() => prisma.$disconnect()); 
+  .finally(async () => {
+    const prisma = await getDbClient();
+    await prisma.$disconnect();
+  }); 

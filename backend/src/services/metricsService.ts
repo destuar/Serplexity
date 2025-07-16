@@ -14,7 +14,7 @@
  * - computeAndPersistMetrics: Computes and persists all relevant metrics for a given report.
  * - getFullReportMetrics: Retrieves all pre-computed metrics for dashboard display.
  */
-import prisma, { prismaReadReplica } from '../config/db';
+import { getDbClient, getReadDbClient } from '../config/database';
 import { Prisma, ReportMetric } from '@prisma/client';
 import { calculateTopQuestions, calculateCompetitorRankings, saveSentimentOverTimePoint, saveShareOfVoiceHistoryPoint, calculateTopResponses } from './dashboardService';
 
@@ -22,6 +22,7 @@ import { calculateTopQuestions, calculateCompetitorRankings, saveSentimentOverTi
 
 // Count distinct models used in a report
 async function getModelsUsedInReport(runId: string): Promise<string[]> {
+  const prismaReadReplica = await getReadDbClient();
   const models = await prismaReadReplica.fanoutResponse.findMany({
     where: { runId },
     select: { model: true },
@@ -35,6 +36,7 @@ async function getMentions(
   runId: string,
   filters?: { aiModel?: string }
 ): Promise<Prisma.FanoutMentionGetPayload<{ include: { fanoutResponse: true } }>[]> {
+  const prismaReadReplica = await getReadDbClient();
   return prismaReadReplica.fanoutMention.findMany({
     where: {
       fanoutResponse: {
@@ -51,6 +53,7 @@ async function getPreviousReportMetric(
   currentReportId: string,
   aiModel: string
 ): Promise<ReportMetric | null> {
+  const prismaReadReplica = await getReadDbClient();
   const previousReportRun = await prismaReadReplica.reportRun.findFirst({
     where: {
       companyId,
@@ -147,6 +150,7 @@ async function calculateAverageInclusionRate(
   companyId: string,
   filters?: { aiModel?: string }
 ): Promise<{ rate: number; change: number | null }> {
+  const prismaReadReplica = await getReadDbClient();
   // Fetch all responses for this run / model
   const responses = await prismaReadReplica.fanoutResponse.findMany({
     where: {
@@ -237,6 +241,8 @@ async function calculateTopRankings(
 
 export async function computeAndPersistMetrics(reportId: string, companyId: string): Promise<void> {
   try {
+    const prisma = await getDbClient();
+    const prismaReadReplica = await getReadDbClient();
     console.log(`[METRICS] Computing metrics for report ${reportId}`);
 
     /******************************
@@ -486,6 +492,7 @@ export async function getFullReportMetrics(
   reportId: string,
   aiModel: string = 'all'
 ): Promise<DashboardMetrics | null> {
+  const prismaReadReplica = await getReadDbClient();
   const metric = await prismaReadReplica.reportMetric.findUnique({
     where: { reportId_aiModel: { reportId, aiModel } }
     // No `select` needed, so all scalar and JSON fields are returned by default

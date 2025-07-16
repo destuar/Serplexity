@@ -1,8 +1,9 @@
 #!/usr/bin/env ts-node
 
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 
 async function validateMetricsSystem(): Promise<void> {
+  const prisma = await getDbClient();
   console.log('🔍 Validating metrics system integrity...\n');
 
   try {
@@ -197,6 +198,7 @@ async function validateMetricsSystem(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  const prisma = await getDbClient();
   try {
     await validateMetricsSystem();
     

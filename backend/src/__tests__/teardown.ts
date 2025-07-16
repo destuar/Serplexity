@@ -1,4 +1,4 @@
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 
 // Mock instances tracking for test cleanup
 const activeBullMQInstances = new Set<any>();
@@ -12,6 +12,7 @@ export const removeBullMQInstance = (instance: any) => {
 };
 
 export default async function teardown() {
+  const prisma = await getDbClient();
   // Close all active BullMQ instances (queues and workers)
   const activeInstances = Array.from(activeBullMQInstances);
   for (const instance of activeInstances) {

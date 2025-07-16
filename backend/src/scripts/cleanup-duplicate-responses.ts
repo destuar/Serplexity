@@ -7,9 +7,10 @@
  * Usage: npx tsx src/scripts/cleanup-duplicate-responses.ts
  */
 
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 
 async function cleanupDuplicateResponses() {
+  const prisma = await getDbClient();
   console.log('[CLEANUP] Starting duplicate fanoutResponse cleanup...');
 
   // Find all duplicate groups

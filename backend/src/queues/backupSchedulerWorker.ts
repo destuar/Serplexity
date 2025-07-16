@@ -19,7 +19,7 @@
 import { Worker, Job } from 'bullmq';
 import env from '../config/env';
 import { getBullMQConnection } from '../config/bullmq';
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 import { queueReport } from '../services/reportSchedulingService';
 import { alertingService } from '../services/alertingService';
 
@@ -33,6 +33,7 @@ if (env.NODE_ENV !== 'test') {
         console.log('[Backup Scheduler Worker] Starting backup daily report check...');
         
         try {
+            const prisma = await getDbClient();
             // Check which companies should have had reports today but don't
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -180,6 +181,7 @@ if (env.NODE_ENV !== 'test') {
         const { reason, triggeredAt } = job.data;
         
         try {
+            const prisma = await getDbClient();
             // For emergency triggers, queue reports for ALL eligible companies regardless of today's status
             const companies = await prisma.company.findMany({
                 where: {

@@ -20,7 +20,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 
 // Validation schemas
 const updateProfileSchema = z.object({
@@ -34,6 +34,7 @@ const changePasswordSchema = z.object({
 });
 
 export const exportUserData = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
     const userId = req.user?.id;
     if (!userId) {
         return res.status(401).json({ error: 'Not authenticated' });
@@ -82,6 +83,7 @@ export const exportUserData = async (req: Request, res: Response) => {
 };
 
 export const deleteUserData = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
     const userId = req.user?.id;
     if (!userId) {
         return res.status(401).json({ error: 'Not authenticated' });
@@ -121,6 +123,7 @@ export const deleteUserData = async (req: Request, res: Response) => {
 };
 
 export const getUserProfile = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -152,6 +155,7 @@ export const getUserProfile = async (req: Request, res: Response) => {
 };
 
 export const updateUserProfile = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -205,6 +209,7 @@ export const updateUserProfile = async (req: Request, res: Response) => {
 };
 
 export const changePassword = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
   try {
     const userId = req.user?.id;
     if (!userId) {

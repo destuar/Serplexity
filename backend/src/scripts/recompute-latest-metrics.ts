@@ -1,7 +1,8 @@
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 import { computeAndPersistMetrics } from '../services/metricsService';
 
 async function main() {
+  const prisma = await getDbClient();
   // Fetch the latest completed report run per company
   const latestRuns = await prisma.$queryRawUnsafe<{
     id: string;
@@ -31,8 +32,9 @@ async function main() {
   await prisma.$disconnect();
 }
 
-main().catch(err => {
+main().catch(async err => {
   console.error('[RECALC] Fatal error:', err);
-  prisma.$disconnect();
+  const prisma = await getDbClient();
+  await prisma.$disconnect();
   process.exit(1);
 }); 

@@ -18,7 +18,7 @@
 import nodemailer from 'nodemailer';
 import axios from 'axios';
 import env from '../config/env';
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 
 interface AlertLevel {
   level: 'CRITICAL' | 'WARNING' | 'INFO';
@@ -148,6 +148,7 @@ class AlertingService {
    * Alert when no reports are generated for a day
    */
   async alertNoReportsGenerated(date: Date): Promise<void> {
+    const prisma = await getDbClient();
     const reportsToday = await prisma.reportRun.count({
       where: {
         createdAt: {

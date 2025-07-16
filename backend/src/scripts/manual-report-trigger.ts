@@ -1,9 +1,10 @@
 #!/usr/bin/env ts-node
 
 import { queueReport } from '../services/reportSchedulingService';
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 
 async function manualReportTrigger() {
+  const prisma = await getDbClient();
     console.log('🔄 Manually triggering report generation...\n');
     
     try {

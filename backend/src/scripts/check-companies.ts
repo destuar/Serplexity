@@ -1,8 +1,9 @@
 #!/usr/bin/env ts-node
 
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 
 async function checkCompanies() {
+  const prisma = await getDbClient();
     console.log('🏢 Checking companies for report scheduling...\n');
     
     try {

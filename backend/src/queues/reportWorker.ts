@@ -31,7 +31,7 @@ import { Worker, Job } from 'bullmq';
 import pLimit from 'p-limit';
 import env from '../config/env';
 import { getBullMQConnection } from '../config/bullmq';
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 import { Prisma, PrismaClient } from '.prisma/client';
 import { 
     generateSentimentScores, 
@@ -788,7 +788,8 @@ async function updateProgress(
 }
 
 const processJob = async (job: Job) => {
-    const jobTimer = new Timer();
+const prisma = await getDbClient();
+const jobTimer = new Timer();
     const { runId, company, force } = job.data;
     
     log({ 
@@ -1737,6 +1738,7 @@ worker.on('completed', (job: Job, returnvalue: any) => {
 });
 
 worker.on('failed', async (job, err) => {
+    const prisma = await getDbClient();
     const { runId, company } = job?.data || {};
     if (runId) {
         log({ 

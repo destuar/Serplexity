@@ -1,6 +1,6 @@
 #!/usr/bin/env ts-node
 
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 import { checkRedisHealth } from '../config/redis';
 import { alertingService } from '../services/alertingService';
 
@@ -37,6 +37,7 @@ interface HealthCheck {
  * Run this via cron daily to ensure system health
  */
 async function performDailyHealthCheck(): Promise<HealthReport> {
+  const prisma = await getDbClient();
   console.log('🩺 Starting daily health monitoring...\n');
   const startTime = Date.now();
   
@@ -99,6 +100,7 @@ async function performDailyHealthCheck(): Promise<HealthReport> {
 }
 
 async function checkDailyReports(report: HealthReport): Promise<void> {
+  const prisma = await getDbClient();
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -204,6 +206,7 @@ async function checkDailyReports(report: HealthReport): Promise<void> {
 }
 
 async function checkRecentFailures(report: HealthReport): Promise<void> {
+  const prisma = await getDbClient();
   try {
     const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000);
     
@@ -263,6 +266,7 @@ async function checkRecentFailures(report: HealthReport): Promise<void> {
 }
 
 async function checkSystemComponents(report: HealthReport): Promise<void> {
+  const prisma = await getDbClient();
   try {
     const componentChecks = {
       database: { healthy: false, isHealthy: false, details: {} as any },
@@ -317,6 +321,7 @@ async function checkSystemComponents(report: HealthReport): Promise<void> {
 }
 
 async function checkSchedulerHealth(report: HealthReport): Promise<void> {
+  const prisma = await getDbClient();
   try {
     // Check if scheduler has run today
     const today = new Date();
@@ -414,6 +419,7 @@ function determineOverallStatus(report: HealthReport): void {
 }
 
 async function displayReport(report: HealthReport): Promise<void> {
+  const prisma = await getDbClient();
   console.log('\n' + '='.repeat(60));
   console.log('📊 DAILY HEALTH REPORT');
   console.log('='.repeat(60));

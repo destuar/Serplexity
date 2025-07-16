@@ -30,7 +30,7 @@
  */
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import prisma, { prismaReadReplica } from '../config/db';
+import { getDbClient, getReadDbClient } from '../config/database';
 import { redis } from '../config/redis';
 import { queueReport } from '../services/reportSchedulingService';
 import { scheduleEmergencyReportTrigger } from '../queues/backupScheduler';
@@ -105,6 +105,8 @@ const createReportSchema = z.object({
 });
 
 export const createReport = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
+  const prismaReadReplica = await getReadDbClient();
   const startTime = Date.now();
   const endpoint = 'CREATE_REPORT';
   const userId = req.user?.id;
@@ -390,6 +392,8 @@ export const createReport = async (req: Request, res: Response) => {
 };
 
 export const getReportStatus = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
+  const prismaReadReplica = await getReadDbClient();
   const startTime = Date.now();
   const endpoint = 'GET_REPORT_STATUS';
   const userId = req.user?.id;
@@ -495,6 +499,8 @@ export const getReportStatus = async (req: Request, res: Response) => {
 };
 
 export const getLatestReport = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
+  const prismaReadReplica = await getReadDbClient();
   const startTime = Date.now();
   const endpoint = 'GET_LATEST_REPORT';
   const userId = req.user?.id;
@@ -640,6 +646,8 @@ export const getLatestReport = async (req: Request, res: Response) => {
 };
 
 export const getCompetitorRankingsForReport = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
+  const prismaReadReplica = await getReadDbClient();
   const { runId } = req.params;
   const { companyId, aiModel } = req.query;
 
@@ -657,6 +665,8 @@ export const getCompetitorRankingsForReport = async (req: Request, res: Response
 };
 
 export const getReportResponses = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
+  const prismaReadReplica = await getReadDbClient();
   const { runId } = req.params;
   const { companyId, aiModel, page = '1', limit = '100' } = req.query;
 
@@ -684,6 +694,8 @@ export const getReportResponses = async (req: Request, res: Response) => {
  * Should be used when the daily scheduler fails or when immediate report is needed
  */
 export const emergencyTriggerCompanyReport = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
+  const prismaReadReplica = await getReadDbClient();
   const startTime = Date.now();
   const { companyId } = req.params;
   const { reason = 'Manual emergency trigger' } = req.body;
@@ -777,6 +789,8 @@ export const emergencyTriggerCompanyReport = async (req: Request, res: Response)
  * Should be used only in case of catastrophic scheduler failure
  */
 export const emergencyTriggerAllReports = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
+  const prismaReadReplica = await getReadDbClient();
   const startTime = Date.now();
   const { reason = 'Manual emergency trigger for all companies', delayMinutes = 0 } = req.body;
 
@@ -884,6 +898,8 @@ export const emergencyTriggerAllReports = async (req: Request, res: Response) =>
  * System health check endpoint that validates all critical components
  */
 export const getSystemHealth = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
+  const prismaReadReplica = await getReadDbClient();
   const startTime = Date.now();
   
   try {
@@ -973,6 +989,7 @@ const processHealthResult = (result: PromiseSettledResult<any>) => {
 // Enhanced database health check
 const checkDatabaseHealth = async () => {
   try {
+    const prisma = await getDbClient();
     const start = Date.now();
     await prisma.$queryRaw`SELECT 1`;
     const latency = Date.now() - start;
@@ -993,6 +1010,7 @@ const checkDatabaseHealth = async () => {
 // Enhanced recent reports health check
 const checkRecentReportsHealth = async () => {
   try {
+    const prisma = await getDbClient();
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     
     const recentReports = await prisma.reportRun.findMany({

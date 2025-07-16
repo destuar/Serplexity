@@ -35,7 +35,7 @@ import { generateAndValidate } from './llmService';
 import { ModelTask, ModelEngine, getModelsByTask, Model, LLM_CONFIG } from '../config/models';
 import pLimit from 'p-limit';
 import { FANOUT_SYSTEM_PROMPT, FANOUT_EXAMPLES } from '../prompts';
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 
 // ===== FANOUT TYPES =====
 
@@ -156,6 +156,7 @@ async function generateFanoutForModel(
   model: Model,
   options: FanoutOptions = {}
 ): Promise<ModelFanoutGeneration> {
+  const prisma = await getDbClient();
   const userPayload = {
     base_query: baseQuery,
     prev_query: options.prev_query || null,
@@ -208,6 +209,7 @@ export async function generateCompleteFanout(
   baseQuery: string,
   options: FanoutOptions = {}
 ): Promise<CompleteFanoutData> {
+  const prisma = await getDbClient();
   // Get all models that can do question answering
   const models = getModelsByTask(ModelTask.QUESTION_ANSWERING);
   
@@ -302,6 +304,7 @@ export async function getExistingFanoutCounts(
   baseQuestionId: string,
   companyId: string
 ): Promise<Record<string, Record<FanoutQueryType, number>>> {
+  const prisma = await getDbClient();
   const existing = await prisma.fanoutQuestion.groupBy({
     by: ['type', 'sourceModel'],
     where: { 
@@ -339,6 +342,7 @@ export async function getMissingFanoutCounts(
   baseQuestionId: string,
   companyId: string
 ): Promise<Record<string, Record<FanoutQueryType, number>>> {
+  const prisma = await getDbClient();
   const existingCounts = await getExistingFanoutCounts(baseQuestionId, companyId);
   const missingCounts: Record<string, Record<FanoutQueryType, number>> = {};
 

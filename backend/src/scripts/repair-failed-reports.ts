@@ -1,6 +1,6 @@
 #!/usr/bin/env ts-node
 
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 
 interface RepairCandidate {
   runId: string;
@@ -12,6 +12,7 @@ interface RepairCandidate {
 }
 
 async function repairFailedReports(dryRun: boolean = true): Promise<void> {
+  const prisma = await getDbClient();
   console.log('🔧 Analyzing reports marked as FAILED that may have completed successfully...\n');
 
   const candidates: RepairCandidate[] = [];

@@ -47,7 +47,7 @@ import { authenticate } from './middleware/authMiddleware';
 import env from './config/env';
 import { PrismaClient } from '@prisma/client';
 import { stripeWebhook } from './controllers/paymentController';
-import prisma from './config/db'; // Use singleton prisma
+import { getDbClient } from './config/database';
 
 dotenv.config();
 
@@ -133,10 +133,11 @@ app.get('/api/health', (req: Request, res: Response) => {
 
 app.get('/api/health/deep', async (req: Request, res: Response) => {
     try {
-        await prisma.$queryRaw`SELECT 1`;
+        const dbClient = await getDbClient();
+        await dbClient.$queryRaw`SELECT 1`;
         
         // Check for write access
-        const result: { transaction_read_only: string }[] = await prisma.$queryRaw`SHOW transaction_read_only;`;
+        const result: { transaction_read_only: string }[] = await dbClient.$queryRaw`SHOW transaction_read_only;`;
         const isReadOnly = result[0].transaction_read_only === 'on';
 
         if (isReadOnly) {
@@ -171,10 +172,13 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 const main = async () => {
-  // Test database connection
+  // Test database connection using appropriate client
   try {
-    await prisma.$connect();
+    console.log('Testing database connection...');
+    const dbClient = await getDbClient();
+    await dbClient.$connect();
     console.log('Database connection successful.');
+    await dbClient.$disconnect();
   } catch (error) {
     console.error('Error connecting to the database:', error);
   }

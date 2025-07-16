@@ -7,10 +7,11 @@
  * Usage: npx tsx src/scripts/regenerate-report-metrics.ts [runId]
  */
 
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 import { computeAndPersistMetrics } from '../services/metricsService';
 
 async function regenerateReportMetrics(specificRunId?: string) {
+  const prisma = await getDbClient();
   console.log('[REGENERATE] Starting report metrics regeneration...');
 
   let whereClause: any = { status: 'COMPLETED' };

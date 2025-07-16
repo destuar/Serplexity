@@ -20,7 +20,7 @@
 import { Request, Response } from 'express';
 import Stripe from 'stripe';
 import env from '../config/env';
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 import { z } from 'zod';
 
 const { STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET } = env;
@@ -37,6 +37,7 @@ const createCheckoutSessionSchema = z.object({
 });
 
 export const createCheckoutSession = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
     try {
         const { priceId } = createCheckoutSessionSchema.parse(req.body);
 
@@ -97,6 +98,7 @@ export const getStripeConfig = (req: Request, res: Response) => {
 };
 
 export const stripeWebhook = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
     const sig = req.headers['stripe-signature'] as string;
     let event: Stripe.Event;
 

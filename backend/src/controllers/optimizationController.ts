@@ -17,10 +17,11 @@
  * - getCompanyVisibilitySummary: Controller for fetching the latest AI-generated visibility summary.
  */
 import { Request, Response } from 'express';
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 import { getOptimizationTasks, toggleTaskCompletion, updateTaskStatus, TaskStatus } from '../services/optimizationTaskService';
 
 export const getCompanyOptimizationTasks = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
     try {
         const { companyId } = req.params;
         
@@ -37,6 +38,7 @@ export const getCompanyOptimizationTasks = async (req: Request, res: Response) =
 };
 
 export const toggleOptimizationTaskCompletion = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
     try {
         const { reportRunId, taskId } = req.params;
         
@@ -53,6 +55,7 @@ export const toggleOptimizationTaskCompletion = async (req: Request, res: Respon
 };
 
 export const updateOptimizationTaskStatus = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
     try {
         const { reportRunId, taskId } = req.params;
         const { status } = req.body;
@@ -78,6 +81,7 @@ export const updateOptimizationTaskStatus = async (req: Request, res: Response) 
 };
 
 export const getCompanyVisibilitySummary = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
     try {
         const { companyId } = req.params;
         

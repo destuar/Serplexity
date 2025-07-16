@@ -30,7 +30,7 @@
  */
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import prisma, { prismaReadReplica } from '../config/db';
+import { getDbClient, getReadDbClient } from '../config/database';
 import { getFullReportMetrics } from '../services/metricsService';
 import { calculateTopQuestions } from '../services/dashboardService';
 
@@ -90,6 +90,7 @@ const updateCompanySchema = z.object({
  */
 export const createCompany = async (req: Request, res: Response) => {
   try {
+    const prisma = await getDbClient();
     const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
@@ -196,6 +197,7 @@ export const createCompany = async (req: Request, res: Response) => {
  */
 export const getCompanies = async (req: Request, res: Response) => {
   try {
+    const prismaReadReplica = await getReadDbClient();
     const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
@@ -225,6 +227,7 @@ export const getCompanies = async (req: Request, res: Response) => {
  */
 export const getCompany = async (req: Request, res: Response) => {
   try {
+    const prismaReadReplica = await getReadDbClient();
     const userId = req.user?.id;
     const { id } = req.params;
 
@@ -265,6 +268,7 @@ export const getCompany = async (req: Request, res: Response) => {
 
 // ===== Helper =====
 const findLatestRuns = async (companyId: string) => {
+  const prismaReadReplica = await getReadDbClient();
   const latestRun = await prismaReadReplica.reportRun.findFirst({
     where: { companyId, status: 'COMPLETED' },
     orderBy: { createdAt: 'desc' },
@@ -281,6 +285,7 @@ const findLatestRuns = async (companyId: string) => {
 // --- Average Inclusion Rate (pre-computed) ---
 export const getAverageInclusionRate = async (req: Request, res: Response) => {
   try {
+    const prismaReadReplica = await getReadDbClient();
     const { id: companyId } = req.params;
     const { aiModel } = req.query;
     const userId = req.user?.id;
@@ -317,6 +322,7 @@ export const getAverageInclusionRate = async (req: Request, res: Response) => {
 // --- Average Position (pre-computed) ---
 export const getAveragePosition = async (req: Request, res: Response) => {
   try {
+    const prismaReadReplica = await getReadDbClient();
     const { id: companyId } = req.params;
     const { aiModel } = req.query;
     const userId = req.user?.id;
@@ -346,6 +352,7 @@ export const getAveragePosition = async (req: Request, res: Response) => {
 // --- Share of Voice (pre-computed) ---
 export const getShareOfVoice = async (req: Request, res: Response) => {
   try {
+    const prismaReadReplica = await getReadDbClient();
     const { id: companyId } = req.params;
     const { aiModel } = req.query;
     const userId = req.user?.id;
@@ -375,6 +382,7 @@ export const getShareOfVoice = async (req: Request, res: Response) => {
 // --- Competitor Rankings (placeholder using pre-computed JSON) ---
 export const getCompetitorRankings = async (req: Request, res: Response) => {
   try {
+    const prismaReadReplica = await getReadDbClient();
     const { id: companyId } = req.params;
     const { aiModel } = req.query;
     const userId = req.user?.id;
@@ -407,6 +415,7 @@ export const getSentimentData = async (_req: Request, res: Response) => {
 
 export const getTopRankingQuestions = async (req: Request, res: Response) => {
   try {
+    const prismaReadReplica = await getReadDbClient();
     const { id: companyId } = req.params;
     const { aiModel, limit, questionType } = req.query;
     const userId = req.user?.id;
@@ -492,6 +501,7 @@ export const getSentimentOverTime = async (_req: Request, res: Response) => {
 
 export const getShareOfVoiceHistory = async (req: Request, res: Response) => {
   try {
+    const prismaReadReplica = await getReadDbClient();
     const { id: companyId } = req.params;
     const { aiModel } = req.query;
     const userId = req.user?.id;
@@ -517,6 +527,7 @@ export const getShareOfVoiceHistory = async (req: Request, res: Response) => {
  */
 export const updateCompany = async (req: Request, res: Response) => {
   try {
+    const prisma = await getDbClient();
     const userId = req.user?.id;
     const { id } = req.params;
 
@@ -639,6 +650,7 @@ export const updateCompany = async (req: Request, res: Response) => {
  */
 export const deleteCompany = async (req: Request, res: Response) => {
   try {
+    const prisma = await getDbClient();
     const userId = req.user?.id;
     const { id } = req.params;
 

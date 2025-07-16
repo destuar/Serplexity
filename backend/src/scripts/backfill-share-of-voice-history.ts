@@ -1,9 +1,10 @@
 #!/usr/bin/env ts-node
 
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 import { saveShareOfVoiceHistoryPoint, saveSentimentOverTimePoint } from '../services/dashboardService';
 
 async function backfillShareOfVoiceHistory(): Promise<void> {
+  const prisma = await getDbClient();
   console.log('🔧 Backfilling ShareOfVoiceHistory for existing reports...\n');
 
   try {

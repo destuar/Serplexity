@@ -1,6 +1,6 @@
 #!/usr/bin/env ts-node
 
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 
 interface PostCompletionIssue {
   runId: string;
@@ -12,6 +12,7 @@ interface PostCompletionIssue {
 }
 
 async function monitorPostCompletionIssues(): Promise<void> {
+  const prisma = await getDbClient();
   console.log('🔍 Monitoring post-completion processing issues...\n');
 
   const issues: PostCompletionIssue[] = [];

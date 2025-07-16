@@ -1,8 +1,9 @@
 #!/usr/bin/env ts-node
 
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 
 async function testSentimentScores(): Promise<void> {
+  const prisma = await getDbClient();
   console.log('🧪 Testing SentimentScore model...\n');
 
   try {
@@ -63,6 +64,7 @@ async function testSentimentScores(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  const prisma = await getDbClient();
   try {
     await testSentimentScores();
     

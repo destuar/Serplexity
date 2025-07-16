@@ -1,8 +1,9 @@
 #!/usr/bin/env ts-node
 
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 
 async function checkShareOfVoiceHistory(): Promise<void> {
+  const prisma = await getDbClient();
   console.log('🔍 Investigating ShareOfVoiceHistory table population...\n');
 
   try {

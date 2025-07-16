@@ -1,8 +1,9 @@
 #!/usr/bin/env ts-node
 
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 
 async function checkRecentReports() {
+  const prisma = await getDbClient();
     console.log('📊 Checking recent report runs...\n');
     
     try {

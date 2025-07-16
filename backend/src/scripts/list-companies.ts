@@ -1,8 +1,9 @@
 #!/usr/bin/env ts-node
 
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 
 async function listCompanies(): Promise<void> {
+  const prisma = await getDbClient();
   console.log('Fetching companies from the database...');
   
   const companies = await prisma.company.findMany({

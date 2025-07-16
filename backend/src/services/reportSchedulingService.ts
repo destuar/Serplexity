@@ -15,7 +15,7 @@
  * - scheduleReport: Function to schedule a report for a specific company (placeholder).
  */
 import { reportGenerationQueue } from '../queues/reportGenerationQueue';
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 import { ReportRun } from '.prisma/client';
 
 // Enhanced logging for the report scheduling service
@@ -86,6 +86,7 @@ interface QueueResult {
  * @returns A promise that resolves with the result of the queueing operation.
  */
 export async function queueReport(companyId: string, force = false): Promise<QueueResult> {
+  const prisma = await getDbClient();
     const startTime = Date.now();
     
     if (reportQueueLocks.has(companyId)) {
@@ -312,5 +313,6 @@ export async function queueReport(companyId: string, force = false): Promise<Que
  * Schedules a report for a specific company if it has a schedule.
  */
 export async function scheduleReport(companyId: string) {
+  const prisma = await getDbClient();
     // Implementation of scheduleReport function
 } 

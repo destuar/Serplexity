@@ -20,7 +20,7 @@
 import { Worker, Job, Queue } from 'bullmq';
 import env from '../config/env';
 import { getBullMQConnection } from '../config/bullmq';
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 import { GlacierClient, UploadArchiveCommand } from '@aws-sdk/client-glacier';
 
 const connection = getBullMQConnection();
@@ -42,6 +42,7 @@ export const archiveQueue = new Queue('archive-jobs', {
 
 // Helper function to export responses to Glacier
 async function exportResponsesToGlacier(runIds: string[], companyId: string): Promise<string> {
+  const prisma = await getDbClient();
   console.log(`[ARCHIVE] Exporting ${runIds.length} runs for company ${companyId} to Glacier`);
   
   // Fetch all responses for these runs
@@ -79,6 +80,7 @@ async function exportResponsesToGlacier(runIds: string[], companyId: string): Pr
 
 // --- Worker Implementation ---
 export const processArchiveJob = async (job: Job) => {
+  const prisma = await getDbClient();
   if (job.name === 'archive-old-responses') {
     const { companyId } = job.data;
     console.log(`[ARCHIVE WORKER] Starting archive job for company ${companyId}...`);

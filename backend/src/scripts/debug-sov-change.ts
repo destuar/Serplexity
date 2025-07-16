@@ -1,8 +1,9 @@
 #!/usr/bin/env ts-node
 
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 
 async function debugShareOfVoiceChange(companyId: string): Promise<void> {
+  const prisma = await getDbClient();
   if (!companyId) {
     console.error('❌ Please provide a companyId. Usage: ts-node backend/src/scripts/debug-sov-change.ts <companyId>');
     process.exit(1);

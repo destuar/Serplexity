@@ -20,7 +20,7 @@
  */
 import { Request, Response } from 'express';
 import { Role } from '@prisma/client';
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 import { z } from 'zod';
 
 const createBlogPostSchema = z.object({
@@ -62,6 +62,7 @@ const generateSlug = (title: string): string => {
 };
 
 const ensureUniqueSlug = async (baseSlug: string, excludeId?: string): Promise<string> => {
+  const prisma = await getDbClient();
   let slug = baseSlug;
   let counter = 1;
   
@@ -90,6 +91,7 @@ const calculateReadingTime = (content: string): number => {
 };
 
 export const getAllBlogPosts = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
   try {
     const { published } = req.query;
     const isAdmin = req.user?.role === Role.ADMIN;
@@ -124,6 +126,7 @@ export const getAllBlogPosts = async (req: Request, res: Response) => {
 };
 
 export const getBlogPostBySlug = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
   try {
     const { slug } = req.params;
     const isAdmin = req.user?.role === Role.ADMIN;
@@ -154,6 +157,7 @@ export const getBlogPostBySlug = async (req: Request, res: Response) => {
 };
 
 export const getBlogPostById = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
   try {
     const { id } = req.params;
     const isAdmin = req.user?.role === Role.ADMIN;
@@ -184,6 +188,7 @@ export const getBlogPostById = async (req: Request, res: Response) => {
 };
 
 export const createBlogPost = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
   try {
     const validatedData = createBlogPostSchema.parse(req.body);
     const userId = req.user!.id;
@@ -219,6 +224,7 @@ export const createBlogPost = async (req: Request, res: Response) => {
 };
 
 export const updateBlogPost = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
   try {
     const { id } = req.params;
     const validatedData = updateBlogPostSchema.parse(req.body);
@@ -271,6 +277,7 @@ export const updateBlogPost = async (req: Request, res: Response) => {
 };
 
 export const deleteBlogPost = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
   try {
     const { id } = req.params;
 

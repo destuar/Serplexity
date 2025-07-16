@@ -15,7 +15,7 @@
  */
 import passport from 'passport';
 import { Strategy as GoogleStrategy, Profile } from 'passport-google-oauth20';
-import prisma from './db'; // Use the singleton prisma instance
+import { getDbClient } from './database';
 import { VerifyCallback } from 'passport-google-oauth20';
 import env from './env';
 
@@ -34,6 +34,7 @@ passport.use(
     },
     async (accessToken: string, refreshToken: string, profile: Profile, done: VerifyCallback) => {
       try {
+        const prisma = await getDbClient();
         const email = profile.emails?.[0].value;
         if (!email) {
           return done(new Error('No email found from Google profile'));
@@ -83,6 +84,7 @@ passport.serializeUser((user: any, done) => {
 
 passport.deserializeUser(async (id: string, done) => {
     try {
+        const prisma = await getDbClient();
         const user = await prisma.user.findUnique({ where: { id }, include: { companies: { include: { competitors: true, benchmarkingQuestions: true } } } });
         done(null, user);
     } catch (error) {

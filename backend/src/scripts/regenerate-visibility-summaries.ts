@@ -1,7 +1,8 @@
-import prisma from '../config/db';
+import { getDbClient } from '../config/database';
 import { generateOptimizationTasksAndSummary } from '../services/optimizationTaskService';
 
 async function main() {
+  const prisma = await getDbClient();
   console.log('\n🔄  Regenerating AI Visibility summaries for latest completed reports…');
 
   // Fetch all companies
@@ -51,6 +52,7 @@ async function main() {
 
 main().catch(async (e) => {
   console.error(e);
+  const prisma = await getDbClient();
   await prisma.$disconnect();
   process.exit(1);
 }); 

@@ -10,20 +10,20 @@ datasource db {
 }
 
 model User {
-  id                 String    @id @default(cuid())
-  email              String    @unique
+  id                 String     @id @default(cuid())
+  email              String     @unique
   name               String?
   password           String?
-  role               Role      @default(USER)
-  provider           String    @default("credentials")
+  role               Role       @default(USER)
+  provider           String     @default("credentials")
   providerId         String?
-  tokenVersion       Int       @default(0)
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  stripeCustomerId   String?   @unique
+  tokenVersion       Int        @default(0)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  stripeCustomerId   String?    @unique
   subscriptionStatus String?
-  companies          Company[]
   blogPosts          BlogPost[]
+  companies          Company[]
 }
 
 model Company {
@@ -34,61 +34,59 @@ model Company {
   userId                String
   createdAt             DateTime                     @default(now())
   updatedAt             DateTime                     @updatedAt
-  benchmarkingQuestions BenchmarkingQuestion[]       // Only user-created questions
+  benchmarkingQuestions BenchmarkingQuestion[]
   user                  User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
   competitors           Competitor[]
-  runs                  ReportRun[]
+  fanoutMentions        FanoutMention[]
+  fanoutQuestions       FanoutQuestion[]
   reportMetrics         ReportMetric[]
-  shareOfVoiceHistory   ShareOfVoiceHistory[]
+  runs                  ReportRun[]
   sentimentOverTime     SentimentOverTime[]
+  shareOfVoiceHistory   ShareOfVoiceHistory[]
   optimizationTasks     VisibilityOptimizationTask[]
-  fanoutQuestions       FanoutQuestion[]             // New fanout questions
-  fanoutMentions        FanoutMention[]              // New fanout mentions
 
   @@index([userId])
 }
 
 model Competitor {
-  id            String          @id @default(cuid())
-  name          String
-  companyId     String
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  website       String
-  isGenerated   Boolean         @default(false)
-  company       Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  fanoutMentions FanoutMention[] // New fanout mentions
-
-  @@index([companyId])
-  @@unique([companyId, website])
-}
-
-// Simplified benchmarking questions - only user-created questions
-model BenchmarkingQuestion {
-  id             String            @id @default(cuid())
-  text           String
+  id             String          @id @default(cuid())
+  name           String
   companyId      String
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  company        Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  fanoutQuestions FanoutQuestion[] // Fanout questions generated from this base question
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  website        String
+  isGenerated    Boolean         @default(false)
+  company        Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  fanoutMentions FanoutMention[]
+
+  @@unique([companyId, website])
+  @@index([companyId])
+}
+
+model BenchmarkingQuestion {
+  id              String           @id @default(cuid())
+  text            String
+  companyId       String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  company         Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  fanoutQuestions FanoutQuestion[]
 
   @@index([companyId])
 }
 
-// New fanout questions table
 model FanoutQuestion {
-  id                    String         @id @default(cuid())
-  baseQuestionId        String         // References BenchmarkingQuestion
-  text                  String         // The generated fanout query text
-  type                  String         // paraphrase, comparison, temporal, etc.
-  sourceModel           String         // Which model generated this query
-  companyId             String
-  createdAt             DateTime       @default(now())
-  updatedAt             DateTime       @updatedAt
-  baseQuestion          BenchmarkingQuestion @relation(fields: [baseQuestionId], references: [id], onDelete: Cascade)
-  company               Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  responses             FanoutResponse[]
+  id             String               @id @default(cuid())
+  baseQuestionId String
+  text           String
+  type           String
+  sourceModel    String
+  companyId      String
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  baseQuestion   BenchmarkingQuestion @relation(fields: [baseQuestionId], references: [id], onDelete: Cascade)
+  company        Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  responses      FanoutResponse[]
 
   @@unique([baseQuestionId, type, sourceModel, text])
   @@index([baseQuestionId])
@@ -105,17 +103,17 @@ model ReportRun {
   tokensUsed          Int?
   usdCost             Float?
   traceId             String?
-  aiVisibilitySummary String?                      
-  fanoutData          Json?                        // Store complete fanout generation data
   createdAt           DateTime                     @default(now())
   updatedAt           DateTime                     @updatedAt
+  aiVisibilitySummary String?
+  fanoutData          Json?
+  fanoutResponses     FanoutResponse[]
   sentimentScores     SentimentScore[]
-  company             Company                      @relation(fields: [companyId], references: [id], onDelete: Cascade)
   reportMetrics       ReportMetric[]
-  shareOfVoiceHistory ShareOfVoiceHistory[]
+  company             Company                      @relation(fields: [companyId], references: [id], onDelete: Cascade)
   sentimentOverTime   SentimentOverTime[]
+  shareOfVoiceHistory ShareOfVoiceHistory[]
   optimizationTasks   VisibilityOptimizationTask[]
-  fanoutResponses     FanoutResponse[]             // New fanout responses
 
   @@index([companyId])
 }
@@ -135,19 +133,18 @@ model SentimentScore {
   @@map("Metric")
 }
 
-// New fanout responses table
 model FanoutResponse {
-  id              String         @id @default(cuid())
+  id               String          @id @default(cuid())
   fanoutQuestionId String
-  engine          String         // openai, anthropic, google, perplexity
-  model           String         // specific model name
-  content         String         // the response content
-  runId           String
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  mentions        FanoutMention[]
-  fanoutQuestion  FanoutQuestion @relation(fields: [fanoutQuestionId], references: [id], onDelete: Cascade)
-  run             ReportRun      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  engine           String
+  model            String
+  content          String
+  runId            String
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  mentions         FanoutMention[]
+  fanoutQuestion   FanoutQuestion  @relation(fields: [fanoutQuestionId], references: [id], onDelete: Cascade)
+  run              ReportRun       @relation(fields: [runId], references: [id], onDelete: Cascade)
 
   @@index([fanoutQuestionId])
   @@index([runId])
@@ -155,7 +152,6 @@ model FanoutResponse {
   @@index([model])
 }
 
-// New fanout mentions table
 model FanoutMention {
   id               String         @id @default(cuid())
   fanoutResponseId String
@@ -190,68 +186,68 @@ model ReportMetric {
   sentimentChange        Float?
   topRankingsCount       Int?
   rankingsChange         Float?
-  competitorRankings     Json?
-  topQuestions           Json?      // Now includes fanout question data
-  sentimentDetails       Json?
-  report                 ReportRun @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  company                Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
+  competitorRankings     Json?
+  topQuestions           Json?
+  sentimentDetails       Json?
+  company                Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  report                 ReportRun @relation(fields: [reportId], references: [id], onDelete: Cascade)
 
   @@unique([reportId, aiModel])
   @@index([companyId])
 }
 
 model ShareOfVoiceHistory {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   companyId    String
-  date         DateTime @db.Date
+  date         DateTime  @db.Date
   aiModel      String
   shareOfVoice Float
   reportRunId  String
-  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  company      Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   reportRun    ReportRun @relation(fields: [reportRunId], references: [id], onDelete: Cascade)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
 
   @@unique([companyId, date, aiModel])
   @@index([companyId, aiModel])
 }
 
 model SentimentOverTime {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   companyId      String
-  date           DateTime @db.Date
+  date           DateTime  @db.Date
   aiModel        String
   sentimentScore Float
   reportRunId    String
-  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   reportRun      ReportRun @relation(fields: [reportRunId], references: [id], onDelete: Cascade)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
 
   @@unique([companyId, date, aiModel])
   @@index([companyId, aiModel])
 }
 
 model VisibilityOptimizationTask {
-  id             String   @id @default(cuid())
-  taskId         String   // T01, T02, etc.
-  reportRunId    String
-  companyId      String
-  title          String
-  description    String
-  category       String   // Technical SEO, Content Creation, etc.
-  priority       String   // High, Medium, Low
-  impactMetric   String   // shareOfVoice, inclusionRate, etc.
-  dependencies   Json     // Array of task IDs
-  status         String   @default("NOT_STARTED") // NOT_STARTED, IN_PROGRESS, COMPLETED
-  isCompleted    Boolean  @default(false)
-  completedAt    DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  reportRun      ReportRun @relation(fields: [reportRunId], references: [id], onDelete: Cascade)
-  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id           String    @id @default(cuid())
+  taskId       String
+  reportRunId  String
+  companyId    String
+  title        String
+  description  String
+  category     String
+  priority     String
+  impactMetric String
+  dependencies Json
+  isCompleted  Boolean   @default(false)
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  status       String    @default("NOT_STARTED")
+  company      Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reportRun    ReportRun @relation(fields: [reportRunId], references: [id], onDelete: Cascade)
 
   @@unique([reportRunId, taskId])
   @@index([companyId])
@@ -263,24 +259,23 @@ model BlogPost {
   id                String      @id @default(cuid())
   title             String
   slug              String      @unique
-  content           String      // Rich HTML content from editor
-  excerpt           String?     // Auto-generated or manual excerpt
-  coverImage        String?     // URL to cover image
+  content           String
+  excerpt           String?
+  coverImage        String?
   published         Boolean     @default(false)
   publishedAt       DateTime?
   authorId          String
-  author            User        @relation(fields: [authorId], references: [id])
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
+  canonicalUrl      String?
+  estimatedReadTime Int?
+  metaDescription   String?
+  metaTitle         String?
+  openGraphImage    String?
+  tags              String[]
+  twitterCard       String?     @default("summary_large_image")
   media             BlogMedia[]
-  // SEO Fields
-  metaTitle         String?     // SEO title (defaults to title if not set)
-  metaDescription   String?     // SEO meta description
-  canonicalUrl      String?     // Canonical URL for SEO
-  openGraphImage    String?     // Open Graph image (defaults to coverImage)
-  twitterCard       String?     @default("summary_large_image") // Twitter card type
-  tags              String[]    // Article tags for categorization
-  estimatedReadTime Int?        // Estimated read time in minutes
+  author            User        @relation(fields: [authorId], references: [id])
 
   @@index([published])
   @@index([publishedAt])
@@ -291,14 +286,14 @@ model BlogPost {
 
 model BlogMedia {
   id         String   @id @default(cuid())
-  url        String   // Full URL to the media file
-  filename   String   // Original filename
-  mimeType   String   // image/jpeg, image/png, etc.
-  size       Int      // File size in bytes
-  alt        String?  // Alt text for accessibility
+  url        String
+  filename   String
+  mimeType   String
+  size       Int
+  alt        String?
   blogPostId String
-  blogPost   BlogPost @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
+  blogPost   BlogPost @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
 
   @@index([blogPostId])
 }

@@ -23,9 +23,11 @@
  * - saveShareOfVoiceHistoryPoint: Saves a historical share of voice data point.
  * - saveSentimentOverTimePoint: Saves a historical sentiment data point.
  */
-import prisma, { prismaReadReplica } from '../config/db';
+import { getDbClient, getReadDbClient } from '../config/database';
 
 export async function calculateCompetitorRankings(runId: string, companyId: string, filters?: { aiModel?: string }) {
+  const prisma = await getDbClient();
+  const prismaReadReplica = await getReadDbClient();
   // Prefer pre-computed competitorRankings if present
   const metric = await prismaReadReplica.reportMetric.findFirst({
     where: { reportId: runId, aiModel: (filters?.aiModel ?? 'all') },
@@ -90,6 +92,8 @@ export async function calculateCompetitorRankings(runId: string, companyId: stri
 }
 
 export async function calculateTopQuestions(runId?: string, companyId?: string, filters?: { aiModel?: string; questionType?: string }, limit: number = 20, skip: number = 0) {
+  const prisma = await getDbClient();
+  const prismaReadReplica = await getReadDbClient();
   if (!runId || !companyId) {
     return { questions: [], totalCount: 0 };
   }
@@ -284,6 +288,8 @@ export async function calculateTopResponses(
   limit: number = 1000,
   skip: number = 0
 ) {
+  const prisma = await getDbClient();
+  const prismaReadReplica = await getReadDbClient();
   if (!runId || !companyId) {
     return { responses: [], totalCount: 0 };
   }
@@ -396,6 +402,8 @@ export async function calculateTopResponses(
 
 // runId is ignored in new pipeline but kept for backward compatibility
 export async function calculateShareOfVoiceHistory(_runId: string, companyId: string, filters?: { aiModel?: string }) {
+  const prisma = await getDbClient();
+  const prismaReadReplica = await getReadDbClient();
   const whereClause: any = { companyId };
   
   // Apply aiModel filter if provided
@@ -411,6 +419,8 @@ export async function calculateShareOfVoiceHistory(_runId: string, companyId: st
 }
 
 export async function calculateSentimentOverTime(_runId: string, companyId: string, filters?: { aiModel?: string }) {
+  const prisma = await getDbClient();
+  const prismaReadReplica = await getReadDbClient();
   const whereClause: any = { companyId };
   
   // Apply aiModel filter if provided
@@ -433,6 +443,8 @@ export async function saveShareOfVoiceHistoryPoint(
     shareOfVoice: number,
     reportRunId?: string
 ): Promise<void> {
+  const prisma = await getDbClient();
+  const prismaReadReplica = await getReadDbClient();
     if (!reportRunId) {
         console.warn(`[saveShareOfVoiceHistoryPoint] reportRunId is missing for company ${companyId}. Skipping save.`);
         return;
@@ -471,6 +483,8 @@ export async function saveSentimentOverTimePoint(
     sentimentScore: number,
     reportRunId?: string
 ): Promise<void> {
+  const prisma = await getDbClient();
+  const prismaReadReplica = await getReadDbClient();
     if (!reportRunId) {
         console.warn(`[saveSentimentOverTimePoint] reportRunId is missing for company ${companyId}. Skipping save.`);
         return;
