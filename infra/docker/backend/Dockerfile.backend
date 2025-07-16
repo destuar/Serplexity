@@ -3,12 +3,16 @@ FROM node:20-alpine AS builder
 RUN echo "------ Build Stage Started ------"
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including Python 3
 RUN echo "System dependencies - Installing..." && \
     apk add --no-cache \
         postgresql-client \
         openssl \
-        curl && \
+        curl \
+        python3 \
+        py3-pip \
+        python3-dev \
+        build-base && \
     echo "System dependencies - Installed"
 
 # Copy package files first for better layer caching
@@ -17,6 +21,12 @@ RUN echo "Dependencies - Installing..." && \
     npm ci --no-audit --no-fund && \
     npm cache clean --force && \
     echo "Dependencies - Installed"
+
+# Copy and install Python requirements
+COPY backend/requirements.txt ./
+RUN echo "Python dependencies - Installing..." && \
+    pip3 install --no-cache-dir -r requirements.txt && \
+    echo "Python dependencies - Installed"
 
 # Copy source code and config
 COPY backend/tsconfig.json ./tsconfig.json
@@ -46,12 +56,14 @@ FROM node:20-alpine AS production
 RUN echo "------ Production Stage Started ------"
 WORKDIR /app
 
-# Install only runtime system dependencies
+# Install runtime system dependencies including Python 3
 RUN echo "Runtime dependencies - Installing..." && \
     apk add --no-cache \
         postgresql-client \
         openssl \
-        curl && \
+        curl \
+        python3 \
+        py3-pip && \
     echo "Runtime dependencies - Installed"
 
 # Copy package files
@@ -63,10 +75,19 @@ RUN echo "Production dependencies - Installing..." && \
     npm cache clean --force && \
     echo "Production dependencies - Installed"
 
+# Copy and install Python requirements
+COPY backend/requirements.txt ./
+RUN echo "Python dependencies - Installing..." && \
+    pip3 install --no-cache-dir -r requirements.txt && \
+    echo "Python dependencies - Installed"
+
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+
+# Copy Python agents
+COPY backend/src/pydantic_agents/ ./pydantic_agents/
 
 # Copy scripts if any
 COPY backend/src/scripts/ ./scripts/
