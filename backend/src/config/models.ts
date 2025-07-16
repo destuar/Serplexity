@@ -5,9 +5,6 @@
  * of the LLM's behavior, including concurrency, rate-limiting, logging, and feature-specific parameters like mention detection.
  * It also maps specific models to the tasks they are designated to perform, providing a single source of truth for model capabilities.
  *
- * @dependencies
- * - ../prompts: Contains the system prompt for brand tagging in fanout responses.
- *
  * @exports
  * - ModelEngine: Enum for the different LLM providers (OpenAI, Anthropic, Google, Perplexity).
  * - ModelTask: Enum for the various tasks the models can perform.
@@ -16,7 +13,8 @@
  * - MODELS: A record mapping model IDs to their respective configurations and tasks.
  * - getModelsByTask: A function to retrieve a list of models that can perform a specific task.
  */
-import { FANOUT_RESPONSE_SYSTEM_PROMPT } from '../prompts';
+
+// NOTE: Brand tagging prompts are now handled by PydanticAI agents with superior prompt management
 
 export const enum ModelEngine {
   OPENAI = 'openai',
@@ -101,8 +99,7 @@ export const LLM_CONFIG = {
     ENABLE_QUOTED_PATTERNS: true,          // Match names in quotes/parentheses
   },
 
-  // Fanout response system prompt for brand tagging – centralised constant
-  FANOUT_RESPONSE_SYSTEM_PROMPT: FANOUT_RESPONSE_SYSTEM_PROMPT,
+  // NOTE: Fanout response prompts now handled by PydanticAI agents
 } as const;
 
 // This record now represents the single source of truth for all models in the application.

@@ -13,7 +13,7 @@
  * - Header: The main header component.
  */
 import { Bell, Settings, User, Menu } from "lucide-react";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useCompany } from "../../contexts/CompanyContext";
 import CompanySelector from "../company/CompanySelector";
 import CompanyProfileForm from "../company/CompanyProfileForm";
@@ -41,6 +41,27 @@ const Header: React.FC<HeaderProps> = ({ toggleMobileSidebar }) => {
   const handleCreateSuccess = () => {
     setShowCreateModal(false);
   };
+
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (showCreateModal) {
+      // Save current scroll position
+      const scrollPosition = window.pageYOffset;
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollPosition}px`;
+      document.body.style.width = '100%';
+      
+      return () => {
+        // Restore scroll position
+        document.body.style.removeProperty('overflow');
+        document.body.style.removeProperty('position');
+        document.body.style.removeProperty('top');
+        document.body.style.removeProperty('width');
+        window.scrollTo(0, scrollPosition);
+      };
+    }
+  }, [showCreateModal]);
 
   return (
     <>
@@ -89,12 +110,23 @@ const Header: React.FC<HeaderProps> = ({ toggleMobileSidebar }) => {
 
       {/* Create Company Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <CompanyProfileForm
-            isModal={true}
-            onSuccess={handleCreateSuccess}
-            onCancel={() => setShowCreateModal(false)}
-          />
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex">
+          {/* Scrollable Container */}
+          <div className="w-full h-full overflow-y-auto flex flex-col">
+            {/* Flexible Spacing */}
+            <div className="flex-shrink-0 h-4 sm:h-8 lg:h-16"></div>
+            
+            {/* Modal Content */}
+            <div className="flex-1 flex justify-center px-4 pb-4 sm:pb-8 lg:pb-16">
+              <div className="w-full max-w-2xl">
+                <CompanyProfileForm
+                  isModal={true}
+                  onSuccess={handleCreateSuccess}
+                  onCancel={() => setShowCreateModal(false)}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

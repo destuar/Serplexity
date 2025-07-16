@@ -31,7 +31,9 @@
     "test:redis": "ts-node src/scripts/test-redis-connection.ts",
     "monitor:queues": "ts-node src/scripts/monitor-redis-queues.ts",
     "fix:scheduler": "ts-node src/scripts/fix-scheduler-cron.ts",
-    "health:daily": "ts-node src/scripts/daily-health-monitor.ts"
+    "health:daily": "ts-node src/scripts/daily-health-monitor.ts",
+    "pydantic:health": "ts-node src/scripts/pydantic-health-check.ts",
+    "pydantic:stats": "ts-node src/scripts/pydantic-stats.ts"
   },
   "keywords": [],
   "author": "",
@@ -43,6 +45,7 @@
     "@google/generative-ai": "^0.17.0",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/auto-instrumentations-node": "^0.60.1",
+    "@opentelemetry/exporter-otlp-http": "^0.202.0",
     "@opentelemetry/resources": "^2.0.1",
     "@opentelemetry/sdk-node": "^0.202.0",
     "@prisma/client": "^6.10.0",
@@ -51,6 +54,7 @@
     "axios": "^1.10.0",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.54.3",
+    "logfire": "^0.53.0",
     "cheerio": "^1.1.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",

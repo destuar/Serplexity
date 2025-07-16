@@ -15,8 +15,8 @@
  * - ../config/db: The singleton Prisma client instance.
  * - @prisma/client: Prisma client types.
  * - ../services/llmService: Service for interacting with LLMs (sentiment, questions, website enrichment).
- * - ../services/resilientLlmService: Service for resilient LLM calls with fallbacks.
- * - ../services/fanoutService: Service for generating and flattening fanout queries.
+
+
  * - ../config/models: LLM model configuration and task mapping.
  * - ../types/reports: Type definitions for reports.
  * - ./streaming-db-writer: Utility for streaming database writes.
@@ -41,10 +41,11 @@ import {
     SentimentScores,
     CompetitorInfo,
     QuestionInput,
-    TokenUsage
+    TokenUsage,
+    ChatCompletionResponse
 } from '../services/llmService';
-import { generateResilientQuestionResponse } from '../services/resilientLlmService';
-import { generateCompleteFanout, flattenFanoutQueries } from '../services/fanoutService';
+// NOTE: Fanout generation now handled directly by PydanticAI fanout_agent.py
+// Legacy fanout service imports removed - using inline PydanticAI implementation
 import { getModelsByTask, ModelTask, LLM_CONFIG } from '../config/models';
 import { z } from 'zod';
 import { Question } from '../types/reports';
@@ -52,6 +53,22 @@ import { StreamingDatabaseWriter } from './streaming-db-writer';
 import { computeAndPersistMetrics } from '../services/metricsService';
 import { archiveQueue } from './archiveWorker';
 import { alertingService } from '../services/alertingService';
+import { initializeLogfire } from '../config/logfire';
+
+// Initialize Logfire for this worker
+(async () => {
+  try {
+    await initializeLogfire({
+      serviceName: 'report-worker',
+      enableAutoInstrumentation: false, // We use custom spans
+    });
+    console.log('Logfire initialized for report worker');
+  } catch (error) {
+    console.error('Failed to initialize Logfire for report worker', error);
+    // Decide if you want to exit the process if logging fails
+    // process.exit(1);
+  }
+})();
 
 // Simple log types instead of complex levels
 type LogType = 'STAGE' | 'CONTENT' | 'PERFORMANCE' | 'TECHNICAL' | 'ERROR';
@@ -887,9 +904,86 @@ const jobTimer = new Timer();
     } else {
         log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_QUESTIONS_FOUND', metadata: { count: userBenchmarkQuestions.length } }, `Found ${userBenchmarkQuestions.length} user benchmarking questions for fanout generation`);
 
-        // Import fanout service functions  
-        const { getMissingFanoutCounts, generateCompleteFanout, flattenFanoutQueries } = await import('../services/fanoutService');
-        type FanoutQueryType = import('../services/fanoutService').FanoutQueryType;
+        // Define fanout types locally (migrated from legacy fanoutService)
+        const FANOUT_QUERY_TYPES = [
+            'paraphrase', 'comparison', 'temporal', 'topical', 'entity_broader',
+            'entity_narrower', 'session_context', 'user_profile', 'vertical', 'safety_probe'
+        ] as const;
+        type FanoutQueryType = typeof FANOUT_QUERY_TYPES[number];
+
+        // Inline utility functions (migrated from legacy fanoutService)
+        const getExistingFanoutCounts = async (baseQuestionId: string, companyId: string): Promise<Record<string, Record<FanoutQueryType, number>>> => {
+            const existing = await prisma.fanoutQuestion.groupBy({
+                by: ['type', 'sourceModel'],
+                where: { baseQuestionId, companyId },
+                _count: { _all: true },
+            });
+
+            const counts: Record<string, Record<FanoutQueryType, number>> = {};
+            const models = getModelsByTask(ModelTask.QUESTION_ANSWERING);
+            
+            models.forEach(model => {
+                counts[model.id] = {} as Record<FanoutQueryType, number>;
+                FANOUT_QUERY_TYPES.forEach(type => {
+                    counts[model.id][type] = 0;
+                });
+            });
+
+            existing.forEach(({ type, sourceModel, _count }) => {
+                if (counts[sourceModel] && FANOUT_QUERY_TYPES.includes(type as FanoutQueryType)) {
+                    counts[sourceModel][type as FanoutQueryType] = _count._all;
+                }
+            });
+
+            return counts;
+        };
+
+        const getMissingFanoutCounts = async (baseQuestionId: string, companyId: string): Promise<Record<string, Record<FanoutQueryType, number>>> => {
+            const existingCounts = await getExistingFanoutCounts(baseQuestionId, companyId);
+            const missingCounts: Record<string, Record<FanoutQueryType, number>> = {};
+
+            Object.keys(existingCounts).forEach(modelId => {
+                missingCounts[modelId] = {} as Record<FanoutQueryType, number>;
+                FANOUT_QUERY_TYPES.forEach(type => {
+                    const existing = existingCounts[modelId][type] || 0;
+                    const needed = Math.max(0, LLM_CONFIG.FANOUT_MAX_QUERIES_PER_TYPE - existing);
+                    missingCounts[modelId][type] = needed;
+                });
+            });
+
+            return missingCounts;
+        };
+
+        // Display labels and descriptions (migrated from legacy fanoutService)
+        const FANOUT_DISPLAY_LABELS = {
+            'paraphrase': 'Paraphrase',
+            'comparison': 'Comparison',
+            'temporal': 'Time-based',
+            'topical': 'Related Topics',
+            'entity_broader': 'Broader Category',
+            'entity_narrower': 'Specific Focus',
+            'session_context': 'Context',
+            'user_profile': 'Personalized',
+            'vertical': 'Media Search',
+            'safety_probe': 'Safety Check'
+        } as const;
+
+        const FANOUT_DESCRIPTIONS = {
+            'paraphrase': 'Rewording of the original question',
+            'comparison': 'Direct comparisons between options',
+            'temporal': 'Time-specific or trending questions',
+            'topical': 'Related subject areas',
+            'entity_broader': 'Broader category questions',
+            'entity_narrower': 'More specific focused questions',
+            'session_context': 'Contextual follow-up questions',
+            'user_profile': 'Questions tailored to user preferences',
+            'vertical': 'Questions seeking images, videos, or documents',
+            'safety_probe': 'Questions checking for policy compliance'
+        } as const;
+        
+        // Import PydanticAI service for modern LLM operations
+        const { pydanticLlmService } = await import('../services/pydanticLlmService');
+        const { z } = await import('zod');
 
         // Generate fanout for each benchmarking question that needs it
         const fanoutGenerationPromises = userBenchmarkQuestions.map(async (question, index) => {
@@ -910,18 +1004,130 @@ const jobTimer = new Timer();
 
                 log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_GENERATION_START_QUESTION', metadata: { questionId: question.id, totalMissing, missingCounts } }, `Generating ${totalMissing} missing fanout variations for question: "${question.text}"`);
 
-                const fanoutOptions = {
+                // Call PydanticAI fanout agent directly (modern approach)
+                log({ runId, stage: 'DATA_GATHERING', step: 'PYDANTIC_FANOUT_CALL', metadata: { questionId: question.id } }, `Using PydanticAI fanout agent for question: "${question.text}"`);
+                
+                const fanoutAgentInput = {
                     company_name: fullCompany.name,
-                    industry: fullCompany.industry || 'Technology'
+                    industry: fullCompany.industry || 'Technology',
+                    context: question.text,
+                    query_types: ["comparison", "best_for", "versus", "features", "pricing", "reviews", "alternatives", "pros_cons", "use_cases", "getting_started"],
+                    max_queries: 20,
+                    target_audiences: ["developers", "managers", "small businesses", "enterprise teams", "end users"]
                 };
 
-                const fanoutData = await generateCompleteFanout(question.text, fanoutOptions);
+                // Define schema for PydanticAI response validation
+                const FanoutQuerySchema = z.object({
+                    companyName: z.string(),
+                    industry: z.string(),
+                    queries: z.array(z.object({
+                        query: z.string(),
+                        type: z.string(),
+                        priority: z.number(),
+                        targetAudience: z.string(),
+                        expectedMentions: z.array(z.string()).default([])
+                    })),
+                    totalQueries: z.number(),
+                    generationTimestamp: z.string()
+                });
+
+                const pydanticResult = await pydanticLlmService.executeAgent(
+                    'fanout_agent.py',
+                    fanoutAgentInput,
+                    FanoutQuerySchema,
+                    {
+                        temperature: 0.8,
+                        maxTokens: 2000,
+                        timeout: 45000
+                    }
+                );
+
+                // Convert PydanticAI result to legacy format for compatibility
+                const fanoutData = {
+                    baseQuery: question.text,
+                    modelGenerations: models.map(model => ({
+                        modelId: model.id,
+                        modelEngine: model.engine,
+                        fanoutQueries: {
+                            paraphrase: pydanticResult.data.queries.filter(q => q.type === 'paraphrase').map(q => q.query).slice(0, 4),
+                            comparison: pydanticResult.data.queries.filter(q => q.type === 'comparison').map(q => q.query).slice(0, 4),
+                            temporal: pydanticResult.data.queries.filter(q => q.type === 'temporal').map(q => q.query).slice(0, 4),
+                            topical: pydanticResult.data.queries.filter(q => q.type === 'topical').map(q => q.query).slice(0, 4),
+                            entity_broader: pydanticResult.data.queries.filter(q => q.type === 'entity_broader').map(q => q.query).slice(0, 4),
+                            entity_narrower: pydanticResult.data.queries.filter(q => q.type === 'entity_narrower').map(q => q.query).slice(0, 4),
+                            session_context: pydanticResult.data.queries.filter(q => q.type === 'session_context').map(q => q.query).slice(0, 4),
+                            user_profile: pydanticResult.data.queries.filter(q => q.type === 'user_profile').map(q => q.query).slice(0, 4),
+                            vertical: pydanticResult.data.queries.filter(q => q.type === 'vertical').map(q => q.query).slice(0, 4),
+                            safety_probe: pydanticResult.data.queries.filter(q => q.type === 'safety_probe').map(q => q.query).slice(0, 4),
+                        },
+                        tokenUsage: {
+                            promptTokens: Math.floor(pydanticResult.metadata.tokensUsed * 0.7),
+                            completionTokens: Math.floor(pydanticResult.metadata.tokensUsed * 0.3),
+                            totalTokens: pydanticResult.metadata.tokensUsed
+                        }
+                    })),
+                    totalTokenUsage: {
+                        promptTokens: Math.floor(pydanticResult.metadata.tokensUsed * 0.7),
+                        completionTokens: Math.floor(pydanticResult.metadata.tokensUsed * 0.3),
+                        totalTokens: pydanticResult.metadata.tokensUsed
+                    },
+                    generatedAt: new Date()
+                };
                 
                 totalPromptTokens += fanoutData.totalTokenUsage.promptTokens;
                 totalCompletionTokens += fanoutData.totalTokenUsage.completionTokens;
 
-                // Flatten all generated queries
-                const flattenedQueries = flattenFanoutQueries(fanoutData);
+                // Flatten all generated queries (inline implementation to avoid legacy service dependency)
+                const flattenedQueries: Array<{
+                    id: string;
+                    text: string;
+                    type: FanoutQueryType;
+                    sourceModel: string;
+                    displayLabel: string;
+                    description: string;
+                }> = [];
+
+                let queryId = 1;
+                const FANOUT_QUERY_TYPES = ['paraphrase', 'comparison', 'temporal', 'topical', 'entity_broader', 'entity_narrower', 'session_context', 'user_profile', 'vertical', 'safety_probe'] as const;
+                const FANOUT_DISPLAY_LABELS = {
+                    'paraphrase': 'Paraphrase',
+                    'comparison': 'Comparison',
+                    'temporal': 'Time-based',
+                    'topical': 'Related Topics',
+                    'entity_broader': 'Broader Category',
+                    'entity_narrower': 'Specific Focus',
+                    'session_context': 'Context',
+                    'user_profile': 'Personalized',
+                    'vertical': 'Media Search',
+                    'safety_probe': 'Safety Check'
+                } as const;
+                const FANOUT_DESCRIPTIONS = {
+                    'paraphrase': 'Rewording of the original question',
+                    'comparison': 'Direct comparisons between options',
+                    'temporal': 'Time-specific or trending questions',
+                    'topical': 'Related subject areas',
+                    'entity_broader': 'Broader category questions',
+                    'entity_narrower': 'More specific focused questions',
+                    'session_context': 'Contextual follow-up questions',
+                    'user_profile': 'Questions tailored to user preferences',
+                    'vertical': 'Questions seeking images, videos, or documents',
+                    'safety_probe': 'Questions checking for policy compliance'
+                } as const;
+
+                fanoutData.modelGenerations.forEach(generation => {
+                    FANOUT_QUERY_TYPES.forEach(type => {
+                        generation.fanoutQueries[type].forEach((queryText: string) => {
+                            flattenedQueries.push({
+                                id: `fanout_${queryId++}`,
+                                text: queryText,
+                                type,
+                                sourceModel: generation.modelId,
+                                displayLabel: FANOUT_DISPLAY_LABELS[type],
+                                description: FANOUT_DESCRIPTIONS[type]
+                            });
+                        });
+                    });
+                });
                 
                 // Filter to only save the queries we actually need based on missing counts
                 const newQueriesToSave = flattenedQueries.filter(query => {
@@ -1023,12 +1229,12 @@ const jobTimer = new Timer();
         }
     }
     
-    let sentimentSummary: { data: SentimentScores; usage: TokenUsage } | null = null;
+    let sentimentSummary: ChatCompletionResponse<SentimentScores> | null = null;
     if (allSentiments.length > 0) {
         try {
             sentimentSummary = await generateOverallSentimentSummary(fullCompany.name, allSentiments);
-            totalPromptTokens += sentimentSummary.usage.promptTokens;
-            totalCompletionTokens += sentimentSummary.usage.completionTokens;
+            totalPromptTokens += sentimentSummary?.usage?.promptTokens || 0;
+            totalCompletionTokens += sentimentSummary?.usage?.completionTokens || 0;
             log({ runId, stage: 'DATA_GATHERING', step: 'SENTIMENT_SUMMARY_GENERATED' }, 'Generated sentiment summary during data gathering');
         } catch (error) {
             log({ runId, stage: 'DATA_GATHERING', step: 'SENTIMENT_SUMMARY_ERROR', error }, 'Failed to generate sentiment summary during data gathering', 'ERROR');
@@ -1157,16 +1363,12 @@ const jobTimer = new Timer();
         const questionInput: QuestionInput = { 
             id: question.id, 
             text: question.text,
-            systemPrompt: LLM_CONFIG.FANOUT_RESPONSE_SYSTEM_PROMPT // Add brand tagging prompt
+            systemPrompt: undefined // NOTE: Brand tagging now handled by PydanticAI agents
         };
         const startTime = Date.now();
         
         try {
-            const { data: answer, usage } = await questionLimit(() => generateResilientQuestionResponse(questionInput, model, {
-                enableFallbacks: true,
-                alertOnFallback: true,
-                context: `report_${runId}_question_${questionInput.text.substring(0, 30)}`
-            }));
+            const { data: answer, usage } = await questionLimit(() => generateQuestionResponse(questionInput, model));
             
             totalPromptTokens += usage.promptTokens;
             totalCompletionTokens += usage.completionTokens;
@@ -1587,10 +1789,91 @@ const jobTimer = new Timer();
             log({ runId, stage: 'POST_COMPLETION', step: 'OPTIMIZATION_START' }, 'Generating optimisation tasks and AI visibility summary…');
             await updateProgress(prisma, runId, 'Generating Optimization Tasks', 30, PROGRESS.OPTIMIZATION_START, PROGRESS.OPTIMIZATION_END, 'Starting task generation');
 
-            const { generateOptimizationTasksAndSummary, persistOptimizationTasks } = await import('../services/optimizationTaskService');
+            // Import only the persistence function from legacy service
+            const { persistOptimizationTasks } = await import('../services/optimizationTaskService');
             
             await updateProgress(prisma, runId, 'Generating Optimization Tasks', 50, PROGRESS.OPTIMIZATION_START, PROGRESS.OPTIMIZATION_END, 'Processing with AI models');
-            const optimisationResult = await generateOptimizationTasksAndSummary(runId, company.id, prisma, false);
+            
+            // Call PydanticAI optimization agent directly (modern approach)
+            log({ runId, stage: 'POST_COMPLETION', step: 'PYDANTIC_OPTIMIZATION_CALL' }, 'Using PydanticAI optimization agent');
+            
+            // Import PydanticAI service for optimization tasks
+            const { pydanticLlmService } = await import('../services/pydanticLlmService');
+            const { z } = await import('zod');
+            
+            const optimizationAgentInput = {
+                company_name: company.name,
+                industry: company.industry || 'Technology',
+                context: 'Generate optimization tasks based on AI visibility metrics',
+                categories: ["content", "technical", "brand", "visibility", "performance"],
+                max_tasks: 10,
+                priority_focus: 'high_impact'
+            };
+
+            // Define schema for PydanticAI response validation
+            const OptimizationTaskSchema = z.object({
+                companyName: z.string(),
+                industry: z.string(),
+                tasks: z.array(z.object({
+                    title: z.string(),
+                    description: z.string(),
+                    category: z.enum(["content", "technical", "brand", "visibility", "performance"]),
+                    priority: z.number().min(1).max(5),
+                    estimatedEffort: z.number().min(1).max(160),
+                    expectedImpact: z.string(),
+                    actionItems: z.array(z.string())
+                })),
+                totalTasks: z.number(),
+                generationTimestamp: z.string()
+            });
+
+            const pydanticOptimizationResult = await pydanticLlmService.executeAgent(
+                'optimization_agent.py',
+                optimizationAgentInput,
+                OptimizationTaskSchema,
+                {
+                    temperature: 0.7,
+                    maxTokens: 2500,
+                    timeout: 45000
+                }
+            );
+
+            // Convert PydanticAI result to legacy format for compatibility with persistence
+            type LegacyCategory = 'Technical SEO' | 'Content & Messaging' | 'Brand Positioning' | 'Link Building' | 'Local SEO';
+            type LegacyImpactMetric = 'visibility' | 'averagePosition' | 'inclusionRate';
+
+            const categoryMapping: Record<string, LegacyCategory> = {
+                'content': 'Content & Messaging',
+                'technical': 'Technical SEO',
+                'brand': 'Brand Positioning',
+                'visibility': 'Technical SEO',
+                'performance': 'Technical SEO'
+            };
+
+            const impactMetricMapping: Record<string, LegacyImpactMetric> = {
+                'content': 'visibility',
+                'technical': 'inclusionRate',
+                'brand': 'averagePosition',
+                'visibility': 'averagePosition',
+                'performance': 'inclusionRate'
+            };
+
+            const optimisationResult = {
+                tasks: pydanticOptimizationResult.data.tasks.map((task: any, index: number) => ({
+                    id: `T${String(index + 1).padStart(2, '0')}`,
+                    title: String(task.title || 'Optimization Task'),
+                    description: String(task.description || 'No description available'),
+                    category: categoryMapping[task.category] || 'Technical SEO',
+                    priority: (task.priority === 1 ? 'High' : task.priority <= 3 ? 'Medium' : 'Low') as 'High' | 'Medium' | 'Low',
+                    impact_metric: impactMetricMapping[task.category] || 'visibility'
+                })),
+                summary: `Generated ${pydanticOptimizationResult.data.totalTasks} optimization tasks using PydanticAI. Focus areas include ${pydanticOptimizationResult.data.tasks.map((t: any) => t.category).slice(0, 3).join(', ')}.`,
+                tokenUsage: {
+                    promptTokens: Math.floor(pydanticOptimizationResult.metadata.tokensUsed * 0.7),
+                    completionTokens: Math.floor(pydanticOptimizationResult.metadata.tokensUsed * 0.3),
+                    totalTokens: pydanticOptimizationResult.metadata.tokensUsed
+                }
+            };
             await updateProgress(prisma, runId, 'Generating Optimization Tasks', 90, PROGRESS.OPTIMIZATION_START, PROGRESS.OPTIMIZATION_END, 'Tasks generated');
 
             if (optimisationResult.tasks.length > 0) {

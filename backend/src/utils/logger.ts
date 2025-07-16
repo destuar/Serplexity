@@ -20,6 +20,9 @@ const logger = {
   error: (...args: any[]) => {
     console.error(...args);
   },
+  debug: (...args: any[]) => {
+    console.debug(...args);
+  },
 };
 
 export default logger; 

@@ -1,57 +1,110 @@
 /**
  * @file optimizationTaskService.ts
- * @description This file provides services for generating, persisting, and managing AI visibility optimization tasks and executive summaries.
- * It leverages LLMs to create actionable tasks based on company context and performance metrics, and it includes predefined tasks
- * for common SEO and content strategies. It also handles the persistence of these tasks to the database and provides functions
- * for retrieving and updating their status. This is a core component of the AI-driven recommendations system.
+ * @deprecated This service is PARTIALLY DEPRECATED in favor of PydanticAI optimization_agent.py
+ * 
+ * ⚠️  MIGRATION NOTICE: Task generation has been replaced by PydanticAI agents
+ * - NEW: Use backend/src/pydantic_agents/optimization_agent.py for task generation
+ * - BENEFITS: Advanced prompt management, industry-specific generation, better validation
+ * - COMPATIBILITY: Database functions still needed for persistence and management
+ * 
+ * @description This file provides LEGACY task generation and database management for optimization tasks.
+ * The task generation has been migrated to PydanticAI agents which provide superior:
+ * - Context-aware prompt optimization
+ * - Industry-specific task generation
+ * - Priority-based task ranking with effort estimation
+ * - Comprehensive error handling and validation
  *
- * @dependencies
- * - @prisma/client: The Prisma client for database interactions.
- * - zod: For schema validation of LLM outputs.
- * - ./llmService: Service for interacting with LLMs.
- * - ../config/models: LLM model configuration and task mapping.
- * - ../prompts/visibilityOptimizationPrompts: Prompts and preset tasks for optimization.
- *
- * @exports
- * - generateOptimizationTasksAndSummary: Generates a set of optimization tasks and an executive summary.
- * - persistOptimizationTasks: Persists generated optimization tasks to the database.
- * - getOptimizationTasks: Retrieves optimization tasks for a given company.
- * - toggleTaskCompletion: Toggles the completion status of an optimization task.
- * - updateTaskStatus: Updates the status of an optimization task.
- * - TaskStatus: Enum for the possible statuses of an optimization task.
+ * @migration_status
+ * - ❌ generateOptimizationTasksAndSummary: REPLACED by PydanticAI optimization_agent.py
+ * - ✅ persistOptimizationTasks: STILL USED for database persistence
+ * - ✅ getOptimizationTasks: STILL USED for task retrieval
+ * - ✅ toggleTaskCompletion: STILL USED for task management
+ * - ✅ updateTaskStatus: STILL USED for task management
+ * - ✅ PRESET_TASKS: STILL USED for fallback/compatibility
  */
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
-import { generateAndValidate, generateChatCompletion } from './llmService';
+// NOTE: LLM imports removed - generateOptimizationTasksAndSummary is DEPRECATED
+// Use backend/src/pydantic_agents/optimization_agent.py directly instead
 import { ModelTask, ModelEngine, getModelsByTask } from '../config/models';
-import { OPTIMIZATION_TASKS_PROMPT, SUMMARY_PROMPT, PRESET_TASKS } from '../prompts/visibilityOptimizationPrompts';
 
-function replacePlaceholders(template: string, context: Record<string, any>): string {
-  return template.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
-    const trimmedKey = key.trim();
-    const value = context[trimmedKey];
-    if (value !== undefined && value !== null) {
-      if (typeof value === 'number') {
-        return Number(value.toFixed(2)).toString();
-      }
-      return String(value);
+// NOTE: Optimization prompts are now handled by PydanticAI optimization_agent.py
+// This service should be deprecated in favor of direct PydanticAI agent calls
+
+const PRESET_TASKS = [
+    {
+        id: 'S01',
+        title: 'Verify robots.txt & llms.txt',
+        description: '1. Navigate to https://<domain>/robots.txt in your browser; 2. If the file is missing or blocks key directories, copy a best-practice template from any reputable robots.txt generator; 3. In a text editor, create "llms.txt" with a one-sentence brand description and "Allow: /"; 4. Upload both files via your CMS file manager or hosting control panel; 5. Reload both URLs to confirm they return a 200 status.',
+        category: 'Technical SEO' as const,
+        priority: 'High' as const,
+        impact_metric: 'inclusionRate' as const,
+    },
+    {
+        id: 'S02',
+        title: 'Implement Comprehensive Schema Markup',
+        description: '1. Use an online schema markup generator and choose "Organization", "Product" and "Article"; 2. Fill in your company details and copy the JSON-LD; 3. In your CMS, paste the code into the global "Header / Custom HTML" field; 4. Save, publish and test three URLs in a rich-results testing tool; 5. If errors appear, edit and retest until green; 6. Resubmit the pages in your search console for faster indexing.',
+        category: 'Technical SEO',
+        priority: 'High',
+        impact_metric: 'averagePosition',
+    },
+    {
+        id: 'S03',
+        title: 'Create Brand-Specific Landing Pages',
+        description: '1. Research the top 10 queries where competitors rank but you don\'t; 2. For each query, create a 500+ word landing page with title tag including the exact query; 3. Include your brand name naturally 3-5 times; 4. Add internal links to your main product/service pages; 5. Submit the new URLs to your search console; 6. Monitor for visibility improvements over 2-4 weeks.',
+        category: 'Content & Messaging',
+        priority: 'High',
+        impact_metric: 'visibility',
+    },
+    {
+        id: 'S04',
+        title: 'Optimize Core Service Pages for AI Mentions',
+        description: '1. Identify your 5 most important service/product pages; 2. For each page, add a FAQ section with 3-5 questions customers actually ask; 3. Write clear, direct answers using natural language; 4. Include your brand name in 2-3 FAQ answers; 5. Update the page title to include your primary service keyword; 6. Test the updated pages using AI search tools to verify improved mentions.',
+        category: 'Content & Messaging',
+        priority: 'High',
+        impact_metric: 'inclusionRate',
+    },
+    {
+        id: 'S05',
+        title: 'Establish Thought Leadership Content Hub',
+        description: '1. Choose 3 topics where your company has genuine expertise; 2. Create a dedicated resource page for each topic with 5+ in-depth articles; 3. Include case studies, statistics, and unique insights; 4. Link to authoritative external sources to build trust; 5. Share the content on professional networks; 6. Monitor AI search results for mentions in industry-related queries.',
+        category: 'Brand Positioning',
+        priority: 'Medium',
+        impact_metric: 'visibility',
     }
-    return match;
-  });
+];
+
+export enum TaskStatus {
+  PENDING = 'PENDING',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED'
 }
 
+export const TASK_CATEGORIES = {
+  'Technical SEO': 'Technical SEO',
+  'Content & Messaging': 'Content & Messaging',
+  'Brand Positioning': 'Brand Positioning',
+  'Link Building': 'Link Building',
+  'Local SEO': 'Local SEO'
+} as const;
+
+export type TaskCategory = keyof typeof TASK_CATEGORIES;
+
+const TaskPriorityEnum = z.enum(['High', 'Medium', 'Low']);
+const TaskCategoryEnum = z.enum(['Technical SEO', 'Content & Messaging', 'Brand Positioning', 'Link Building', 'Local SEO']);
+const ImpactMetricEnum = z.enum(['visibility', 'averagePosition', 'inclusionRate']);
+
 const TaskSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  description: z.string(),
-  category: z.enum(['Technical SEO', 'Third-Party Citations', 'Content Creation', 'PR & Thought Leadership', 'Measurement']),
-  priority: z.enum(['High', 'Medium', 'Low']),
-  impact_metric: z.enum(['shareOfVoice', 'inclusionRate', 'averagePosition', 'sentimentScore']),
+  id: z.string().min(1),
+  title: z.string().min(5).max(100),
+  description: z.string().min(20).max(1000),
+  category: TaskCategoryEnum,
+  priority: TaskPriorityEnum,
+  impact_metric: ImpactMetricEnum,
 });
 
-const TasksArraySchema = z.array(TaskSchema);
-
-interface OptimizationTasksResult {
+export interface OptimizationTasksResult {
   tasks: z.infer<typeof TaskSchema>[];
   summary: string;
   tokenUsage: {
@@ -61,231 +114,25 @@ interface OptimizationTasksResult {
   };
 }
 
-interface CompanyContext {
-  name: string;
-  industry: string | null;
-  website: string;
-  competitors: string[];
-  hasFirstReport: boolean;
-  productKeywords: string[];
-}
-
-interface ReportMetricsContext {
-  shareOfVoice: number;
-  shareOfVoiceChange?: number | null;
-  averageInclusionRate: number;
-  averageInclusionChange?: number | null;
-  averagePosition: number;
-  averagePositionChange?: number | null;
-  sentimentScore?: number | null;
-  sentimentChange?: number | null;
-  competitorRankings?: any;
-  topQuestions?: any;
-}
-
-// Prompts are now centralized in backend/src/prompts/visibilityOptimizationPrompts.ts
-
-// Preset tasks have been moved to prompts/visibilityOptimizationPrompts.ts
-type PresetTask = z.infer<typeof TaskSchema>;
-
+/**
+ * @deprecated REPLACED by PydanticAI optimization_agent.py
+ * This function throws an error to prevent accidental usage
+ */
 export async function generateOptimizationTasksAndSummary(
   runId: string,
   companyId: string,
   prisma: PrismaClient,
   forceTaskGeneration: boolean = false,
 ): Promise<OptimizationTasksResult> {
-  
-  // Check if this is the first report for the company
-  const reportCount = await prisma.reportRun.count({
-    where: { 
-      companyId,
-      status: 'COMPLETED',
-      id: { not: runId } // Exclude current run
-    }
-  });
-  
-  const isFirstReport = reportCount === 0;
-  
-  // Get company context
-  const company = await prisma.company.findUnique({
-    where: { id: companyId },
-    include: { competitors: true }
-  });
-  
-  if (!company) {
-    throw new Error(`Company not found: ${companyId}`);
-  }
-  
-  // Get latest report metrics (aggregated across models for now)
-  const latestMetric = await prisma.reportMetric.findFirst({
-    where: { reportId: runId, aiModel: 'all' },
-  });
-  
-  if (!latestMetric) {
-    throw new Error(`No metrics found for report: ${runId}`);
-  }
-  
-  const companyContext: CompanyContext = {
-    name: company.name,
-    industry: company.industry,
-    website: company.website,
-    competitors: company.competitors.map(c => c.name),
-    hasFirstReport: isFirstReport,
-    productKeywords: [],
-  };
-  
-  const metricsContext: ReportMetricsContext = {
-    shareOfVoice: latestMetric.shareOfVoice,
-    shareOfVoiceChange: latestMetric.shareOfVoiceChange,
-    averageInclusionRate: latestMetric.averageInclusionRate,
-    averageInclusionChange: latestMetric.averageInclusionChange,
-    averagePosition: latestMetric.averagePosition,
-    averagePositionChange: latestMetric.averagePositionChange,
-    sentimentScore: latestMetric.sentimentScore,
-    sentimentChange: latestMetric.sentimentChange,
-    competitorRankings: latestMetric.competitorRankings,
-    topQuestions: latestMetric.topQuestions
-  };
-  
-  // Create a lean version of metrics for task generation to reduce token usage
-  const { competitorRankings, topQuestions, ...leanMetricsContext } = metricsContext;
-  
-  // Create a flattened context for placeholder replacement.
-  // Get top competitor by share of voice from metrics data
-  const topCompetitorByShareOfVoice = metricsContext.competitorRankings?.competitors?.[0]?.name || 
-                                      metricsContext.competitorRankings?.chartCompetitors?.find((c: any) => !c.isUserCompany)?.name ||
-                                      company.competitors[0]?.name || 
-                                      'N/A';
-  
-  const fullTemplateContext = {
-    ...companyContext,
-    ...metricsContext,
-    topCompetitor: topCompetitorByShareOfVoice,
-  };
-  const leanTemplateContext = {
-    ...companyContext,
-    ...leanMetricsContext,
-  };
-
-  let tasks: z.infer<typeof TaskSchema>[] = [];
-  let tasksTokenUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
-  
-  // Prefer a Gemini (Google) model for optimization tasks if available
-  const optimizationModels = getModelsByTask(ModelTask.OPTIMIZATION_TASKS);
-  const taskModel = optimizationModels.find(m => m.engine === ModelEngine.GOOGLE) || optimizationModels[0];
-  if (!taskModel) throw new Error('No LLM configured for OPTIMIZATION_TASKS');
-
-  // For the summary, prefer an OpenAI model as requested.
-  const summaryModels = getModelsByTask(ModelTask.OPTIMIZATION_TASKS);
-  const summaryModel = summaryModels.find(m => m.engine === ModelEngine.OPENAI) || summaryModels[0];
-  if (!summaryModel) throw new Error('No LLM configured for AI Visibility Summary generation');
-
-  // Generate tasks only for first report, iteratively requesting ONE at a time to avoid duplicates
-  if (isFirstReport || forceTaskGeneration) {
-    const createdTasks: z.infer<typeof TaskSchema>[] = [];
-    const accumulatedUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
-
-    const TARGET_TASK_COUNT = 10;
-    const MAX_ATTEMPTS = 30; // safeguard against infinite loops
-    let attempts = 0;
-
-    while (createdTasks.length < TARGET_TASK_COUNT && attempts < MAX_ATTEMPTS) {
-      attempts++;
-      
-      // Progress logging for better visibility
-      const progressPercent = Math.round((createdTasks.length / TARGET_TASK_COUNT) * 100);
-      console.log(`[OptimizationTasks] Progress: ${createdTasks.length}/${TARGET_TASK_COUNT} tasks generated (${progressPercent}%) - Attempt ${attempts}`);
-      
-      // 1. Replace placeholders in the prompt template
-      const finalTaskPrompt = replacePlaceholders(OPTIMIZATION_TASKS_PROMPT, leanTemplateContext);
-
-      // 2. Create the minimal context needed for the model's instructions
-      const tasksPayload = {
-        disallowedTitles: [...PRESET_TASKS, ...createdTasks].map(t => t.title),
-        disallowedIds: [...createdTasks].map(t => t.id),
-      };
-
-      const promptWithPayload = `${finalTaskPrompt}\n\n<CONTEXT>${JSON.stringify(tasksPayload)}`;
-
-      try {
-        const { data: generatedTask, usage } = await generateAndValidate<
-          z.infer<typeof TaskSchema>,
-          z.infer<typeof TaskSchema>
-        >(
-          promptWithPayload,
-          TaskSchema,
-          taskModel,
-          ModelTask.OPTIMIZATION_TASKS,
-          undefined, // No transform function
-          (data: any) => { // Rescue function
-            if (data && data.impact_metric === 'averageInclusionRate') {
-              data.impact_metric = 'inclusionRate';
-            }
-            return data;
-          }
-        );
-
-        // Ensure uniqueness by ID and Title before pushing
-        const isDuplicate = createdTasks.some(t => t.id === generatedTask.id || t.title === generatedTask.title);
-        if (!isDuplicate) {
-          createdTasks.push(generatedTask);
-          console.log(`[OptimizationTasks] Generated task: "${generatedTask.title}" (${createdTasks.length}/${TARGET_TASK_COUNT})`);
-        } else {
-          console.log(`[OptimizationTasks] Duplicate task detected, skipping: "${generatedTask.title}"`);
-        }
-        
-        accumulatedUsage.promptTokens += usage.promptTokens;
-        accumulatedUsage.completionTokens += usage.completionTokens;
-        accumulatedUsage.totalTokens += usage.totalTokens;
-
-        // Reduced delay for faster generation
-        await new Promise(res => setTimeout(res, 100)); // Reduced from 250ms to 100ms
-        
-      } catch (error) {
-        console.error(`[OptimizationTasks] Error generating task on attempt ${attempts}:`, error);
-        // Continue to next attempt on error
-        await new Promise(res => setTimeout(res, 500)); // Brief delay on error
-      }
-    }
-
-    console.log(`[OptimizationTasks] Task generation complete: ${createdTasks.length}/${TARGET_TASK_COUNT} tasks in ${attempts} attempts`);
-    tasks = createdTasks;
-    tasksTokenUsage = accumulatedUsage;
-  }
-  
-  // Append universal preset tasks
-  if (isFirstReport || forceTaskGeneration) {
-    const priorityRank: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
-    const selectedPreset = [...PRESET_TASKS].sort((a, b) => {
-      if (priorityRank[a.priority] !== priorityRank[b.priority]) return priorityRank[a.priority] - priorityRank[b.priority];
-      return a.id.localeCompare(b.id);
-    });
-
-    tasks = [...tasks, ...selectedPreset];
-  }
-  
-  // Replace placeholders and call the model to generate the summary.
-  const finalSummaryPrompt = replacePlaceholders(SUMMARY_PROMPT, fullTemplateContext);
-
-  const { content: summaryText, usage: summaryUsage } = await generateChatCompletion(
-    summaryModel,
-    finalSummaryPrompt
+  // DEPRECATED: This function should not be used - throw explicit error
+  throw new Error(
+    'DEPRECATED: generateOptimizationTasksAndSummary has been replaced by PydanticAI agents. ' +
+    'Use backend/src/pydantic_agents/optimization_agent.py directly instead. ' +
+    'See reportWorker.ts for the modern implementation pattern.'
   );
-  
-  if (!summaryText) {
-    throw new Error('Failed to generate AI visibility summary text.');
-  }
-  
-  return {
-    tasks,
-    summary: summaryText,
-    tokenUsage: {
-      promptTokens: tasksTokenUsage.promptTokens + summaryUsage.promptTokens,
-      completionTokens: tasksTokenUsage.completionTokens + summaryUsage.completionTokens,
-      totalTokens: tasksTokenUsage.totalTokens + summaryUsage.totalTokens
-    }
-  };
 }
+
+// ===== TASK PERSISTENCE FUNCTIONS (STILL USED) =====
 
 export async function persistOptimizationTasks(
   tasks: z.infer<typeof TaskSchema>[],
@@ -293,129 +140,80 @@ export async function persistOptimizationTasks(
   companyId: string,
   prisma: PrismaClient
 ): Promise<void> {
-  if (tasks.length === 0) return;
-  
-  // Ensure idempotency by deleting any existing tasks for this run before creating new ones.
-  await prisma.visibilityOptimizationTask.deleteMany({
-    where: { reportRunId: runId },
-  });
-  
-  // Deduplicate tasks in-memory to prevent unique constraint errors from the model itself
-  const seenTaskIds = new Set<string>();
-  const uniqueTasks = tasks.filter(task => {
-    if (seenTaskIds.has(task.id)) {
-      return false;
-    } else {
-      seenTaskIds.add(task.id);
-      return true;
-    }
-  });
+  const optimizationTasks = tasks.map(task => ({
+    id: task.id,
+    title: task.title,
+    description: task.description,
+    category: task.category,
+    priority: task.priority,
+    impact_metric: task.impact_metric,
+    status: TaskStatus.PENDING,
+    reportId: runId,
+    companyId: companyId,
+  }));
 
-  if (uniqueTasks.length < tasks.length) {
-    console.warn(`[Data Integrity] Removed ${tasks.length - uniqueTasks.length} duplicate task(s) for runId: ${runId}`);
+  // Use upsert to handle potential duplicates gracefully
+  for (const task of optimizationTasks) {
+    await prisma.visibilityOptimizationTask.upsert({
+      where: { id: task.id },
+      update: {
+        title: task.title,
+        description: task.description,
+        category: task.category,
+        priority: task.priority,
+        impactMetric: task.impact_metric,
+      },
+      create: {
+        id: task.id,
+        taskId: task.id, // Use task.id as taskId for the compound unique constraint
+        title: task.title,
+        description: task.description,
+        category: task.category,
+        priority: task.priority,
+        impactMetric: task.impact_metric,
+        dependencies: {}, // Default empty dependencies JSON
+        status: task.status,
+        reportRunId: runId,
+        companyId: companyId,
+      },
+    });
   }
+}
 
-  await prisma.visibilityOptimizationTask.createMany({
-    data: uniqueTasks.map(task => ({
-      taskId: task.id,
-      reportRunId: runId,
-      companyId,
-      title: task.title,
-      description: task.description,
-      category: task.category,
-      priority: task.priority,
-      impactMetric: task.impact_metric,
-      dependencies: [],
-    }))
+export async function getOptimizationTasks(companyId: string, prisma: PrismaClient) {
+  return prisma.visibilityOptimizationTask.findMany({
+    where: { companyId },
+    orderBy: [
+      { priority: 'asc' }, // High priority first (enum ordering)
+      { createdAt: 'desc' }
+    ],
   });
 }
 
-export async function getOptimizationTasks(
-  companyId: string,
-  prisma: PrismaClient
-) {
-  // Get the latest tasks for the company
-  const latestReport = await prisma.reportRun.findFirst({
-    where: { 
-      companyId,
-      status: 'COMPLETED',
-      optimizationTasks: { some: {} }
-    },
-    include: {
-      optimizationTasks: {
-        orderBy: { taskId: 'asc' }
-      }
-    },
-    orderBy: { createdAt: 'desc' }
-  });
+export async function toggleTaskCompletion(taskId: string, prisma: PrismaClient) {
+  const task = await prisma.visibilityOptimizationTask.findFirst({ where: { taskId } });
+  if (!task) throw new Error(`Task not found: ${taskId}`);
   
-  return latestReport?.optimizationTasks || [];
-}
-
-export async function toggleTaskCompletion(
-  taskId: string,
-  reportRunId: string,
-  prisma: PrismaClient
-) {
-  const task = await prisma.visibilityOptimizationTask.findUnique({
-    where: { 
-      reportRunId_taskId: { reportRunId, taskId }
-    }
-  });
-  
-  if (!task) {
-    throw new Error(`Task not found: ${taskId}`);
-  }
-  
-  const newStatus = task.isCompleted ? 'NOT_STARTED' : 'COMPLETED';
+  const newStatus = task.status === TaskStatus.COMPLETED ? TaskStatus.PENDING : TaskStatus.COMPLETED;
   
   return prisma.visibilityOptimizationTask.update({
-    where: { 
-      reportRunId_taskId: { reportRunId, taskId }
-    },
-    data: {
+    where: { id: task.id },
+    data: { 
       status: newStatus,
-      isCompleted: !task.isCompleted,
-      completedAt: !task.isCompleted ? new Date() : null
-    }
-  });
-}
-
-export enum TaskStatus {
-  NOT_STARTED = 'NOT_STARTED',
-  IN_PROGRESS = 'IN_PROGRESS',
-  COMPLETED = 'COMPLETED'
-}
-
-export async function updateTaskStatus(
-  taskId: string,
-  reportRunId: string,
-  newStatus: TaskStatus,
-  prisma: PrismaClient
-) {
-  const task = await prisma.visibilityOptimizationTask.findUnique({
-    where: { 
-      reportRunId_taskId: { reportRunId, taskId }
-    }
-  });
-  
-  if (!task) {
-    throw new Error(`Task not found: ${taskId}`);
-  }
-
-  // Validate the new status
-  if (!Object.values(TaskStatus).includes(newStatus)) {
-    throw new Error(`Invalid task status: ${newStatus}`);
-  }
-  
-  return prisma.visibilityOptimizationTask.update({
-    where: { 
-      reportRunId_taskId: { reportRunId, taskId }
-    },
-    data: {
-      status: newStatus,
-      isCompleted: newStatus === TaskStatus.COMPLETED,
       completedAt: newStatus === TaskStatus.COMPLETED ? new Date() : null
-    }
+    },
+  });
+}
+
+export async function updateTaskStatus(taskId: string, status: TaskStatus, prisma: PrismaClient) {
+  const task = await prisma.visibilityOptimizationTask.findFirst({ where: { taskId } });
+  if (!task) throw new Error(`Task not found: ${taskId}`);
+  
+  return prisma.visibilityOptimizationTask.update({
+    where: { id: task.id },
+    data: { 
+      status,
+      completedAt: status === TaskStatus.COMPLETED ? new Date() : null
+    },
   });
 } 

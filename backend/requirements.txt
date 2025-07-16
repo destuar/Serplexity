@@ -1,0 +1,14 @@
+# PydanticAI Dependencies
+# Core PydanticAI framework with all provider support
+pydantic-ai[openai,anthropic,gemini,groq,logfire]==0.4.2
+
+# Additional dependencies for our implementation
+pydantic==2.10.4
+typing-extensions==4.12.2
+asyncio==3.4.3
+
+# Development dependencies
+pytest==8.3.4
+pytest-asyncio==0.24.0
+black==24.10.0
+mypy==1.13.0

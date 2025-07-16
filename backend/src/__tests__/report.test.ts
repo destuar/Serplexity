@@ -1,6 +1,37 @@
 import request from 'supertest';
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import app from '../app';
 import { prisma } from './setup';
+
+// Mock environment
+jest.mock('../config/env', () => ({
+  __esModule: true,
+  default: {
+    NODE_ENV: 'test',
+    DATABASE_URL: 'postgresql://test:test@primary-host:5432/test_primary',
+    READ_REPLICA_URL: '',
+    SECRETS_PROVIDER: 'env',
+  },
+}));
+
+// Mock passport configuration
+jest.mock('../config/passport', () => ({}));
+
+// Mock Stripe
+jest.mock('stripe', () => {
+  return jest.fn().mockImplementation(() => {
+    return {
+      checkout: {
+        sessions: {
+          create: jest.fn(),
+        },
+      },
+      webhooks: {
+        constructEvent: jest.fn(),
+      },
+    };
+  });
+});
 
 // Mock the queueReport function so we do not interact with BullMQ / Redis during tests
 jest.mock('../services/reportSchedulingService', () => {

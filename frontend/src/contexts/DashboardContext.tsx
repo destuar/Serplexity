@@ -135,10 +135,33 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
       // Use current AI-model filter if not "all" for detailed questions
       const modelParam = filters.aiModel && filters.aiModel !== 'all' ? filters.aiModel : undefined;
 
-      // Fetch all data in parallel
-      const [dashboardData, sovHistory, detailedQuestionsData] = await Promise.all([
-        getDashboardData(selectedCompany.id, currentFilters),
-        getShareOfVoiceHistory(selectedCompany.id, currentFilters),
+      // Fetch dashboard data first to determine if reports exist
+      const dashboardData = await getDashboardData(selectedCompany.id, currentFilters);
+      
+      // If no dashboard data exists, immediately set hasReport to false and skip other calls
+      if (!dashboardData) {
+        console.log('[DashboardContext] No dashboard data found, setting hasReport to false');
+        setData(null);
+        setDetailedQuestions([]);
+        setHasReport(false);
+        
+        // Clear cache
+        cacheRef.current[cacheKey] = {
+          data: null,
+          detailedQuestions: []
+        };
+        
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      // If we have dashboard data, fetch additional data
+      const [sovHistory, detailedQuestionsData] = await Promise.all([
+        getShareOfVoiceHistory(selectedCompany.id, currentFilters).catch(err => {
+          console.warn('[DashboardContext] Failed to fetch share of voice history:', err);
+          return []; // Return empty array on error
+        }),
         getTopRankingQuestions(selectedCompany.id, { aiModel: modelParam })
           .then(result => result.questions)
           .catch(err => {
@@ -153,23 +176,14 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
         aiModel, // Preserve the aiModel field for filtering
       }));
 
-      const mergedData: DashboardData | null = dashboardData
-        ? { ...dashboardData, shareOfVoiceHistory: fullHistory }
-        : null;
+      const mergedData: DashboardData = { ...dashboardData, shareOfVoiceHistory: fullHistory };
 
       console.log('[DashboardContext] Data received from service:', mergedData);
       console.log('[DashboardContext] Detailed questions received:', detailedQuestionsData);
 
       setData(mergedData);
       setDetailedQuestions(detailedQuestionsData);
-      
-      // Update hasReport based on new data
-      if (mergedData) {
-        setHasReport(true);
-      } else if (hasReport === null) {
-        // Only set false the first time when we know no report exists
-        setHasReport(false);
-      }
+      setHasReport(true);
       
       if (dashboardData?.lastUpdated) {
         setLastUpdated(dashboardData.lastUpdated);
@@ -185,8 +199,10 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
       console.error('Failed to fetch dashboard data:', apiErr);
       setError(apiErr.message || 'Failed to fetch dashboard data');
       
-      // On error, don't flip hasReport back to false if we have ever seen a report.
-      if (data === null && hasReport === null) {
+      // Always set hasReport to false when there's an error and we don't have existing data
+      // This ensures the WelcomePrompt shows up for new companies
+      if (hasReport === null || !data) {
+        console.log('[DashboardContext] Setting hasReport to false due to error');
         setHasReport(false);
       }
     } finally {

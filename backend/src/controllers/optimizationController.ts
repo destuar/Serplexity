@@ -42,7 +42,7 @@ export const toggleOptimizationTaskCompletion = async (req: Request, res: Respon
     try {
         const { reportRunId, taskId } = req.params;
         
-        const updatedTask = await toggleTaskCompletion(taskId, reportRunId, prisma);
+        const updatedTask = await toggleTaskCompletion(taskId, prisma);
         
         res.json({ task: updatedTask });
     } catch (error) {
@@ -68,7 +68,7 @@ export const updateOptimizationTaskStatus = async (req: Request, res: Response) 
             });
         }
         
-        const updatedTask = await updateTaskStatus(taskId, reportRunId, status, prisma);
+        const updatedTask = await updateTaskStatus(taskId, status, prisma);
         
         res.json({ task: updatedTask });
     } catch (error) {

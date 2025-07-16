@@ -18,21 +18,28 @@ process.env.OPENAI_API_KEY = 'test-openai-key';
 process.env.GEMINI_API_KEY = 'test-gemini-key';
 process.env.ANTHROPIC_API_KEY = 'test-anthropic-key';
 process.env.PERPLEXITY_API_KEY = 'test-perplexity-key';
+process.env.LOGFIRE_TOKEN = 'test-logfire-token-for-testing';
 
 // Override AWS credentials with test values
 process.env.AWS_ACCESS_KEY_ID = 'test-access-key';
 process.env.AWS_SECRET_ACCESS_KEY = 'test-secret-key';
 process.env.AWS_REGION = 'us-east-1';
 process.env.AWS_BUCKET_NAME = 'test-bucket';
+process.env.GLACIER_VAULT_NAME = 'test-vault';
+process.env.GLACIER_ACCOUNT_ID = 'test-account-id';
 
 // Override Stripe keys with test values
 process.env.STRIPE_SECRET_KEY = 'sk_test_fake_key_for_testing';
 process.env.STRIPE_PUBLISHABLE_KEY = 'pk_test_fake_key_for_testing';
 process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test_fake_webhook_secret';
+process.env.STRIPE_MONTHLY_PRICE_ID = 'price_test_monthly';
+process.env.STRIPE_ANNUAL_PRICE_ID = 'price_test_annual';
 
 // Override other sensitive configs
 process.env.GOOGLE_CLIENT_ID = 'test-google-client-id';
 process.env.GOOGLE_CLIENT_SECRET = 'test-google-client-secret';
+process.env.GOOGLE_CALLBACK_URL = 'http://localhost:3001/auth/google/callback';
+process.env.FRONTEND_URL = 'http://localhost:3000';
 process.env.REDIS_HOST = 'localhost';
 process.env.REDIS_PORT = '6379';
 

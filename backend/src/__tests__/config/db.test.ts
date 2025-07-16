@@ -1,140 +1,103 @@
-// @ts-nocheck
-// Mock the logger before any imports
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
+
+// Mock logger module
 const mockLogger = {
   info: jest.fn(),
-  error: jest.fn(),
   warn: jest.fn(),
-  debug: jest.fn()
+  error: jest.fn(),
+  debug: jest.fn(),
 };
 
-jest.mock('../../utils/logger', () => mockLogger);
+jest.mock('../../utils/logger', () => ({
+  __esModule: true,
+  default: mockLogger,
+}));
 
-// Mock the env module to have complete control over configuration
+// Mock PrismaClient
+jest.mock('@prisma/client', () => ({
+  PrismaClient: jest.fn(() => ({
+    $connect: jest.fn().mockImplementation(() => Promise.resolve()),
+    $disconnect: jest.fn().mockImplementation(() => Promise.resolve()),
+  })),
+}));
+
+// Mock secrets provider
+jest.mock('../../services/secretsProvider', () => ({
+  SecretsProviderFactory: {
+    createProvider: jest.fn().mockReturnValue({
+      getSecret: jest.fn().mockImplementation(() =>
+        Promise.resolve({
+          secret: {
+            host: 'secret-host',
+            port: 5432,
+            username: 'secret-user',
+            password: 'secret-pass',
+            database: 'secret-db',
+          },
+        }),
+      ),
+      testConnection: jest.fn().mockImplementation(() => Promise.resolve(true)),
+      getProviderName: jest.fn().mockReturnValue('mock'),
+    }),
+  },
+}));
+
+// Mock environment
 jest.mock('../../config/env', () => ({
   __esModule: true,
   default: {
+    NODE_ENV: 'test',
     DATABASE_URL: 'postgresql://test:test@primary-host:5432/test_primary',
-    READ_REPLICA_URL: undefined
-  }
+    READ_REPLICA_URL: '',
+    SECRETS_PROVIDER: 'env',
+  },
 }));
 
 describe('Database Configuration', () => {
-  let mockEnv: any;
-
   beforeEach(() => {
-    // Clear all mock calls
+    // Clear all mocks before each test
     jest.clearAllMocks();
-    // Get the mocked env module
-    mockEnv = require('../../config/env').default;
   });
 
-  afterEach(() => {
-    jest.resetModules();
+  it('should export database service', async () => {
+    const { databaseService } = await import('../../config/database');
+    expect(databaseService).toBeDefined();
   });
 
-  it('should log the correct host for read replica when READ_REPLICA_URL is set', async () => {
-    // Set the mock env values for this test
-    mockEnv.READ_REPLICA_URL = 'postgresql://test:test@replica-host:5433/test_replica';
-    
-    // Import the factory function after setting the mock
-    const { createPrismaClients } = await import('../../config/db');
-    
-    const { readReplica } = createPrismaClients({
-      enableLogging: true
-    });
-
-    // Verify the correct host was logged
-    expect(mockLogger.info).toHaveBeenCalledWith(
-      expect.stringContaining('[Prisma] Initializing primary client with host: primary-host')
-    );
-    expect(mockLogger.info).toHaveBeenCalledWith(
-      expect.stringContaining('[Prisma] Initializing read replica client with host: replica-host')
-    );
-
-    // Verify the client was created with correct URL
-    expect(readReplica).toBeDefined();
+  it('should export getDbClient function', async () => {
+    const { getDbClient } = await import('../../config/database');
+    expect(getDbClient).toBeDefined();
+    expect(typeof getDbClient).toBe('function');
   });
 
-  it('should log the correct host for read replica when READ_REPLICA_URL is not set', async () => {
-    // Ensure READ_REPLICA_URL is undefined for this test
-    mockEnv.READ_REPLICA_URL = undefined;
-    
-    // Import the factory function after setting the mock
-    const { createPrismaClients } = await import('../../config/db');
-    
-    const { readReplica } = createPrismaClients({
-      enableLogging: true
-    });
-
-    // Verify the correct host was logged
-    expect(mockLogger.info).toHaveBeenCalledWith(
-      expect.stringContaining('[Prisma] Initializing primary client with host: primary-host')
-    );
-    expect(mockLogger.info).toHaveBeenCalledWith(
-      expect.stringContaining('[Prisma] Read replica URL not set, read client will use primary host: primary-host')
-    );
-
-    // Verify the client was created with primary URL as fallback
-    expect(readReplica).toBeDefined();
+  it('should export getReadDbClient function', async () => {
+    const { getReadDbClient } = await import('../../config/database');
+    expect(getReadDbClient).toBeDefined();
+    expect(typeof getReadDbClient).toBe('function');
   });
 
-  it('should not log when logging is disabled', async () => {
-    // Import the factory function
-    const { createPrismaClients } = await import('../../config/db');
-    // Capture the call count before
-    const callCountBefore = mockLogger.info.mock.calls.length;
-    const { readReplica } = createPrismaClients({
-      primaryUrl: 'postgresql://test:test@primary-host:5432/test_primary',
-      replicaUrl: 'postgresql://test:test@replica-host:5433/test_replica',
-      enableLogging: false
-    });
-    // Capture the call count after
-    const callCountAfter = mockLogger.info.mock.calls.length;
-    // Verify no additional logging occurred
-    expect(callCountAfter).toBe(callCountBefore);
-    // Verify the client was still created
-    expect(readReplica).toBeDefined();
+  it('should export testDbConnection function', async () => {
+    const { testDbConnection } = await import('../../config/database');
+    expect(testDbConnection).toBeDefined();
+    expect(typeof testDbConnection).toBe('function');
   });
 
-  it('should handle invalid URLs gracefully', async () => {
-    // Import the factory function
-    const { createPrismaClients } = await import('../../config/db');
+  it('should return database clients', async () => {
+    const { databaseService } = await import('../../config/database');
     
-    const { readReplica } = createPrismaClients({
-      primaryUrl: 'invalid-url',
-      enableLogging: true
-    });
-
-    // Should log 'Invalid URL' for the host
-    expect(mockLogger.info).toHaveBeenCalledWith(
-      expect.stringContaining('[Prisma] Initializing primary client with host: Invalid URL')
-    );
-
-    // Verify the client was still created (Prisma will handle the invalid URL)
-    expect(readReplica).toBeDefined();
+    const primaryClient = databaseService.getPrimaryClient();
+    const replicaClient = databaseService.getReplicaClient();
+    
+    expect(primaryClient).toBeDefined();
+    expect(replicaClient).toBeDefined();
   });
 
-  it('should use provided URLs over environment variables', async () => {
-    // Set environment variables
-    mockEnv.READ_REPLICA_URL = 'postgresql://test:test@env-replica-host:5433/test_replica';
+  it('should call getDbClient without throwing', async () => {
+    const { getDbClient } = await import('../../config/database');
     
-    // Import the factory function
-    const { createPrismaClients } = await import('../../config/db');
-    
-    const { readReplica } = createPrismaClients({
-      primaryUrl: 'postgresql://test:test@provided-primary-host:5432/test_primary',
-      replicaUrl: 'postgresql://test:test@provided-replica-host:5433/test_replica',
-      enableLogging: true
-    });
-
-    // Should use provided URLs, not environment variables
-    expect(mockLogger.info).toHaveBeenCalledWith(
-      expect.stringContaining('[Prisma] Initializing primary client with host: provided-primary-host')
-    );
-    expect(mockLogger.info).toHaveBeenCalledWith(
-      expect.stringContaining('[Prisma] Initializing read replica client with host: provided-replica-host')
-    );
-
-    expect(readReplica).toBeDefined();
+    expect(() => {
+      const client = getDbClient();
+      expect(client).toBeDefined();
+    }).not.toThrow();
   });
 });

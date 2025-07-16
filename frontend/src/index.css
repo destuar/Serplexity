@@ -135,3 +135,16 @@ input:-webkit-autofill:active {
                     0 0 0 1000px rgba(0,0,0,0.05) inset !important;
   transition: background-color 5000s ease-in-out 0s;
 }
+
+/* Specific autofill override for the white modal/company profile form */
+.company-profile-form input:-webkit-autofill,
+.company-profile-form textarea:-webkit-autofill,
+.company-profile-form input:-webkit-autofill:hover,
+.company-profile-form input:-webkit-autofill:focus,
+.company-profile-form input:-webkit-autofill:active {
+  -webkit-text-fill-color: #1f2937 !important; /* Tailwind gray-900 */
+  -webkit-box-shadow: 0 0 0px 1000px #ffffff inset !important; /* Force white background */
+  background-color: #ffffff !important;
+  border: 1px solid #e5e7eb !important; /* Tailwind gray-200 */
+  transition: background-color 5000s ease-in-out 0s;
+}
