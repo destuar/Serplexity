@@ -1,5 +1,14 @@
 /**
- * Service for fetching company logos from website URLs
+ * @file logoService.ts
+ * @description Service for managing company logos and favicon generation.
+ * Provides functionality for logo upload, processing, and favicon generation.
+ *
+ * @dependencies
+ * - ../lib/apiClient: For API communication.
+ *
+ * @exports
+ * - uploadLogo: Function for uploading company logos.
+ * - generateFavicon: Function for generating favicon from logo.
  */
 
 import SerplexityLogo from '/Serplexity.svg';

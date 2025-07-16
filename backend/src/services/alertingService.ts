@@ -1,3 +1,20 @@
+/**
+ * @file alertingService.ts
+ * @description This file defines the `AlertingService`, a comprehensive system for sending various types of alerts
+ * (report failures, system issues, scheduler failures, Redis/database failures) via email and webhooks.
+ * It includes logic for determining alert levels, formatting messages, and logging alerts. This service is crucial
+ * for maintaining the operational health and reliability of the application by proactively notifying administrators
+ * of critical events.
+ *
+ * @dependencies
+ * - nodemailer: For sending emails.
+ * - axios: For making HTTP requests to webhooks.
+ * - ../config/env: Environment variable configuration.
+ * - ../config/db: The singleton Prisma client instance (for logging alerts to DB).
+ *
+ * @exports
+ * - alertingService: A singleton instance of the AlertingService.
+ */
 import nodemailer from 'nodemailer';
 import axios from 'axios';
 import env from '../config/env';

@@ -1,3 +1,15 @@
+/**
+ * @file useDashboard.ts
+ * @description Custom hook for accessing dashboard context and dashboard-related data.
+ * Provides a convenient interface for dashboard functionality.
+ *
+ * @dependencies
+ * - react: For context access.
+ * - ../contexts/DashboardContext: For dashboard context.
+ *
+ * @exports
+ * - useDashboard: Hook for dashboard functionality.
+ */
 import { createContext, useContext } from 'react';
 import { DashboardData, DashboardFilters } from '../types/dashboard';
 import { TopRankingQuestion } from '../services/companyService';

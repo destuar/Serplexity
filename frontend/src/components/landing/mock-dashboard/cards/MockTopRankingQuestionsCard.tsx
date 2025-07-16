@@ -1,3 +1,18 @@
+/**
+ * @file MockTopRankingQuestionsCard.tsx
+ * @description A component that displays a card with a list of top-ranking questions for the mock dashboard.
+ * This component is intended for display on the landing page to showcase the product's capabilities.
+ * It includes hover-over tooltips to show more details about each question.
+ *
+ * @dependencies
+ * - react: For component state and effects.
+ * - ../../../../types/dashboard: For `getModelDisplayName`.
+ * - ../../../ui/FormattedResponseViewer: To display formatted AI responses.
+ * - ./MockDashboardCard: The wrapper card component.
+ *
+ * @exports
+ * - MockTopRankingQuestionsCard: The main component.
+ */
 import React, { useState } from 'react';
 import MockDashboardCard from './MockDashboardCard';
 import { getModelDisplayName } from '../../../../types/dashboard';

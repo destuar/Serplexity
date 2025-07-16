@@ -1,3 +1,14 @@
+/**
+ * @file experimentalSearchService.ts
+ * @description Service for experimental search functionality and AI model testing.
+ * Provides experimental search tools and AI model interaction capabilities.
+ *
+ * @dependencies
+ * - ../lib/apiClient: For API communication.
+ *
+ * @exports
+ * - Various functions for experimental search operations.
+ */
 import apiClient from '../lib/apiClient';
 
 export interface ModelAnswer {

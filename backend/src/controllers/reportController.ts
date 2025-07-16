@@ -1,3 +1,33 @@
+/**
+ * @file reportController.ts
+ * @description This file contains the controllers for managing all report-related operations.
+ * It handles report creation, status checks, and retrieval of the latest report data. It also includes a comprehensive
+ * logging system, rate-limiting, and emergency triggers for manual report generation. This is a critical component for the
+ * application's core functionality.
+ *
+ * @dependencies
+ * - express: The Express framework for handling HTTP requests and responses.
+ * - zod: For schema validation of request bodies.
+ * - ../config/db: The singleton Prisma client instance for database interactions.
+ * - ../config/redis: The Redis client for caching and other operations.
+ * - ../services/reportSchedulingService: Service for queuing report generation.
+ * - ../queues/backupScheduler: The backup scheduler for emergency report triggers.
+ * - ../services/alertingService: Service for sending system alerts.
+ * - ../config/models: The configuration for LLM models.
+ * - ../services/metricsService: Service for fetching full report metrics.
+ * - ../services/dashboardService: Service for calculating dashboard data.
+ * - ../config/bullmq: The BullMQ configuration for queue health checks.
+ *
+ * @exports
+ * - createReport: Controller for creating a new report.
+ * - getReportStatus: Controller for fetching the status of a report.
+ * - getLatestReport: Controller for fetching the latest report for a company.
+ * - getCompetitorRankingsForReport: Controller for fetching competitor rankings for a specific report.
+ * - getReportResponses: Controller for fetching responses for a specific report.
+ * - emergencyTriggerCompanyReport: Controller for manually triggering a report for a single company.
+ * - emergencyTriggerAllReports: Controller for manually triggering reports for all eligible companies.
+ * - getSystemHealth: Controller for checking the health of the system.
+ */
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import prisma, { prismaReadReplica } from '../config/db';

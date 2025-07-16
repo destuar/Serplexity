@@ -1,3 +1,15 @@
+/**
+ * @file useCompany.ts
+ * @description Custom hook for accessing company context and company-related data.
+ * Provides a convenient interface for company-related functionality.
+ *
+ * @dependencies
+ * - react: For context access.
+ * - ../contexts/CompanyContext: For company context.
+ *
+ * @exports
+ * - useCompany: Hook for company functionality.
+ */
 import { createContext, useContext } from 'react';
 import { Company } from '../types/schemas';
 

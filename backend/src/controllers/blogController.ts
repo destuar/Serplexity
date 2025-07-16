@@ -1,3 +1,23 @@
+/**
+ * @file blogController.ts
+ * @description This file contains the controllers for managing blog posts, including CRUD (Create, Read, Update, Delete) operations.
+ * It handles features like automatic slug generation, reading time calculation, and authorization to ensure that only admins
+ * can access unpublished content. It also provides endpoints for fetching single and multiple blog posts.
+ *
+ * @dependencies
+ * - express: The Express framework for handling HTTP requests and responses.
+ * - @prisma/client: The Prisma client for database interactions.
+ * - zod: For schema validation of request bodies.
+ * - ../config/db: The singleton Prisma client instance.
+ *
+ * @exports
+ * - getAllBlogPosts: Controller for fetching all blog posts.
+ * - getBlogPostBySlug: Controller for fetching a single blog post by its slug.
+ * - getBlogPostById: Controller for fetching a single blog post by its ID (admin only).
+ * - createBlogPost: Controller for creating a new blog post.
+ * - updateBlogPost: Controller for updating an existing blog post.
+ * - deleteBlogPost: Controller for deleting a blog post.
+ */
 import { Request, Response } from 'express';
 import { Role } from '@prisma/client';
 import prisma from '../config/db';

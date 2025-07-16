@@ -1,3 +1,17 @@
+/**
+ * @file MockSentimentDetailsCard.tsx
+ * @description This component displays detailed sentiment analysis for the brand, breaking down sentiment
+ * scores by various categories (e.g., Quality, Price, Reputation). It provides a textual summary of
+ * the brand's sentiment strengths and weaknesses, along with individual category scores. This card is
+ * used to demonstrate the application's in-depth sentiment analysis capabilities on the landing page.
+ *
+ * @dependencies
+ * - react: For core React functionalities.
+ * - ./MockDashboardCard: Generic card component for consistent UI in the mock dashboard.
+ *
+ * @exports
+ * - MockSentimentDetailsCard: React functional component for displaying mock sentiment details.
+ */
 import React from 'react';
 import MockDashboardCard from './MockDashboardCard';
 

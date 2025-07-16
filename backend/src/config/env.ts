@@ -1,3 +1,17 @@
+/**
+ * @file env.ts
+ * @description This file is responsible for validating and exporting environment variables for the application.
+ * It uses the Zod library to define a schema and ensure that all required environment variables are present and correctly typed.
+ * This provides a single source of truth for configuration and prevents runtime errors due to missing or invalid variables.
+ *
+ * @dependencies
+ * - dotenv: For loading environment variables from a .env file.
+ * - zod: For schema validation of environment variables.
+ * - path: Node.js module for handling file paths.
+ *
+ * @exports
+ * - env: A validated and typed object containing all environment variables.
+ */
 import dotenv from 'dotenv';
 import { z } from 'zod';
 import path from 'path';

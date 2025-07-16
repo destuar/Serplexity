@@ -1,3 +1,20 @@
+/**
+ * @file redis.ts
+ * @description This file implements a sophisticated Redis connection manager, designed for high availability and resilience.
+ * It features a connection pool, a circuit breaker pattern to prevent cascading failures, and regular health checks to ensure
+ * the stability of the Redis connections. It exports a singleton instance of the connection manager for use throughout the application.
+ *
+ * @dependencies
+ * - ioredis: A robust, high-performance Redis client for Node.js.
+ * - ./env: Environment variable configuration.
+ * - ../utils/logger: Logger for application-level logging.
+ *
+ * @exports
+ * - redis: A singleton Redis connection instance for general use.
+ * - bullmqConnection: A dedicated Redis connection instance for BullMQ.
+ * - checkRedisHealth: A function to perform a health check on the Redis connection pool.
+ * - redisManager: The singleton instance of the RedisConnectionManager for advanced operations.
+ */
 import Redis, { RedisOptions } from 'ioredis';
 import env from './env';
 import logger from '../utils/logger';

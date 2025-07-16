@@ -1,3 +1,18 @@
+/**
+ * @file MockSentimentOverTimeCard.tsx
+ * @description This component displays a mock sentiment score trend over time using a line chart.
+ * It visualizes how the brand's sentiment score has evolved, providing insights into the impact
+ * of various events or campaigns on public perception. This card is used to demonstrate historical
+ * sentiment analysis capabilities on the landing page.
+ *
+ * @dependencies
+ * - react: For core React functionalities.
+ * - recharts: For charting components such as `LineChart`, `Line`, `XAxis`, `YAxis`, `CartesianGrid`, `Tooltip`, and `ResponsiveContainer`.
+ * - ./MockDashboardCard: Generic card component for consistent UI in the mock dashboard.
+ *
+ * @exports
+ * - MockSentimentOverTimeCard: React functional component for displaying mock sentiment over time.
+ */
 import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import MockDashboardCard from './MockDashboardCard';

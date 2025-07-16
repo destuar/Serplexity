@@ -1,3 +1,18 @@
+/**
+ * @file BlogEditorPage.tsx
+ * @description Blog editor page for creating and editing blog posts.
+ * Provides rich text editing, SEO optimization, and content management functionality.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - react-router-dom: For navigation.
+ * - react-hook-form: For form handling.
+ * - lucide-react: For icons.
+ * - ../hooks/useBlogPosts: For blog post management.
+ *
+ * @exports
+ * - BlogEditorPage: The main blog editor page component.
+ */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';

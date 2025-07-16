@@ -1,3 +1,17 @@
+/**
+ * @file searchController.ts
+ * @description This file contains the controller for handling direct interactions with the language models.
+ * It provides an endpoint for users to ask questions and receive answers, with a simple in-memory rate limiter to prevent abuse.
+ *
+ * @dependencies
+ * - express: The Express framework for handling HTTP requests and responses.
+ * - zod: For schema validation of request bodies.
+ * - ../config/models: The configuration for LLM models.
+ * - ../services/llmService: Service for generating chat completions.
+ *
+ * @exports
+ * - askModel: Controller for asking a question to a specific language model.
+ */
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { MODELS } from '../config/models';

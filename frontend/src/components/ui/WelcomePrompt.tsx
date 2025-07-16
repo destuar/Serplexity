@@ -1,3 +1,16 @@
+/**
+ * @file WelcomePrompt.tsx
+ * @description Welcome prompt component that displays onboarding messages and helpful tips for new users.
+ * Provides contextual guidance and welcome information throughout the application.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - lucide-react: For icons.
+ * - ../../lib/utils: For utility functions.
+ *
+ * @exports
+ * - WelcomePrompt: The main welcome prompt component.
+ */
 import React from 'react';
 import { Sparkles, Loader, CheckCircle } from 'lucide-react';
 import { useCompany } from '../../contexts/CompanyContext';

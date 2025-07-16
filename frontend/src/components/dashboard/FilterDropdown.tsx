@@ -1,3 +1,18 @@
+/**
+ * @file FilterDropdown.tsx
+ * @description This component provides a reusable and customizable filter dropdown. It displays a label,
+ * the currently selected value, and a list of options. It supports optional icons and logo URLs for each option,
+ * and handles opening/closing the dropdown, selecting options, and disabling the component. This is a versatile
+ * UI component used across the dashboard for filtering data.
+ *
+ * @dependencies
+ * - react: The core React library.
+ * - lucide-react: Icon library for React.
+ * - ../../lib/utils: Utility functions (e.g., `cn` for class names).
+ *
+ * @exports
+ * - FilterDropdown: React functional component for a customizable filter dropdown.
+ */
 import React, { useState, useRef, useEffect, ComponentType } from 'react';
 import { ChevronDown, Check, LucideProps } from 'lucide-react';
 import { cn } from '../../lib/utils';

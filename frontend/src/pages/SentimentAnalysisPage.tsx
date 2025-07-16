@@ -1,3 +1,17 @@
+/**
+ * @file SentimentAnalysisPage.tsx
+ * @description Sentiment analysis page for analyzing AI response sentiment and tone.
+ * Provides sentiment metrics, trend analysis, and emotional insights.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - react-router-dom: For navigation.
+ * - lucide-react: For icons.
+ * - ../contexts/DashboardContext: For dashboard data.
+ *
+ * @exports
+ * - SentimentAnalysisPage: The main sentiment analysis page component.
+ */
 import { Sparkles, Calendar, RefreshCw, Loader } from 'lucide-react';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';

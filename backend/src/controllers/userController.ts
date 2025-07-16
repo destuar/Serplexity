@@ -1,3 +1,22 @@
+/**
+ * @file userController.ts
+ * @description This file contains the controllers for managing all user-related operations.
+ * It handles everything from fetching and updating user profiles to changing passwords and managing user data,
+ * including exporting and deleting it. This is a critical component for ensuring user privacy and control over their data.
+ *
+ * @dependencies
+ * - express: The Express framework for handling HTTP requests and responses.
+ * - zod: For schema validation of request bodies.
+ * - bcrypt: For hashing and comparing passwords.
+ * - ../config/db: The singleton Prisma client instance for database interactions.
+ *
+ * @exports
+ * - exportUserData: Controller for exporting all of a user's data.
+ * - deleteUserData: Controller for deleting all of a user's data.
+ * - getUserProfile: Controller for fetching a user's profile.
+ * - updateUserProfile: Controller for updating a user's profile.
+ * - changePassword: Controller for changing a user's password.
+ */
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';

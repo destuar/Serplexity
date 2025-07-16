@@ -1,3 +1,18 @@
+/**
+ * @file Sidebar.tsx
+ * @description Sidebar navigation component that provides the main navigation menu for the dashboard.
+ * Handles responsive behavior, collapsible sections, and navigation state management.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - react-router-dom: For navigation and routing.
+ * - lucide-react: For icons.
+ * - ../../contexts/AuthContext: For user authentication state.
+ * - ../../contexts/CompanyContext: For company data.
+ *
+ * @exports
+ * - Sidebar: The main sidebar navigation component.
+ */
 import {
   ChevronDown,
   ChevronRight,

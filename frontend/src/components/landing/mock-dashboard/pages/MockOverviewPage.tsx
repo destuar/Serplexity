@@ -1,3 +1,21 @@
+/**
+ * @file MockOverviewPage.tsx
+ * @description This component renders a mock overview page for the dashboard preview, simulating the main dashboard view.
+ * It displays various key metrics and insights through a grid of mock cards, including brand share of voice,
+ * visibility over time, average inclusion rate, average position, sentiment score, top ranking questions, and rankings.
+ * This page serves as a comprehensive demonstration of the dashboard's capabilities on the landing page.
+ *
+ * @dependencies
+ * - react: For core React functionalities.
+ * - lucide-react: For icons such as `Calendar`, `Sparkles`, and `RefreshCw`.
+ * - ../MockDashboardLayout: The layout component for the mock dashboard.
+ * - ../cards/*: Various mock card components used to display different metrics.
+ * - ../MockFilterDropdown: Mock component for filter dropdowns.
+ * - ../../../../types/dashboard: Contains `MODEL_CONFIGS` and `ModelConfig` for model-related data.
+ *
+ * @exports
+ * - MockOverviewPage: The React functional component for the mock overview page.
+ */
 import React from 'react';
 import { Calendar, Sparkles, RefreshCw } from 'lucide-react';
 import MockDashboardLayout from '../MockDashboardLayout';

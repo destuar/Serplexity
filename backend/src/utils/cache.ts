@@ -1,3 +1,18 @@
+/**
+ * @file cache.ts
+ * @description This file defines the `CacheService`, which provides a simple interface for interacting with Redis as a caching layer.
+ * It includes methods for getting, setting, and deleting cached data, as well as invalidating cache entries by pattern.
+ * It also defines common cache keys for various application data. This service is crucial for improving application performance
+ * by reducing database load and speeding up data retrieval.
+ *
+ * @dependencies
+ * - ../config/redis: The Redis client for caching operations.
+ * - ./logger: Logger for application-level logging.
+ *
+ * @exports
+ * - CacheService: The class providing caching functionalities.
+ * - default: A singleton instance of the CacheService.
+ */
 import { redis } from '../config/redis';
 import logger from './logger';
 

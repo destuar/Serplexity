@@ -1,3 +1,19 @@
+/**
+ * @file reportSchedulingService.ts
+ * @description This file defines the `reportSchedulingService`, which is responsible for queuing report generation jobs.
+ * It acts as the single source of truth for initiating report runs, handling concurrency with a locking mechanism,
+ * checking for existing reports to prevent duplicates (unless forced), and creating new report run entries in the database
+ * before adding the job to the BullMQ queue. This service is crucial for managing the report generation workflow.
+ *
+ * @dependencies
+ * - ../queues/reportGenerationQueue: The BullMQ queue for report generation jobs.
+ * - ../config/db: The singleton Prisma client instance.
+ * - @prisma/client: Prisma client types.
+ *
+ * @exports
+ * - queueReport: Function to queue a new report generation job.
+ * - scheduleReport: Function to schedule a report for a specific company (placeholder).
+ */
 import { reportGenerationQueue } from '../queues/reportGenerationQueue';
 import prisma from '../config/db';
 import { ReportRun } from '.prisma/client';

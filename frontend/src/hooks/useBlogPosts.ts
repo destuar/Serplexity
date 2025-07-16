@@ -1,3 +1,15 @@
+/**
+ * @file useBlogPosts.ts
+ * @description Custom hook for managing blog posts data and operations.
+ * Provides blog post fetching, creation, updating, and deletion functionality.
+ *
+ * @dependencies
+ * - react: For state management and effects.
+ * - ../lib/apiClient: For API communication.
+ *
+ * @exports
+ * - useBlogPosts: Hook for blog posts functionality.
+ */
 import { useState, useEffect, useCallback } from 'react';
 import apiClient from '../lib/apiClient';
 

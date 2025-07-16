@@ -1,3 +1,14 @@
+/**
+ * @file schemas.ts
+ * @description Type definitions for application schemas and data models.
+ * Provides comprehensive type definitions for user, company, and application data structures.
+ *
+ * @dependencies
+ * - None (pure type definitions).
+ *
+ * @exports
+ * - Various TypeScript interfaces and types for application schemas.
+ */
 import { z } from 'zod';
 
 export const CompetitorSchema = z.object({

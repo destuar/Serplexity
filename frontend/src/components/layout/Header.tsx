@@ -1,3 +1,17 @@
+/**
+ * @file Header.tsx
+ * @description Top header component for the dashboard that displays company information, user controls, and mobile menu toggle.
+ * Provides navigation and user interface elements for the main application header.
+ *
+ * @dependencies
+ * - react: For component rendering.
+ * - lucide-react: For icons.
+ * - ../../contexts/CompanyContext: For company data.
+ * - ../../contexts/AuthContext: For user authentication state.
+ *
+ * @exports
+ * - Header: The main header component.
+ */
 import { Bell, Settings, User, Menu } from "lucide-react";
 import React, { useState } from "react";
 import { useCompany } from "../../contexts/CompanyContext";

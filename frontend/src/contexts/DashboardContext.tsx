@@ -1,3 +1,18 @@
+/**
+ * @file DashboardContext.tsx
+ * @description React context for managing dashboard data and analytics throughout the application.
+ * Provides dashboard metrics, analytics data, and dashboard-related state management.
+ *
+ * @dependencies
+ * - react: For context creation and state management.
+ * - ../services/dashboardService: For dashboard-related API calls.
+ * - ../types/dashboard: For dashboard type definitions.
+ *
+ * @exports
+ * - DashboardContext: The dashboard context.
+ * - DashboardProvider: Provider component for dashboard state.
+ * - useDashboard: Hook for accessing dashboard context.
+ */
 import React, { useState, useEffect, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { DashboardData, DashboardFilters } from '../types/dashboard';
 import { getDashboardData } from '../services/dashboardService';

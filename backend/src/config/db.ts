@@ -1,4 +1,20 @@
 
+/**
+ * @file db.ts
+ * @description This file initializes and exports the Prisma client for database interactions.
+ * It supports a primary database and a read replica, with logging to indicate which database URLs are being used.
+ * This setup is crucial for scaling read operations and ensuring high availability.
+ *
+ * @dependencies
+ * - @prisma/client: The Prisma client library for database access.
+ * - ./env: Environment variable configuration.
+ * - ../utils/logger: Logger for application-level logging.
+ *
+ * @exports
+ * - createPrismaClients: A factory function to create primary and read replica Prisma clients.
+ * - prisma: The default singleton instance of the primary Prisma client.
+ * - prismaReadReplica: The default singleton instance of the read replica Prisma client.
+ */
 import { PrismaClient } from '@prisma/client';
 import env from './env';
 import logger from '../utils/logger';

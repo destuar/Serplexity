@@ -1,3 +1,16 @@
+/**
+ * @file sentimentPrompts.ts
+ * @description This file defines the system prompts for analyzing market sentiment and perception of companies
+ * across multiple categories including quality, price/value, brand reputation, brand trust, and customer service.
+ * It provides prompt builders for generating AI-powered sentiment analysis ratings and comprehensive summaries
+ * based on market research and customer feedback patterns. This is a core component for the sentiment analysis
+ * features in the dashboard, enabling data-driven insights into company perception across different industries.
+ *
+ * @exports
+ * - buildSentimentRatingPrompt: Function that generates prompts for rating company sentiment across 5 key categories.
+ * - SentimentAverages: Interface defining the structure for sentiment score averages.
+ * - buildSentimentSummaryPrompt: Function that generates prompts for creating executive summaries of sentiment findings.
+ */
 import { z } from 'zod';
 
 export function buildSentimentRatingPrompt(companyName: string, industry: string): string {

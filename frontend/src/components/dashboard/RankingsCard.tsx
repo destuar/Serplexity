@@ -1,3 +1,21 @@
+/**
+ * @file RankingsCard.tsx
+ * @description This component displays competitor rankings and share of voice data. It presents the user's company's
+ * industry ranking and a list of top competitors, including their share of voice and changes from the previous period.
+ * It uses a bar chart for visual representation and integrates with `useDashboard` for data. This is a key component
+ * for competitive analysis.
+ *
+ * @dependencies
+ * - lucide-react: Icon library for React.
+ * - react-router-dom: For navigation (`useNavigate`).
+ * - ../ui/Card: Generic card component for consistent UI.
+ * - ../../hooks/useDashboard: Custom hook for accessing dashboard data.
+ * - ../../lib/logoService: Utility for fetching company logos.
+ * - ../../hooks/useMediaQuery: Custom hook for media queries.
+ *
+ * @exports
+ * - RankingsCard: React functional component for displaying competitor rankings.
+ */
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../ui/Card';
@@ -303,4 +321,4 @@ const RankingsCard = () => {
   );
 };
 
-export default RankingsCard; 
+export default RankingsCard;  

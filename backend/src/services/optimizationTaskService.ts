@@ -1,3 +1,25 @@
+/**
+ * @file optimizationTaskService.ts
+ * @description This file provides services for generating, persisting, and managing AI visibility optimization tasks and executive summaries.
+ * It leverages LLMs to create actionable tasks based on company context and performance metrics, and it includes predefined tasks
+ * for common SEO and content strategies. It also handles the persistence of these tasks to the database and provides functions
+ * for retrieving and updating their status. This is a core component of the AI-driven recommendations system.
+ *
+ * @dependencies
+ * - @prisma/client: The Prisma client for database interactions.
+ * - zod: For schema validation of LLM outputs.
+ * - ./llmService: Service for interacting with LLMs.
+ * - ../config/models: LLM model configuration and task mapping.
+ * - ../prompts/visibilityOptimizationPrompts: Prompts and preset tasks for optimization.
+ *
+ * @exports
+ * - generateOptimizationTasksAndSummary: Generates a set of optimization tasks and an executive summary.
+ * - persistOptimizationTasks: Persists generated optimization tasks to the database.
+ * - getOptimizationTasks: Retrieves optimization tasks for a given company.
+ * - toggleTaskCompletion: Toggles the completion status of an optimization task.
+ * - updateTaskStatus: Updates the status of an optimization task.
+ * - TaskStatus: Enum for the possible statuses of an optimization task.
+ */
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import { generateAndValidate, generateChatCompletion } from './llmService';

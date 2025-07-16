@@ -1,3 +1,16 @@
+/**
+ * @file useAnalytics.ts
+ * @description Custom hook for managing analytics data and metrics throughout the application.
+ * Provides analytics functionality, data fetching, and analytics-related state management.
+ *
+ * @dependencies
+ * - react: For state management and effects.
+ * - ../services/dashboardService: For analytics API calls.
+ * - ../types/dashboard: For analytics type definitions.
+ *
+ * @exports
+ * - useAnalytics: Hook for analytics functionality.
+ */
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { trackPageView, trackSerplexityEvents, initGA } from '../utils/analytics';

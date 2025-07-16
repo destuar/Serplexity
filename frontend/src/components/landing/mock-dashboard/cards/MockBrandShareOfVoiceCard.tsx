@@ -1,3 +1,17 @@
+/**
+ * @file MockBrandShareOfVoiceCard.tsx
+ * @description This component displays a mock brand share of voice using a pie chart.
+ * It visualizes the percentage of mentions for the brand compared to others in AI-generated responses.
+ * This card is used to demonstrate key visibility metrics on the landing page.
+ *
+ * @dependencies
+ * - react: For core React functionalities.
+ * - recharts: For charting components such as `PieChart`, `Pie`, `Cell`, `ResponsiveContainer`, and `Tooltip`.
+ * - ./MockDashboardCard: Generic card component for consistent UI in the mock dashboard.
+ *
+ * @exports
+ * - MockBrandShareOfVoiceCard: React functional component for displaying the mock brand share of voice.
+ */
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import MockDashboardCard from './MockDashboardCard';

@@ -1,3 +1,17 @@
+/**
+ * @file ResponseDetailsPage.tsx
+ * @description Response details page for viewing detailed AI response analysis.
+ * Provides comprehensive response breakdown, sentiment analysis, and performance metrics.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - react-router-dom: For navigation.
+ * - lucide-react: For icons.
+ * - ../contexts/DashboardContext: For dashboard data.
+ *
+ * @exports
+ * - ResponseDetailsPage: The main response details page component.
+ */
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Sparkles, RefreshCw, Loader, MessageSquare, ListFilter, ChevronDown, ChevronUp } from 'lucide-react';

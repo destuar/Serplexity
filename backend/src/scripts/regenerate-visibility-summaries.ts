@@ -1,5 +1,5 @@
-import prisma from '../src/config/db';
-import { generateOptimizationTasksAndSummary } from '../src/services/optimizationTaskService';
+import prisma from '../config/db';
+import { generateOptimizationTasksAndSummary } from '../services/optimizationTaskService';
 
 async function main() {
   console.log('\n🔄  Regenerating AI Visibility summaries for latest completed reports…');

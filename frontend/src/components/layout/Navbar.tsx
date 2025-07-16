@@ -1,3 +1,18 @@
+/**
+ * @file Navbar.tsx
+ * @description Navigation bar component that provides main navigation links and user interface controls.
+ * Handles responsive design, user authentication state, and navigation between different sections of the application.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - react-router-dom: For navigation and routing.
+ * - lucide-react: For icons.
+ * - ../../contexts/AuthContext: For user authentication state.
+ * - ../../contexts/CompanyContext: For company data.
+ *
+ * @exports
+ * - Navbar: The main navigation component.
+ */
 import { Link, useLocation } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '../../lib/utils';

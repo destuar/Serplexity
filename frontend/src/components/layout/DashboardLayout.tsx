@@ -1,3 +1,19 @@
+/**
+ * @file DashboardLayout.tsx
+ * @description Main layout component for the dashboard that provides the overall structure including sidebar, header, and main content area.
+ * Handles responsive behavior, subscription paywall overlay, and mobile/desktop sidebar states.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - react-router-dom: For navigation links.
+ * - lucide-react: For icons.
+ * - ./Sidebar: The sidebar navigation component.
+ * - ./Header: The top header component.
+ * - ../../contexts/AuthContext: For user authentication state.
+ *
+ * @exports
+ * - DashboardLayout: The main layout component.
+ */
 import React, { useState } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";

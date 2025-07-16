@@ -1,3 +1,20 @@
+/**
+ * @file masterSchedulerWorker.ts
+ * @description This file defines the BullMQ worker that processes the main daily report generation jobs.
+ * It iterates through eligible companies and queues a report generation job for each, respecting the daily cache.
+ * This worker is essential for automating the regular generation of reports.
+ *
+ * @dependencies
+ * - bullmq: The BullMQ library for creating workers.
+ * - ../config/env: Environment variable configuration.
+ * - ../config/bullmq: BullMQ connection configuration.
+ * - ../config/db: The singleton Prisma client instance.
+ * - ../services/reportSchedulingService: Service for queuing report generation.
+ * - ../services/alertingService: Service for sending system alerts.
+ *
+ * @exports
+ * - worker: The BullMQ worker instance for master scheduling jobs.
+ */
 import { Worker, Job } from 'bullmq';
 import env from '../config/env';
 import { getBullMQConnection } from '../config/bullmq';

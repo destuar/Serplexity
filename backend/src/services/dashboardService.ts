@@ -4,6 +4,25 @@
  *       during the async metrics pipeline and stored in the ReportMetric table.
  */
 
+/**
+ * @file dashboardService.ts
+ * @description This file provides functions for calculating and retrieving dashboard-related metrics.
+ * It includes functions for calculating competitor rankings, top questions, share of voice history, and sentiment over time.
+ * It prioritizes fetching pre-computed metrics from the `ReportMetric` table for performance, falling back to on-the-fly
+ * calculations from raw data if necessary. It also includes utility functions for saving historical data points.
+ *
+ * @dependencies
+ * - ../config/db: The singleton Prisma client instance.
+ *
+ * @exports
+ * - calculateCompetitorRankings: Calculates competitor rankings based on mentions.
+ * - calculateTopQuestions: Calculates top-ranking questions based on company mentions.
+ * - calculateTopResponses: Calculates response-level data for questions, including position and mentions.
+ * - calculateShareOfVoiceHistory: Retrieves historical share of voice data.
+ * - calculateSentimentOverTime: Retrieves historical sentiment data.
+ * - saveShareOfVoiceHistoryPoint: Saves a historical share of voice data point.
+ * - saveSentimentOverTimePoint: Saves a historical sentiment data point.
+ */
 import prisma, { prismaReadReplica } from '../config/db';
 
 export async function calculateCompetitorRankings(runId: string, companyId: string, filters?: { aiModel?: string }) {

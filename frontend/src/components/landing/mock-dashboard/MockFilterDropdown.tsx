@@ -1,3 +1,18 @@
+/**
+ * @file MockFilterDropdown.tsx
+ * @description This component provides a mock filter dropdown for the dashboard preview.
+ * It simulates the appearance and basic functionality of a filter selection, allowing users to see
+ * how filtering options might look and behave within the dashboard context on the landing page.
+ * It is intentionally disabled as it's for display purposes only.
+ *
+ * @dependencies
+ * - react: For core React functionalities.
+ * - lucide-react: For icons such as `ChevronDown`.
+ * - ../../../lib/utils: For the `cn` utility function to conditionally join CSS class names.
+ *
+ * @exports
+ * - MockFilterDropdown: The React functional component for the mock filter dropdown.
+ */
 import React, { ComponentType } from 'react';
 import { ChevronDown, LucideProps } from 'lucide-react';
 import { cn } from '../../../lib/utils';

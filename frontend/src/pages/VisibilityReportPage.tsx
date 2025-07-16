@@ -1,3 +1,17 @@
+/**
+ * @file VisibilityReportPage.tsx
+ * @description Visibility report page for generating and viewing AI visibility reports.
+ * Provides report generation, data visualization, and insights analysis.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - react-router-dom: For navigation.
+ * - lucide-react: For icons.
+ * - ../hooks/useReportGeneration: For report generation.
+ *
+ * @exports
+ * - VisibilityReportPage: The main visibility report page component.
+ */
 import React from 'react';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';

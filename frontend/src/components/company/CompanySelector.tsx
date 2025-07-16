@@ -1,3 +1,20 @@
+/**
+ * @file CompanySelector.tsx
+ * @description This component provides a dropdown for users to select their active company or create a new one.
+ * It integrates with the `useCompany` hook from `CompanyContext` to display the list of companies, manage the
+ * selected company, and enforce the maximum company creation limit. It also uses `CompanyLogo` to display visual
+ * cues for each company. This component is crucial for multi-company support and user navigation within the application.
+ *
+ * @dependencies
+ * - react: The core React library.
+ * - lucide-react: Icon library for React.
+ * - ../../contexts/CompanyContext: Provides company-related data and actions.
+ * - ../../lib/utils: Utility functions (e.g., `cn` for class names).
+ * - ./CompanyLogo: Component for displaying company logos or initials.
+ *
+ * @exports
+ * - CompanySelector: React functional component for selecting or creating companies.
+ */
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Plus, Check } from 'lucide-react';
 import { useCompany, Company } from '../../contexts/CompanyContext';

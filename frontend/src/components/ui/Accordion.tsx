@@ -1,3 +1,19 @@
+/**
+ * @file Accordion.tsx
+ * @description Collapsible accordion component that provides expandable/collapsible content sections.
+ * Built using Radix UI primitives for accessibility and consistent behavior.
+ *
+ * @dependencies
+ * - react: For component rendering.
+ * - @radix-ui/react-accordion: For accordion functionality.
+ * - ../../lib/utils: For utility functions.
+ *
+ * @exports
+ * - Accordion: The main accordion component.
+ * - AccordionItem: Individual accordion item component.
+ * - AccordionTrigger: Trigger component for expanding/collapsing.
+ * - AccordionContent: Content component for accordion items.
+ */
 import React, { useState, ReactNode } from 'react';
 import { cn } from '../../lib/utils';
 import { ChevronDown } from 'lucide-react';

@@ -1,3 +1,15 @@
+/**
+ * @file paymentGuard.ts
+ * @description This file contains a middleware to protect routes based on the user's subscription status.
+ * It ensures that only users with an active subscription or those with an admin role can access certain features.
+ * This is a critical component for enforcing the application's monetization model.
+ *
+ * @dependencies
+ * - express: The Express framework for handling HTTP requests and responses.
+ *
+ * @exports
+ * - paymentGuard: Middleware for protecting routes based on payment status.
+ */
 import { Request, Response, NextFunction } from 'express';
 
 const ACTIVE_STATUSES = ['active', 'trialing'];

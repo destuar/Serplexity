@@ -1,3 +1,25 @@
+/**
+ * @file authController.ts
+ * @description This file contains the controllers for handling user authentication, including registration, login, logout, and token refreshing.
+ * It uses JSON Web Tokens (JWT) for access and refresh tokens, with the refresh token stored in an HTTP-only cookie for enhanced security.
+ * It also provides an endpoint to fetch the current user's data.
+ *
+ * @dependencies
+ * - express: The Express framework for handling HTTP requests and responses.
+ * - zod: For schema validation of request bodies.
+ * - bcrypt: For hashing and comparing passwords.
+ * - jsonwebtoken: For creating and verifying JWTs.
+ * - @prisma/client: The Prisma client for database interactions.
+ * - ../config/env: Environment variable configuration.
+ * - ../config/db: The singleton Prisma client instance.
+ *
+ * @exports
+ * - register: Controller for user registration.
+ * - login: Controller for user login.
+ * - logout: Controller for user logout.
+ * - refresh: Controller for refreshing access tokens.
+ * - getMe: Controller for fetching the current user's data.
+ */
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';

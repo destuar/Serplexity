@@ -1,3 +1,14 @@
+/**
+ * @file fanoutPrompt.ts
+ * @description This file defines the system prompt and few-shot examples for the `QueryFanOut-v1` model.
+ * This model is responsible for generating a diverse set of search queries based on a single base query, which is a key part
+ * of the system's ability to gather comprehensive data. The prompt and examples are carefully crafted to ensure the model
+ * returns valid JSON with the correct structure and content.
+ *
+ * @exports
+ * - FANOUT_SYSTEM_PROMPT: A constant containing the system prompt for the `QueryFanOut-v1` model.
+ * - FANOUT_EXAMPLES: A constant containing few-shot examples to improve the model's schema fidelity.
+ */
 export const FANOUT_SYSTEM_PROMPT = `You are QueryFanOut-v1, a retrieval-oriented LLM that MUST return valid JSON (no markdown) with EXACTLY ten keys:
 
   paraphrase         – lexical rewrites of the base query that keep intent.

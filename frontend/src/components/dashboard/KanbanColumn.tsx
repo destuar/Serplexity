@@ -1,3 +1,21 @@
+/**
+ * @file KanbanColumn.tsx
+ * @description This component represents a single column within the Kanban board. It's a droppable area for tasks
+ * and contains a list of `KanbanTaskCard` components. It uses `dnd-kit`'s `useDroppable` and `SortableContext`
+ * to enable tasks to be dragged into and sorted within the column. It also displays the column title, task count,
+ * and visual indicators for drag-and-drop operations.
+ *
+ * @dependencies
+ * - react: The core React library.
+ * - @dnd-kit/core: Core DND-Kit library for drag and drop (`useDroppable`).
+ * - @dnd-kit/sortable: DND-Kit utilities for sortable lists (`SortableContext`, `verticalListSortingStrategy`).
+ * - ../../lib/utils: Utility functions (e.g., `cn` for class names).
+ * - ../../services/reportService: Type definitions for `OptimizationTask` and `TaskStatus`.
+ * - ./KanbanTaskCard: Component representing an individual task card.
+ *
+ * @exports
+ * - KanbanColumn: React functional component for a Kanban board column.
+ */
 import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';

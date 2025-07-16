@@ -1,3 +1,19 @@
+/**
+ * @file MockRankingsCard.tsx
+ * @description This component displays mock industry rankings and a list of top competitors.
+ * It visualizes the brand's position within its industry and provides a quick overview of competitor
+ * performance based on Share of Voice. This card is used to demonstrate competitive analysis features
+ * on the landing page.
+ *
+ * @dependencies
+ * - react: For core React functionalities.
+ * - lucide-react: For icons such as `ChevronUp` and `ChevronDown`.
+ * - ./MockDashboardCard: Generic card component for consistent UI in the mock dashboard.
+ * - ../../../../lib/logoService: Utility to get company logos.
+ *
+ * @exports
+ * - MockRankingsCard: React functional component for displaying mock industry rankings and competitors.
+ */
 import React from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import MockDashboardCard from './MockDashboardCard';

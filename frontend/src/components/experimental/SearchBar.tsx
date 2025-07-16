@@ -1,3 +1,15 @@
+/**
+ * @file SearchBar.tsx
+ * @description This component provides a reusable search input bar with an integrated search icon and submit button.
+ * It handles user input, triggers search actions on Enter key press or button click, and is designed for general search functionalities.
+ *
+ * @dependencies
+ * - react: The core React library for component logic and event handling.
+ * - lucide-react: Icon library for the search and arrow icons.
+ *
+ * @exports
+ * - SearchBar: React functional component for a search input interface.
+ */
 import React, { KeyboardEvent } from 'react';
 import { Search, ArrowRight } from 'lucide-react';
 

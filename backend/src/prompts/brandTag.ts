@@ -1,3 +1,13 @@
+/**
+ * @file brandTag.ts
+ * @description This file defines the critical brand tagging rules and system prompt for the AI model.
+ * It ensures that all brand and company names are wrapped in `<brand>` tags, which is essential for accurate ranking analysis.
+ * This is a key component of the system's data extraction and analysis pipeline.
+ *
+ * @exports
+ * - BRAND_TAG_INSTRUCTION: A constant containing the detailed instructions for brand tagging.
+ * - FANOUT_RESPONSE_SYSTEM_PROMPT: A constant containing the system prompt for the AI model, which includes the brand tagging instructions.
+ */
 export const BRAND_TAG_INSTRUCTION = `
 CRITICAL BRAND TAGGING RULES:
 1. You MUST wrap EVERY company or brand name in <brand> XML tags when you mention them

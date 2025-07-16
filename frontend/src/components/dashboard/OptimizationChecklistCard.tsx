@@ -1,3 +1,20 @@
+/**
+ * @file OptimizationChecklistCard.tsx
+ * @description This component displays a checklist of AI visibility optimization tasks. It fetches tasks
+ * from the `useDashboard` hook, allows users to toggle their completion status, and provides visual feedback
+ * for completed tasks, including a sliding animation. It also sorts tasks by completion status and priority.
+ * This component is crucial for guiding users through actionable steps to improve their AI visibility.
+ *
+ * @dependencies
+ * - react: The core React library.
+ * - ../../services/reportService: Service for interacting with report-related APIs, specifically for toggling task completion.
+ * - ../../hooks/useDashboard: Custom hook for accessing dashboard data.
+ * - ../ui/Card: Generic card component for consistent UI.
+ * - ../../lib/utils: Utility functions (e.g., `cn` for class names).
+ *
+ * @exports
+ * - OptimizationChecklistCard: React functional component for displaying the optimization checklist.
+ */
 import React, { useState, useEffect } from 'react';
 import { toggleTaskCompletion, OptimizationTask } from '../../services/reportService';
 import { useDashboard } from '../../hooks/useDashboard';

@@ -1,3 +1,20 @@
+/**
+ * @file analyticsService.ts
+ * @description This file defines the `AnalyticsService`, which provides functionalities for tracking user events and page views using Redis.
+ * It allows for recording various user interactions, page visits, and session data, and provides methods for retrieving daily analytics
+ * summaries and user journeys. This service is crucial for understanding user behavior, optimizing the application, and making data-driven decisions.
+ *
+ * @dependencies
+ * - ../config/redis: The Redis client for storing analytics data.
+ * - ../utils/logger: Logger for application-level logging.
+ * - zod: For schema validation (though currently used implicitly).
+ *
+ * @exports
+ * - AnalyticsService: The class providing analytics tracking functionalities.
+ * - ANALYTICS_EVENTS: A constant object defining various application-specific event types.
+ * - getRawEvents: Function to retrieve raw events from Redis.
+ * - getRawPageViews: Function to retrieve raw page views from Redis.
+ */
 import { redis } from '../config/redis';
 import logger from '../utils/logger';
 import { z } from 'zod';

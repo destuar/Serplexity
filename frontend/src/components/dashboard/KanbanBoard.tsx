@@ -1,3 +1,20 @@
+/**
+ * @file KanbanBoard.tsx
+ * @description This component implements a Kanban board for managing optimization tasks. It uses `dnd-kit`
+ * for drag-and-drop functionality, allowing users to move tasks between "Not Started," "In Progress," and "Completed"
+ * columns. It manages the state of tasks, handles drag events, and optimistically updates the UI before calling
+ * an API to persist status changes. This is a key component for visualizing and managing the progress of optimization efforts.
+ *
+ * @dependencies
+ * - react: The core React library.
+ * - @dnd-kit/core: Core DND-Kit library for drag and drop.
+ * - ../../services/reportService: Service for interacting with report-related APIs, including task status updates.
+ * - ./KanbanColumn: Component representing a single column in the Kanban board.
+ * - ./KanbanTaskCard: Component representing an individual task card in the Kanban board.
+ *
+ * @exports
+ * - KanbanBoard: React functional component for the Kanban board.
+ */
 import React, { useState, useMemo, useEffect } from 'react';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, DragOverEvent, PointerSensor, useSensor, useSensors, rectIntersection } from '@dnd-kit/core';
 import { OptimizationTask, TaskStatus } from '../../services/reportService';

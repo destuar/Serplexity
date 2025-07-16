@@ -1,3 +1,14 @@
+/**
+ * @file companyService.ts
+ * @description Service for managing company-related operations and API calls.
+ * Provides company data management, logo handling, and company settings functionality.
+ *
+ * @dependencies
+ * - ../lib/apiClient: For API communication.
+ *
+ * @exports
+ * - Various functions for company management operations.
+ */
 import apiClient from '../lib/apiClient';
 import { Company } from '../types/schemas';
 import { SentimentScores } from '../types/dashboard';

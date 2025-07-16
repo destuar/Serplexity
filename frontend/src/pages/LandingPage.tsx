@@ -1,3 +1,17 @@
+/**
+ * @file LandingPage.tsx
+ * @description Main landing page component that serves as the entry point for the application.
+ * Features hero section, product demonstrations, pricing, and call-to-action elements.
+ *
+ * @dependencies
+ * - react: For component rendering and state management.
+ * - react-router-dom: For navigation.
+ * - lucide-react: For icons.
+ * - ../components/landing/*: For landing page components.
+ *
+ * @exports
+ * - LandingPage: The main landing page component.
+ */
 import React, { useEffect, useRef } from 'react';
 import { Navbar } from '../components/layout/Navbar';
 import { Target, Check, X, ArrowRight, Clock, Calendar } from 'lucide-react';

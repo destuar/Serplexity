@@ -1,3 +1,17 @@
+/**
+ * @file CompetitorRankingsPage.tsx
+ * @description Competitor rankings page for analyzing competitor performance and positioning.
+ * Provides competitor analysis, ranking comparisons, and market insights.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - react-router-dom: For navigation.
+ * - lucide-react: For icons.
+ * - ../contexts/DashboardContext: For dashboard data.
+ *
+ * @exports
+ * - CompetitorRankingsPage: The main competitor rankings page component.
+ */
 import { useState, useEffect, useMemo } from 'react';
 import { Sparkles, RefreshCw, Loader, Users, TrendingUp, ArrowUpDown, ChevronUp, ChevronDown, ExternalLink } from 'lucide-react';
 import { useCompany } from '../contexts/CompanyContext';

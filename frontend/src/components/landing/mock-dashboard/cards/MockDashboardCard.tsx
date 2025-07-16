@@ -1,3 +1,16 @@
+/**
+ * @file MockDashboardCard.tsx
+ * @description This component serves as a generic card container for displaying various metrics and information
+ * within the mock dashboard preview. It provides consistent styling, including background, borders, shadows,
+ * and padding, ensuring a uniform look and feel across all dashboard elements on the landing page.
+ *
+ * @dependencies
+ * - react: For core React functionalities.
+ * - ../../../../lib/utils: For the `cn` utility function to conditionally join CSS class names.
+ *
+ * @exports
+ * - MockDashboardCard: The React functional component that acts as a styled container for dashboard elements.
+ */
 import React from 'react';
 import { cn } from '../../../../lib/utils';
 

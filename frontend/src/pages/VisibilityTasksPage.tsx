@@ -1,3 +1,17 @@
+/**
+ * @file VisibilityTasksPage.tsx
+ * @description Visibility tasks page for managing and tracking AI visibility optimization tasks.
+ * Provides task management, progress tracking, and optimization recommendations.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - react-router-dom: For navigation.
+ * - lucide-react: For icons.
+ * - ../contexts/DashboardContext: For dashboard data.
+ *
+ * @exports
+ * - VisibilityTasksPage: The main visibility tasks page component.
+ */
 import React, { useState, useEffect } from 'react';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';

@@ -1,3 +1,20 @@
+/**
+ * @file backupScheduler.ts
+ * @description This file defines the BullMQ queue and functions for scheduling backup report generation.
+ * It includes a daily backup scheduler that runs an hour after the main scheduler to catch any missed reports,
+ * and an emergency scheduler that can be triggered manually. This ensures the robustness and reliability of the
+ * report generation process.
+ *
+ * @dependencies
+ * - bullmq: The BullMQ library for creating queues.
+ * - ../config/env: Environment variable configuration.
+ * - ../config/bullmq: BullMQ configuration options.
+ *
+ * @exports
+ * - backupSchedulerQueue: The BullMQ queue for backup scheduling.
+ * - scheduleBackupDailyReportTrigger: Function to schedule the daily backup report trigger.
+ * - scheduleEmergencyReportTrigger: Function to schedule an emergency report trigger.
+ */
 import { Queue } from 'bullmq';
 import env from '../config/env';
 import { getBullMQOptions } from '../config/bullmq';

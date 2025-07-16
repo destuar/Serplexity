@@ -1,3 +1,18 @@
+/**
+ * @file AiVisibilitySummaryCard.tsx
+ * @description This component displays an AI-generated visibility summary for the selected company.
+ * It fetches the summary from the `useDashboard` hook and renders it within a `Card` component.
+ * It also includes a loading state and a message for when no summary is available. This component
+ * provides a quick, AI-driven overview of the company's visibility performance.
+ *
+ * @dependencies
+ * - react: The core React library.
+ * - ../../hooks/useDashboard: Custom hook for accessing dashboard data.
+ * - ../ui/Card: Generic card component for consistent UI.
+ *
+ * @exports
+ * - AiVisibilitySummaryCard: React functional component for displaying the AI visibility summary.
+ */
 import React from 'react';
 import { useDashboard } from '../../hooks/useDashboard';
 import Card from '../ui/Card';

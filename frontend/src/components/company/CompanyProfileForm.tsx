@@ -1,3 +1,26 @@
+/**
+ * @file CompanyProfileForm.tsx
+ * @description This component provides a comprehensive form for creating and editing company profiles.
+ * It includes fields for company name, website, industry (with an autocomplete feature), products/services,
+ * competitors, and benchmarking questions. It uses `react-hook-form` and `zod` for form management and validation,
+ * and integrates with the `CompanyContext` for data submission. This form is crucial for users to set up and
+ * manage their company information within the application.
+ *
+ * @dependencies
+ * - react: The core React library.
+ * - react-hook-form: For flexible and extensible forms with easy-to-use validation.
+ * - @hookform/resolvers/zod: Zod resolver for React Hook Form.
+ * - zod: For schema validation.
+ * - lucide-react: Icon library for React.
+ * - ../ui/FormInput: Custom form input component.
+ * - ../ui/Button: Custom button component.
+ * - ../../contexts/CompanyContext: Provides company-related data and actions.
+ * - ../../types/schemas: Type definitions for Company, Product, Competitor, and BenchmarkingQuestion.
+ * - ../../utils/urlNormalizer: Utility for URL validation.
+ *
+ * @exports
+ * - CompanyProfileForm: React functional component for company profile management.
+ */
 import React, { useState, useRef, useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';

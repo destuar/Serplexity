@@ -1,3 +1,17 @@
+/**
+ * @file SettingsModal.tsx
+ * @description Modal component for application settings management, including notification preferences, display options, and system configurations.
+ * Provides users with control over their application experience and preferences.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - lucide-react: For icons.
+ * - ../../contexts/AuthContext: For user authentication state.
+ * - ../../contexts/CompanyContext: For company data and settings.
+ *
+ * @exports
+ * - SettingsModal: The main settings modal component.
+ */
 import React, { useState } from 'react';
 import { X, Building, HelpCircle, Trash2, Edit, Mail, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { useCompany } from '../../contexts/CompanyContext';

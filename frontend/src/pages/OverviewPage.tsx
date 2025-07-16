@@ -1,3 +1,17 @@
+/**
+ * @file OverviewPage.tsx
+ * @description Main dashboard overview page that displays key metrics and analytics.
+ * Provides comprehensive view of AI visibility performance and insights.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - lucide-react: For icons.
+ * - ../contexts/DashboardContext: For dashboard data.
+ * - ../components/dashboard/*: For dashboard components.
+ *
+ * @exports
+ * - OverviewPage: The main overview page component.
+ */
 import { Calendar, Sparkles, RefreshCw, Loader } from "lucide-react";
 import { useCompany } from "../contexts/CompanyContext";
 import { useDashboard } from "../hooks/useDashboard";

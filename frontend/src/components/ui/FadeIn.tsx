@@ -1,3 +1,15 @@
+/**
+ * @file FadeIn.tsx
+ * @description Animation component that provides fade-in effects for content.
+ * Uses CSS animations and Intersection Observer for performance-optimized animations.
+ *
+ * @dependencies
+ * - react: For component state and effects.
+ * - ../../lib/utils: For utility functions.
+ *
+ * @exports
+ * - FadeIn: The main fade-in animation component.
+ */
 import React, { useState, useEffect, useRef, ReactNode } from 'react';
 import { cn } from '../../lib/utils';
 

@@ -1,3 +1,15 @@
+/**
+ * @file TermsOfServicePage.tsx
+ * @description Terms of service page displaying the application's terms and conditions.
+ * Provides legal information and terms of use for the application.
+ *
+ * @dependencies
+ * - react: For component rendering.
+ * - react-router-dom: For navigation.
+ *
+ * @exports
+ * - TermsOfServicePage: The main terms of service page component.
+ */
 import React, { useEffect, useRef } from 'react';
 import { Navbar } from '../components/layout/Navbar';
 

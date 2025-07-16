@@ -1,3 +1,14 @@
+/**
+ * @file AiOptimizationToolPage.tsx
+ * @description AI optimization tool page for content optimization and AI visibility enhancement.
+ * Provides AI-powered content optimization tools and recommendations.
+ *
+ * @dependencies
+ * - react: For component rendering.
+ *
+ * @exports
+ * - AiOptimizationToolPage: The main AI optimization tool page component.
+ */
 import React from 'react';
 
 const AiOptimizationToolPage: React.FC = () => {

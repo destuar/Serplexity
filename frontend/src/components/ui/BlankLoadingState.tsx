@@ -1,3 +1,16 @@
+/**
+ * @file BlankLoadingState.tsx
+ * @description Loading state component that displays animated loading indicators and placeholder content.
+ * Provides visual feedback during data loading operations with customizable animations and messaging.
+ *
+ * @dependencies
+ * - react: For component rendering.
+ * - lucide-react: For loading icons.
+ * - ../../lib/utils: For utility functions.
+ *
+ * @exports
+ * - BlankLoadingState: The main loading state component.
+ */
 import React from 'react';
 
 interface BlankLoadingStateProps {

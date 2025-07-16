@@ -1,3 +1,14 @@
+/**
+ * @file dashboard.ts
+ * @description Type definitions for dashboard data, analytics, and related interfaces.
+ * Provides comprehensive type definitions for dashboard functionality and data structures.
+ *
+ * @dependencies
+ * - None (pure type definitions).
+ *
+ * @exports
+ * - Various TypeScript interfaces and types for dashboard functionality.
+ */
 import { CompetitorRankingsResponse, TopRankingQuestion } from '../services/companyService';
 import { Sparkles } from 'lucide-react';
 

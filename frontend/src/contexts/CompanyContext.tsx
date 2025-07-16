@@ -1,3 +1,18 @@
+/**
+ * @file CompanyContext.tsx
+ * @description React context for managing company data and settings throughout the application.
+ * Provides company information, logo management, and company-related state management.
+ *
+ * @dependencies
+ * - react: For context creation and state management.
+ * - ../services/companyService: For company-related API calls.
+ * - ../lib/logoService: For logo management functionality.
+ *
+ * @exports
+ * - CompanyContext: The company context.
+ * - CompanyProvider: Provider component for company state.
+ * - useCompany: Hook for accessing company context.
+ */
 import React, { useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import apiClient from '../lib/apiClient';
 import { useAuth } from '../hooks/useAuth';

@@ -1,3 +1,16 @@
+/**
+ * @file MockVisibilityOverTimeCard.tsx
+ * @description A component that displays a line chart showing visibility over time on the mock dashboard.
+ * This is used on the landing page to demonstrate analytics capabilities.
+ *
+ * @dependencies
+ * - react: For rendering the component.
+ * - recharts: For rendering the line chart.
+ * - ./MockDashboardCard: The wrapper card component.
+ *
+ * @exports
+ * - MockVisibilityOverTimeCard: The main component.
+ */
 import React from 'react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, Scatter } from 'recharts';
 import MockDashboardCard from './MockDashboardCard';

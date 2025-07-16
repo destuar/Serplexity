@@ -1,118 +1,137 @@
 ---
-description: This rule describes the Serplexity project requirements, tech stack, build process, and outline
-globs: 
+description: Apply this to refresh context whenever you think you need a better understanding of the project.
 alwaysApply: false
 ---
-# YOU ARE A 10X DEVELOPER / 10X ENGINEER
-
-# Important Rules
-
-- Think thoroughly before coding with reasoning paragraphs.
-- ALWAYS ask follow-up questions to clarify the prompt and then break each task down into its atomic components.
-- ALWAYS create a task.txt file that includes the task, atomic components, and potential dependencies. Check off sub-problems as you complete them.
-- ALWAYS write simple, clean, and modular code.
-
-# CodeLadder Project Rules
-
-# Project Overview
-project:
-  name: "Serplexity"
-  description: "Serplexity is the first agency purpose-built for Generative Engine Optimization (GEO). As generative engines like Google SGE, Perplexity, and ChatGPT reshape how users discover and trust information, traditional SEO is no longer enough. We help brands and publishers stay cited, visible, and relevant—at the sentence level. From AI visibility audits and LLM-driven content rewrites to technical GEO implementation and attribution tracking, we offer full-stack solutions to future-proof your digital presence in the era of generative search."
-
-## Metric Development
-
-- PAWC = (citation word share × exponential decay by position)
-- AIR  = Boolean: Was the client cited at least once?
-- Gap Index = potential revenue × (1 − PAWC)
-- Avg Inclusion Rate = mean(PAWC across all queries)
-
 # System Requirements
 requirements:
   - Node.js ≥ 20.x (LTS)
-  - PostgreSQL ≥ 15.x
-  - Redis ≥ 7.x
-  - AWS account with S3 bucket (public-read) and IAM user
+  - PostgreSQL ≥ 14.x (tested with 14-alpine)
+  - Redis ≥ 7.x (using 7-alpine in Docker)
+  - AWS account with S3 bucket and Glacier for archival
   - Stripe account with prices configured (monthly & annual)
   - Access tokens for: OpenAI, Anthropic, Google Generative AI, Perplexity
 
 # Technical Stack
 stack:
   backend:
-    language: "TypeScript"
-    framework: "Express"
-    orm: "Prisma"
-    database: "PostgreSQL"
-    queue: "BullMQ (Redis)"
-    tracing: "OpenTelemetry"
-    llm_providers: ["OpenAI", "Anthropic", "Gemini", "Perplexity"]
+    language: "TypeScript 5.4.5"
+    framework: "Express 4.19.2"
+    orm: "Prisma 6.10.0"
+    database: "PostgreSQL 14+"
+    queue: "BullMQ 5.54.3 (Redis)"
+    tracing: "OpenTelemetry + Jaeger"
+    auth: "Passport.js + JWT + Google OAuth"
+    payments: "Stripe 18.2.1"
+    llm_providers: ["OpenAI 5.5.1", "Anthropic 0.24.1", "Gemini 0.17.0", "Perplexity"]
+    security: "Helmet, bcrypt 6.0.0, rate limiting"
+    file_handling: "Multer + AWS S3"
+    email: "Nodemailer 7.0.5"
   frontend:
-    language: "TypeScript"
-    framework: "React"
-    build_tool: "Vite"
-    styling: "Tailwind CSS + Radix UI"
+    language: "TypeScript 5.2.2"
+    framework: "React 18.2.0"
+    build_tool: "Vite 7.0.0"
+    routing: "React Router DOM 6.23.1"
+    styling: "Tailwind CSS 3.4.3 + Radix UI + Framer Motion 12.23.1"
     state_management: "React Context + custom hooks"
+    forms: "React Hook Form 7.51.4 + Zod 3.23.8"
+    testing: "Vitest 3.2.4 + React Testing Library 16.3.0"
+    rich_text: "TipTap 3.0.1"
+    payments: "Stripe JS 3.5.0"
+    charts: "Recharts 2.12.7"
+    icons: "Lucide React 0.379.0"
   infra:
     containerization: "Docker & docker-compose"
-    cloud: "AWS (ECR, ECS, S3)"
+    cloud: "AWS (ECR, ECS, S3, Glacier)"
+    monitoring: "Jaeger (distributed tracing)"
+    proxy: "Nginx (frontend serving)"
 
 # Authorization
 roles:
-  USER: "Default user role"
-  ADMIN: "Full system access"
+  USER: "Default user role with company access"
+  ADMIN: "Full system access (not implemented yet)"
 
 # Environment Configuration
 environment:
   backend:
     required:
-      - DATABASE_URL
-      - JWT_SECRET
-      - JWT_REFRESH_SECRET
-      - CORS_ORIGIN
-      - NODE_ENV
-      - PORT
-      - GOOGLE_CLIENT_ID
+      - DATABASE_URL                    # Postgres connection string
+      - DATABASE_URL_READ_REPLICA       # Optional read replica
+      - JWT_SECRET                      # JWT signing secret
+      - JWT_REFRESH_SECRET             # JWT refresh token secret
+      - CORS_ORIGIN                    # Frontend URL for CORS
+      - NODE_ENV                       # production/development/test
+      - PORT                           # Server port (default: 8001)
+      - GOOGLE_CLIENT_ID               # OAuth credentials
       - GOOGLE_CLIENT_SECRET
       - GOOGLE_CALLBACK_URL
-      - REDIS_HOST
+      - REDIS_HOST                     # Redis connection
       - REDIS_PORT
-      - STRIPE_SECRET_KEY
+      - REDIS_TLS                      # For cloud Redis
+      - BULLMQ_QUEUE_PREFIX           # Queue isolation (dev-/prod-)
+      - STRIPE_SECRET_KEY              # Payment processing
       - STRIPE_WEBHOOK_SECRET
       - STRIPE_MONTHLY_PRICE_ID
       - STRIPE_ANNUAL_PRICE_ID
-      - OPENAI_API_KEY
+      - OPENAI_API_KEY                 # LLM provider keys
       - ANTHROPIC_API_KEY
       - GEMINI_API_KEY
       - PERPLEXITY_API_KEY
-      - LOG_LEVEL
-      - AWS_ACCESS_KEY_ID
+      - LOG_LEVEL                      # debug/info/warn/error
+      - AWS_ACCESS_KEY_ID              # AWS credentials
       - AWS_SECRET_ACCESS_KEY
       - AWS_REGION
-      - S3_BUCKET
+      - S3_BUCKET                      # File uploads
+      - GLACIER_VAULT                  # Data archival
+      - SMTP_HOST                      # Email configuration
+      - SMTP_PORT
+      - SMTP_USER
+      - SMTP_PASS
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT  # Tracing endpoint
   frontend:
     required:
-      - VITE_API_URL
+      - VITE_API_URL                   # Backend API URL
 
-# File Upload
+# File Upload & Storage
 uploads:
   images:
     maxSize: "5MB"
     types: "image/*"
     storage: "AWS S3"
     access: "public-read"
+  data_archival:
+    service: "AWS Glacier"
+    retention: "Archive old fanout responses after 3 runs"
 
-# Development
+# Development & Deployment
 development:
-  structure: "Feature-based directories (features/)"
+  structure: "Feature-based directories in src/"
   frontend:
     commands:
       - "npm install"
-      - "npm run dev"
-    ports: 5173
+      - "npm run dev"          # Vite dev server
+      - "npm run test"         # Vitest tests
+      - "npm run lint"         # ESLint
+      - "npm run build"        # Production build
+    ports: 3000                # Dev server with proxy to backend
+    proxy: "http://localhost:8001/api"
   backend:
     commands:
       - "npm install"
-      - "npm run dev"
-    ports: 8000
+      - "npm run dev"          # ts-node-dev with hot reload
+      - "npm run test"         # Jest test suite
+      - "npm run migrate"      # Prisma migrations
+      - "npm run generate"     # Prisma client generation
+      - "npm run build"        # TypeScript compilation
+    ports: 8001                # Main server port (not 8000!)
+  docker:
+    compose_file: "infra/docker/docker-compose.yml"
+    services: ["backend", "frontend", "postgres", "redis", "jaeger"]
+    ports:
+      frontend: 80             # Nginx serves frontend
+      backend: 8001           # Backend API
+      postgres: 5432          # Database
+      redis: 6379             # Queue/cache
+      jaeger: 16686           # Tracing UI
 
 # Fundamental Principles
 - Write clean, simple, readable code
@@ -122,7 +141,6 @@ development:
 - Use clear, consistent naming
 - Think thoroughly before coding with reasoning paragraphs.
 - ALWAYS ask follow-up questions to clarify the prompt and break tasks down.
-- ALWAYS create a task.txt file and track progress.
 - ALWAYS write simple, clean, and modular code.
 
 # Error Fixing
@@ -142,4 +160,226 @@ development:
 - Include LOTS of explanatory comments in your code. ALWAYS write well-documented code.
 - Document all changes and their reasoning IN THE COMMENTS YOU WRITE.
 - When writing comments, use clear, easy-to-understand language and short sentences.
+  
+# Project Architecture Overview
+## Repository Structure
+- **backend/**: Express + TypeScript monolith responsible for API, background jobs, and database access.
+  - `src/app.ts` – builds the Express instance (middleware, routes, passport, Stripe webhook).
+  - `src/server.ts` – bootstraps tracing, database, HTTP server, and **imports every worker/scheduler** in `src/queues/` so they begin processing as soon as the server starts.
+  - `src/routes/` – thin route files that simply wire an endpoint path to a controller function.
+  - `src/controllers/` – request/response orchestration; **keep business-logic free** here.
+  - `src/services/` – pure, reusable business logic. **All heavy lifting lives here.** Unit-test these directly.
+  - `src/middleware/` – auth, rate-limiting, payment guard, etc.
+  - `src/queues/` – BullMQ workers & schedulers. Importing a file **registers the worker** (side-effect), so _never_ import from here inside regular code paths.
+  - `src/prompts/` – prompt templates for LLM calls.  🛑 **All prompt TypeScript files MUST live here** so they are tree-shakable and easy to audit.
+  - `src/utils/` – logger, cache, helpers.  NO business logic.
+  - `prisma/` – single source of truth for the data-model.  Run `npx prisma migrate dev` in the backend folder when you edit `schema.prisma`.
+
+- **frontend/**: Vite + React + Tailwind.
+  - `src/components/`, `src/pages/`, `src/contexts/`, `src/hooks/` follow feature-based structure.
+  - `vite.config.js` proxies `/api` → `http://localhost:8001` and defines the alias `@` → `frontend/src`.
+
+- **infra/**: Dockerfiles & `docker-compose.yml` to boot Postgres, Redis, backend & frontend in a single command: `cd infra/docker && docker-compose up -d`.
+
+## Path Aliases
+- **Backend** & tests: `@/` → `backend/src` (configured in `tsconfig.json` & `jest.config.js`).
+- **Frontend**: `@` → `frontend/src`.
+
+## Background Processing
+- BullMQ connection options live in `backend/src/config/bullmq.ts` – **do not duplicate connection logic**.
+- Each queue has:
+  1. `<name>.ts` – queue instance + high-level helpers
+  2. `<name>Worker.ts` – Worker that processes the jobs
+  3. (optional) `<name>Scheduler.ts` – cron-like scheduler that enqueues jobs
+- ENV prefix `BULLMQ_QUEUE_PREFIX` isolates dev vs prod queues.
+
+## Testing Strategy
+- **Backend**: Jest + ts-jest
+  - Tests live under `backend/src/__tests__/`.
+  - Tests run **serially** (`maxWorkers = 1`) to avoid DB conflicts.
+  - `jest.config.js` seeds safe environment variables _before_ anything else runs.
+  - Coverage threshold: ≥70% branches/functions/lines/statements.
+- **Frontend**: Vitest + React Testing Library (`frontend/vitest.config.ts`).
+  - JSDOM environment, 70% coverage threshold.
+
+## Running Locally
+```
+# backend
+cd backend && npm i && npm run dev   # http://localhost:8001 by default
+
+# frontend
+cd frontend && npm i && npm run dev  # http://localhost:3000 (proxy to backend)
+
+# optional: spin up full stack
+cd infra/docker && docker-compose up -d
+```
+
+## Environment Variables (must be present in `.env` or CI settings)
+_Backend critical vars_
+```
+DATABASE_URL                # Postgres connection string
+JWT_SECRET / JWT_REFRESH_SECRET
+CORS_ORIGIN                 # e.g. http://localhost:3000
+PORT                        # default: 8001
+REDIS_HOST / REDIS_PORT
+STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, PERPLEXITY_API_KEY
+AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, S3_BUCKET
+BULLMQ_QUEUE_PREFIX         # dev-*, staging-*, prod-*
+```
+_Frontend critical vars_
+```
+VITE_API_URL                # e.g. http://localhost:8001/api
+```
+
+## Coding Conventions
+1. **One abstraction layer per file** – controllers call services, services call utils/db.
+2. Keep files **≤200 LOC**. Extract helpers early.
+3. Use explicit TypeScript types everywhere – `any` is banned.
+4. Prefer async/await + try/catch; log errors with `utils/logger.ts`.
+5. All new code must include **unit tests** and pass `npm run lint`.
+6. Write docblocks explaining _why_ something exists, not just _what_ it does.
+
+## Data Model Highlights (Prisma)
+- `Company` ↔️ `Competitor` (one-to-many) – competitor websites must be **unique** per company.
+- `ReportRun` – a periodic analytics snapshot (daily). Status enum: DRAFT | RUNNING | COMPLETED | FAILED.
+- `FanoutResponse` – raw LLM output; pruned & archived after 3 runs via `archiveWorker`.
+- `ReportMetric` – aggregated analytics data per report run (visibility, sentiment, rankings).
+- `ShareOfVoiceHistory` – tracks brand mention percentages over time for trend analysis.
+- `SentimentOverTime` – temporal sentiment tracking for competitive analysis.
+- `OptimizationTask` – AI-generated recommendations for improving brand visibility.
+- `BlogPost` – content management system with SEO fields and publishing workflow.
+- **Never** modify migrations manually – generate via `prisma migrate`.
+
+# Critical Operational Scripts (backend/src/scripts/)
+
+## Testing & Validation
+- `test-mention-detection.ts` – verify AI mention detection accuracy
+- `test-sentiment-scores.ts` – validate sentiment analysis pipeline
+- `test-metrics-performance.ts` – performance benchmarking
+- `test-redis-connection.ts` – queue system health check
+- `validate-metrics-system.ts` – end-to-end metrics validation
+
+## Data Management & Repair
+- `backfill-fanout-mentions.ts` – populate historical mention data
+- `backfill-report-metrics.ts` – recalculate missing analytics
+- `backfill-share-of-voice-history.ts` – rebuild trend data
+- `repair-failed-reports.ts` – fix stuck/failed report generations
+- `recompute-latest-metrics.ts` – refresh current period calculations
+- `cleanup-duplicate-responses.ts` – remove redundant LLM responses
+
+## Monitoring & Alerting
+- `daily-health-monitor.ts` – comprehensive system health checks
+- `monitor-post-completion-issues.ts` – detect report generation problems
+- `monitor-redis-queues.ts` – queue system monitoring
+- `check-recent-reports.ts` – audit recent report quality
+
+## Maintenance & Operations
+- `cancel-stuck-report.ts` – emergency report cancellation
+- `fix-scheduler-cron.ts` – repair master scheduler issues
+- `regenerate-visibility-summaries.ts` – refresh dashboard summaries
+
+# Advanced Features & Capabilities
+
+## AI Model Integration
+- **Multi-provider fanout system**: Simultaneously queries OpenAI, Anthropic, Gemini, and Perplexity
+- **Resilient LLM service**: Automatic failover, retry logic, and circuit breakers
+- **Prompt template system**: Centralized, auditable prompt management in `src/prompts/`
+- **Response comparison**: Cross-model analysis for brand mention detection
+
+## Analytics & Reporting
+- **Real-time dashboards**: Live visibility metrics and sentiment tracking
+- **Competitive analysis**: Multi-competitor benchmarking and ranking
+- **Trend analysis**: Historical data visualization with Recharts
+- **Custom metrics**: Share of voice, inclusion rates, average positions
+
+## Background Processing Architecture
+- **Master scheduler**: Automated daily report generation for all companies
+- **Worker pools**: Specialized workers for different job types
+- **Archive system**: Automatic cleanup of old data to AWS Glacier
+- **Error recovery**: Sophisticated retry mechanisms and failure handling
+
+## Security & Compliance
+- **Multi-tenant isolation**: Company-level data segregation
+- **Rate limiting**: Per-user and per-endpoint throttling
+- **Audit logging**: Comprehensive activity tracking
+- **Payment integration**: Stripe subscriptions with webhook verification
+
+## Testing Strategy & Quality Assurance
+
+### Backend Testing (Jest + ts-jest)
+- **Coverage requirements**: 70% minimum across all metrics
+- **Test isolation**: Serial execution to prevent database conflicts
+- **Comprehensive mocking**: AWS, Redis, Prisma, and external APIs
+- **Integration tests**: End-to-end workflow validation
+- **Security testing**: Isolated test environment with safe credentials
+
+### Frontend Testing (Vitest + React Testing Library)
+- **Component testing**: Isolated unit tests for all UI components
+- **Integration testing**: User interaction flows and API integration
+- **Visual regression**: Snapshot testing for UI consistency
+- **Accessibility testing**: ARIA compliance and keyboard navigation
+
+## Performance & Scalability
+
+### Database Optimization
+- **Read replica support**: Separate read/write database connections
+- **Connection pooling**: Optimized database connection management
+- **Query optimization**: Efficient Prisma queries with proper indexing
+- **Data archival**: Automated cleanup to maintain performance
+
+### Queue System Optimization
+- **Concurrent processing**: Configurable worker concurrency
+- **Priority queues**: Different job types with appropriate priorities
+- **Exponential backoff**: Intelligent retry strategies
+- **Health monitoring**: Queue depth and processing metrics
+
+### Caching Strategy
+- **Redis caching**: Frequently accessed data caching
+- **Application-level caching**: In-memory caching for static data
+- **HTTP caching**: Appropriate cache headers for API responses
+
+## Development Workflow Best Practices
+
+### Code Organization
+- **Feature-based structure**: Logical grouping by business domain
+- **Separation of concerns**: Controllers, services, and utilities
+- **Type safety**: Comprehensive TypeScript coverage
+- **Import organization**: Clean, consistent import statements
+
+### Error Handling & Logging
+- **Structured logging**: JSON-formatted logs with proper levels
+- **Error boundaries**: React error boundaries for graceful failures
+- **Health checks**: Deep health monitoring endpoints
+- **Distributed tracing**: OpenTelemetry integration for debugging
+
+### Deployment & DevOps
+- **Docker optimization**: Multi-stage builds for production efficiency
+- **Health checks**: Container-level health monitoring
+- **Resource limits**: Appropriate memory and CPU constraints
+- **Rolling deployments**: Zero-downtime deployment strategy
+
+# Troubleshooting Guide
+
+## Common Issues & Solutions
+
+### Database Issues
+- **Migration conflicts**: Always backup before running migrations
+- **Connection timeouts**: Check DATABASE_URL and connection pool settings
+- **Lock timeouts**: Ensure test isolation and serial execution
+
+### Queue System Issues
+- **Stuck jobs**: Use `cancel-stuck-report.ts` for emergency cleanup
+- **Redis connection**: Verify REDIS_HOST, REDIS_PORT, and TLS settings
+- **Worker overload**: Monitor queue depth and adjust concurrency
+
+### API Performance Issues
+- **Slow responses**: Check database query performance and caching
+- **Rate limiting**: Monitor rate limit headers and user patterns
+- **Memory leaks**: Use health monitoring to track resource usage
+
+### Frontend Issues
+- **Build failures**: Verify TypeScript and ESLint configurations
+- **API connectivity**: Check VITE_API_URL and CORS settings
+- **Authentication**: Verify JWT token handling and refresh logic
   

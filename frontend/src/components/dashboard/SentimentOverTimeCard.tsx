@@ -1,3 +1,20 @@
+/**
+ * @file SentimentOverTimeCard.tsx
+ * @description This component displays a line chart showing the sentiment score trend over time for the selected company,
+ * optionally filtered by AI model. It fetches historical sentiment data from the `useDashboard` hook and visualizes it
+ * using `recharts`. It includes dynamic X-axis interval calculation, loading states, and a message for when no historical
+ * data is available. This card is crucial for understanding long-term sentiment trends.
+ *
+ * @dependencies
+ * - react: The core React library.
+ * - recharts: A customizable charting library for React.
+ * - ../ui/Card: Generic card component for consistent UI.
+ * - ../../hooks/useDashboard: Custom hook for accessing dashboard data.
+ * - ../../types/dashboard: Type definitions and utility for model display names.
+ *
+ * @exports
+ * - SentimentOverTimeCard: React functional component for displaying sentiment trend over time.
+ */
 import { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Scatter } from 'recharts';
 import Card from '../ui/Card';
@@ -179,4 +196,4 @@ const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedM
   );
 };
 
-export default SentimentOverTimeCard; 
+export default SentimentOverTimeCard;  

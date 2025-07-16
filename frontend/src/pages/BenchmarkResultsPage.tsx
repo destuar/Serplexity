@@ -1,3 +1,16 @@
+/**
+ * @file BenchmarkResultsPage.tsx
+ * @description Benchmark results page for viewing and analyzing benchmark performance data.
+ * Provides benchmark comparisons, performance metrics, and competitive analysis.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - react-router-dom: For navigation.
+ * - lucide-react: For icons.
+ *
+ * @exports
+ * - BenchmarkResultsPage: The main benchmark results page component.
+ */
 import React from 'react';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';

@@ -1,3 +1,18 @@
+/**
+ * @file PaymentPage.tsx
+ * @description Payment page for subscription management and billing.
+ * Provides subscription plans, payment processing, and billing information.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - react-router-dom: For navigation.
+ * - lucide-react: For icons.
+ * - ../contexts/AuthContext: For user authentication state.
+ * - ../services/paymentService: For payment processing.
+ *
+ * @exports
+ * - PaymentPage: The main payment page component.
+ */
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, ArrowRight } from 'lucide-react';

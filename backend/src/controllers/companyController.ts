@@ -1,3 +1,33 @@
+/**
+ * @file companyController.ts
+ * @description This file contains the controllers for managing companies and their associated data.
+ * It handles all CRUD (Create, Read, Update, Delete) operations for company profiles, as well as fetching
+ * detailed performance metrics like share of voice, average position, and competitor rankings. It also ensures
+ * data validation and user ownership of the resources.
+ *
+ * @dependencies
+ * - express: The Express framework for handling HTTP requests and responses.
+ * - zod: For schema validation of request bodies.
+ * - ../config/db: The singleton Prisma client instance for database interactions.
+ * - ../services/metricsService: Service for fetching full report metrics.
+ * - ../services/dashboardService: Service for calculating dashboard data like top questions.
+ * - ../config/env: Environment variable configuration.
+ *
+ * @exports
+ * - createCompany: Controller for creating a new company.
+ * - getCompanies: Controller for fetching all companies for the authenticated user.
+ * - getCompany: Controller for fetching a specific company by ID.
+ * - getAverageInclusionRate: Controller for fetching the average inclusion rate.
+ * - getAveragePosition: Controller for fetching the average position.
+ * - getShareOfVoice: Controller for fetching the share of voice.
+ * - getCompetitorRankings: Controller for fetching competitor rankings.
+ * - getSentimentData: Controller for fetching sentiment data.
+ * - getTopRankingQuestions: Controller for fetching top ranking questions.
+ * - getSentimentOverTime: Controller for fetching sentiment over time.
+ * - getShareOfVoiceHistory: Controller for fetching share of voice history.
+ * - updateCompany: Controller for updating a company.
+ * - deleteCompany: Controller for deleting a company.
+ */
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import prisma, { prismaReadReplica } from '../config/db';

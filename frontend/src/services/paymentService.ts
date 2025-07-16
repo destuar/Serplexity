@@ -1,3 +1,14 @@
+/**
+ * @file paymentService.ts
+ * @description Service for managing payment operations and subscription handling.
+ * Provides payment processing, subscription management, and billing functionality.
+ *
+ * @dependencies
+ * - ../lib/apiClient: For API communication.
+ *
+ * @exports
+ * - Various functions for payment and subscription operations.
+ */
 import apiClient from '../lib/apiClient';
 
 interface CreateCheckoutSessionResponse {

@@ -1,3 +1,19 @@
+/**
+ * @file MockSentimentScoreDisplayCard.tsx
+ * @description This component displays a mock sentiment score breakdown using a radar chart.
+ * It visualizes the brand's sentiment across different categories (e.g., Quality, Price, Reputation),
+ * providing a quick visual summary of sentiment strengths and weaknesses. This card is used to
+ * demonstrate the application's sentiment analysis capabilities on the landing page.
+ *
+ * @dependencies
+ * - react: For core React functionalities.
+ * - recharts: For charting components such as `Radar`, `RadarChart`, `PolarGrid`, `PolarAngleAxis`,
+ *   `PolarRadiusAxis`, and `ResponsiveContainer`.
+ * - ./MockDashboardCard: Generic card component for consistent UI in the mock dashboard.
+ *
+ * @exports
+ * - MockSentimentScoreDisplayCard: React functional component for displaying the mock sentiment score.
+ */
 import React from 'react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import MockDashboardCard from './MockDashboardCard';

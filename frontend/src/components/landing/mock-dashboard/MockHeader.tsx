@@ -1,3 +1,15 @@
+/**
+ * @file MockHeader.tsx
+ * @description A mock header component for the dashboard layout previewed on the landing page.
+ * It simulates the top navigation bar of the application, including company selector and user controls.
+ *
+ * @dependencies
+ * - react: For rendering the component.
+ * - lucide-react: For icons.
+ *
+ * @exports
+ * - MockHeader: The main component.
+ */
 import { Bell, Settings, User, ChevronDown } from "lucide-react";
 import React from 'react';
 

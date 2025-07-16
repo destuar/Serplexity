@@ -1,3 +1,17 @@
+/**
+ * @file useReportGeneration.ts
+ * @description Custom hook for managing report generation functionality and state.
+ * Provides comprehensive report generation, including competitor analysis, sentiment analysis, and custom reports.
+ *
+ * @dependencies
+ * - react: For state management and effects.
+ * - ../lib/apiClient: For API communication.
+ * - ../contexts/CompanyContext: For company data.
+ * - ../types/dashboard: For type definitions.
+ *
+ * @exports
+ * - useReportGeneration: Hook for report generation functionality.
+ */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { triggerReportGeneration, getReportStatus } from '../services/reportService';

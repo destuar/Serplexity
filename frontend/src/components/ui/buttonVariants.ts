@@ -1,3 +1,15 @@
+/**
+ * @file buttonVariants.ts
+ * @description Button variant configurations using class-variance-authority for consistent styling.
+ * Defines different button styles, sizes, and states for the Button component.
+ *
+ * @dependencies
+ * - class-variance-authority: For variant management.
+ * - ../../lib/utils: For utility functions.
+ *
+ * @exports
+ * - buttonVariants: The button variant configuration function.
+ */
 import { cva } from "class-variance-authority";
 
 export const buttonVariants = cva(

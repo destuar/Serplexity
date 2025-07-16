@@ -1,3 +1,14 @@
+/**
+ * @file blogUtils.ts
+ * @description Utility functions for blog post processing and management.
+ * Provides blog-related utilities for content processing and formatting.
+ *
+ * @dependencies
+ * - None (pure utility functions).
+ *
+ * @exports
+ * - Various utility functions for blog post management.
+ */
 export const formatBlogDate = (dateString: string): string => {
   const date = new Date(dateString);
   return date.toLocaleDateString('en-US', {

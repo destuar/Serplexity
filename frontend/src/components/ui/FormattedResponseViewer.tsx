@@ -1,3 +1,17 @@
+/**
+ * @file FormattedResponseViewer.tsx
+ * @description Component for displaying formatted AI responses with syntax highlighting, markdown support, and interactive elements.
+ * Handles various response formats including code blocks, lists, tables, and inline formatting.
+ *
+ * @dependencies
+ * - react: For component rendering and state management.
+ * - react-syntax-highlighter: For code syntax highlighting.
+ * - lucide-react: For icons.
+ * - ../../lib/utils: For utility functions.
+ *
+ * @exports
+ * - FormattedResponseViewer: The main formatted response viewer component.
+ */
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';

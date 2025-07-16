@@ -1,3 +1,15 @@
+/**
+ * @file dashboardService.ts
+ * @description Service for managing dashboard data and analytics operations.
+ * Provides dashboard metrics, analytics data, and performance tracking functionality.
+ *
+ * @dependencies
+ * - ../lib/apiClient: For API communication.
+ * - ../types/dashboard: For dashboard type definitions.
+ *
+ * @exports
+ * - Various functions for dashboard data management.
+ */
 import { getLatestReport } from './reportService';
 import { DashboardData, DashboardFilters, MODEL_CONFIGS } from '../types/dashboard';
 

@@ -1,3 +1,17 @@
+/**
+ * @file BlogPostPage.tsx
+ * @description Blog post display page for viewing published blog posts.
+ * Provides blog post rendering, SEO optimization, and social sharing functionality.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - react-router-dom: For navigation and routing.
+ * - lucide-react: For icons.
+ * - ../hooks/useBlogPosts: For blog post data.
+ *
+ * @exports
+ * - BlogPostPage: The main blog post page component.
+ */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';

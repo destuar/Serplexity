@@ -1,3 +1,22 @@
+/**
+ * @file MockCompetitorRankingsPage.tsx
+ * @description This component renders a mock page displaying competitor rankings within the dashboard preview.
+ * It simulates a view where users can see how their company ranks against competitors based on various metrics
+ * like Share of Voice. It includes mock data, filter dropdowns, and a refresh button for demonstration purposes.
+ * This page is a key part of the landing page's interactive dashboard preview.
+ *
+ * @dependencies
+ * - react: For core React functionalities.
+ * - lucide-react: For icons such as `ExternalLink`, `Sparkles`, `TrendingUp`, `ArrowUpDown`, `RefreshCw`,
+ *   `ChevronUp`, and `ChevronDown`.
+ * - ../MockDashboardLayout: The layout component for the mock dashboard.
+ * - ../../../../lib/utils: For the `cn` utility function to conditionally join CSS class names.
+ * - ../MockFilterDropdown: Mock component for filter dropdowns.
+ * - ../../../../lib/logoService: Utility to get company logos.
+ *
+ * @exports
+ * - MockCompetitorRankingsPage: The React functional component for the mock competitor rankings page.
+ */
 import React from 'react';
 import { ExternalLink, Sparkles, TrendingUp, ArrowUpDown, RefreshCw, ChevronUp, ChevronDown } from 'lucide-react';
 import MockDashboardLayout from '../MockDashboardLayout';

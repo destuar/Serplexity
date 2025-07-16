@@ -1,3 +1,17 @@
+/**
+ * @file tracing.ts
+ * @description This file initializes OpenTelemetry for distributed tracing. It configures the OTLP (OpenTelemetry Protocol)
+ * trace exporter and automatically instruments Node.js modules to capture telemetry data. This is crucial for monitoring,
+ * debugging, and performance analysis in a microservices or distributed environment.
+ *
+ * @dependencies
+ * - @opentelemetry/sdk-node: The OpenTelemetry SDK for Node.js.
+ * - @opentelemetry/exporter-trace-otlp-http: The OTLP trace exporter for sending data over HTTP.
+ * - @opentelemetry/auto-instrumentations-node: A meta-package for automatic instrumentation of Node.js modules.
+ *
+ * @exports
+ * - sdk: The initialized OpenTelemetry NodeSDK instance.
+ */
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';

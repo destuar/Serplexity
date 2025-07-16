@@ -1,3 +1,22 @@
+/**
+ * @file archiveWorker.ts
+ * @description This file defines the BullMQ worker responsible for archiving old report data to AWS Glacier.
+ * It fetches `fanoutResponse` data that is older than the latest three reports for a given company, uploads it to Glacier,
+ * and then deletes it from the primary database. This process ensures long-term data retention while optimizing database
+ * performance and reducing storage costs.
+ *
+ * @dependencies
+ * - bullmq: The BullMQ library for creating queues and workers.
+ * - @aws-sdk/client-glacier: AWS SDK client for interacting with Glacier.
+ * - ../config/env: Environment variable configuration.
+ * - ../config/bullmq: BullMQ connection configuration.
+ * - ../config/db: The singleton Prisma client instance.
+ *
+ * @exports
+ * - archiveQueue: The BullMQ queue for scheduling archive jobs.
+ * - processArchiveJob: The function that processes archive jobs.
+ * - archiveWorker: The BullMQ worker instance for archive jobs.
+ */
 import { Worker, Job, Queue } from 'bullmq';
 import env from '../config/env';
 import { getBullMQConnection } from '../config/bullmq';

@@ -1,3 +1,16 @@
+/**
+ * @file CompanyLogo.tsx
+ * @description This component displays a company's logo, falling back to initials with a generated background color
+ * if no logo is available or if the image fails to load. It attempts to fetch favicons from various sources
+ * (Clearbit, Google, direct favicon.ico) to provide a visual representation of the company. This is a utility
+ * component used throughout the application to enhance the visual presentation of company data.
+ *
+ * @dependencies
+ * - react: The core React library.
+ *
+ * @exports
+ * - CompanyLogo: React functional component for displaying company logos or initials.
+ */
 import React, { useState } from 'react';
 
 interface CompanyLogoProps {

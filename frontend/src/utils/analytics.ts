@@ -1,3 +1,14 @@
+/**
+ * @file analytics.ts
+ * @description Utility functions for analytics and data processing.
+ * Provides analytics calculations, data formatting, and statistical analysis functions.
+ *
+ * @dependencies
+ * - None (pure utility functions).
+ *
+ * @exports
+ * - Various utility functions for analytics and data processing.
+ */
 // Google Analytics 4 implementation for Serplexity
 declare global {
   interface Window {

@@ -1,3 +1,22 @@
+/**
+ * @file MockModelComparisonPage.tsx
+ * @description This component renders a mock page for comparing different AI models' performance within the dashboard preview.
+ * It displays historical data in a line chart and a table of key metrics (Share of Voice, Average Position, Inclusion Rate)
+ * for various AI models. This page is designed to showcase the application's ability to provide insights into
+ * AI model effectiveness on the landing page.
+ *
+ * @dependencies
+ * - react: For core React functionalities like `useState` and `useMemo`.
+ * - recharts: For charting components such as `LineChart`, `Line`, `XAxis`, `YAxis`, `CartesianGrid`, `Tooltip`, and `ResponsiveContainer`.
+ * - ../MockDashboardLayout: The layout component for the mock dashboard.
+ * - ../cards/MockDashboardCard: Generic card component for consistent UI in the mock dashboard.
+ * - lucide-react: For icons such as `ChevronUp`, `ChevronDown`, `Calendar`, `ArrowUpDown`, and `RefreshCw`.
+ * - ../../../../types/dashboard: Contains `getModelDisplayName` and `MODEL_CONFIGS` for model-related data.
+ * - ../MockFilterDropdown: Mock component for filter dropdowns.
+ *
+ * @exports
+ * - MockModelComparisonPage: The React functional component for the mock AI model comparison page.
+ */
 import React, { useState, useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, TooltipProps } from 'recharts';
 import MockDashboardLayout from '../MockDashboardLayout';

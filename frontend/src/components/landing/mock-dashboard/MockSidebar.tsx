@@ -1,3 +1,15 @@
+/**
+ * @file MockSidebar.tsx
+ * @description A mock sidebar component for the dashboard layout previewed on the landing page.
+ * It simulates the main navigation sidebar of the application.
+ *
+ * @dependencies
+ * - react: For rendering the component.
+ * - lucide-react: For icons.
+ *
+ * @exports
+ * - MockSidebar: The main component.
+ */
 import {
   BarChart2,
   ChevronDown,

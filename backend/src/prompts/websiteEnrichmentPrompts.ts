@@ -1,3 +1,12 @@
+/**
+ * @file websiteEnrichmentPrompts.ts
+ * @description This file defines the prompt for the website enrichment feature.
+ * It instructs the AI to find official website URLs for a given list of company names and return them in a structured JSON format.
+ * This is a crucial component for enriching competitor data and ensuring the accuracy of the system's analysis.
+ *
+ * @exports
+ * - buildWebsiteEnrichmentPrompt: A function that constructs the prompt for website enrichment based on a list of competitor names.
+ */
 export function buildWebsiteEnrichmentPrompt(competitorNames: string[]): string {
   return `Find the official website URL for each company in the list below.
 

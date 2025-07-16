@@ -1,3 +1,21 @@
+/**
+ * @file backupSchedulerWorker.ts
+ * @description This file defines the BullMQ worker that processes backup scheduling jobs.
+ * It checks for companies that missed their daily reports or had failed reports and queues them for regeneration.
+ * It also handles emergency triggers to generate reports for all eligible companies. This worker is crucial for
+ * maintaining the integrity and completeness of the report data.
+ *
+ * @dependencies
+ * - bullmq: The BullMQ library for creating workers.
+ * - ../config/env: Environment variable configuration.
+ * - ../config/bullmq: BullMQ connection configuration.
+ * - ../config/db: The singleton Prisma client instance.
+ * - ../services/reportSchedulingService: Service for queuing report generation.
+ * - ../services/alertingService: Service for sending system alerts.
+ *
+ * @exports
+ * - backupWorker: The BullMQ worker instance for backup scheduling jobs.
+ */
 import { Worker, Job } from 'bullmq';
 import env from '../config/env';
 import { getBullMQConnection } from '../config/bullmq';

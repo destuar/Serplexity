@@ -1,3 +1,15 @@
+/**
+ * @file visibilityOptimizationPrompts.ts
+ * @description This file defines the system prompts for generating AI visibility optimization tasks and executive summaries.
+ * It also includes a comprehensive catalog of preset optimization tasks, categorized by type and priority, with detailed
+ * descriptions and impact metrics. This is a core component for the AI-driven SEO and content strategy features, enabling
+ * the system to generate actionable recommendations for improving a company's online visibility.
+ *
+ * @exports
+ * - OPTIMIZATION_TASKS_PROMPT: The prompt used to generate individual AI visibility tasks.
+ * - SUMMARY_PROMPT: The prompt used to generate executive summaries of AI visibility performance.
+ * - PRESET_TASKS: A constant array containing a catalog of predefined optimization tasks.
+ */
 export const OPTIMIZATION_TASKS_PROMPT = `# AI Visibility Task Generator Prompt
 
 You are an expert AI Visibility Strategist working for **{{name}}**, a company in the **{{industry}}** industry. The organisation focuses on the following products/services: **{{productKeywords}}**.

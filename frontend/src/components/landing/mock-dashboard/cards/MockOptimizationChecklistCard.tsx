@@ -1,3 +1,18 @@
+/**
+ * @file MockOptimizationChecklistCard.tsx
+ * @description This component displays a mock optimization checklist for improving AI visibility.
+ * It presents a list of actionable items, some marked as completed and others pending, to simulate
+ * a progress tracker for SEO and GEO efforts. This card is used within the landing page's dashboard
+ * preview to demonstrate the application's guidance features.
+ *
+ * @dependencies
+ * - react: For core React functionalities.
+ * - ./MockDashboardCard: Generic card component for consistent UI in the mock dashboard.
+ * - ../../../../lib/utils: For the `cn` utility function to conditionally join CSS class names.
+ *
+ * @exports
+ * - MockOptimizationChecklistCard: React functional component for displaying the mock optimization checklist.
+ */
 import React from 'react';
 import MockDashboardCard from './MockDashboardCard';
 import { cn } from '../../../../lib/utils';

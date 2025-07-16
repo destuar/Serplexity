@@ -1,3 +1,20 @@
+/**
+ * @file DashboardPreviewCarousel.tsx
+ * @description This component implements an interactive carousel to showcase different mock dashboard pages.
+ * It features infinite looping, navigation buttons, pagination indicators, touch swipe support for mobile,
+ * keyboard navigation, and auto-advancing slides with pause-on-hover functionality.
+ * This carousel is a key visual element on the landing page, providing prospective users with a dynamic preview
+ * of the application's dashboard capabilities without requiring a login.
+ *
+ * @dependencies
+ * - react: For core React functionalities like `useState`, `useCallback`, `useEffect`, `useMemo`, and `React.memo`.
+ * - lucide-react: For icons such as `ChevronLeft` and `ChevronRight`.
+ * - ./mock-dashboard/pages/*: Various mock dashboard page components used as slides in the carousel, representing
+ *   different views within the application's dashboard.
+ *
+ * @exports
+ * - DashboardPreviewCarousel: The main React functional component for the dashboard preview carousel.
+ */
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import MockOverviewPage from './mock-dashboard/pages/MockOverviewPage';
@@ -15,6 +32,11 @@ const MemoizedResponseDetailsPage = React.memo(MockResponseDetailsPage);
 const MemoizedCompetitorRankingsPage = React.memo(MockCompetitorRankingsPage);
 const MemoizedModelComparisonPage = React.memo(MockModelComparisonPage);
 
+/**
+ * Array of page configurations for the carousel.
+ * Each object contains a `name` for display and the `component` to render.
+ * @type {Array<{ name: string; component: JSX.Element }>}
+ */
 const pages = [
   { name: 'Overview', component: <MemoizedOverviewPage /> },
   { name: 'Progress Report', component: <MemoizedVisibilityReportPage /> },
@@ -24,6 +46,11 @@ const pages = [
   { name: 'Model Comparison', component: <MemoizedModelComparisonPage /> },
 ];
 
+/**
+ * `DashboardPreviewCarousel` component.
+ * Displays a responsive, interactive carousel of mock dashboard pages.
+ * @returns {React.FC}
+ */
 const DashboardPreviewCarousel: React.FC = () => {
   // Real index for the actual page (0 to pages.length - 1)
   const [currentIndex, setCurrentIndex] = useState(0);

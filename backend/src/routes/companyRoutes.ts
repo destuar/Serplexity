@@ -1,3 +1,18 @@
+/**
+ * @file companyRoutes.ts
+ * @description This file defines the API routes for company management and related metrics.
+ * It includes standard CRUD (Create, Read, Update, Delete) operations for companies, as well as endpoints for fetching
+ * various performance metrics like average inclusion rate, average position, share of voice, and competitor rankings.
+ * All routes are protected by authentication middleware.
+ *
+ * @dependencies
+ * - express: The Express framework for creating router instances.
+ * - ../middleware/authMiddleware: Middleware for authentication.
+ * - ../controllers/companyController: Controllers for company-related business logic.
+ *
+ * @exports
+ * - router: The Express router instance for company routes.
+ */
 import { Router } from 'express';
 import { authenticate } from '../middleware/authMiddleware';
 import {

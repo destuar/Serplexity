@@ -1,4 +1,19 @@
-// A simple comment to refresh the module cache.
+/**
+ * @file SentimentScoreDisplayCard.tsx
+ * @description This component displays a radar chart visualizing detailed sentiment scores across various
+ * categories (Quality, Price, Reputation, Trust, Service). It fetches sentiment data from the `useDashboard` hook
+ * and filters it based on the selected AI model. This component provides a quick, multi-dimensional view of brand sentiment.
+ *
+ * @dependencies
+ * - react: The core React library.
+ * - ../../hooks/useDashboard: Custom hook for accessing dashboard data.
+ * - ../ui/Card: Generic card component for consistent UI.
+ * - recharts: A customizable charting library for React.
+ * - ../../types/dashboard: Type definitions for Metric and SentimentScoreValue.
+ *
+ * @exports
+ * - SentimentScoreDisplayCard: React functional component for displaying sentiment scores in a radar chart.
+ */
 import { useDashboard } from '../../hooks/useDashboard';
 import Card from '../ui/Card';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts';

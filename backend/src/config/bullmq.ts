@@ -1,3 +1,21 @@
+/**
+ * @file bullmq.ts
+ * @description This file configures BullMQ, a robust queueing system based on Redis.
+ * It defines default options for queues, workers, and jobs, ensuring reliability and performance.
+ * The configuration is optimized for a production environment, with specific settings for different job types.
+ *
+ * @dependencies
+ * - bullmq: The BullMQ library for creating queues and workers.
+ * - ./env: Environment variable configuration.
+ * - ./redis: Redis connection configuration for BullMQ.
+ *
+ * @exports
+ * - getBullMQOptions: Function to retrieve default queue options.
+ * - getWorkerOptions: Function to retrieve default worker options.
+ * - getJobOptions: Function to retrieve job-specific options.
+ * - getBullMQConnection: Function to retrieve the BullMQ Redis connection.
+ * - checkBullMQHealth: Function to perform a health check on the BullMQ connection.
+ */
 import env from './env';
 import { bullmqConnection } from './redis';
 import { QueueOptions, WorkerOptions, JobsOptions } from 'bullmq';

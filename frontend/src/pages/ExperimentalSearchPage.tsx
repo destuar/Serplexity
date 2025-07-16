@@ -1,3 +1,17 @@
+/**
+ * @file ExperimentalSearchPage.tsx
+ * @description Experimental search page for testing and exploring AI search capabilities.
+ * Provides experimental search tools and AI model testing functionality.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - react-router-dom: For navigation.
+ * - lucide-react: For icons.
+ * - ../services/experimentalSearchService: For experimental search functionality.
+ *
+ * @exports
+ * - ExperimentalSearchPage: The main experimental search page component.
+ */
 import React, { useState } from 'react';
 import SearchBar from '../components/experimental/SearchBar';
 import GoogleSerpPane from '../components/experimental/GoogleSerpPane';

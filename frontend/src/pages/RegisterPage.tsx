@@ -1,3 +1,18 @@
+/**
+ * @file RegisterPage.tsx
+ * @description Registration page component for new user signup.
+ * Provides registration form, validation, and user onboarding flow.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - react-router-dom: For navigation.
+ * - react-hook-form: For form handling.
+ * - lucide-react: For icons.
+ * - ../contexts/AuthContext: For authentication state.
+ *
+ * @exports
+ * - RegisterPage: The main registration page component.
+ */
 import React, { useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';

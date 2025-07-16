@@ -1,3 +1,14 @@
+/**
+ * @file responses.ts
+ * @description Type definitions for API responses and data structures.
+ * Provides type definitions for various API response formats and data models.
+ *
+ * @dependencies
+ * - None (pure type definitions).
+ *
+ * @exports
+ * - Various TypeScript interfaces and types for API responses.
+ */
 // Fanout question types and their display labels
 export const FANOUT_QUESTION_TYPES = [
   'benchmark',

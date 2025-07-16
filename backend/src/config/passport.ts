@@ -1,3 +1,18 @@
+/**
+ * @file passport.ts
+ * @description This file configures the Passport.js authentication strategies, specifically for Google OAuth 2.0.
+ * It handles user lookup, creation, and account linking. It also includes the serialization and deserialization of the user,
+ * which is essential for maintaining login sessions.
+ *
+ * @dependencies
+ * - passport: The core Passport.js library.
+ * - passport-google-oauth20: The Passport.js strategy for Google OAuth 2.0.
+ * - ./db: The singleton Prisma client instance for database interactions.
+ * - ./env: Environment variable configuration.
+ *
+ * @exports
+ * - passport: The configured Passport.js instance.
+ */
 import passport from 'passport';
 import { Strategy as GoogleStrategy, Profile } from 'passport-google-oauth20';
 import prisma from './db'; // Use the singleton prisma instance

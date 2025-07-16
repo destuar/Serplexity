@@ -1,3 +1,18 @@
+/**
+ * @file LoginPage.tsx
+ * @description Login page component for user authentication.
+ * Provides login form, OAuth integration, and authentication flow management.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - react-router-dom: For navigation.
+ * - react-hook-form: For form handling.
+ * - lucide-react: For icons.
+ * - ../contexts/AuthContext: For authentication state.
+ *
+ * @exports
+ * - LoginPage: The main login page component.
+ */
 import React, { useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';

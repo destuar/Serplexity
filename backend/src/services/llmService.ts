@@ -1,3 +1,33 @@
+/**
+ * @file llmService.ts
+ * @description This file provides a comprehensive service for interacting with various Large Language Models (LLMs)
+ * from different providers (OpenAI, Anthropic, Google, Perplexity). It includes a generic chat completion function
+ * that supports structured output via Zod schemas, handles retries, and logs LLM interactions. It also provides
+ * specific functions for generating sentiment scores, sentiment summaries, question responses, and enriching competitor
+ * data with website information. This is a core component for all AI-powered features in the application.
+ *
+ * @dependencies
+ * - zod: For schema validation of LLM outputs.
+ * - ../config/env: Environment variable configuration for API keys.
+ * - ../config/models: LLM model configuration and task mapping.
+ * - ../prompts: Various prompts used for LLM interactions.
+ * - openai: Official OpenAI Node.js client.
+ * - @anthropic-ai/sdk: Official Anthropic Node.js client.
+ * - @google/generative-ai: Official Google Generative AI Node.js client.
+ * - zod-to-json-schema: Utility to convert Zod schemas to JSON schemas for tool use.
+ *
+ * @exports
+ * - TokenUsage: Interface for LLM token usage statistics.
+ * - ChatCompletionResponse: Interface for structured LLM responses.
+ * - CompetitorInfo: Interface for competitor information.
+ * - QuestionInput: Interface for question input to LLMs.
+ * - generateChatCompletion: Generic function for generating chat completions.
+ * - generateAndValidate: Function to generate and validate LLM output against a Zod schema.
+ * - generateSentimentScores: Generates sentiment scores for a company.
+ * - generateOverallSentimentSummary: Generates an overall sentiment summary.
+ * - generateQuestionResponse: Generates a response to a question.
+ * - generateWebsiteForCompetitors: Enriches competitor data with website information.
+ */
 import { z } from 'zod';
 import env from '../config/env';
 import { Model, ModelEngine, ModelTask, getModelsByTask, LLM_CONFIG } from '../config/models';

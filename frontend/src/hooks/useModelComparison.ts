@@ -1,3 +1,15 @@
+/**
+ * @file useModelComparison.ts
+ * @description Custom hook for managing model comparison data and operations.
+ * Provides model comparison functionality, data fetching, and comparison state management.
+ *
+ * @dependencies
+ * - react: For state management and effects.
+ * - ../lib/apiClient: For API communication.
+ *
+ * @exports
+ * - useModelComparison: Hook for model comparison functionality.
+ */
 import { useState, useEffect, useCallback } from 'react';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from './useDashboard';

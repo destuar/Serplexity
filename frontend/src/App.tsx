@@ -1,3 +1,25 @@
+/**
+ * @file App.tsx
+ * @description This is the main application component, responsible for setting up the routing structure
+ * and integrating various contexts and guards. It defines public routes, protected routes (requiring authentication),
+ * and routes that further require company setup and payment. It also incorporates analytics tracking
+ * for page views and user sessions.
+ *
+ * @dependencies
+ * - react: The core React library.
+ * - react-router-dom: For declarative routing in React applications.
+ * - ./contexts/CompanyContext: Provides company-related data and state.
+ * - ./contexts/DashboardContext: Provides dashboard-related data and state.
+ * - ./components/company/CompanyGuard: Protects routes that require company setup.
+ * - ./components/auth/PaymentGuard: Protects routes that require an active subscription.
+ * - ./components/layout/DashboardLayout: Layout component for dashboard pages.
+ * - ./pages/*: Various page components for different routes.
+ * - ./components/auth/ProtectedRoute: Protects routes that require user authentication.
+ * - ./hooks/useAnalytics: Custom hooks for analytics tracking.
+ *
+ * @exports
+ * - App: The main React application component.
+ */
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { CompanyProvider } from './contexts/CompanyContext';

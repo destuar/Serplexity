@@ -1,3 +1,20 @@
+/**
+ * @file SentimentDetailsCard.tsx
+ * @description This component displays detailed sentiment analysis including a comprehensive text summary
+ * and categorical score breakdowns (Quality, Price/Value, Brand Reputation, Trust, Customer Service).
+ * It features smart brand highlighting that emphasizes the user's brand mentions while keeping competitor
+ * mentions neutral. The component filters sentiment data by selected AI model and provides both qualitative
+ * insights and quantitative metrics in a split-view layout.
+ *
+ * @dependencies
+ * - react: The core React library.
+ * - ../ui/Card: Generic card component for consistent UI.
+ * - ../../hooks/useDashboard: Custom hook for accessing dashboard data.
+ * - ../../types/dashboard: Type definitions for Metric, SentimentScoreValue, and utility functions.
+ *
+ * @exports
+ * - SentimentDetailsCard: React functional component for displaying detailed sentiment analysis.
+ */
 import Card from '../ui/Card';
 import { useDashboard } from '../../hooks/useDashboard';
 import { Metric, SentimentScoreValue, getModelDisplayName } from '../../types/dashboard';

@@ -1,3 +1,22 @@
+/**
+ * @file authRoutes.ts
+ * @description This file defines the API routes for authentication, including standard email/password registration and login,
+ * token refreshing, and Google OAuth. It integrates with `authController` for business logic and `authMiddleware` for protection.
+ * It also includes routes for verifying token validity and admin access.
+ *
+ * @dependencies
+ * - express: The Express framework for creating router instances.
+ * - passport: Authentication middleware for Node.js.
+ * - jsonwebtoken: For creating and verifying JWTs.
+ * - querystring: Node.js module for parsing and formatting URL query strings.
+ * - ../controllers/authController: Controllers for authentication logic.
+ * - ../middleware/authMiddleware: Middleware for authentication and authorization.
+ * - ../config/env: Environment variable configuration.
+ * - @prisma/client: Prisma client types.
+ *
+ * @exports
+ * - router: The Express router instance for authentication routes.
+ */
 import { Router, Request, Response } from 'express';
 import passport from 'passport';
 import jwt from 'jsonwebtoken';

@@ -1,3 +1,21 @@
+/**
+ * @file server.ts
+ * @description This is the main entry point for the backend server. It initializes the database connection, 
+ * starts the HTTP server, and handles graceful shutdown.
+ *
+ * @dependencies
+ * - http: Node.js module for creating HTTP servers.
+ * - ./app: The Express application instance.
+ * - ./config/env: Environment variable configuration.
+ * - ./config/db: Singleton Prisma client instance.
+ * - ./config/tracing: OpenTelemetry tracing initialization.
+ * - ./queues/reportWorker: Initializes the report generation worker.
+ * - ./queues/archiveWorker: Initializes the archive worker.
+ * - ./queues/masterSchedulerWorker: Initializes the master scheduler worker.
+ * - ./queues/backupSchedulerWorker: Initializes the backup scheduler worker.
+ * - ./queues/masterScheduler: Schedules the daily report trigger.
+ * - ./queues/backupScheduler: Schedules the backup daily report trigger.
+ */
 import './config/tracing'; // IMPORTANT: Must be the first import to ensure all modules are instrumented
 import app from './app';
 import http from 'http';

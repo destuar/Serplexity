@@ -1,3 +1,19 @@
+/**
+ * @file CompanyGuard.tsx
+ * @description This component acts as a guard for routes, ensuring that the user has at least one company configured
+ * before accessing certain parts of the application. If no companies are found, it redirects the user to the onboarding page.
+ * It also handles cases where a user with companies might inadvertently land on the onboarding page, redirecting them to the dashboard.
+ * This is crucial for guiding users through the initial setup process.
+ *
+ * @dependencies
+ * - react: The core React library.
+ * - react-router-dom: For navigation and routing (`useNavigate`, `useLocation`).
+ * - ../../contexts/CompanyContext: Provides company-related data and state.
+ * - ../ui/BlankLoadingState: A loading state component.
+ *
+ * @exports
+ * - CompanyGuard: React functional component that guards routes based on company existence.
+ */
 import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useCompany } from '../../contexts/CompanyContext';

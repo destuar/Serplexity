@@ -1,3 +1,20 @@
+/**
+ * @file reportRoutes.ts
+ * @description This file defines the API routes for report generation, status checking, and retrieval,
+ * as well as optimization tasks and system health. It integrates with `reportController` and `optimizationController`
+ * for business logic, and `authMiddleware` and `paymentGuard` for authentication and authorization.
+ * It also includes emergency endpoints for manual report triggering.
+ *
+ * @dependencies
+ * - express: The Express framework for creating router instances.
+ * - ../controllers/reportController: Controllers for report-related business logic.
+ * - ../controllers/optimizationController: Controllers for optimization task business logic.
+ * - ../middleware/authMiddleware: Middleware for authentication.
+ * - ../middleware/paymentGuard: Middleware for payment status authorization.
+ *
+ * @exports
+ * - router: The Express router instance for report routes.
+ */
 import { Router } from 'express';
 import { createReport, getReportStatus, getLatestReport, getCompetitorRankingsForReport, getReportResponses, emergencyTriggerCompanyReport, emergencyTriggerAllReports, getSystemHealth } from '../controllers/reportController';
 import { getCompanyOptimizationTasks, toggleOptimizationTaskCompletion, updateOptimizationTaskStatus, getCompanyVisibilitySummary } from '../controllers/optimizationController';

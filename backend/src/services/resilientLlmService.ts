@@ -1,3 +1,24 @@
+/**
+ * @file resilientLlmService.ts
+ * @description This file implements `ResilientLlmService`, a robust service designed to make LLM calls more reliable.
+ * It incorporates automatic retry mechanisms with exponential backoff, intelligent rate limit handling, and a fallback
+ * system that attempts to use alternative models if the primary one fails. It also integrates with the `alertingService`
+ * to notify administrators of fallback usage or critical failures. This service is crucial for ensuring the continuous
+ * operation of AI-powered features even in the face of transient LLM provider issues.
+ *
+ * @dependencies
+ * - zod: For schema validation.
+ * - ../config/models: LLM model configuration and task mapping.
+ * - ./llmService: Core LLM interaction functions.
+ * - ./alertingService: Service for sending alerts.
+ *
+ * @exports
+ * - ResilientLlmService: The main class providing resilient LLM functionalities.
+ * - generateResilientQuestionResponse: Resilient function for generating question responses.
+ * - generateResilientChatCompletion: Resilient function for general chat completions.
+ * - generateAndValidateResilient: Resilient function for generating and validating LLM output.
+ * - ResilientCallOptions: Interface for options to configure resilient calls.
+ */
 import { z } from 'zod';
 import { Model, ModelTask, getModelsByTask, LLM_CONFIG } from '../config/models';
 import { generateChatCompletion, generateAndValidate, QuestionInput, ChatCompletionResponse, TokenUsage } from './llmService';

@@ -1,3 +1,32 @@
+/**
+ * @file reportWorker.ts
+ * @description This file defines the core BullMQ worker responsible for generating comprehensive reports.
+ * It orchestrates a multi-stage process including: fetching company data, generating fanout questions,
+ * performing sentiment analysis, generating responses to questions, enriching competitor data, and persisting
+ * all this information to the database. It also handles progress updates, error logging, and post-processing
+ * tasks like metrics computation and optimization task generation. This is arguably the most complex and critical
+ * worker in the system.
+ *
+ * @dependencies
+ * - bullmq: The BullMQ library for creating workers.
+ * - p-limit: A tiny promise concurrency limiter.
+ * - ../config/env: Environment variable configuration.
+ * - ../config/bullmq: BullMQ connection configuration.
+ * - ../config/db: The singleton Prisma client instance.
+ * - @prisma/client: Prisma client types.
+ * - ../services/llmService: Service for interacting with LLMs (sentiment, questions, website enrichment).
+ * - ../services/resilientLlmService: Service for resilient LLM calls with fallbacks.
+ * - ../services/fanoutService: Service for generating and flattening fanout queries.
+ * - ../config/models: LLM model configuration and task mapping.
+ * - ../types/reports: Type definitions for reports.
+ * - ./streaming-db-writer: Utility for streaming database writes.
+ * - ../services/metricsService: Service for computing and persisting report metrics.
+ * - ./archiveWorker: BullMQ queue for archiving old data.
+ * - ../services/alertingService: Service for sending system alerts.
+ *
+ * @exports
+ * - worker: The BullMQ worker instance for report generation jobs.
+ */
 import { Worker, Job } from 'bullmq';
 import pLimit from 'p-limit';
 import env from '../config/env';

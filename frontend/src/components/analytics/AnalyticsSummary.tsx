@@ -1,3 +1,17 @@
+/**
+ * @file AnalyticsSummary.tsx
+ * @description This component displays a summary of analytics data, including page views, unique users,
+ * average session duration, conversion rate, and top pages. It's designed to provide administrators
+ * with a quick overview of application usage. Currently, it uses mock data, but it's set up to integrate
+ * with a backend analytics endpoint. It also tracks when the analytics dashboard is viewed.
+ *
+ * @dependencies
+ * - react: The core React library.
+ * - ../../utils/analytics: Utility for tracking Serplexity-specific events.
+ *
+ * @exports
+ * - AnalyticsSummary: React functional component for displaying analytics data.
+ */
 import React, { useEffect, useState } from 'react';
 import { trackSerplexityEvents } from '../../utils/analytics';
 

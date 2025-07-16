@@ -1,3 +1,14 @@
+/**
+ * @file apiClient.ts
+ * @description Axios-based API client for making HTTP requests to the backend.
+ * Provides centralized API communication with interceptors for authentication and error handling.
+ *
+ * @dependencies
+ * - axios: For HTTP requests.
+ *
+ * @exports
+ * - default: The configured axios instance.
+ */
 import axios from 'axios';
 
 declare module 'axios' {

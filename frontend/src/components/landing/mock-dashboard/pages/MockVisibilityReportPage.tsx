@@ -1,3 +1,19 @@
+/**
+ * @file MockVisibilityReportPage.tsx
+ * @description This component renders a mock progress report page for the dashboard preview.
+ * It displays an AI-generated visibility summary and an optimization checklist, simulating
+ * a report that provides actionable insights for improving AI visibility. This page is designed
+ * to showcase the application's reporting capabilities on the landing page.
+ *
+ * @dependencies
+ * - react: For core React functionalities.
+ * - ../MockDashboardLayout: The layout component for the mock dashboard.
+ * - ../cards/MockAiVisibilitySummaryCard: Mock card component for displaying an AI visibility summary.
+ * - ../cards/MockOptimizationChecklistCard: Mock card component for displaying an optimization checklist.
+ *
+ * @exports
+ * - MockVisibilityReportPage: The React functional component for the mock visibility report page.
+ */
 import React from 'react';
 import MockDashboardLayout from '../MockDashboardLayout';
 import MockAiVisibilitySummaryCard from '../cards/MockAiVisibilitySummaryCard';

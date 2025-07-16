@@ -1,3 +1,16 @@
+/**
+ * @file MultiSelectDropdown.tsx
+ * @description Multi-select dropdown component with search functionality and customizable options.
+ * Provides an accessible interface for selecting multiple items from a list with filtering capabilities.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - lucide-react: For icons.
+ * - ../../lib/utils: For utility functions.
+ *
+ * @exports
+ * - MultiSelectDropdown: The main multi-select dropdown component.
+ */
 import React, { useState, useRef, useEffect, ComponentType } from 'react';
 import { ChevronDown, Check, LucideProps } from 'lucide-react';
 import { cn } from '../../lib/utils';

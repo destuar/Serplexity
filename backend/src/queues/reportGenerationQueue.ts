@@ -1,3 +1,17 @@
+/**
+ * @file reportGenerationQueue.ts
+ * @description This file defines the BullMQ queue for report generation jobs.
+ * It initializes the queue with predefined options and sets up event listeners for logging queue activities and errors.
+ * This is the entry point for all report generation tasks, ensuring they are processed asynchronously and reliably.
+ *
+ * @dependencies
+ * - bullmq: The BullMQ library for creating queues.
+ * - ../config/env: Environment variable configuration.
+ * - ../config/bullmq: BullMQ configuration options.
+ *
+ * @exports
+ * - reportGenerationQueue: The BullMQ queue instance for report generation jobs.
+ */
 import { Queue } from 'bullmq';
 import env from '../config/env';
 import { getBullMQOptions } from '../config/bullmq';

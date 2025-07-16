@@ -1,3 +1,18 @@
+/**
+ * @file CompanyOnboardingPage.tsx
+ * @description Company onboarding page for new users to set up their company profile.
+ * Provides company information collection, logo upload, and initial setup flow.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - react-router-dom: For navigation.
+ * - react-hook-form: For form handling.
+ * - lucide-react: For icons.
+ * - ../contexts/CompanyContext: For company state.
+ *
+ * @exports
+ * - CompanyOnboardingPage: The main company onboarding page component.
+ */
 import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, TrendingUp, Users } from 'lucide-react';

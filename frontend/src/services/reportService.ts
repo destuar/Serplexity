@@ -1,3 +1,14 @@
+/**
+ * @file reportService.ts
+ * @description Service for managing report generation and report-related operations.
+ * Provides report creation, data retrieval, and report management functionality.
+ *
+ * @dependencies
+ * - ../lib/apiClient: For API communication.
+ *
+ * @exports
+ * - Various functions for report management operations.
+ */
 import apiClient from '../lib/apiClient';
 import { DashboardData, DashboardFilters } from '../types/dashboard';
 

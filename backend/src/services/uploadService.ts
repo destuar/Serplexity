@@ -1,3 +1,20 @@
+/**
+ * @file uploadService.ts
+ * @description This file provides a service for handling file uploads, specifically for images to AWS S3.
+ * It configures `multer` and `multer-s3` to manage the upload process, including file type validation, size limits,
+ * and generating unique filenames. It also provides a utility function to construct the public URL of an uploaded file.
+ * This is a crucial component for managing media assets within the application.
+ *
+ * @dependencies
+ * - multer: Middleware for handling `multipart/form-data`.
+ * - path: Node.js module for handling file paths.
+ * - @aws-sdk/client-s3: AWS SDK client for interacting with S3.
+ * - multer-s3: Multer storage engine for Amazon S3.
+ *
+ * @exports
+ * - upload: Multer instance configured for S3 uploads.
+ * - getFileUrl: Function to construct the public URL of an uploaded file.
+ */
 import multer from 'multer';
 import path from 'path';
 import { S3Client } from '@aws-sdk/client-s3';

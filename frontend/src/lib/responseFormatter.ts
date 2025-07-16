@@ -1,4 +1,18 @@
 /**
+ * @file responseFormatter.ts
+ * @description Utility functions for formatting and processing AI responses and text content.
+ * Provides text processing, formatting, and content manipulation functionality.
+ *
+ * @dependencies
+ * - None (pure utility functions).
+ *
+ * @exports
+ * - formatResponse: Function for formatting AI responses.
+ * - processText: Function for processing text content.
+ * - Various utility functions for text manipulation.
+ */
+
+/**
  * Comprehensive response formatting utilities for AI model responses
  * Handles JSON arrays, objects, bullet lists, and various text formats
  */

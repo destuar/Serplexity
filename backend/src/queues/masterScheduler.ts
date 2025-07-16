@@ -1,3 +1,18 @@
+/**
+ * @file masterScheduler.ts
+ * @description This file defines the BullMQ queue and function for scheduling the main daily report generation.
+ * It ensures that only one daily report trigger job is scheduled, preventing duplicates. This is a core component
+ * for automating the report generation process.
+ *
+ * @dependencies
+ * - bullmq: The BullMQ library for creating queues.
+ * - ../config/env: Environment variable configuration.
+ * - ../config/bullmq: BullMQ configuration options.
+ *
+ * @exports
+ * - masterSchedulerQueue: The BullMQ queue for master scheduling.
+ * - scheduleDailyReportTrigger: Function to schedule the daily report trigger.
+ */
 import { Queue } from 'bullmq';
 import env from '../config/env';
 import { getBullMQOptions } from '../config/bullmq';

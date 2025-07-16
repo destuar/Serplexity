@@ -1,3 +1,18 @@
+/**
+ * @file AveragePositionCard.tsx
+ * @description This component displays the average position for the selected company, along with its change
+ * from the previous period. It fetches data from the `useDashboard` hook and renders it within a `Card` component.
+ * It includes visual indicators for positive or negative changes (where a lower position is better) and handles
+ * loading and error states. This card provides a key metric for understanding the company's ranking in AI-generated content.
+ *
+ * @dependencies
+ * - ../ui/Card: Generic card component for consistent UI.
+ * - ../../hooks/useDashboard: Custom hook for accessing dashboard data.
+ * - react-icons/fi: Feather icons for visual indicators.
+ *
+ * @exports
+ * - AveragePositionCard: React functional component for displaying the average position.
+ */
 import Card from '../ui/Card';
 import { useDashboard } from '../../hooks/useDashboard';
 import { FiArrowUp, FiArrowDown } from 'react-icons/fi';

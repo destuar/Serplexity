@@ -1,3 +1,15 @@
+/**
+ * @file GoogleSerpPane.tsx
+ * @description This component displays Google search results within an iframe. It takes a search query as a prop
+ * and renders the Google search page, allowing users to view live search results directly within the application.
+ *
+ * @dependencies
+ * - react: The core React library for component logic and state management.
+ * - ../ui/Card: A generic UI component used for consistent styling and containment of the pane.
+ *
+ * @exports
+ * - GoogleSerpPane: React functional component for displaying Google search results.
+ */
 import React, { useState, useEffect } from 'react';
 import Card from '../ui/Card';
 

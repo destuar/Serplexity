@@ -1,3 +1,16 @@
+/**
+ * @file MockAiVisibilitySummaryCard.tsx
+ * @description This component displays a mock AI-generated visibility summary for the selected company.
+ * It provides a quick, AI-driven overview of the company's visibility performance, using static mock data.
+ * This card is used within the landing page's dashboard preview to demonstrate AI summary capabilities.
+ *
+ * @dependencies
+ * - react: For core React functionalities.
+ * - ./MockDashboardCard: Generic card component for consistent UI in the mock dashboard.
+ *
+ * @exports
+ * - MockAiVisibilitySummaryCard: React functional component for displaying the mock AI visibility summary.
+ */
 import React from 'react';
 import MockDashboardCard from './MockDashboardCard';
 

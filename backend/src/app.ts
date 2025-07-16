@@ -1,3 +1,33 @@
+/**
+ * @file app.ts
+ * @description This file initializes the Express application and configures middleware, routes, and error handling.
+ * It serves as the main entry point for the backend server.
+ *
+ * @dependencies
+ * - express: Framework for building the web application.
+ * - cors: Middleware for enabling Cross-Origin Resource Sharing.
+ * - morgan: Middleware for logging HTTP requests.
+ * - dotenv: For loading environment variables from a .env file.
+ * - cookie-parser: Middleware for parsing cookies.
+ * - helmet: Middleware for securing the app by setting various HTTP headers.
+ * - express-rate-limit: Middleware for rate limiting requests.
+ * - passport: Authentication middleware for Node.js.
+ * - @prisma/client: Prisma client for database interaction.
+ *
+ * @internal_dependencies
+ * - ./config/passport: Passport.js authentication strategies.
+ * - ./routes/authRoutes: Routes for authentication.
+ * - ./routes/companyRoutes: Routes for company data.
+ * - ./routes/paymentRoutes: Routes for payment processing.
+ * - ./routes/reportRoutes: Routes for reports.
+ * - ./routes/searchRoutes: Routes for search functionality.
+ * - ./routes/userRoutes: Routes for user management.
+ * - ./routes/blogRoutes: Routes for blog content.
+ * - ./middleware/authMiddleware: Middleware for authenticating protected routes.
+ * - ./config/env: Environment variable configuration.
+ * - ./config/db: Singleton Prisma client instance.
+ * - ./controllers/paymentController: Controller for handling Stripe webhooks.
+ */
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import morgan from 'morgan';

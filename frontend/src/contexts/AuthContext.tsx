@@ -1,3 +1,17 @@
+/**
+ * @file AuthContext.tsx
+ * @description React context for managing user authentication state throughout the application.
+ * Provides authentication methods, user data, and subscription status management.
+ *
+ * @dependencies
+ * - react: For context creation and state management.
+ * - ../services/companyService: For company-related API calls.
+ *
+ * @exports
+ * - AuthContext: The authentication context.
+ * - AuthProvider: Provider component for authentication state.
+ * - useAuth: Hook for accessing authentication context.
+ */
 import React, { useState, useEffect, ReactNode, useCallback, useMemo, useRef } from 'react';
 import apiClient from '../lib/apiClient';
 import { User } from '../types/schemas';

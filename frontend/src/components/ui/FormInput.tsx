@@ -1,3 +1,15 @@
+/**
+ * @file FormInput.tsx
+ * @description Form input component with integrated label, validation, and error handling.
+ * Provides consistent form field styling and behavior across the application.
+ *
+ * @dependencies
+ * - react: For component rendering.
+ * - ../../lib/utils: For utility functions.
+ *
+ * @exports
+ * - FormInput: The main form input component.
+ */
 import React from 'react';
 import { UseFormRegister, FieldError, FieldValues, Path } from 'react-hook-form';
 import { LucideIcon } from 'lucide-react';

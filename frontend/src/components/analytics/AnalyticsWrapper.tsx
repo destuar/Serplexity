@@ -1,3 +1,20 @@
+/**
+ * @file AnalyticsWrapper.tsx
+ * @description This file provides example React components that demonstrate how to integrate analytics event tracking
+ * into UI elements. It includes components for a report generation button, an add competitor button, a search bar,
+ * and a filter dropdown. Each component uses the `useEventTracking` hook to dispatch specific analytics events
+ * when user interactions occur. This promotes consistent and comprehensive event tracking across the application.
+ *
+ * @dependencies
+ * - react: The core React library.
+ * - ../../hooks/useAnalytics: Custom hook for event tracking.
+ *
+ * @exports
+ * - ReportGenerationButton: A button component that tracks report generation events.
+ * - AddCompetitorButton: A button component that tracks competitor addition events.
+ * - SearchBar: A search input component that tracks search performed events.
+ * - FilterDropdown: A dropdown component that tracks filter applied events.
+ */
 import React from 'react';
 import { useEventTracking } from '../../hooks/useAnalytics';
 

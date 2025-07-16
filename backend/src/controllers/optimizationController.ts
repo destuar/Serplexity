@@ -1,3 +1,21 @@
+/**
+ * @file optimizationController.ts
+ * @description This file contains the controllers for managing optimization tasks.
+ * It provides endpoints for fetching, toggling completion, and updating the status of optimization tasks,
+ * as well as retrieving the latest AI-generated visibility summary for a company. This is a key part of the system's
+ * proactive, data-driven approach to SEO and content strategy.
+ *
+ * @dependencies
+ * - express: The Express framework for handling HTTP requests and responses.
+ * - ../config/db: The singleton Prisma client instance for database interactions.
+ * - ../services/optimizationTaskService: Service for handling the business logic of optimization tasks.
+ *
+ * @exports
+ * - getCompanyOptimizationTasks: Controller for fetching all optimization tasks for a company.
+ * - toggleOptimizationTaskCompletion: Controller for toggling the completion status of a task.
+ * - updateOptimizationTaskStatus: Controller for updating the status of a task.
+ * - getCompanyVisibilitySummary: Controller for fetching the latest AI-generated visibility summary.
+ */
 import { Request, Response } from 'express';
 import prisma from '../config/db';
 import { getOptimizationTasks, toggleTaskCompletion, updateTaskStatus, TaskStatus } from '../services/optimizationTaskService';

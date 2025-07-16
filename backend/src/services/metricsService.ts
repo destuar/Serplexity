@@ -1,3 +1,19 @@
+/**
+ * @file metricsService.ts
+ * @description This file is responsible for computing and persisting various performance metrics for reports,
+ * both overall and per AI model. It calculates metrics like Share of Voice, Average Inclusion Rate, Average Position,
+ * and Top Rankings, and stores them in the `ReportMetric` table. It also integrates with `dashboardService` to save
+ * historical data points. This is a crucial component for providing comprehensive analytics and insights to users.
+ *
+ * @dependencies
+ * - ../config/db: The singleton Prisma client instance.
+ * - @prisma/client: Prisma client types.
+ * - ./dashboardService: Service for calculating dashboard data and saving historical points.
+ *
+ * @exports
+ * - computeAndPersistMetrics: Computes and persists all relevant metrics for a given report.
+ * - getFullReportMetrics: Retrieves all pre-computed metrics for dashboard display.
+ */
 import prisma, { prismaReadReplica } from '../config/db';
 import { Prisma, ReportMetric } from '@prisma/client';
 import { calculateTopQuestions, calculateCompetitorRankings, saveSentimentOverTimePoint, saveShareOfVoiceHistoryPoint, calculateTopResponses } from './dashboardService';

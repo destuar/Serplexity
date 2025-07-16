@@ -1,3 +1,24 @@
+/**
+ * @file RichTextEditor.tsx
+ * @description This component provides a rich text editor built with Tiptap, offering various formatting options
+ * like bold, italic, headings, alignment, lists, and blockquotes. It also supports adding images (with an optional
+ * upload handler) and links. This editor is crucial for creating and editing blog posts and other rich content
+ * within the application.
+ *
+ * @dependencies
+ * - react: The core React library.
+ * - @tiptap/react: React integration for Tiptap.
+ * - @tiptap/starter-kit: A collection of commonly used Tiptap extensions.
+ * - @tiptap/extension-image: Tiptap extension for image support.
+ * - @tiptap/extension-link: Tiptap extension for link support.
+ * - @tiptap/extension-text-style: Tiptap extension for text styling.
+ * - @tiptap/extension-text-align: Tiptap extension for text alignment.
+ * - ../ui/Button: Custom Button component.
+ * - lucide-react: Icon library for React.
+ *
+ * @exports
+ * - RichTextEditor: React functional component for rich text editing.
+ */
 import React from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';

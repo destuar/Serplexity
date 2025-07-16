@@ -1,3 +1,18 @@
+/**
+ * @file Button.tsx
+ * @description Reusable button component with multiple variants, sizes, and states.
+ * Built using Radix UI Slot primitive and class-variance-authority for consistent styling.
+ *
+ * @dependencies
+ * - react: For component rendering.
+ * - @radix-ui/react-slot: For slot functionality.
+ * - class-variance-authority: For variant management.
+ * - ../../lib/utils: For utility functions.
+ * - ./buttonVariants: For button style variants.
+ *
+ * @exports
+ * - Button: The main button component.
+ */
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { type VariantProps } from "class-variance-authority"

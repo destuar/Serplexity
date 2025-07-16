@@ -1,3 +1,17 @@
+/**
+ * @file ProfileModal.tsx
+ * @description Modal component for user profile management, including profile editing, password changes, and account settings.
+ * Provides a comprehensive interface for users to manage their account information and preferences.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - lucide-react: For icons.
+ * - ../../contexts/AuthContext: For user authentication and profile management.
+ * - ../../services/companyService: For company-related API calls.
+ *
+ * @exports
+ * - ProfileModal: The main profile modal component.
+ */
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';

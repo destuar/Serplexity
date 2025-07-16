@@ -1,3 +1,20 @@
+/**
+ * @file MockDashboardLayout.tsx
+ * @description This component provides a mock layout for the dashboard preview, simulating the main structure
+ * of the application's dashboard including a sidebar and header. It also sets up a mock `CompanyContext`
+ * to provide sample company data for the preview, and includes an `ErrorBoundary` for robust rendering.
+ * This layout is essential for presenting a realistic dashboard experience on the landing page.
+ *
+ * @dependencies
+ * - react: For core React functionalities, including `Component` for the ErrorBoundary.
+ * - ./MockSidebar: Mock sidebar component for navigation within the preview.
+ * - ./MockHeader: Mock header component for the top bar of the preview dashboard.
+ * - ../../../hooks/useCompany: The actual `useCompany` hook and related types, used here to mock its context.
+ * - ../../../types/schemas: Type definitions for `Company`.
+ *
+ * @exports
+ * - MockDashboardLayout: The React functional component that provides the layout for the mock dashboard.
+ */
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import MockSidebar from './MockSidebar';
 import MockHeader from './MockHeader';

@@ -1,3 +1,21 @@
+/**
+ * @file redisRateLimit.ts
+ * @description This file implements a flexible and powerful rate-limiting middleware using Redis.
+ * It allows for the creation of multiple rate limiters with different configurations, and it includes features like
+ * skipping successful requests and custom key generation. This is a critical component for protecting the application
+ * from abuse and ensuring fair usage.
+ *
+ * @dependencies
+ * - express: The Express framework for handling HTTP requests and responses.
+ * - ../config/redis: The Redis client for storing rate limit data.
+ * - ../utils/logger: Logger for application-level logging.
+ *
+ * @exports
+ * - createRedisRateLimit: A factory function for creating new rate limiters.
+ * - authLimiter: A pre-configured rate limiter for authentication routes.
+ * - apiLimiter: A pre-configured rate limiter for general API routes.
+ * - reportLimiter: A pre-configured rate limiter for report generation routes.
+ */
 import { Request, Response, NextFunction } from 'express';
 import { redis } from '../config/redis';
 import logger from '../utils/logger';

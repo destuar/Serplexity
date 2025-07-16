@@ -1,3 +1,15 @@
+/**
+ * @file PrivacyPolicyPage.tsx
+ * @description Privacy policy page displaying the application's privacy policy and data handling practices.
+ * Provides information about data collection, usage, and privacy protection.
+ *
+ * @dependencies
+ * - react: For component rendering.
+ * - react-router-dom: For navigation.
+ *
+ * @exports
+ * - PrivacyPolicyPage: The main privacy policy page component.
+ */
 import React, { useEffect, useRef } from 'react';
 import { Navbar } from '../components/layout/Navbar';
 

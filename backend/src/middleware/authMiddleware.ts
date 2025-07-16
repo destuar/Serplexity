@@ -1,3 +1,21 @@
+/**
+ * @file authMiddleware.ts
+ * @description This file contains the core authentication and authorization middleware for the application.
+ * The `authenticate` function verifies JSON Web Tokens (JWTs) and attaches the user to the request object, while the `authorize`
+ * function checks if the user has the required role to access a specific route. This is a critical component for securing the
+ * application and controlling access to resources.
+ *
+ * @dependencies
+ * - express: The Express framework for handling HTTP requests and responses.
+ * - jsonwebtoken: For creating and verifying JWTs.
+ * - @prisma/client: The Prisma client for database interactions.
+ * - ../config/env: Environment variable configuration.
+ * - ../config/db: The singleton Prisma client instance.
+ *
+ * @exports
+ * - authenticate: Middleware for authenticating users via JWT.
+ * - authorize: Middleware for authorizing users based on their role.
+ */
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { Role } from '@prisma/client';

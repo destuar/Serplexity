@@ -1,3 +1,20 @@
+/**
+ * @file KanbanTaskCard.tsx
+ * @description This component represents an individual task card within the Kanban board. It's a sortable item
+ * that displays the task's title, description, priority, category, and impact metric. It uses `dnd-kit`'s
+ * `useSortable` hook to enable drag-and-drop functionality and applies visual styles based on the task's priority
+ * and drag state. This component is crucial for visualizing and interacting with individual optimization tasks.
+ *
+ * @dependencies
+ * - react: The core React library.
+ * - @dnd-kit/sortable: DND-Kit utilities for sortable items (`useSortable`).
+ * - @dnd-kit/utilities: DND-Kit utilities for CSS transformations (`CSS`).
+ * - ../../lib/utils: Utility functions (e.g., `cn` for class names).
+ * - ../../services/reportService: Type definition for `OptimizationTask`.
+ *
+ * @exports
+ * - KanbanTaskCard: React functional component for a Kanban task card.
+ */
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';

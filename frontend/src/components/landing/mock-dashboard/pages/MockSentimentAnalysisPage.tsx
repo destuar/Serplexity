@@ -1,3 +1,20 @@
+/**
+ * @file MockSentimentAnalysisPage.tsx
+ * @description This component renders a mock page for sentiment analysis within the dashboard preview.
+ * It displays key sentiment metrics, sentiment trends over time, and detailed sentiment breakdowns
+ * through a grid of mock cards. This page is designed to showcase the application's capabilities
+ * in analyzing brand sentiment in AI-generated content on the landing page.
+ *
+ * @dependencies
+ * - react: For core React functionalities.
+ * - lucide-react: For icons such as `Calendar`, `Sparkles`, and `RefreshCw`.
+ * - ../MockDashboardLayout: The layout component for the mock dashboard.
+ * - ../cards/*: Various mock card components used to display sentiment-related metrics.
+ * - ../MockFilterDropdown: Mock component for filter dropdowns.
+ *
+ * @exports
+ * - MockSentimentAnalysisPage: The React functional component for the mock sentiment analysis page.
+ */
 import React from 'react';
 import { Calendar, Sparkles, RefreshCw } from 'lucide-react';
 import MockDashboardLayout from '../MockDashboardLayout';

@@ -1,3 +1,16 @@
+/**
+ * @file OAuthCallbackPage.tsx
+ * @description OAuth callback page for handling authentication redirects from OAuth providers.
+ * Processes OAuth authentication responses and redirects users appropriately.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - react-router-dom: For navigation.
+ * - ../contexts/AuthContext: For authentication state.
+ *
+ * @exports
+ * - OAuthCallbackPage: The main OAuth callback page component.
+ */
 import React, { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';

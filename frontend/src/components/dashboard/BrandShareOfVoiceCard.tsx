@@ -1,3 +1,19 @@
+/**
+ * @file BrandShareOfVoiceCard.tsx
+ * @description This component displays the brand's share of voice using a pie chart.
+ * It fetches the share of voice data from the `useDashboard` hook and visualizes it,
+ * showing the percentage of mentions for the selected company versus others. It handles
+ * loading, error, and no-data states, and provides a clear visual representation of brand visibility.
+ *
+ * @dependencies
+ * - recharts: A customizable charting library for React.
+ * - ../ui/Card: Generic card component for consistent UI.
+ * - ../../contexts/CompanyContext: Provides access to the selected company's information.
+ * - ../../contexts/DashboardContext: Provides access to dashboard data.
+ *
+ * @exports
+ * - BrandShareOfVoiceCard: React functional component for displaying brand share of voice.
+ */
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import Card from '../ui/Card';
 import { useCompany } from '../../contexts/CompanyContext';

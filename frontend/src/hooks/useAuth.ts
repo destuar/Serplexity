@@ -1,3 +1,15 @@
+/**
+ * @file useAuth.ts
+ * @description Custom hook for accessing authentication context and user data.
+ * Provides a convenient interface for authentication-related functionality.
+ *
+ * @dependencies
+ * - react: For context access.
+ * - ../contexts/AuthContext: For authentication context.
+ *
+ * @exports
+ * - useAuth: Hook for authentication functionality.
+ */
 import { createContext, useContext } from 'react';
 import { User } from '../types/schemas';
 

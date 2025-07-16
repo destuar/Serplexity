@@ -1,3 +1,14 @@
+/**
+ * @file useMediaQuery.ts
+ * @description Custom hook for handling media queries and responsive behavior.
+ * Provides reactive media query functionality for responsive design.
+ *
+ * @dependencies
+ * - react: For state management and effects.
+ *
+ * @exports
+ * - useMediaQuery: Hook for media query functionality.
+ */
 import { useState, useEffect } from 'react';
 
 export function useMediaQuery(query: string) {

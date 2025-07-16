@@ -1,3 +1,15 @@
+/**
+ * @file Input.tsx
+ * @description Reusable input component with consistent styling and accessibility features.
+ * Provides a standardized input field with proper focus states and styling.
+ *
+ * @dependencies
+ * - react: For component rendering.
+ * - ../../lib/utils: For utility functions.
+ *
+ * @exports
+ * - Input: The main input component.
+ */
 import * as React from "react"
 import { cn } from "../../lib/utils"
 

@@ -1,3 +1,19 @@
+/**
+ * @file TopRankingQuestionsCard.tsx
+ * @description This component displays a list of top-ranking questions for the selected company.
+ * It fetches question data from the `useDashboard` hook and allows users to navigate to a detailed
+ * response page for each question. It handles loading, error, and no-data states. This card is crucial
+ * for identifying key questions where the company has strong AI visibility.
+ *
+ * @dependencies
+ * - react-router-dom: For navigation (`useNavigate`).
+ * - ../ui/Card: Generic card component for consistent UI.
+ * - ../../hooks/useDashboard: Custom hook for accessing dashboard data.
+ * - ../../hooks/useMediaQuery: Custom hook for media queries.
+ *
+ * @exports
+ * - TopRankingQuestionsCard: React functional component for displaying top-ranking questions.
+ */
 import { useNavigate } from 'react-router-dom';
 import Card from '../ui/Card';
 import { useDashboard } from '../../hooks/useDashboard';

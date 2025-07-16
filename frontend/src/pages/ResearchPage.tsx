@@ -1,3 +1,17 @@
+/**
+ * @file ResearchPage.tsx
+ * @description Research page for conducting AI-powered research and analysis.
+ * Provides research tools, data visualization, and insights generation functionality.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - react-router-dom: For navigation.
+ * - lucide-react: For icons.
+ * - ../hooks/useReportGeneration: For research functionality.
+ *
+ * @exports
+ * - ResearchPage: The main research page component.
+ */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';

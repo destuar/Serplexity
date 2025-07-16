@@ -1,3 +1,25 @@
+/**
+ * @file MultiStepCompanyForm.tsx
+ * @description This component provides a multi-step form for creating a new company profile.
+ * It guides the user through collecting essential information such as company details, products/services,
+ * competitors, and benchmarking questions. It uses `react-hook-form` and `zod` for form management and validation,
+ * and integrates with the `CompanyContext` for data submission. The form includes an industry autocomplete feature
+ * and a visual step indicator. This is a crucial component for the user onboarding process.
+ *
+ * @dependencies
+ * - react: The core React library.
+ * - react-hook-form: For flexible and extensible forms with easy-to-use validation.
+ * - @hookform/resolvers/zod: Zod resolver for React Hook Form.
+ * - zod: For schema validation.
+ * - lucide-react: Icon library for React.
+ * - ../ui/FormInput: Custom form input component.
+ * - ../ui/Button: Custom button component.
+ * - ../../contexts/CompanyContext: Provides company-related data and actions.
+ * - ../../utils/urlNormalizer: Utility for URL validation.
+ *
+ * @exports
+ * - MultiStepCompanyForm: React functional component for multi-step company profile creation.
+ */
 import React, { useState, useRef, useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';

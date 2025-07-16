@@ -1,3 +1,15 @@
+/**
+ * @file mock-data.ts
+ * @description This file provides mock data structures for simulating dashboard metrics and company profiles.
+ * It is used by the mock dashboard components to display sample data without requiring a live backend connection.
+ * This data is crucial for demonstrating the UI/UX of the dashboard on the landing page.
+ *
+ * @exports
+ * - mockReportMetric: An object containing various simulated report metrics like share of voice, sentiment scores,
+ *   competitor rankings, and historical data.
+ * - MOCK_COMPANY_PROFILE: An object representing a mock company profile, including name, website, and logo.
+ * - MockReportMetric: TypeScript type definition for the `mockReportMetric` object.
+ */
 export const mockReportMetric = {
   shareOfVoice: 38.5,
   shareOfVoiceChange: 2.1,

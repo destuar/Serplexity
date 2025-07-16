@@ -1,3 +1,21 @@
+/**
+ * @file models.ts
+ * @description This file serves as the central configuration hub for all Large Language Model (LLM) related settings.
+ * It defines model engines, tasks, and a comprehensive configuration object (`LLM_CONFIG`) that controls various aspects
+ * of the LLM's behavior, including concurrency, rate-limiting, logging, and feature-specific parameters like mention detection.
+ * It also maps specific models to the tasks they are designated to perform, providing a single source of truth for model capabilities.
+ *
+ * @dependencies
+ * - ../prompts: Contains the system prompt for brand tagging in fanout responses.
+ *
+ * @exports
+ * - ModelEngine: Enum for the different LLM providers (OpenAI, Anthropic, Google, Perplexity).
+ * - ModelTask: Enum for the various tasks the models can perform.
+ * - Model: Interface for the model object.
+ * - LLM_CONFIG: A comprehensive, constant object containing all LLM behavior parameters.
+ * - MODELS: A record mapping model IDs to their respective configurations and tasks.
+ * - getModelsByTask: A function to retrieve a list of models that can perform a specific task.
+ */
 import { FANOUT_RESPONSE_SYSTEM_PROMPT } from '../prompts';
 
 export const enum ModelEngine {

@@ -1,3 +1,18 @@
+/**
+ * @file VisibilityOverTimeCard.tsx
+ * @description This component displays a line chart showing the trend of "Share of Voice" over time for selected AI models.
+ * It fetches dashboard data, filters it based on the selected model and date range, and then formats it for the Recharts LineChart.
+ * The component handles loading, error, and no-data states, and dynamically adjusts the Y-axis and X-axis intervals for better readability.
+ *
+ * @dependencies
+ * - react: For the `useMemo` hook.
+ * - recharts: For charting components like `LineChart`, `Line`, `XAxis`, `YAxis`, `CartesianGrid`, `Tooltip`, `ResponsiveContainer`.
+ * - ../ui/Card: A presentational component for wrapping content.
+ * - ../../hooks/useDashboard: A custom hook to fetch dashboard-related data and filters.
+ *
+ * @exports
+ * - VisibilityOverTimeCard: The main React functional component for displaying visibility over time.
+ */
 import { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import Card from '../ui/Card';
@@ -21,7 +36,27 @@ interface ShareOfVoiceHistoryItem {
 const VisibilityOverTimeCard: React.FC<VisibilityOverTimeCardProps> = ({ selectedModel = 'all' }) => {
   const { data, loading, error, filters } = useDashboard();
   
-  // Filter data by selected model and format for chart
+  /**
+   * Memoized computation of chart data based on `shareOfVoiceHistory`, `selectedModel`, and `dateRange` filters.
+   * Filters and formats the raw data into `ChartDataPoint[]` suitable for the Recharts LineChart.
+   * Handles fallback logic if data for the `targetModel` is not available.
+   * Applies date range filtering and ensures unique dates.
+   * @returns {ChartDataPoint[]} The processed data for the chart.
+   */
+  /**
+   * Memoized computation of chart data based on `shareOfVoiceHistory`, `selectedModel`, and `dateRange` filters.
+   * Filters and formats the raw data into `ChartDataPoint[]` suitable for the Recharts LineChart.
+   * Handles fallback logic if data for the `targetModel` is not available.
+   * Applies date range filtering and ensures unique dates.
+   * @returns {ChartDataPoint[]} The processed data for the chart.
+   */
+  /**
+   * Memoized computation of chart data based on `shareOfVoiceHistory`, `selectedModel`, and `dateRange` filters.
+   * Filters and formats the raw data into `ChartDataPoint[]` suitable for the Recharts LineChart.
+   * Handles fallback logic if data for the `targetModel` is not available.
+   * Applies date range filtering and ensures unique dates.
+   * @returns {ChartDataPoint[]} The processed data for the chart.
+   */
   const chartData: ChartDataPoint[] = useMemo(() => {
     if (!data?.shareOfVoiceHistory || !Array.isArray(data.shareOfVoiceHistory)) {
       return [];

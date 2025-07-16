@@ -1,3 +1,17 @@
+/**
+ * @file ModelComparisonPage.tsx
+ * @description Model comparison page for analyzing AI model performance and differences.
+ * Provides model comparison tools, performance metrics, and analysis insights.
+ *
+ * @dependencies
+ * - react: For component state and rendering.
+ * - react-router-dom: For navigation.
+ * - lucide-react: For icons.
+ * - ../hooks/useModelComparison: For model comparison data.
+ *
+ * @exports
+ * - ModelComparisonPage: The main model comparison page component.
+ */
 import { useState, useMemo } from 'react';
 import { Loader, Calendar, RefreshCw, ArrowUpDown, ChevronUp, ChevronDown, Sparkles } from 'lucide-react';
 import { useCompany } from '../contexts/CompanyContext';

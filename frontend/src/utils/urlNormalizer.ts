@@ -1,3 +1,14 @@
+/**
+ * @file urlNormalizer.ts
+ * @description Utility functions for URL normalization and processing.
+ * Provides URL cleaning, validation, and standardization functionality.
+ *
+ * @dependencies
+ * - None (pure utility functions).
+ *
+ * @exports
+ * - Various utility functions for URL processing and normalization.
+ */
 import { z } from 'zod';
 
 // Flexible URL normalizer function

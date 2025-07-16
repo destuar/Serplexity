@@ -1,3 +1,22 @@
+/**
+ * @file paymentController.ts
+ * @description This file contains the controllers for handling all payment-related operations.
+ * It manages the creation of Stripe checkout sessions, retrieves Stripe configuration, and processes incoming webhooks
+ * to keep user subscription statuses synchronized with the database. This is a critical component for the application's
+ * monetization and billing system.
+ *
+ * @dependencies
+ * - express: The Express framework for handling HTTP requests and responses.
+ * - stripe: The official Stripe Node.js library for interacting with the Stripe API.
+ * - zod: For schema validation of request bodies.
+ * - ../config/env: Environment variable configuration.
+ * - ../config/db: The singleton Prisma client instance for database interactions.
+ *
+ * @exports
+ * - createCheckoutSession: Controller for creating a new Stripe checkout session.
+ * - getStripeConfig: Controller for retrieving the Stripe configuration (price IDs).
+ * - stripeWebhook: Controller for handling incoming Stripe webhooks.
+ */
 import { Request, Response } from 'express';
 import Stripe from 'stripe';
 import env from '../config/env';

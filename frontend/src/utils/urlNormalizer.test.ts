@@ -1,3 +1,15 @@
+/**
+ * @file urlNormalizer.test.ts
+ * @description Test suite for URL normalization utilities.
+ * Provides comprehensive testing for URL processing and validation functions.
+ *
+ * @dependencies
+ * - jest: For testing framework.
+ * - ./urlNormalizer: For the functions being tested.
+ *
+ * @exports
+ * - Test suite for URL normalization functionality.
+ */
 import { normalizeUrl } from './urlNormalizer';
 
 // Test cases for URL normalization
