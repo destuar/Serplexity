@@ -69,7 +69,7 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Copy scripts if any
-COPY backend/scripts/ ./scripts/
+COPY backend/src/scripts/ ./scripts/
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
