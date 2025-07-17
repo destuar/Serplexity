@@ -12,7 +12,8 @@
  * @exports
  * - LandingPage: The main landing page component.
  */
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Navbar } from '../components/layout/Navbar';
 import { Target, Check, X, ArrowRight, Clock, Calendar } from 'lucide-react';
 import { FaLinkedin } from "react-icons/fa";
@@ -36,6 +37,29 @@ const LandingPage: React.FC = () => {
   const timeoutIdRef = useRef<number | null>(null);
   const isLargeScreen = useMediaQuery('(min-width: 1024px)');
   const { posts: blogPosts, loading: postsLoading, error: postsError } = useBlogPosts({ limit: 3 });
+  
+  // Rotating text state
+  const [currentTextIndex, setCurrentTextIndex] = useState(0);
+  const rotatingTexts = ['Generative', 'Intelligent', 'Conversational', 'Adaptive'];
+  
+  // Statistics animation state
+  const [statsVisible, setStatsVisible] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const stepsContainerRef = useRef<HTMLDivElement>(null);
+  const step1Ref = useRef<HTMLDivElement>(null);
+  const step2Ref = useRef<HTMLDivElement>(null);
+  const step3Ref = useRef<HTMLDivElement>(null);
+  
+  // Animated counters
+  const [minutesProcessed, setMinutesProcessed] = useState(0);
+  const [queriesOptimized, setQueriesOptimized] = useState(0);
+  const [brandsHelped, setBrandsHelped] = useState(0);
+  
+  const targetStats = {
+    minutes: 1457800,
+    queries: 540000,
+    brands: 45
+  };
 
   const handleGetStarted = () => navigate('/register');
   const handleDashboard = () => navigate('/overview');
@@ -57,6 +81,74 @@ const LandingPage: React.FC = () => {
       console.error('Failed to create checkout session:', error);
     }
   };
+
+  // Rotating text animation
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTextIndex((prev) => (prev + 1) % rotatingTexts.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
+  
+  // Statistics counter animation
+  useEffect(() => {
+    if (!statsVisible) return;
+    
+    const duration = 2000; // 2 seconds
+    const steps = 60;
+    const stepDelay = duration / steps;
+    
+    let step = 0;
+    const timer = setInterval(() => {
+      const progress = step / steps;
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+      
+      setMinutesProcessed(Math.floor(targetStats.minutes * easeOut));
+      setQueriesOptimized(Math.floor(targetStats.queries * easeOut));
+      setBrandsHelped(Math.floor(targetStats.brands * easeOut));
+      
+      step++;
+      if (step > steps) {
+        clearInterval(timer);
+      }
+    }, stepDelay);
+    
+    return () => clearInterval(timer);
+  }, [statsVisible]);
+  
+  // Scroll-triggered steps with Intersection Observer
+  useEffect(() => {
+    const observerOptions = {
+      root: null,
+      rootMargin: '-20% 0px -20% 0px', // Trigger when element is 20% visible
+      threshold: 0.5
+    };
+    
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const stepIndex = parseInt(entry.target.getAttribute('data-step') || '0');
+          setCurrentStep(stepIndex);
+        }
+      });
+    }, observerOptions);
+    
+    // Observe each step section
+    const refs = [step1Ref, step2Ref, step3Ref];
+    refs.forEach((ref) => {
+      if (ref.current) {
+        observer.observe(ref.current);
+      }
+    });
+    
+    return () => {
+      refs.forEach((ref) => {
+        if (ref.current) {
+          observer.unobserve(ref.current);
+        }
+      });
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -263,6 +355,40 @@ const LandingPage: React.FC = () => {
   return (
     <div className="bg-gradient-to-br from-black via-[#0a0a1a] to-[#050510] text-white relative min-h-screen">
       <style>{`
+      .gradient-text-clip {
+        position: relative;
+      }
+
+      .gradient-text-clip::before {
+        content: attr(data-text);
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-image: linear-gradient(to right, #5271ff, #7662ff, #9e52ff);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        pointer-events: none;
+      }
+
+      .gradient-text-clip::after {
+        content: attr(data-text);
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-image: linear-gradient(to right, #5271ff, #7662ff, #9e52ff);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        filter: blur(4px);
+        opacity: 0.25;
+        z-index: -1;
+        pointer-events: none;
+      }
       .marquee-container {
         overflow: hidden;
         width: 100%;
@@ -310,11 +436,11 @@ const LandingPage: React.FC = () => {
       }
       
       .vertical-grid-container::before {
-        left: max(2rem, calc(50vw - 576px));
+        left: 6rem;
       }
       
       .vertical-grid-container::after {
-        right: max(2rem, calc(50vw - 576px));
+        right: 6rem;
       }
       
       @keyframes gridFadeIn {
@@ -346,48 +472,7 @@ const LandingPage: React.FC = () => {
         }
       }
       
-      /* Horizontal Section Dividers */
-      .section-divider {
-        height: 1px;
-        background: linear-gradient(
-          to right,
-          transparent 0%,
-          rgba(82, 113, 255, 0.2) 15%,
-          rgba(118, 98, 255, 0.4) 35%,
-          rgba(158, 82, 255, 0.5) 50%,
-          rgba(118, 98, 255, 0.4) 65%,
-          rgba(82, 113, 255, 0.2) 85%,
-          transparent 100%
-        );
-        box-shadow: 0 0 6px rgba(118, 98, 255, 0.3);
-        margin: 8rem auto;
-        max-width: 1200px;
-        opacity: 0;
-        transform: scaleX(0);
-        /* Animation is now handled by .top-divider and .in-view for better control */
-        position: relative;
-      }
-      
-      @keyframes dividerReveal {
-        0% {
-          opacity: 0;
-          transform: scaleX(0);
-        }
-        60% {
-          opacity: 0.8;
-          transform: scaleX(1.02);
-        }
-        100% {
-          opacity: 0.6;
-          transform: scaleX(1);
-        }
-      }
-      
-      /* Intersection Observer trigger classes */
-      .top-divider,
-      .section-divider.in-view {
-        animation: dividerReveal 1.5s ease-out 0.5s forwards;
-      }
+
       
       /* Dashboard Preview Container Styling */
       .dashboard-preview-container {
@@ -396,78 +481,7 @@ const LandingPage: React.FC = () => {
         padding: 1rem 0;
       }
       
-      .dashboard-frame-line {
-        height: 1px;
-        background: linear-gradient(
-          to right,
-          transparent 0%,
-          rgba(82, 113, 255, 0.15) 10%,
-          rgba(118, 98, 255, 0.3) 25%,
-          rgba(158, 82, 255, 0.4) 50%,
-          rgba(118, 98, 255, 0.3) 75%,
-          rgba(82, 113, 255, 0.15) 90%,
-          transparent 100%
-        );
-        box-shadow: 0 0 8px rgba(118, 98, 255, 0.2);
-        max-width: 1400px;
-        margin: 0 auto;
-        opacity: 0;
-        transform: scaleX(0);
-        position: relative;
-      }
-      
-      .dashboard-frame-top {
-        animation: dashboardFrameReveal 1.5s ease-out 0.5s forwards;
-      }
-      
-      .dashboard-frame-bottom {
-        animation: dashboardFrameReveal 1.5s ease-out 0.5s forwards;
-      }
-      
-      /* Subtle corner accents */
-      .dashboard-frame-line::before,
-      .dashboard-frame-line::after {
-        content: '';
-        position: absolute;
-        top: 50%;
-        width: 12px;
-        height: 12px;
-        background: radial-gradient(circle, rgba(118, 98, 255, 0.6) 0%, transparent 70%);
-        border-radius: 50%;
-        transform: translateY(-50%);
-        box-shadow: 0 0 8px rgba(118, 98, 255, 0.4);
-        opacity: 0;
-        animation: cornerAccentFade 1s ease-out 1.5s forwards;
-      }
-      
-      .dashboard-frame-line::before {
-        left: 10%;
-      }
-      
-      .dashboard-frame-line::after {
-        right: 10%;
-      }
-      
-      @keyframes dashboardFrameReveal {
-        0% {
-          opacity: 0;
-          transform: scaleX(0);
-        }
-        70% {
-          opacity: 0.8;
-          transform: scaleX(1.01);
-        }
-        100% {
-          opacity: 0.5;
-          transform: scaleX(1);
-        }
-      }
-      
-      @keyframes cornerAccentFade {
-        to {
-          opacity: 0.7;
-        }
-      }
+
       
       /* Dashboard content enhancement */
       .dashboard-preview-content {
@@ -475,14 +489,14 @@ const LandingPage: React.FC = () => {
         z-index: 2;
       }
       
-      /* Contained grid glow - fills EXACTLY the rectangle defined by frame lines */
+      /* Contained grid glow */
       .dashboard-preview-container::before {
         content: '';
         position: absolute;
-        top: 1px;  /* Start after top frame line */
-        left: max(2rem, calc(50vw - 576px));  /* Align with vertical grid lines */
-        right: max(2rem, calc(50vw - 576px)); /* Align with vertical grid lines */
-        bottom: 1px; /* End before bottom frame line */
+        top: 0;
+        left: 6rem;  /* Align with vertical grid lines */
+        right: 6rem; /* Align with vertical grid lines */
+        bottom: 0;
         background: 
           radial-gradient(
             ellipse at center,
@@ -497,7 +511,7 @@ const LandingPage: React.FC = () => {
             rgba(118, 98, 255, 0.06) 50%,
             rgba(118, 98, 255, 0.02) 100%
           );
-        border-radius: 0;
+        border-radius: 1rem;
         z-index: -1;
         opacity: 0;
         animation: containedGlow 2.5s ease-out 1.2s forwards;
@@ -544,31 +558,100 @@ const LandingPage: React.FC = () => {
         }
       }
       
+      /* Enhanced Wave-style animations */
+      .hero-text-container {
+        position: relative;
+        overflow: hidden;
+      }
+      
+      .rotating-text {
+        position: absolute;
+        display: inline-block;
+        white-space: nowrap;
+      }
+      
+      .stats-card {
+        transition: all 0.3s ease;
+        backdrop-filter: blur(16px);
+      }
+      
+      .stats-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 
+          0 20px 40px rgba(0, 0, 0, 0.4),
+          0 0 0 1px rgba(255, 255, 255, 0.1),
+          0 0 20px rgba(119, 98, 255, 0.3);
+      }
+      
+      /* Scroll-triggered step animations */
+      .process-steps-container {
+        position: relative;
+      }
+      
+      .progress-line {
+        transition: height 0.2s ease-out;
+        will-change: height;
+      }
+      
+      .step-indicator {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        z-index: 10;
+        will-change: transform, box-shadow;
+      }
+      
+      .step-indicator.active {
+        box-shadow: 0 0 20px rgba(119, 98, 255, 0.6);
+      }
+      
+      .step-content {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        will-change: opacity, transform;
+      }
+      
+      /* Smooth scroll behavior */
+      .scroll-triggered {
+        scroll-behavior: smooth;
+      }
+      
+      @keyframes rotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      
+      @keyframes pulse {
+        0%, 100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.8;
+        }
+      }
+      
+      .progress-pulse {
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      
+      /* Smooth page transitions */
+      .page-transition {
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      
+      /* Enhanced glass morphism */
+      .glass-enhanced {
+        background: rgba(0, 0, 0, 0.05);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        box-shadow: 
+          0 8px 32px rgba(0, 0, 0, 0.3),
+          inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      }
+      
       /* Responsive adjustments */
       @media (max-width: 768px) {
         .dashboard-preview-container {
           margin: 2rem 0;
           padding: 2rem 0;
-        }
-        
-        .dashboard-frame-line {
-          max-width: 90%;
-          box-shadow: 0 0 4px rgba(118, 98, 255, 0.15);
-        }
-        
-        .dashboard-frame-top {
-          margin-bottom: 2rem;
-        }
-        
-        .dashboard-frame-bottom {
-          margin-top: 2rem;
-        }
-        
-        .dashboard-frame-line::before,
-        .dashboard-frame-line::after {
-          width: 8px;
-          height: 8px;
-          box-shadow: 0 0 6px rgba(118, 98, 255, 0.3);
         }
         
         .dashboard-preview-content {
@@ -579,9 +662,43 @@ const LandingPage: React.FC = () => {
         .dashboard-preview-container::before {
           left: 1rem;
           right: 1rem;
-          box-shadow: 
-            inset 0 0 15px rgba(118, 98, 255, 0.04),
-            0 0 20px rgba(118, 98, 255, 0.08);
+          border-radius: 0.5rem;
+        }
+        
+        .stats-card:hover {
+          transform: none;
+        }
+      }
+      
+      /* Performance optimizations */
+      .will-change-transform {
+        will-change: transform;
+      }
+      
+      .will-change-opacity {
+        will-change: opacity;
+      }
+      
+      /* Accessibility: Respect reduced motion preferences */
+      @media (prefers-reduced-motion: reduce) {
+        .rotating-text,
+        .stats-card,
+        .step-indicator,
+        .page-transition,
+        .progress-line,
+        .step-content {
+          transition: none !important;
+          animation: none !important;
+        }
+        
+        .progress-pulse {
+          animation: none !important;
+        }
+        
+        /* Provide instant feedback for reduced motion users */
+        .step-indicator.active {
+          transform: scale(1.1);
+          box-shadow: 0 0 15px rgba(119, 98, 255, 0.8);
         }
       }
       `}</style>
@@ -595,74 +712,386 @@ const LandingPage: React.FC = () => {
       <div className="relative z-10 vertical-grid-container">
         <Navbar />
         
-        {/* Hero Section */}
-        <section className="relative flex flex-col items-center px-4 pt-28 md:pt-36 pb-20 md:pb-24">
+        {/* Enhanced Hero Section */}
+        <section className="relative px-4 sm:px-6 lg:px-8 pt-44 md:pt-60 pb-20 md:pb-24">
           
-          {/* Top Divider for Hero Section */}
-          <div className="absolute -top-8 left-0 right-0">
-            <div className="section-divider my-0 top-divider"></div>
-          </div>
-
-          <div className="flex flex-col items-center text-center max-w-5xl mx-auto">
-            <h1 className="text-6xl md:text-7xl font-bold mb-6 text-white tracking-tight">
-              The Future of Search<br className="hidden md:block" />
-              <span className="md:inline">&nbsp;is </span>
-              <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent relative">
-                Generative
-                <div className="absolute inset-0 bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent opacity-25 blur-sm">
-                  Generative
-                </div>
-              </span>
-            </h1>
-            <p className="text-xl md:text-2xl text-gray-300 max-w-4xl mx-auto mt-2 mb-8 leading-relaxed">
-              <span className="md:hidden">Enhance your visibility with Google SGE, Gemini, Perplexity, ChatGPT, and beyond. Software purpose-built for the era of AI search. </span>
-              <span className="hidden md:inline">Enhance your visibility with Google SGE, Gemini, Perplexity, ChatGPT, and beyond. Software purpose-built for the era of AI search. </span>
-            </p>
-            
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-4 justify-center">
-              <button 
-                onClick={user ? handleDashboard : handleGetStarted}
-                className="px-8 py-4 bg-[#7762ff] hover:bg-[#6650e6] text-white rounded-full font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-200 relative"
+          <div className="w-full px-4 md:px-[7rem] max-w-none">
+            <div className="grid grid-cols-1 items-center">
+              {/* Left Column - Content */}
+              <motion.div 
+                initial={{ opacity: 0, x: -50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+                className="text-left"
               >
-                <span className="flex items-center justify-center">
-                  <span>
-                    {user ? 'View Dashboard' : 'Boost Your Visibility'} <ArrowRight className="h-5 w-5 ml-2 inline" />
+                <h1 className="font-archivo text-6xl md:text-7xl lg:text-8xl font-semibold mb-6 text-white tracking-tighter leading-[1.4] max-w-6xl">
+                  The Future of Search is
+                  <br />
+                  <span className="relative inline-block mt-4" style={{ paddingBottom: '15px' }}>
+                    Looking{' '}
+                    <AnimatePresence mode="wait">
+                      <motion.span
+                        key={currentTextIndex}
+                        initial={{ y: 10, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: -8, opacity: 0 }}
+                        transition={{ 
+                          duration: 0.4,
+                          ease: "easeInOut"
+                        }}
+                        className="gradient-text-clip relative inline-block pb-2"
+                        data-text={rotatingTexts[currentTextIndex]}
+                      >
+                        <span className="opacity-0">{rotatingTexts[currentTextIndex]}</span>
+                      </motion.span>
+                    </AnimatePresence>
                   </span>
-                </span>
-              </button>
+                </h1>
+                
+                <motion.p 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, delay: 0.2 }}
+                  className="text-lg md:text-xl text-gray-300 max-w-3xl mb-12 leading-relaxed"
+                >
+                  Serplexity is the complete software ecosystem purpose-built for AI search. Track, discover, and boost your visibility with the newest mediator of brand to customer relationships—AI agents.
+                </motion.p>
+                
+                {/* CTA Buttons */}
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, delay: 0.4 }}
+                  className="flex flex-col sm:flex-row gap-4 mb-8"
+                >
+                  <button 
+                    onClick={user ? handleDashboard : handleGetStarted}
+                    className="px-8 py-4 bg-[#7762ff] hover:bg-[#6650e6] text-white rounded-full font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-200 group"
+                  >
+                    <span className="flex items-center justify-center">
+                      <span>
+                        {user ? 'View Dashboard' : 'Boost Your Visibility'}
+                      </span>
+                      <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                    </span>
+                  </button>
+                </motion.div>
+              </motion.div>
+              
             </div>
           </div>
-
-          {/* Dashboard Preview Container */}
-          <div id="product-preview" className="dashboard-preview-container">
-            {/* Top containment line */}
-            <div className="dashboard-frame-line dashboard-frame-top"></div>
+        </section>
+        
+        {/* Key Statistics Section */}
+        <motion.section 
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          onViewportEnter={() => setStatsVisible(true)}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+          className="py-16 md:py-20"
+        >
+          <div className="max-w-6xl mx-auto px-6 lg:px-8">
+            <div className="text-center mb-16">
+              <motion.h2 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6 }}
+                className="text-3xl md:text-4xl font-bold text-white mb-4"
+              >
+                The all-in-one brand SEO software for AI search engines
+              </motion.h2>
+              <motion.p 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: 0.1 }}
+                className="text-lg text-gray-300"
+              >
+                Join the leading brands already optimizing for the future of search
+              </motion.p>
+            </div>
             
-            {/* Dashboard Preview */}
-            <div className="dashboard-preview-content">
-              {isLargeScreen ? (
-                <DashboardPreviewCarousel />
-              ) : (
-                <img
-                  src="/mock_dashboard.png"
-                  alt="Dashboard preview"
-                  className="w-full rounded-xl shadow-lg"
-                  style={{ maxWidth: 600, margin: '0 auto' }}
-                />
-              )}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[
+                { 
+                  label: 'Responses Analyzed', 
+                  value: minutesProcessed, 
+                  suffix: '+',
+                  format: (num: number) => num.toLocaleString()
+                },
+                { 
+                  label: 'Companies Mentioned', 
+                  value: queriesOptimized, 
+                  suffix: 'K+',
+                  format: (num: number) => Math.floor(num / 1000).toString()
+                },
+                { 
+                  label: 'Brands Enhanced', 
+                  value: brandsHelped, 
+                  suffix: '+',
+                  format: (num: number) => num.toString()
+                }
+              ].map((stat, index) => (
+                <motion.div 
+                  key={index}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6, delay: index * 0.1 }}
+                  className="text-center p-8 bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)]"
+                >
+                  <div className="text-4xl md:text-5xl font-bold text-white mb-2">
+                    {stat.format(stat.value)}{stat.suffix}
+                  </div>
+                  <div className="text-gray-300 font-medium">
+                    {stat.label}
+                  </div>
+                </motion.div>
+              ))}
             </div>
           </div>
-
-          {/* Company Logos */}
-          <div className="w-full max-w-7xl mx-auto px-4">
-            <div className="text-center pt-0 md:pt-2 mb-2">
-              <h2 className="text-lg font-semibold text-gray-400 uppercase tracking-wide mb-2 mt-8 md:mt-12">
-                Optimizing for AI search across leading engines
+        </motion.section>
+        
+        {/* Process Steps Section - Wave.co Style */}
+        <section 
+          ref={stepsContainerRef}
+          className="relative py-16 md:py-20"
+        >
+          <div className="max-w-7xl mx-auto px-6 lg:px-8">
+            {/* Section Header */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="text-center mb-16"
+            >
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+                How Serplexity Works
               </h2>
+              <p className="text-lg text-gray-300">
+                Three simple steps to dominate AI search results
+              </p>
+            </motion.div>
+            
+            {/* Two Column Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
+              {/* Left Column - Sticky Navigation */}
+              <div className="relative">
+                <div className="lg:sticky lg:top-24 lg:h-fit">
+                  {/* Navigation Line */}
+                  <div className="absolute left-6 top-0 bottom-0 w-px bg-gradient-to-b from-[#5271ff]/20 via-[#7662ff]/20 to-[#9e52ff]/20 hidden lg:block"></div>
+                  <motion.div 
+                    className="absolute left-6 w-px bg-gradient-to-b from-[#5271ff] via-[#7662ff] to-[#9e52ff] origin-top hidden lg:block"
+                    animate={{
+                      height: `${((currentStep + 1) / 3) * 100}%`
+                    }}
+                    transition={{ duration: 0.5, ease: "easeInOut" }}
+                  />
+                  
+                  {/* Steps Navigation */}
+                  {[
+                    {
+                      title: 'Monitor',
+                      description: 'Track your brand mentions across AI search engines and generative responses in real-time.'
+                    },
+                    {
+                      title: 'Analyze', 
+                      description: 'Get detailed insights on your AI visibility, competitor benchmarks, and optimization opportunities.'
+                    },
+                    {
+                      title: 'Optimize',
+                      description: 'Implement AI-ready content strategies that increase your chances of being cited by LLMs.'
+                    }
+                  ].map((step, index) => (
+                    <motion.div 
+                      key={index}
+                      className="relative flex items-start mb-12 last:mb-0"
+                      initial={{ opacity: 0, x: -20 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.6, delay: index * 0.2 }}
+                    >
+                      {/* Step Number */}
+                      <motion.div 
+                        className={`relative z-10 w-12 h-12 rounded-full flex items-center justify-center font-bold text-white mr-6 lg:mr-8 transition-all duration-300 ${
+                          index === currentStep 
+                            ? 'bg-gradient-to-r from-[#5271ff] to-[#9e52ff] scale-110' 
+                            : index < currentStep
+                              ? 'bg-gradient-to-r from-[#5271ff] to-[#9e52ff]'
+                              : 'bg-gray-600'
+                        }`}
+                        animate={{
+                          boxShadow: index === currentStep 
+                            ? '0 0 20px rgba(119, 98, 255, 0.6)' 
+                            : '0 0 0px rgba(119, 98, 255, 0)'
+                        }}
+                      >
+                        {index + 1}
+                      </motion.div>
+                      
+                      {/* Step Content */}
+                      <motion.div 
+                        className="flex-1 pt-2"
+                        animate={{
+                          opacity: index === currentStep ? 1 : 0.6
+                        }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <h3 className={`text-xl font-semibold mb-3 transition-colors duration-300 ${
+                          index === currentStep ? 'text-white' : 'text-gray-400'
+                        }`}>
+                          {step.title}
+                        </h3>
+                        <p className={`leading-relaxed transition-colors duration-300 ${
+                          index === currentStep ? 'text-gray-300' : 'text-gray-500'
+                        }`}>
+                          {step.description}
+                        </p>
+                      </motion.div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Right Column - Stacked Images/Content */}
+              <div className="relative lg:sticky lg:top-24">
+                {/* All steps stacked with minimal spacing */}
+                <div className="space-y-4">
+                  {/* Step 1 Content */}
+                  <motion.div 
+                    ref={step1Ref}
+                    data-step="0"
+                    className="w-full"
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
+                    viewport={{ once: true }}
+                  >
+                    <div className={`relative w-full h-80 bg-gradient-to-br from-[#5271ff]/20 to-[#9e52ff]/20 rounded-3xl overflow-hidden border transition-all duration-500 ${
+                      currentStep === 0 
+                        ? 'border-[#7762ff] shadow-[0_0_30px_rgba(119,98,255,0.3)] scale-105 opacity-100' 
+                        : 'border-white/10 opacity-40 scale-95'
+                    }`}>
+                      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(119,98,255,0.15),transparent_70%)]" />
+                    </div>
+                  </motion.div>
+                  
+                  {/* Step 2 Content */}
+                  <motion.div 
+                    ref={step2Ref}
+                    data-step="1"
+                    className="w-full"
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
+                    viewport={{ once: true }}
+                  >
+                    <div className={`relative w-full h-80 bg-gradient-to-br from-[#5271ff]/20 to-[#9e52ff]/20 rounded-3xl overflow-hidden border transition-all duration-500 ${
+                      currentStep === 1 
+                        ? 'border-[#7762ff] shadow-[0_0_30px_rgba(119,98,255,0.3)] scale-105 opacity-100' 
+                        : 'border-white/10 opacity-40 scale-95'
+                    }`}>
+                      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(119,98,255,0.15),transparent_70%)]" />
+                    </div>
+                  </motion.div>
+                  
+                  {/* Step 3 Content */}
+                  <motion.div 
+                    ref={step3Ref}
+                    data-step="2"
+                    className="w-full"
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
+                    viewport={{ once: true }}
+                  >
+                    <div className={`relative w-full h-80 bg-gradient-to-br from-[#5271ff]/20 to-[#9e52ff]/20 rounded-3xl overflow-hidden border transition-all duration-500 ${
+                      currentStep === 2 
+                        ? 'border-[#7762ff] shadow-[0_0_30px_rgba(119,98,255,0.3)] scale-105 opacity-100' 
+                        : 'border-white/10 opacity-40 scale-95'
+                    }`}>
+                      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(119,98,255,0.15),transparent_70%)]" />
+                    </div>
+                  </motion.div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Dashboard Preview Container - Moved Down */}
+        <motion.section 
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+          className="py-16 md:py-20"
+        >
+          <div className="max-w-7xl mx-auto px-6 lg:px-8">
+            <div className="text-center mb-16">
+              <motion.h2 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="text-3xl md:text-4xl font-bold text-white mb-4"
+              >
+                See Serplexity in Action
+              </motion.h2>
+              <motion.p 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.1 }}
+                className="text-lg text-gray-300"
+              >
+                Comprehensive AI search optimization at your fingertips
+              </motion.p>
+            </div>
+            
+            <div id="product-preview" className="dashboard-preview-container">
+              {/* Dashboard Preview */}
+              <motion.div 
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+                className="dashboard-preview-content"
+              >
+                {isLargeScreen ? (
+                  <DashboardPreviewCarousel />
+                ) : (
+                  <img
+                    src="/mock_dashboard.png"
+                    alt="Dashboard preview"
+                    className="w-full rounded-xl shadow-lg"
+                    style={{ maxWidth: 600, margin: '0 auto' }}
+                  />
+                )}
+              </motion.div>
+            </div>
+          </div>
+        </motion.section>
+
+        {/* Company Logos Section - Enhanced */}
+        <motion.section 
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+          className="py-16 md:py-20"
+        >
+          <div className="w-full max-w-7xl mx-auto px-4">
+            <div className="text-center mb-12">
+              <motion.h2 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="text-lg font-semibold text-gray-400 uppercase tracking-wide mb-2"
+              >
+                Optimizing for AI search across leading engines
+              </motion.h2>
             </div>
             {/* Marquee for mobile/medium */}
-            <div className="block lg:hidden marquee-container mt-8 lg:mt-0">
+            <div className="block lg:hidden marquee-container">
               <div className="marquee-track">
                 {[...companyLogos, ...companyLogos].map((logo, i) => (
                   <img
@@ -693,12 +1122,16 @@ const LandingPage: React.FC = () => {
               </div>
             </div>
             {/* Grid for large screens */}
-            <div className="hidden lg:block max-w-6xl mx-auto pt-2 md:pt-4 pb-0">
+            <div className="hidden lg:block max-w-6xl mx-auto">
               {/* Top row - 4 logos */}
-              <div className="grid grid-cols-4 gap-x-8 gap-y-8 items-center justify-items-center mb-2">
+              <div className="grid grid-cols-4 gap-x-8 gap-y-8 items-center justify-items-center mb-8">
                 {topRowLogos.map((logo, i) => (
-                  <div
+                  <motion.div
                     key={i}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.6, delay: i * 0.1 }}
                     className={
                       logo.file === 'Anthropic-Logo.wine.svg'
                         ? 'w-48 h-48 flex items-center justify-center'
@@ -710,7 +1143,7 @@ const LandingPage: React.FC = () => {
                     <img
                       src={`/${logo.file}`}
                       alt={`${logo.name} logo`}
-                      className="w-auto object-contain"
+                      className="w-auto object-contain transition-all duration-300 hover:scale-110 hover:brightness-125"
                       style={{
                         height:
                           logo.file === 'Anthropic-Logo.wine.svg'
@@ -723,21 +1156,25 @@ const LandingPage: React.FC = () => {
                         filter: 'brightness(0) invert(1)',
                       }}
                     />
-                  </div>
+                  </motion.div>
                 ))}
               </div>
               
               {/* Bottom row - 3 logos centered */}
-              <div className="grid grid-cols-3 gap-x-8 gap-y-8 items-center justify-items-center max-w-3xl mx-auto mb-0">
+              <div className="grid grid-cols-3 gap-x-8 gap-y-8 items-center justify-items-center max-w-3xl mx-auto">
                 {bottomRowLogos.map((logo, i) => (
-                  <div
+                  <motion.div
                     key={i}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.6, delay: (i + 4) * 0.1 }}
                     className="w-32 h-32 flex items-center justify-center"
                   >
                     <img
                       src={`/${logo.file}`}
                       alt={`${logo.name} logo`}
-                      className="w-auto object-contain"
+                      className="w-auto object-contain transition-all duration-300 hover:scale-110 hover:brightness-125"
                       style={{
                         height:
                           logo.file === 'copilot-logo.png'
@@ -750,12 +1187,12 @@ const LandingPage: React.FC = () => {
                         filter: 'brightness(0) invert(1)',
                       }}
                     />
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             </div>
           </div>
-        </section>
+        </motion.section>
 
         {/* Research Section */}
         <SlideIn>
@@ -1268,7 +1705,8 @@ const LandingPage: React.FC = () => {
               <div className="md:hidden">
                 <div className="flex items-center justify-center gap-x-6">
                   <div className="flex items-center">
-                    <img src="/Serplexity.png" alt="Serplexity" className="w-6 h-6 mr-2" />
+                    <img src="/Serplexity.
+                    png" alt="Serplexity" className="w-6 h-6 mr-2" />
                     <span className="text-lg font-bold text-white">Serplexity</span>
                   </div>
                   <div className="flex space-x-4">
