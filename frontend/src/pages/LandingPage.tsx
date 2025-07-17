@@ -353,7 +353,7 @@ const LandingPage: React.FC = () => {
   const bottomRowLogos = companyLogos.slice(4, 7);
 
   return (
-    <div className="bg-gradient-to-br from-black via-[#0a0a1a] to-[#050510] text-white relative min-h-screen">
+    <div className="bg-gradient-to-br from-[#02040a] via-[#0a0a1a] to-[#050510] text-white relative min-h-screen">
       <style>{`
       .gradient-text-clip {
         position: relative;
@@ -703,8 +703,8 @@ const LandingPage: React.FC = () => {
       }
       `}</style>
       {/* Subtle background gradients */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#5271ff]/15 via-[#7662ff]/8 to-[#9e52ff]/15"></div>
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(82,113,255,0.08),transparent_50%)]"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-[#5271ff]/10 via-[#7662ff]/5 to-[#9e52ff]/10"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(82,113,255,0.04),transparent_50%)]"></div>
       
       {/* Shooting Stars */}
       <div ref={starContainerRef} className="absolute inset-0 overflow-hidden pointer-events-none z-0" />
@@ -800,16 +800,16 @@ const LandingPage: React.FC = () => {
                 transition={{ duration: 0.6 }}
                 className="text-3xl md:text-4xl font-bold text-white mb-4"
               >
-                The all-in-one brand SEO software for AI search engines
+                The All-In-One Brand SEO Software For AI Search Engines
               </motion.h2>
               <motion.p 
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: 0.1 }}
-                className="text-lg text-gray-300"
+                className="text-lg md:text-xl text-gray-300"
               >
-                Join the leading brands already optimizing for the future of search
+                Join leading companies already optimizing for the future of search
               </motion.p>
             </div>
             
@@ -860,98 +860,43 @@ const LandingPage: React.FC = () => {
           className="relative py-16 md:py-20"
         >
           <div className="max-w-7xl mx-auto px-6 lg:px-8">
-            {/* Section Header */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="text-center mb-16"
-            >
-              <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-                How Serplexity Works
-              </h2>
-              <p className="text-lg text-gray-300">
-                Three simple steps to dominate AI search results
-              </p>
-            </motion.div>
             
             {/* Two Column Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
               {/* Left Column - Sticky Navigation */}
               <div className="relative">
-                <div className="lg:sticky lg:top-24 lg:h-fit">
-                  {/* Navigation Line */}
-                  <div className="absolute left-6 top-0 bottom-0 w-px bg-gradient-to-b from-[#5271ff]/20 via-[#7662ff]/20 to-[#9e52ff]/20 hidden lg:block"></div>
-                  <motion.div 
-                    className="absolute left-6 w-px bg-gradient-to-b from-[#5271ff] via-[#7662ff] to-[#9e52ff] origin-top hidden lg:block"
-                    animate={{
-                      height: `${((currentStep + 1) / 3) * 100}%`
-                    }}
-                    transition={{ duration: 0.5, ease: "easeInOut" }}
-                  />
-                  
+                {/* Vertical Line - full height of parent */}
+                <div className="absolute left-1.5 top-0 h-full w-0.5 bg-gradient-to-b from-[#5271ff]/20 via-[#7662ff]/20 to-[#9e52ff]/20 hidden lg:block" />
+
+                {/* Sticky container for the text */}
+                <div className="lg:sticky lg:top-36">
                   {/* Steps Navigation */}
-                  {[
-                    {
-                      title: 'Monitor',
-                      description: 'Track your brand mentions across AI search engines and generative responses in real-time.'
-                    },
-                    {
-                      title: 'Analyze', 
-                      description: 'Get detailed insights on your AI visibility, competitor benchmarks, and optimization opportunities.'
-                    },
-                    {
-                      title: 'Optimize',
-                      description: 'Implement AI-ready content strategies that increase your chances of being cited by LLMs.'
-                    }
-                  ].map((step, index) => (
-                    <motion.div 
-                      key={index}
-                      className="relative flex items-start mb-12 last:mb-0"
-                      initial={{ opacity: 0, x: -20 }}
-                      whileInView={{ opacity: 1, x: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.6, delay: index * 0.2 }}
-                    >
-                      {/* Step Number */}
-                      <motion.div 
-                        className={`relative z-10 w-12 h-12 rounded-full flex items-center justify-center font-bold text-white mr-6 lg:mr-8 transition-all duration-300 ${
-                          index === currentStep 
-                            ? 'bg-gradient-to-r from-[#5271ff] to-[#9e52ff] scale-110' 
-                            : index < currentStep
-                              ? 'bg-gradient-to-r from-[#5271ff] to-[#9e52ff]'
-                              : 'bg-gray-600'
-                        }`}
-                        animate={{
-                          boxShadow: index === currentStep 
-                            ? '0 0 20px rgba(119, 98, 255, 0.6)' 
-                            : '0 0 0px rgba(119, 98, 255, 0)'
-                        }}
+                  <div className="space-y-16">
+                    {[
+                      { title: 'Monitor' },
+                      { title: 'Analyze' },
+                      { title: 'Optimize' }
+                    ].map((step, index) => (
+                      <div 
+                        key={index}
+                        className="relative pl-10"
                       >
-                        {index + 1}
-                      </motion.div>
-                      
-                      {/* Step Content */}
-                      <motion.div 
-                        className="flex-1 pt-2"
-                        animate={{
-                          opacity: index === currentStep ? 1 : 0.6
-                        }}
-                        transition={{ duration: 0.3 }}
-                      >
-                        <h3 className={`text-xl font-semibold mb-3 transition-colors duration-300 ${
-                          index === currentStep ? 'text-white' : 'text-gray-400'
-                        }`}>
+                        {/* Dot */}
+                        <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full transition-all duration-300 ${
+                            index === currentStep 
+                              ? 'bg-[#7662ff] scale-110 shadow-[0_0_15px_rgba(118,98,255,0.7)]'
+                              : 'bg-white/20'
+                          }`}
+                        />
+                        
+                        <h3 className={`text-3xl font-semibold transition-colors duration-300 ${
+                            index === currentStep ? 'text-white' : 'text-gray-500'
+                          }`}>
                           {step.title}
                         </h3>
-                        <p className={`leading-relaxed transition-colors duration-300 ${
-                          index === currentStep ? 'text-gray-300' : 'text-gray-500'
-                        }`}>
-                          {step.description}
-                        </p>
-                      </motion.div>
-                    </motion.div>
-                  ))}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
               
@@ -1027,23 +972,23 @@ const LandingPage: React.FC = () => {
           className="py-16 md:py-20"
         >
           <div className="max-w-7xl mx-auto px-6 lg:px-8">
-            <div className="text-center mb-16">
+            <div className="text-center mb-8">
               <motion.h2 
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 className="text-3xl md:text-4xl font-bold text-white mb-4"
               >
-                See Serplexity in Action
+                Your Brand Visibility Metrics, All In One Place
               </motion.h2>
               <motion.p 
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.1 }}
-                className="text-lg text-gray-300"
+                className="text-lg md:text-xl text-gray-300"
               >
-                Comprehensive AI search optimization at your fingertips
+                Understand what AI is saying to millions of customers
               </motion.p>
             </div>
             
@@ -1202,7 +1147,7 @@ const LandingPage: React.FC = () => {
                 <h2 className="text-4xl font-bold tracking-tight text-white mb-4">
                   Latest Research & Insights
                 </h2>
-                <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+                <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto">
                   Access state of the industry reports and leading research on AI search.
                 </p>
               </div>
@@ -1401,7 +1346,7 @@ const LandingPage: React.FC = () => {
                 <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-white mb-6">
                   Why Traditional SEO <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">Isn't Enough</span>
                 </h2>
-                <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+                <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto">
                   As generative engines reshape search, brands need a new playbook
                 </p>
               </div>
@@ -1525,7 +1470,7 @@ const LandingPage: React.FC = () => {
                 <h2 className="text-4xl font-bold tracking-tight text-white mb-4">
                   Simple, Transparent Pricing
                 </h2>
-                <p className="text-xl text-gray-300">
+                <p className="text-lg md:text-xl text-gray-300">
                   Choose the plan that's right for your brand's growth.
                 </p>
               </div>
@@ -1634,7 +1579,7 @@ const LandingPage: React.FC = () => {
                 <h2 className="text-4xl font-bold tracking-tight text-white mb-4">
                   Frequently Asked Questions
                 </h2>
-                <p className="text-xl text-gray-300">
+                <p className="text-lg md:text-xl text-gray-300">
                   Everything you need to know about Generative Engine Optimization
                 </p>
               </div>

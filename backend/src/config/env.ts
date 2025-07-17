@@ -17,8 +17,8 @@ import { z } from 'zod';
 import path from 'path';
 
 // Load environment variables from .env file in the backend directory
-// Use process.cwd() instead of __dirname to ensure it works in both dev and compiled versions
-const envPath = path.resolve(process.cwd(), '.env');
+// Use __dirname to ensure we always look in the backend directory regardless of process.cwd()
+const envPath = path.resolve(__dirname, '../../.env');
 dotenv.config({ path: envPath });
 
 

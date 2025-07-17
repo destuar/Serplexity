@@ -15,7 +15,7 @@
  * @exports
  * - DashboardPreviewCarousel: The main React functional component for the dashboard preview carousel.
  */
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import MockOverviewPage from './mock-dashboard/pages/MockOverviewPage';
 import MockVisibilityReportPage from './mock-dashboard/pages/MockVisibilityReportPage';
@@ -59,6 +59,8 @@ const DashboardPreviewCarousel: React.FC = () => {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const [isInView, setIsInView] = useState(false);
+  const carouselRef = useRef<HTMLDivElement>(null);
 
   // Minimum swipe distance for touch navigation
   const minSwipeDistance = 50;
@@ -175,14 +177,40 @@ const DashboardPreviewCarousel: React.FC = () => {
   const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
-    if (isPaused || isTransitioning) return;
+    if (isPaused || isTransitioning || !isInView) return;
 
     const interval = setInterval(() => {
       goToNext();
     }, 8000); // Auto-advance every 8 seconds
 
     return () => clearInterval(interval);
-  }, [isPaused, isTransitioning, goToNext]);
+  }, [isPaused, isTransitioning, goToNext, isInView]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsInView(true);
+          observer.unobserve(entry.target);
+        }
+      },
+      {
+        root: null,
+        rootMargin: '0px',
+        threshold: 0.1,
+      }
+    );
+
+    if (carouselRef.current) {
+      observer.observe(carouselRef.current);
+    }
+
+    return () => {
+      if (carouselRef.current) {
+        observer.unobserve(carouselRef.current);
+      }
+    };
+  }, []);
 
   // Memoized transform style for performance
   const transformStyle = useMemo(() => ({
@@ -191,7 +219,7 @@ const DashboardPreviewCarousel: React.FC = () => {
   }), [displayIndex, isTransitioning]);
 
   return (
-    <div className="w-full max-w-6xl mx-auto mt-8 mb-16 px-4">
+    <div ref={carouselRef} className="w-full max-w-6xl mx-auto mb-16 px-4">
       <div
         className="relative group"
         onMouseEnter={() => setIsPaused(true)}
@@ -204,7 +232,7 @@ const DashboardPreviewCarousel: React.FC = () => {
         <div className="absolute -inset-6 bg-gradient-to-r from-[#7762ff]/20 to-purple-600/20 rounded-2xl blur-[60px] animate-glow pointer-events-none"></div>
         <div className="absolute -inset-4 bg-gradient-to-r from-[#7762ff]/15 to-purple-600/15 rounded-xl blur-[40px] animate-glow pointer-events-none" style={{ animationDelay: '1s' }}></div>
         <div 
-          className="relative bg-black backdrop-blur-xl rounded-lg md:rounded-2xl aspect-[32/17] overflow-hidden shadow-2xl drop-shadow-2xl focus:outline-none focus:ring-2 focus:ring-[#7762ff] focus:ring-offset-2"
+          className="relative bg-black backdrop-blur-xl rounded-lg md:rounded-xl aspect-[32/17] overflow-hidden shadow-2xl drop-shadow-2xl focus:outline-none focus:ring-2 focus:ring-[#7762ff] focus:ring-offset-2"
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}

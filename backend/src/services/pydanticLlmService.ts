@@ -129,7 +129,9 @@ export class PydanticLlmService {
 
   private constructor() {
     this.pythonPath = process.env.PYTHON_PATH || 'python3';
-    this.scriptsPath = path.join(__dirname, '..', 'pydantic_agents');
+    // Always point to source directory for Python scripts
+    // This works both in development and production since Python files don't get compiled
+    this.scriptsPath = path.resolve(__dirname, '../../src/pydantic_agents');
     this.initializePythonEnvironment();
   }
 
