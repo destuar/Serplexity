@@ -413,10 +413,16 @@ export class PydanticLlmService {
     const startTime = Date.now();
     
     return new Promise((resolve) => {
+      // Add the parent directory of pydantic_agents to PYTHONPATH for absolute imports
+      const pythonPackageDir = path.resolve(__dirname, '../../src');
+      const existingPythonPath = process.env.PYTHONPATH || '';
+      const pythonPath = existingPythonPath ? `${pythonPackageDir}:${existingPythonPath}` : pythonPackageDir;
+
       const pythonProcess = spawn(this.pythonPath, [scriptPath], {
         stdio: ['pipe', 'pipe', 'pipe'],
         env: {
           ...process.env,
+          PYTHONPATH: pythonPath,
           PYDANTIC_PROVIDER_ID: providerId,
           PYDANTIC_MODEL_ID: options.modelId,
           PYDANTIC_TEMPERATURE: options.temperature?.toString(),

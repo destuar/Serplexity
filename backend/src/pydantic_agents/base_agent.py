@@ -25,22 +25,19 @@ from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 
 from pydantic import BaseModel, ValidationError
 from pydantic_ai import Agent
-from pydantic_ai.models import FallbackModel
 
-from .schemas import AgentExecutionMetadata
+from pydantic_agents.schemas import AgentExecutionMetadata
+from pydantic_agents.config.models import LLM_CONFIG
 
-# Logfire instrumentation
-try:
-    from .logfire_config import (
-        setup_logfire, 
-        is_initialized, 
-        track_agent_execution,
-        track_model_usage,
-        track_error
-    )
-    LOGFIRE_AVAILABLE = True
-except ImportError:
-    LOGFIRE_AVAILABLE = False
+# Import logfire functions with lazy loading
+from pydantic_agents.config.logfire_config import (
+    setup_logfire,
+    is_initialized,
+    track_agent_execution,
+    track_model_usage,
+    track_error,
+    is_logfire_available
+)
 
 # Set up logging
 logging.basicConfig(
@@ -60,12 +57,12 @@ class BaseAgentError(Exception):
     """Base exception for agent errors"""
     pass
 
-class ProviderError(BaseAgentError):
-    """Error related to LLM provider"""
+class AgentValidationError(BaseAgentError):
+    """Raised when agent response validation fails"""
     pass
 
-class ValidationError(BaseAgentError):
-    """Error related to response validation"""
+class AgentExecutionError(BaseAgentError):
+    """Raised when agent execution fails"""
     pass
 
 class BaseAgent(ABC):
@@ -83,12 +80,12 @@ class BaseAgent(ABC):
     def __init__(
         self,
         agent_id: str,
-        default_model: str = "openai:gpt-4o",
+        default_model: str = "openai:gpt-4.1-mini",
         system_prompt: Optional[str] = None,
-        temperature: float = 0.7,
+        temperature: float = None,
         max_tokens: Optional[int] = None,
-        timeout: int = 30000,
-        max_retries: int = 3
+        timeout: int = None,
+        max_retries: int = None
     ):
         """
         Initialize the base agent.
@@ -105,21 +102,23 @@ class BaseAgent(ABC):
         self.agent_id = agent_id
         self.default_model = default_model
         self.system_prompt = system_prompt
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-        self.timeout = timeout
-        self.max_retries = max_retries
         
-        # Get configuration from environment
+        # Use centralized configuration with fallbacks
+        self.temperature = temperature if temperature is not None else LLM_CONFIG["DEFAULT_TEMPERATURE"]
+        self.max_tokens = max_tokens if max_tokens is not None else LLM_CONFIG["MAX_TOKENS"]
+        self.timeout = timeout if timeout is not None else LLM_CONFIG["DEFAULT_TIMEOUT"]
+        self.max_retries = max_retries if max_retries is not None else LLM_CONFIG["MAX_RETRIES"]
+        
+        # Get configuration from environment with centralized fallbacks
         self.provider_id = os.getenv('PYDANTIC_PROVIDER_ID', 'openai')
         self.model_id = os.getenv('PYDANTIC_MODEL_ID', default_model)
-        self.env_temperature = float(os.getenv('PYDANTIC_TEMPERATURE', str(temperature)))
-        self.env_max_tokens = int(os.getenv('PYDANTIC_MAX_TOKENS', str(max_tokens or 2000)))
+        self.env_temperature = float(os.getenv('PYDANTIC_TEMPERATURE', str(self.temperature)))
+        self.env_max_tokens = int(os.getenv('PYDANTIC_MAX_TOKENS', str(self.max_tokens)))
         self.env_system_prompt = os.getenv('PYDANTIC_SYSTEM_PROMPT', system_prompt)
-        self.env_timeout = int(os.getenv('PYDANTIC_TIMEOUT', str(timeout)))
+        self.env_timeout = int(os.getenv('PYDANTIC_TIMEOUT', str(self.timeout)))
         
-        # Initialize Logfire if available
-        if LOGFIRE_AVAILABLE and os.getenv('LOGFIRE_TOKEN'):
+        # Initialize Logfire if available and not already initialized
+        if is_logfire_available() and os.getenv('LOGFIRE_TOKEN') and not is_initialized():
             setup_logfire()
         
         # Initialize agent
@@ -129,99 +128,58 @@ class BaseAgent(ABC):
     
     def _create_agent(self) -> Agent:
         """Create the PydanticAI agent with proper configuration"""
-        
-        # Create fallback model if multiple providers are available
-        fallback_models = self._get_fallback_models()
-        
-        if len(fallback_models) > 1:
-            model = FallbackModel(fallback_models)
-        else:
-            model = fallback_models[0] if fallback_models else self.model_id
-        
         return Agent(
-            model=model,
+            model=self.model_id,
             system_prompt=self.env_system_prompt or self.system_prompt,
             deps_type=None,
-            result_type=self.get_result_type()
+            output_type=self.get_output_type()
         )
     
-    def _get_fallback_models(self) -> List[str]:
-        """Get list of fallback models based on available providers"""
-        fallback_models = []
-        
-        # Primary model
-        fallback_models.append(self.model_id)
-        
-        # Add fallback models based on available API keys
-        if os.getenv('OPENAI_API_KEY') and self.provider_id != 'openai':
-            fallback_models.append('openai:gpt-4o')
-        
-        if os.getenv('ANTHROPIC_API_KEY') and self.provider_id != 'anthropic':
-            fallback_models.append('anthropic:claude-3-sonnet-20240229')
-        
-        if os.getenv('GEMINI_API_KEY') and self.provider_id != 'gemini':
-            fallback_models.append('gemini:gemini-1.5-pro')
-        
-        if os.getenv('PERPLEXITY_API_KEY') and self.provider_id != 'perplexity':
-            fallback_models.append('perplexity:llama-3.1-sonar-small-128k-online')
-        
-        return fallback_models
     
     @abstractmethod
-    def get_result_type(self) -> Type[T]:
-        """Get the result type for this agent"""
+    def get_output_type(self) -> Type[T]:
+        """Get the output type for this agent"""
         pass
     
     @abstractmethod
     async def process_input(self, input_data: Dict[str, Any]) -> str:
         """Process input data and return prompt"""
         pass
-    
+
     async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Execute the agent with comprehensive error handling.
+        Execute the agent with the provided input data.
         
         Args:
             input_data: Input data for the agent
             
         Returns:
-            Dictionary containing result data and metadata
+            Dict containing the execution result or error information
         """
         start_time = time.time()
         attempt_count = 0
         last_error = None
         
-        logger.info(f"Starting execution for {self.agent_id}", extra={
-            "agent_id": self.agent_id,
-            "input_data": self._sanitize_input(input_data)
-        })
-        
-        for attempt in range(self.max_retries + 1):
+        while attempt_count < self.max_retries:
             attempt_count += 1
+            
             try:
-                # Process input to create prompt
+                logger.info(f"Executing {self.agent_id} (attempt {attempt_count}/{self.max_retries})")
+                
+                # Process input and get prompt
                 prompt = await self.process_input(input_data)
                 
-                # Execute agent
+                # Execute the agent
                 result = await self.agent.run(prompt)
-                
-                # Calculate execution time
-                execution_time = int((time.time() - start_time) * 1000)
-                
-                # Create metadata
-                metadata = AgentExecutionMetadata(
-                    agentId=self.agent_id,
-                    modelUsed=self._extract_model_used(result),
-                    tokensUsed=self._extract_tokens_used(result),
-                    executionTime=execution_time,
-                    providerId=self.provider_id,
-                    success=True,
-                    attemptCount=attempt_count,
-                    fallbackUsed=attempt_count > 1
-                )
                 
                 # Validate result
                 validated_result = self._validate_result(result.data)
+                
+                # Calculate execution time
+                execution_time = (time.time() - start_time) * 1000
+                
+                # Extract metadata
+                metadata = self._extract_metadata(result, execution_time, attempt_count)
                 
                 logger.info(f"Execution completed successfully for {self.agent_id}", extra={
                     "agent_id": self.agent_id,
@@ -232,14 +190,14 @@ class BaseAgent(ABC):
                 })
                 
                 # Track successful execution with Logfire
-                if LOGFIRE_AVAILABLE and is_initialized():
+                if is_logfire_available() and is_initialized():
                     track_agent_execution(
                         agent_name=self.agent_id,
                         operation="execute",
                         duration_ms=float(execution_time),
                         success=True,
                         input_data=self._sanitize_input(input_data),
-                        output_data={"type": "success", "result_type": str(type(validated_result).__name__)},
+                        output_data={"type": "success", "output_type": str(type(validated_result).__name__)},
                         metadata={
                             "model_used": metadata.modelUsed,
                             "tokens_used": metadata.tokensUsed,
@@ -262,46 +220,38 @@ class BaseAgent(ABC):
                         }
                     )
                 
+                # Return successful result
                 return {
-                    "data": validated_result.dict(),
-                    "metadata": metadata.dict(),
-                    "model_used": metadata.modelUsed,
-                    "tokens_used": metadata.tokensUsed
+                    "result": validated_result,
+                    "metadata": metadata,
+                    "execution_time": execution_time,
+                    "attempt_count": attempt_count,
+                    "agent_id": self.agent_id
                 }
                 
+            except ValidationError as e:
+                last_error = AgentValidationError(f"Response validation failed: {str(e)}")
+                logger.error(f"Validation error for {self.agent_id}: {str(e)}")
             except Exception as e:
-                last_error = e
-                execution_time = int((time.time() - start_time) * 1000)
+                last_error = AgentExecutionError(f"Agent execution failed: {str(e)}")
+                logger.error(f"Execution error for {self.agent_id}: {str(e)}")
                 
-                logger.warning(f"Attempt {attempt_count} failed for {self.agent_id}: {str(e)}", extra={
-                    "agent_id": self.agent_id,
-                    "attempt": attempt_count,
-                    "error": str(e),
-                    "execution_time": execution_time
-                })
-                
-                # If this is the last attempt, break
-                if attempt == self.max_retries:
+                # If it's a critical error, don't retry
+                if "authentication" in str(e).lower() or "api_key" in str(e).lower():
                     break
-                
-                # Exponential backoff
-                if attempt < self.max_retries:
-                    delay = 2 ** attempt
-                    logger.info(f"Retrying in {delay} seconds...")
-                    await asyncio.sleep(delay)
+            
+            if attempt_count < self.max_retries:
+                wait_time = 2 ** attempt_count  # Exponential backoff
+                logger.info(f"Retrying {self.agent_id} in {wait_time} seconds...")
+                await asyncio.sleep(wait_time)
         
-        # If we get here, all attempts failed
-        execution_time = int((time.time() - start_time) * 1000)
+        # Calculate final execution time
+        execution_time = (time.time() - start_time) * 1000
         
-        logger.error(f"All attempts failed for {self.agent_id}", extra={
-            "agent_id": self.agent_id,
-            "attempt_count": attempt_count,
-            "execution_time": execution_time,
-            "final_error": str(last_error)
-        })
+        logger.error(f"All attempts failed for {self.agent_id}: {str(last_error)}")
         
         # Track failed execution with Logfire
-        if LOGFIRE_AVAILABLE and is_initialized() and last_error:
+        if is_logfire_available() and is_initialized() and last_error:
             track_error(
                 error=last_error,
                 context=f"Agent execution failed after {attempt_count} attempts",
@@ -350,36 +300,55 @@ class BaseAgent(ABC):
     def _extract_tokens_used(self, result: Any) -> int:
         """Extract token usage from result"""
         try:
-            if hasattr(result, 'usage'):
-                if hasattr(result.usage, 'total_tokens'):
-                    return result.usage.total_tokens
-                elif hasattr(result.usage, 'input_tokens') and hasattr(result.usage, 'output_tokens'):
-                    return result.usage.input_tokens + result.usage.output_tokens
-            return 0
+            if hasattr(result, 'usage') and hasattr(result.usage, 'total_tokens'):
+                return result.usage.total_tokens
+            elif hasattr(result, 'token_usage'):
+                return result.token_usage
+            else:
+                return 0
         except:
             return 0
     
+    def _extract_fallback_used(self, result: Any) -> bool:
+        """Check if fallback model was used - always False since we removed fallbacks"""
+        return False
+    
+    def _extract_metadata(self, result: Any, execution_time: float, attempt_count: int) -> AgentExecutionMetadata:
+        """Extract metadata from agent execution result"""
+        return AgentExecutionMetadata(
+            agentId=self.agent_id,
+            modelUsed=self._extract_model_used(result),
+            tokensUsed=self._extract_tokens_used(result),
+            executionTime=int(execution_time),  # Convert to int for milliseconds
+            providerId=self.provider_id,
+            attemptCount=attempt_count,
+            fallbackUsed=self._extract_fallback_used(result),
+            success=True
+        )
+    
     def _validate_result(self, result: Any) -> T:
-        """Validate the result against the expected schema"""
-        try:
-            result_type = self.get_result_type()
-            if isinstance(result, result_type):
-                return result
-            elif isinstance(result, dict):
-                return result_type(**result)
-            else:
-                raise ValidationError(f"Unexpected result type: {type(result)}")
-        except ValidationError as e:
-            raise ValidationError(f"Result validation failed: {str(e)}")
+        """Validate agent result against expected type"""
+        expected_type = self.get_output_type()
+        
+        if isinstance(result, expected_type):
+            return result
+        elif isinstance(result, dict):
+            # Try to create instance from dict
+            try:
+                return expected_type(**result)
+            except Exception as e:
+                raise ValidationError(f"Could not validate result as {expected_type.__name__}: {e}")
+        else:
+            raise ValidationError(f"Expected {expected_type.__name__}, got {type(result).__name__}")
     
     def _sanitize_input(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Sanitize input data for logging (remove sensitive information)"""
+        """Sanitize input data for logging"""
         sanitized = {}
         for key, value in input_data.items():
-            if key.lower() in ['password', 'token', 'secret', 'api_key']:
+            if any(sensitive in key.lower() for sensitive in ['password', 'token', 'key', 'secret']):
                 sanitized[key] = "[REDACTED]"
-            elif isinstance(value, str) and len(value) > 100:
-                sanitized[key] = value[:100] + "..."
+            elif isinstance(value, str) and len(value) > 500:
+                sanitized[key] = value[:500] + "... [truncated]"
             else:
                 sanitized[key] = value
         return sanitized

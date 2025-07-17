@@ -27,7 +27,6 @@ export const enum ModelTask {
   SENTIMENT = 'sentiment',
   FANOUT_GENERATION = 'fanout_generation',
   SENTIMENT_SUMMARY = 'sentiment_summary',
-  WEBSITE_ANALYSIS = 'website_analysis',
   QUESTION_ANSWERING = 'question_answering',
   WEBSITE_ENRICHMENT = 'website_enrichment',
   OPTIMIZATION_TASKS = 'optimization_tasks',
@@ -109,42 +108,39 @@ export const MODELS: Record<string, Model> = {
     id: 'gpt-4.1-mini',
     engine: ModelEngine.OPENAI,
     task: [
-      ModelTask.SENTIMENT,                        // ✅ Used for sentiment analysis
-      ModelTask.FANOUT_GENERATION,               // ✅ Used for fanout query generation
-      ModelTask.SENTIMENT_SUMMARY,                // ✅ Used for sentiment summaries
-      ModelTask.QUESTION_ANSWERING,               // ✅ Used for answering questions
-      ModelTask.OPTIMIZATION_TASKS                // ✅ Used for generating optimization tasks and summaries
+      ModelTask.SENTIMENT,                        // ✅ WebSearchSentimentAgent
+      ModelTask.FANOUT_GENERATION,               // ✅ FanoutQueryAgent
+      ModelTask.QUESTION_ANSWERING,               // ✅ QuestionAnsweringAgent
+      ModelTask.SENTIMENT_SUMMARY,                // ✅ SentimentSummaryAgent (only for gpt-4.1-mini)
+      ModelTask.OPTIMIZATION_TASKS,               // ✅ OptimizationTaskAgent (moved from gemini)
     ],
   },
   'claude-3-5-haiku-20241022': {
     id: 'claude-3-5-haiku-20241022',
     engine: ModelEngine.ANTHROPIC,
     task: [
-      ModelTask.SENTIMENT,                        // ✅ Used for sentiment analysis
-      ModelTask.FANOUT_GENERATION,               // ✅ Used for fanout query generation
-      ModelTask.SENTIMENT_SUMMARY,                // ✅ Used for sentiment summaries
-      ModelTask.QUESTION_ANSWERING                // ✅ Used for answering questions
+      ModelTask.SENTIMENT,                        // ✅ WebSearchSentimentAgent
+      ModelTask.FANOUT_GENERATION,               // ✅ FanoutQueryAgent
+      ModelTask.QUESTION_ANSWERING,               // ✅ QuestionAnsweringAgent
     ],
   },
   'gemini-2.5-flash': {
     id: 'gemini-2.5-flash',
     engine: ModelEngine.GOOGLE,
     task: [
-        ModelTask.SENTIMENT,                      // ✅ Used for sentiment analysis
-        ModelTask.FANOUT_GENERATION,             // ✅ Used for fanout query generation
-        ModelTask.QUESTION_ANSWERING,             // ✅ Used for answering questions
-        ModelTask.WEBSITE_ENRICHMENT,             // ✅ Used for enriching competitors with websites
-        ModelTask.OPTIMIZATION_TASKS              // ✅ Now used for generating optimization tasks and summaries
+        ModelTask.SENTIMENT,                      // ✅ WebSearchSentimentAgent
+        ModelTask.FANOUT_GENERATION,             // ✅ FanoutQueryAgent
+        ModelTask.QUESTION_ANSWERING,             // ✅ QuestionAnsweringAgent
+        ModelTask.WEBSITE_ENRICHMENT,             // ✅ WebsiteEnrichmentAgent (only for gemini)
       ],
   },
   'sonar': {
     id: 'sonar',
     engine: ModelEngine.PERPLEXITY,
     task: [
-        ModelTask.SENTIMENT,                      // ✅ Used for sentiment analysis
-        ModelTask.FANOUT_GENERATION,             // ✅ Used for fanout query generation
-        ModelTask.WEBSITE_ANALYSIS,               // ✅ Used for website analysis (has web search)
-        ModelTask.QUESTION_ANSWERING              // ✅ Used for answering questions (has web search)
+        ModelTask.SENTIMENT,                      // ✅ WebSearchSentimentAgent (has web search)
+        ModelTask.FANOUT_GENERATION,             // ✅ FanoutQueryAgent
+        ModelTask.QUESTION_ANSWERING,             // ✅ QuestionAnsweringAgent (has web search)
       ],
   },
 };

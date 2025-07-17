@@ -1,6 +1,6 @@
 /**
  * @file pydanticProviders.ts
- * @description Provider configuration for PydanticAI integration
+ * @description Provider configuration for PydanticAI integration with web search capabilities
  * 
  * This file establishes the bridge between our existing environment configuration
  * and PydanticAI's provider system. It ensures type safety, proper error handling,
@@ -11,21 +11,50 @@
  * - Provides fallback configurations for resilient operation
  * - Supports dynamic provider switching based on availability
  * - Maintains audit trail of provider usage
+ * - Tracks web search usage and costs across providers
+ * - Manages provider-specific web search capabilities
+ * 
+ * @web_search_capabilities
+ * - OpenAI: Responses API web_search tool ($10/1K searches)
+ * - Anthropic: Native web_search tool ($10/1K searches)
+ * - Gemini: Google Search grounding tool ($35/1K searches)
+ * - Perplexity: Built-in web search (included in pricing)
  * 
  * @dependencies
  * - env: Environment configuration with API keys
  * - logger: Centralized logging system
+ * - logfire: Performance and cost tracking
  * 
  * @exports
  * - PydanticProviderConfig: Type-safe provider configuration interface
+ * - WebSearchConfig: Web search configuration interface
  * - PYDANTIC_PROVIDERS: Validated provider configurations
  * - PydanticProviderManager: Provider management class
  * - validateProviderAvailability: Provider health check function
+ * - getWebSearchEnabledProviders: Get providers with web search support
+ * - getMostCostEffectiveWebSearchProvider: Get cheapest web search provider
+ * - calculateWebSearchCost: Calculate estimated web search costs
+ * - supportsWebSearch: Check if provider supports web search
  */
 
 import env from './env';
 import logger from '../utils/logger';
 import { trackLLMUsage, trackPerformance, trackError } from './logfire';
+import { LLM_PRICING, CostCalculator, CostReporter } from './llmPricing';
+import { MODELS, ModelTask } from './models';
+
+/**
+ * Web search configuration for a provider
+ */
+export interface WebSearchConfig {
+  readonly enabled: boolean;
+  readonly toolName: string;
+  readonly costPer1000Searches: number; // USD per 1000 searches
+  readonly maxResultsPerSearch: number;
+  readonly timeoutMs: number;
+  readonly supportsStreaming: boolean;
+  readonly requiresTools: boolean; // False for built-in search like Perplexity
+}
 
 /**
  * Provider configuration interface with comprehensive settings
@@ -40,9 +69,11 @@ export interface PydanticProviderConfig {
   readonly enabled: boolean;
   readonly priority: number; // Lower number = higher priority
   readonly capabilities: readonly string[];
+  readonly webSearch?: WebSearchConfig;
   readonly rateLimits?: {
     requestsPerMinute: number;
     tokensPerMinute: number;
+    searchesPerMinute?: number;
   };
 }
 
@@ -56,6 +87,9 @@ export interface ProviderHealthStatus {
   readonly errorCount: number;
   readonly avgResponseTime: number;
   readonly statusMessage?: string;
+  readonly webSearchAvailable: boolean;
+  readonly totalSearches: number;
+  readonly searchErrorCount: number;
 }
 
 /**
@@ -72,10 +106,20 @@ export const PYDANTIC_PROVIDERS: ReadonlyArray<PydanticProviderConfig> = [
     maxRetries: 3,
     enabled: true,
     priority: 1,
-    capabilities: ['chat', 'completion', 'structured_output', 'function_calling'],
+    capabilities: ['chat', 'completion', 'structured_output', 'function_calling', 'web_search'],
+    webSearch: {
+      enabled: true,
+      toolName: 'web_search',
+      costPer1000Searches: 25.0, // Updated to accurate $25/1K from OpenAI pricing
+      maxResultsPerSearch: 10,
+      timeoutMs: 30000,
+      supportsStreaming: false,
+      requiresTools: true
+    },
     rateLimits: {
       requestsPerMinute: 3000,
-      tokensPerMinute: 250000
+      tokensPerMinute: 250000,
+      searchesPerMinute: 100
     }
   },
   {
@@ -86,10 +130,20 @@ export const PYDANTIC_PROVIDERS: ReadonlyArray<PydanticProviderConfig> = [
     maxRetries: 3,
     enabled: Boolean(env.ANTHROPIC_API_KEY),
     priority: 2,
-    capabilities: ['chat', 'completion', 'structured_output', 'function_calling'],
+    capabilities: ['chat', 'completion', 'structured_output', 'function_calling', 'web_search'],
+    webSearch: {
+      enabled: true,
+      toolName: 'web_search',
+      costPer1000Searches: 10.0, // Accurate $10/1K from Anthropic pricing
+      maxResultsPerSearch: 10,
+      timeoutMs: 30000,
+      supportsStreaming: false,
+      requiresTools: true
+    },
     rateLimits: {
       requestsPerMinute: 1000,
-      tokensPerMinute: 100000
+      tokensPerMinute: 100000,
+      searchesPerMinute: 50
     }
   },
   {
@@ -100,10 +154,20 @@ export const PYDANTIC_PROVIDERS: ReadonlyArray<PydanticProviderConfig> = [
     maxRetries: 3,
     enabled: Boolean(env.GEMINI_API_KEY),
     priority: 3,
-    capabilities: ['chat', 'completion', 'structured_output'],
+    capabilities: ['chat', 'completion', 'structured_output', 'google_search'],
+    webSearch: {
+      enabled: true,
+      toolName: 'google_search',
+      costPer1000Searches: 35.0,
+      maxResultsPerSearch: 10,
+      timeoutMs: 30000,
+      supportsStreaming: false,
+      requiresTools: true
+    },
     rateLimits: {
       requestsPerMinute: 1500,
-      tokensPerMinute: 150000
+      tokensPerMinute: 150000,
+      searchesPerMinute: 60
     }
   },
   {
@@ -114,10 +178,20 @@ export const PYDANTIC_PROVIDERS: ReadonlyArray<PydanticProviderConfig> = [
     maxRetries: 3,
     enabled: Boolean(env.PERPLEXITY_API_KEY),
     priority: 4,
-    capabilities: ['chat', 'completion'],
+    capabilities: ['chat', 'completion', 'built_in_web_search'],
+    webSearch: {
+      enabled: true,
+      toolName: 'built_in_search',
+      costPer1000Searches: 0.0, // Included in model pricing
+      maxResultsPerSearch: 10,
+      timeoutMs: 30000,
+      supportsStreaming: true,
+      requiresTools: false // Built-in search capability
+    },
     rateLimits: {
       requestsPerMinute: 500,
-      tokensPerMinute: 50000
+      tokensPerMinute: 50000,
+      searchesPerMinute: 100 // Higher since it's included in pricing
     }
   }
 ].filter(provider => provider.enabled);
@@ -151,7 +225,10 @@ export class PydanticProviderManager {
         available: true,
         lastChecked: new Date(),
         errorCount: 0,
-        avgResponseTime: 0
+        avgResponseTime: 0,
+        webSearchAvailable: provider.webSearch?.enabled ?? false,
+        totalSearches: 0,
+        searchErrorCount: 0
       });
     });
   }
@@ -194,7 +271,8 @@ export class PydanticProviderManager {
     id: string, 
     available: boolean, 
     responseTime?: number, 
-    error?: string
+    error?: string,
+    webSearchAvailable?: boolean
   ): void {
     const current = this.healthStatus.get(id);
     if (!current) return;
@@ -210,14 +288,16 @@ export class PydanticProviderManager {
       lastChecked: new Date(),
       errorCount,
       avgResponseTime,
-      statusMessage: error
+      statusMessage: error,
+      webSearchAvailable: webSearchAvailable ?? current.webSearchAvailable
     });
 
     logger.info(`Provider health updated: ${id}`, {
       available,
       errorCount,
       avgResponseTime,
-      statusMessage: error
+      statusMessage: error,
+      webSearchAvailable: webSearchAvailable ?? current.webSearchAvailable
     });
 
     // Track provider health metrics with Logfire
@@ -231,7 +311,8 @@ export class PydanticProviderManager {
           errorCount,
           available,
           statusMessage: error,
-          healthCheck: true
+          healthCheck: true,
+          webSearchAvailable: webSearchAvailable ?? current.webSearchAvailable
         }
       );
 
@@ -244,7 +325,8 @@ export class PydanticProviderManager {
           {
             providerId: id,
             errorCount,
-            avgResponseTime
+            avgResponseTime,
+            webSearchAvailable: webSearchAvailable ?? current.webSearchAvailable
           }
         );
       }
@@ -291,6 +373,7 @@ export class PydanticProviderManager {
           providerName: provider.name,
           providerPriority: provider.priority,
           capabilities: provider.capabilities,
+          webSearchEnabled: provider.webSearch?.enabled ?? false,
           ...metadata
         }
       );
@@ -304,6 +387,7 @@ export class PydanticProviderManager {
           operation,
           tokensUsed,
           providerName: provider.name,
+          webSearchEnabled: provider.webSearch?.enabled ?? false,
           ...metadata
         }
       );
@@ -316,6 +400,61 @@ export class PydanticProviderManager {
         error: error instanceof Error ? error.message : String(error),
         providerId,
         modelId
+      });
+    }
+  }
+
+  /**
+   * Track web search usage for monitoring and cost tracking
+   */
+  trackWebSearchUsage(
+    providerId: string,
+    searchCount: number,
+    duration: number,
+    success: boolean,
+    metadata?: Record<string, any>
+  ): void {
+    try {
+      const provider = this.getProvider(providerId);
+      if (!provider || !provider.webSearch) return;
+
+      const current = this.healthStatus.get(providerId);
+      if (current) {
+        this.healthStatus.set(providerId, {
+          ...current,
+          totalSearches: current.totalSearches + searchCount,
+          searchErrorCount: success ? current.searchErrorCount : current.searchErrorCount + 1
+        });
+      }
+
+      // Calculate cost
+      const estimatedCost = (searchCount / 1000) * provider.webSearch.costPer1000Searches;
+
+      trackPerformance(
+        `provider.web_search.${providerId}`,
+        duration,
+        success,
+        {
+          searchCount,
+          estimatedCost,
+          toolName: provider.webSearch.toolName,
+          providerName: provider.name,
+          requiresTools: provider.webSearch.requiresTools,
+          ...metadata
+        }
+      );
+
+      logger.info(`Web search usage tracked: ${providerId}`, {
+        searchCount,
+        estimatedCost,
+        duration,
+        success
+      });
+
+    } catch (error) {
+      logger.debug('Failed to track web search usage with Logfire', { 
+        error: error instanceof Error ? error.message : String(error),
+        providerId
       });
     }
   }
@@ -400,14 +539,79 @@ export function getProviderModelString(providerId: string, modelName: string): s
 }
 
 /**
- * Default model mappings for each provider
+ * Default model mappings for each provider (aligned with models.ts and pricing)
  */
 export const DEFAULT_MODELS = {
-  openai: 'gpt-4o',
-  anthropic: 'claude-3-sonnet-20240229',
-  gemini: 'gemini-1.5-pro',
-  perplexity: 'llama-3.1-sonar-small-128k-online'
+  openai: 'gpt-4.1-mini',
+  anthropic: 'claude-3-5-haiku-20241022',
+  gemini: 'gemini-2.5-flash',
+  perplexity: 'sonar'
 } as const;
+
+/**
+ * Get cost estimate for sentiment analysis operation
+ */
+export function estimateSentimentAnalysisCost(
+  providerId: string,
+  companyName: string,
+  enableWebSearch: boolean = false
+): {
+  estimatedTokenCost: number;
+  estimatedSearchCost: number;
+  estimatedTotalCost: number;
+} {
+  const modelId = DEFAULT_MODELS[providerId as keyof typeof DEFAULT_MODELS];
+  if (!modelId) {
+    return {
+      estimatedTokenCost: 0,
+      estimatedSearchCost: 0,
+      estimatedTotalCost: 0
+    };
+  }
+  
+  return CostCalculator.estimateSentimentAnalysisCost(modelId, companyName, enableWebSearch);
+}
+
+/**
+ * Get cost report for models configured for a specific task in models.ts
+ */
+export function getCostReportForTaskModels(
+  task: ModelTask,
+  companyName: string,
+  enableWebSearch: boolean = false
+): Array<{
+  modelId: string;
+  provider: string;
+  displayName: string;
+  estimatedCost: number;
+  tokenCost: number;
+  searchCost: number;
+  available: boolean;
+}> {
+  // Get models configured for this task
+  const taskModels = Object.values(MODELS)
+    .filter(model => model.task.includes(task))
+    .map(model => model.id);
+  
+  return CostReporter.getCostReportForConfiguredModels(taskModels, companyName, enableWebSearch);
+}
+
+/**
+ * Get cost report for sentiment analysis models configured in models.ts
+ */
+export function getSentimentAnalysisCostReportForConfiguredModels(
+  companyName: string
+): Array<{
+  modelId: string;
+  provider: string;
+  displayName: string;
+  estimatedCost: number;
+  tokenCost: number;
+  searchCost: number;
+  available: boolean;
+}> {
+  return getCostReportForTaskModels(ModelTask.SENTIMENT, companyName, true);
+}
 
 /**
  * Get default model string for a provider
@@ -418,6 +622,92 @@ export function getDefaultModelString(providerId: string): string {
     throw new Error(`No default model configured for provider: ${providerId}`);
   }
   return getProviderModelString(providerId, modelName);
+}
+
+/**
+ * Get providers that support web search
+ */
+export function getWebSearchEnabledProviders(): ReadonlyArray<PydanticProviderConfig> {
+  return PYDANTIC_PROVIDERS.filter(p => p.webSearch?.enabled ?? false);
+}
+
+/**
+ * Get the most cost-effective provider for web search
+ */
+export function getMostCostEffectiveWebSearchProvider(): PydanticProviderConfig | null {
+  const webSearchProviders = getWebSearchEnabledProviders();
+  if (webSearchProviders.length === 0) return null;
+  
+  return webSearchProviders.reduce((cheapest, current) => {
+    const cheapestCost = cheapest.webSearch?.costPer1000Searches ?? Infinity;
+    const currentCost = current.webSearch?.costPer1000Searches ?? Infinity;
+    return currentCost < cheapestCost ? current : cheapest;
+  });
+}
+
+/**
+ * Calculate estimated cost for web searches
+ */
+export function calculateWebSearchCost(providerId: string, searchCount: number): number {
+  const provider = PYDANTIC_PROVIDERS.find(p => p.id === providerId);
+  if (!provider?.webSearch) return 0;
+  
+  return (searchCount / 1000) * provider.webSearch.costPer1000Searches;
+}
+
+/**
+ * Calculate total cost for a model run including tokens and searches
+ */
+export function calculateTotalRunCost(
+  providerId: string,
+  modelId: string,
+  inputTokens: number,
+  outputTokens: number,
+  searchCount: number = 0
+): {
+  tokenCost: number;
+  searchCost: number;
+  totalCost: number;
+} {
+  // Get token cost from pricing configuration
+  const tokenCost = LLM_PRICING[modelId] 
+    ? CostCalculator.calculateTokenCost(modelId, inputTokens, outputTokens)
+    : 0;
+  
+  // Get search cost from provider configuration
+  const searchCost = calculateWebSearchCost(providerId, searchCount);
+  
+  return {
+    tokenCost,
+    searchCost,
+    totalCost: tokenCost + searchCost
+  };
+}
+
+/**
+ * Get web search configuration for a provider
+ */
+export function getWebSearchConfig(providerId: string): WebSearchConfig | null {
+  const provider = PYDANTIC_PROVIDERS.find(p => p.id === providerId);
+  return provider?.webSearch ?? null;
+}
+
+/**
+ * Check if a provider supports web search
+ */
+export function supportsWebSearch(providerId: string): boolean {
+  const provider = PYDANTIC_PROVIDERS.find(p => p.id === providerId);
+  return provider?.webSearch?.enabled ?? false;
+}
+
+/**
+ * Get providers by web search capability
+ */
+export function getProvidersByWebSearchCapability(requiresTools: boolean): ReadonlyArray<PydanticProviderConfig> {
+  return PYDANTIC_PROVIDERS.filter(p => {
+    if (!p.webSearch?.enabled) return false;
+    return p.webSearch.requiresTools === requiresTools;
+  });
 }
 
 // Initialize provider manager singleton

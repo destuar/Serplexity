@@ -88,7 +88,7 @@ const LandingPage: React.FC = () => {
       setCurrentTextIndex((prev) => (prev + 1) % rotatingTexts.length);
     }, 4000);
     return () => clearInterval(interval);
-  }, []);
+  }, [rotatingTexts.length]);
   
   // Statistics counter animation
   useEffect(() => {
@@ -114,7 +114,7 @@ const LandingPage: React.FC = () => {
     }, stepDelay);
     
     return () => clearInterval(timer);
-  }, [statsVisible]);
+  }, [statsVisible, targetStats.minutes, targetStats.queries, targetStats.brands]);
   
   // Scroll-triggered steps with Intersection Observer
   useEffect(() => {

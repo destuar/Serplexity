@@ -47,6 +47,35 @@ import {
 // NOTE: Fanout generation now handled directly by PydanticAI fanout_agent.py
 // Legacy fanout service imports removed - using inline PydanticAI implementation
 import { getModelsByTask, ModelTask, LLM_CONFIG } from '../config/models';
+import { CostCalculator } from '../config/llmPricing';
+
+/**
+ * Helper function to calculate and accumulate USD cost from token usage
+ */
+function addCostFromUsage(
+    modelId: string | undefined,
+    promptTokens: number,
+    completionTokens: number,
+    searchCount: number = 0
+): number {
+    if (!modelId) {
+        console.warn('Model ID not provided for cost calculation, skipping cost tracking');
+        return 0;
+    }
+    
+    try {
+        const { totalCost } = CostCalculator.calculateTotalCost(
+            modelId,
+            promptTokens,
+            completionTokens,
+            searchCount
+        );
+        return totalCost;
+    } catch (error) {
+        console.warn(`Failed to calculate cost for model ${modelId}:`, error);
+        return 0;
+    }
+}
 import { z } from 'zod';
 import { Question } from '../types/reports';
 import { StreamingDatabaseWriter } from './streaming-db-writer';
@@ -177,6 +206,7 @@ class CompetitorEnrichmentPipeline {
     private isFinalized = false;
     private totalPromptTokens = 0;
     private totalCompletionTokens = 0;
+    private totalUsdCost = 0;
     private processedBrands = new Set<string>();
     private enrichedCompetitors: CompetitorInfo[] = [];
     private readonly BATCH_SIZE = 20;
@@ -220,10 +250,11 @@ class CompetitorEnrichmentPipeline {
                     }
                 }, `Starting pipeline enrichment for batch of ${batch.length} brands`);
 
-                const { data: enrichedCompetitors, usage: websiteUsage } = await generateWebsiteForCompetitors(batch);
+                const { data: enrichedCompetitors, usage: websiteUsage, modelUsed } = await generateWebsiteForCompetitors(batch);
                 
                 this.totalPromptTokens += websiteUsage.promptTokens;
                 this.totalCompletionTokens += websiteUsage.completionTokens;
+                this.totalUsdCost += addCostFromUsage(modelUsed, websiteUsage.promptTokens, websiteUsage.completionTokens);
                 
                 // Store enriched competitors for later deduplication and saving
                 this.enrichedCompetitors.push(...enrichedCompetitors);
@@ -267,7 +298,8 @@ class CompetitorEnrichmentPipeline {
     async finalize(): Promise<{ 
         enrichedCompetitors: CompetitorInfo[], 
         totalPromptTokens: number, 
-        totalCompletionTokens: number 
+        totalCompletionTokens: number,
+        totalUsdCost: number
     }> {
         this.isFinalized = true;
         
@@ -294,7 +326,8 @@ class CompetitorEnrichmentPipeline {
         return {
             enrichedCompetitors: this.enrichedCompetitors,
             totalPromptTokens: this.totalPromptTokens,
-            totalCompletionTokens: this.totalCompletionTokens
+            totalCompletionTokens: this.totalCompletionTokens,
+            totalUsdCost: this.totalUsdCost
         };
     }
 }
@@ -524,7 +557,7 @@ function normalizeNameForDeduplication(name: string): string {
 type PrismaTransactionClient = Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;
 
 // Note: This function now returns the total token usage.
-async function generateAndSaveSentiments(runId: string, company: { id: string; name: string; industry: string | null }, tx: PrismaTransactionClient): Promise<{ promptTokens: number, completionTokens: number }> {
+async function generateAndSaveSentiments(runId: string, company: { id: string; name: string; industry: string | null }, tx: PrismaTransactionClient): Promise<{ promptTokens: number, completionTokens: number, usdCost: number }> {
     const timer = new Timer();
     
     log({ 
@@ -542,7 +575,7 @@ async function generateAndSaveSentiments(runId: string, company: { id: string; n
             where: { id: runId },
             data: { stepStatus: 'Analyzing Sentiment' },
         });
-        return { promptTokens: 0, completionTokens: 0 };
+        return { promptTokens: 0, completionTokens: 0, usdCost: 0 };
     }
 
     const sentimentModels = getModelsByTask(ModelTask.SENTIMENT);
@@ -589,6 +622,7 @@ async function generateAndSaveSentiments(runId: string, company: { id: string; n
     const allSentiments: SentimentScores[] = [];
     let totalPromptTokens = 0;
     let totalCompletionTokens = 0;
+    let totalUsdCost = 0;
 
     // Process results and save to database
     timer.reset();
@@ -597,10 +631,11 @@ async function generateAndSaveSentiments(runId: string, company: { id: string; n
         const model = sentimentModels[i];
 
         if (result.status === 'fulfilled') {
-            const { data, usage } = result.value;
+            const { data, usage, modelUsed } = result.value;
             allSentiments.push(data);
             totalPromptTokens += usage.promptTokens;
             totalCompletionTokens += usage.completionTokens;
+            totalUsdCost += addCostFromUsage(modelUsed, usage.promptTokens, usage.completionTokens);
 
             log({ 
                 runId, 
@@ -659,10 +694,11 @@ async function generateAndSaveSentiments(runId: string, company: { id: string; n
             log({ runId, stage: 'SENTIMENT_GENERATION', step: 'SUMMARY_START' }, 
                 'Generating overall sentiment summary', 'DEBUG');
             
-            const { data: summarySentiment, usage } = await generateOverallSentimentSummary(company.name, allSentiments);
+            const { data: summarySentiment, usage, modelUsed } = await generateOverallSentimentSummary(company.name, allSentiments);
             
             totalPromptTokens += usage.promptTokens;
             totalCompletionTokens += usage.completionTokens;
+            totalUsdCost += addCostFromUsage(modelUsed, usage.promptTokens, usage.completionTokens);
 
             const summaryDuration = timer.elapsed();
             log({ 
@@ -716,7 +752,7 @@ async function generateAndSaveSentiments(runId: string, company: { id: string; n
         }
     }, 'Sentiment generation phase completed');
 
-    return { promptTokens: totalPromptTokens, completionTokens: totalCompletionTokens };
+    return { promptTokens: totalPromptTokens, completionTokens: totalCompletionTokens, usdCost: totalUsdCost };
 }
 
 // Note: The calculateAndStoreDashboardData function has been removed
@@ -882,6 +918,8 @@ const jobTimer = new Timer();
 
     let totalPromptTokens = 0;
     let totalCompletionTokens = 0;
+    let totalUsdCost = 0;
+    let optimizationCost = 0;
 
     // --- Stage 1: Data Gathering (Network-Intensive) ---
     const dataGatheringTimer = new Timer();
@@ -1076,6 +1114,7 @@ const jobTimer = new Timer();
                 
                 totalPromptTokens += fanoutData.totalTokenUsage.promptTokens;
                 totalCompletionTokens += fanoutData.totalTokenUsage.completionTokens;
+                totalUsdCost += addCostFromUsage(pydanticResult.metadata.modelUsed, fanoutData.totalTokenUsage.promptTokens, fanoutData.totalTokenUsage.completionTokens);
 
                 // Flatten all generated queries (inline implementation to avoid legacy service dependency)
                 const flattenedQueries: Array<{
@@ -1222,10 +1261,11 @@ const jobTimer = new Timer();
     for (let i = 0; i < sentimentResults.length; i++) {
         const result = sentimentResults[i];
         if (result.status === 'fulfilled') {
-            const { data, usage } = result.value;
+            const { data, usage, modelUsed } = result.value;
             allSentiments.push(data);
             totalPromptTokens += usage.promptTokens;
             totalCompletionTokens += usage.completionTokens;
+            totalUsdCost += addCostFromUsage(modelUsed, usage.promptTokens, usage.completionTokens);
         }
     }
     
@@ -1235,6 +1275,7 @@ const jobTimer = new Timer();
             sentimentSummary = await generateOverallSentimentSummary(fullCompany.name, allSentiments);
             totalPromptTokens += sentimentSummary?.usage?.promptTokens || 0;
             totalCompletionTokens += sentimentSummary?.usage?.completionTokens || 0;
+            totalUsdCost += addCostFromUsage(sentimentSummary?.modelUsed, sentimentSummary?.usage?.promptTokens || 0, sentimentSummary?.usage?.completionTokens || 0);
             log({ runId, stage: 'DATA_GATHERING', step: 'SENTIMENT_SUMMARY_GENERATED' }, 'Generated sentiment summary during data gathering');
         } catch (error) {
             log({ runId, stage: 'DATA_GATHERING', step: 'SENTIMENT_SUMMARY_ERROR', error }, 'Failed to generate sentiment summary during data gathering', 'ERROR');
@@ -1368,10 +1409,11 @@ const jobTimer = new Timer();
         const startTime = Date.now();
         
         try {
-            const { data: answer, usage } = await questionLimit(() => generateQuestionResponse(questionInput, model));
+            const { data: answer, usage, modelUsed } = await questionLimit(() => generateQuestionResponse(questionInput, model));
             
             totalPromptTokens += usage.promptTokens;
             totalCompletionTokens += usage.completionTokens;
+            totalUsdCost += addCostFromUsage(modelUsed, usage.promptTokens, usage.completionTokens);
 
             // Extract brands from answer and stream to pipeline immediately
             const brandRegex = /<brand>(.*?)<\/brand>/gi;
@@ -1474,6 +1516,7 @@ const jobTimer = new Timer();
     
     totalPromptTokens += pipelineResults.totalPromptTokens;
     totalCompletionTokens += pipelineResults.totalCompletionTokens;
+    totalUsdCost += pipelineResults.totalUsdCost;
     
     log({
         runId,
@@ -1893,11 +1936,19 @@ const jobTimer = new Timer();
                 data: { aiVisibilitySummary: optimisationResult.summary }
             });
 
-            // Update token usage
+            // Calculate optimization cost
+            optimizationCost = addCostFromUsage(
+                pydanticOptimizationResult.metadata.modelUsed,
+                optimisationResult.tokenUsage.promptTokens,
+                optimisationResult.tokenUsage.completionTokens
+            );
+            
+            // Update token usage and USD cost
             await prisma.reportRun.update({
                 where: { id: runId },
                 data: { 
-                    tokensUsed: finalTokenUsage + optimisationResult.tokenUsage.totalTokens
+                    tokensUsed: finalTokenUsage + optimisationResult.tokenUsage.totalTokens,
+                    usdCost: totalUsdCost + optimizationCost
                 }
             });
 
@@ -1985,7 +2036,7 @@ const jobTimer = new Timer();
             companyName: company.name,
             forceMode: force
         }
-    }, `Report generation completed successfully - Total time: ${(totalJobDuration / 1000).toFixed(2)}s, Tokens used: ${finalTokenUsage}`);
+    }, `Report generation completed successfully - Total time: ${(totalJobDuration / 1000).toFixed(2)}s, Tokens used: ${finalTokenUsage}, Total USD cost: $${(totalUsdCost + optimizationCost).toFixed(4)}`);
 };
 
 let worker: Worker | null = null;

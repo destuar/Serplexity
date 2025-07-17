@@ -19,11 +19,39 @@ Each model includes:
 - Backward compatibility with existing Zod schemas
 """
 
-from pydantic import BaseModel, Field, validator, root_validator
+from pydantic import BaseModel, Field, validator, root_validator, model_validator
 from typing import List, Optional, Dict, Any, Union, Literal
 from enum import Enum
 from datetime import datetime
 import re
+import uuid
+
+# ===== WEB SEARCH METADATA MODELS =====
+
+class WebSearchQuery(BaseModel):
+    """Individual web search query with metadata"""
+    query: str = Field(..., description="The search query used")
+    provider: str = Field(..., description="Search provider (openai, anthropic, gemini, perplexity)")
+    results_count: int = Field(ge=0, description="Number of results returned")
+    search_timestamp: datetime = Field(default_factory=datetime.now, description="When the search was performed")
+
+class WebSearchSource(BaseModel):
+    """Web search source information"""
+    title: str = Field(..., description="Title of the source")
+    url: str = Field(..., description="URL of the source")
+    domain: str = Field(..., description="Domain of the source")
+    snippet: str = Field(..., description="Snippet or description from the source")
+    relevance_score: float = Field(ge=0.0, le=1.0, description="Relevance score of the source")
+
+class WebSearchMetadata(BaseModel):
+    """Metadata for web search operations"""
+    search_enabled: bool = Field(..., description="Whether web search was enabled")
+    queries_performed: List[WebSearchQuery] = Field(default_factory=list, description="List of search queries performed")
+    sources_found: List[WebSearchSource] = Field(default_factory=list, description="List of sources found")
+    total_searches: int = Field(ge=0, description="Total number of searches performed")
+    search_duration_ms: float = Field(ge=0.0, description="Total time spent searching in milliseconds")
+    provider_used: str = Field(..., description="Primary provider used for search")
+    search_session_id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique identifier for this search session")
 
 # ===== SENTIMENT ANALYSIS MODELS =====
 
@@ -73,11 +101,11 @@ class SentimentRating(BaseModel):
         ..., 
         min_length=10, 
         max_length=500,
-        description="Brief description of the overall sentiment"
+        description="Detailed description of the overall sentiment"
     )
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "quality": 8,
                 "priceValue": 7,
@@ -90,12 +118,13 @@ class SentimentRating(BaseModel):
 
 class SentimentScores(BaseModel):
     """
-    Complete sentiment analysis for a company.
+    Complete sentiment analysis for a company with web search metadata.
     
     Attributes:
         companyName: Name of the company being analyzed
         industry: Industry sector of the company
         ratings: List of sentiment ratings from different sources
+        webSearchMetadata: Metadata about web search operations performed
     """
     companyName: str = Field(
         ..., 
@@ -115,6 +144,10 @@ class SentimentScores(BaseModel):
         max_items=50,
         description="List of sentiment ratings from different sources"
     )
+    webSearchMetadata: Optional[WebSearchMetadata] = Field(
+        default=None,
+        description="Metadata about web search operations performed during analysis"
+    )
 
     @validator('companyName')
     def validate_company_name(cls, v):
@@ -131,7 +164,7 @@ class SentimentScores(BaseModel):
         return v.strip().title()
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "companyName": "Apple Inc.",
                 "industry": "Technology",
@@ -152,16 +185,22 @@ class SentimentScores(BaseModel):
 
 class QueryType(str, Enum):
     """Types of queries for fanout generation"""
+    PARAPHRASE = "paraphrase"
     COMPARISON = "comparison"
-    BEST_FOR = "best_for"
-    VERSUS = "versus"
-    FEATURES = "features"
-    PRICING = "pricing"
-    REVIEWS = "reviews"
-    ALTERNATIVES = "alternatives"
-    PROS_CONS = "pros_cons"
-    USE_CASES = "use_cases"
-    GETTING_STARTED = "getting_started"
+    TEMPORAL = "temporal"
+    TOPICAL = "topical"
+    ENTITY_BROADER = "entity_broader"
+    ENTITY_NARROWER = "entity_narrower"
+    SESSION_CONTEXT = "session_context"
+    USER_PROFILE = "user_profile"
+    VERTICAL = "vertical"
+    SAFETY_PROBE = "safety_probe"
+
+class PurchaseIntent(str, Enum):
+    """Purchase intent levels for queries"""
+    AWARENESS = "awareness"
+    CONSIDERATION = "consideration"
+    PURCHASE = "purchase"
 
 class FanoutQuery(BaseModel):
     """
@@ -169,10 +208,8 @@ class FanoutQuery(BaseModel):
     
     Attributes:
         query: The actual query text
-        type: Type of query (comparison, best_for, etc.)
-        priority: Priority level (1-5, where 1 is highest)
-        targetAudience: Target audience for the query
-        expectedMentions: Expected company mentions in responses
+        type: Type of query (paraphrase, comparison, etc.)
+        intent: Purchase intent level (awareness, consideration, purchase)
     """
     query: str = Field(
         ..., 
@@ -184,22 +221,9 @@ class FanoutQuery(BaseModel):
         ..., 
         description="Type of query for categorization"
     )
-    priority: int = Field(
-        ..., 
-        ge=1, 
-        le=5,
-        description="Priority level (1=highest, 5=lowest)"
-    )
-    targetAudience: str = Field(
-        ..., 
-        min_length=5, 
-        max_length=100,
-        description="Target audience for the query"
-    )
-    expectedMentions: List[str] = Field(
-        default=[], 
-        max_items=10,
-        description="Expected company mentions in responses"
+    intent: PurchaseIntent = Field(
+        ...,
+        description="Purchase intent level of the query"
     )
 
     @validator('query')
@@ -214,15 +238,19 @@ class FanoutQuery(BaseModel):
         return v
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "query": "What are the best project management tools for remote teams?",
-                "type": "best_for",
-                "priority": 1,
-                "targetAudience": "Remote team managers",
-                "expectedMentions": ["Asana", "Trello", "Monday.com"]
+                "type": "paraphrase",
+                "intent": "consideration"
             }
         }
+
+class QueryTypeSelection(BaseModel):
+    """Query type with rationale for why it was selected"""
+    query_type: QueryType = Field(..., description="Selected query type")
+    rationale: str = Field(..., min_length=10, max_length=200, description="Why this query type is relevant")
+    priority: int = Field(..., ge=1, le=5, description="Priority for this query type")
 
 class FanoutQueryGeneration(BaseModel):
     """
@@ -231,8 +259,10 @@ class FanoutQueryGeneration(BaseModel):
     Attributes:
         companyName: Name of the company
         industry: Industry context
-        queries: Generated queries organized by type
-        totalQueries: Total number of queries generated
+        baseQuestion: Original benchmark question that informed generation
+        selectedQueryTypes: The 3-5 most relevant query types selected
+        queries: Generated queries (one per selected type)
+        totalQueries: Total number of queries generated (3-5)
         generationTimestamp: When the queries were generated
     """
     companyName: str = Field(
@@ -247,46 +277,86 @@ class FanoutQueryGeneration(BaseModel):
         max_length=50,
         description="Industry context for query generation"
     )
+    baseQuestion: str = Field(
+        ...,
+        min_length=5,
+        max_length=500,
+        description="Original benchmark question that informed generation"
+    )
+    selectedQueryTypes: List[QueryTypeSelection] = Field(
+        ...,
+        min_items=3,
+        max_items=5,
+        description="The 3-5 most relevant query types selected with rationale"
+    )
     queries: List[FanoutQuery] = Field(
         ..., 
-        min_items=1, 
-        max_items=100,
-        description="Generated queries organized by type"
+        min_items=3, 
+        max_items=5,
+        description="Generated queries (one per selected type)"
     )
     totalQueries: int = Field(
         ..., 
-        ge=1,
-        description="Total number of queries generated"
+        ge=3,
+        le=5,
+        description="Total number of queries generated (3-5)"
     )
     generationTimestamp: datetime = Field(
         default_factory=datetime.now,
         description="When the queries were generated"
     )
 
-    @root_validator
+    @model_validator(mode='before')
     def validate_total_queries(cls, values):
         """Validate that totalQueries matches actual query count"""
-        queries = values.get('queries', [])
-        total = values.get('totalQueries', 0)
-        if len(queries) != total:
-            values['totalQueries'] = len(queries)
+        if isinstance(values, dict):
+            queries = values.get('queries', [])
+            total = values.get('totalQueries', 0)
+            if len(queries) != total:
+                values['totalQueries'] = len(queries)
         return values
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "companyName": "Slack",
                 "industry": "Communication Software",
-                "queries": [
+                "baseQuestion": "What are the best team communication tools for remote work?",
+                "selectedQueryTypes": [
                     {
-                        "query": "What are the best team communication tools?",
-                        "type": "best_for",
-                        "priority": 1,
-                        "targetAudience": "Team managers",
-                        "expectedMentions": ["Slack", "Microsoft Teams", "Discord"]
+                        "query_type": "paraphrase",
+                        "rationale": "Rewording the base question to capture different phrasing variations",
+                        "priority": 1
+                    },
+                    {
+                        "query_type": "comparison",
+                        "rationale": "Users often compare communication tools when making decisions",
+                        "priority": 1
+                    },
+                    {
+                        "query_type": "temporal",
+                        "rationale": "Current/latest tools are relevant for remote work trends",
+                        "priority": 2
                     }
                 ],
-                "totalQueries": 1,
+                "queries": [
+                    {
+                        "query": "Which team messaging platforms work best for distributed teams?",
+                        "type": "paraphrase",
+                        "intent": "awareness"
+                    },
+                    {
+                        "query": "Slack vs Microsoft Teams vs Discord for business communication",
+                        "type": "comparison",
+                        "intent": "consideration"
+                    },
+                    {
+                        "query": "Best team communication tools in 2025 for hybrid work",
+                        "type": "temporal",
+                        "intent": "consideration"
+                    }
+                ],
+                "totalQueries": 3,
                 "generationTimestamp": "2024-01-15T10:30:00Z"
             }
         }
@@ -312,7 +382,7 @@ class CompetitorInfo(BaseModel):
     )
     website: str = Field(
         ..., 
-        regex=r'^https?://[^\s/$.?#].[^\s]*$',
+        pattern=r'^https?://[^\s/$.?#].[^\s]*$',
         description="Website URL"
     )
     description: Optional[str] = Field(
@@ -345,7 +415,7 @@ class CompetitorInfo(BaseModel):
         return v.strip()
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "name": "Asana",
                 "website": "https://asana.com",
@@ -391,16 +461,17 @@ class WebsiteEnrichmentResult(BaseModel):
         description="When the enrichment was performed"
     )
 
-    @root_validator
+    @model_validator(mode='before')
     def validate_counts(cls, values):
         """Validate that counts are consistent"""
-        competitors = values.get('competitors', [])
-        processed = values.get('processedCount', 0)
-        success = values.get('successCount', 0)
-        failed = values.get('failedCount', 0)
-        
-        if processed != success + failed:
-            values['processedCount'] = success + failed
+        if isinstance(values, dict):
+            competitors = values.get('competitors', [])
+            processed = values.get('processedCount', 0)
+            success = values.get('successCount', 0)
+            failed = values.get('failedCount', 0)
+            
+            if processed != success + failed:
+                values['processedCount'] = success + failed
         
         return values
 
@@ -416,73 +487,74 @@ class OptimizationTaskCategory(str, Enum):
 
 class OptimizationTask(BaseModel):
     """
-    Individual optimization task.
+    Individual optimization task that matches the database schema.
     
     Attributes:
+        taskId: Unique identifier for the task
         title: Task title
         description: Detailed task description
         category: Task category
-        priority: Priority level (1-5)
-        estimatedEffort: Estimated effort in hours
-        expectedImpact: Expected impact description
-        actionItems: List of specific action items
+        priority: Priority level as string (HIGH, MEDIUM, LOW)
+        impactMetric: Expected impact description
+        dependencies: Additional task metadata as JSON
     """
+    taskId: str = Field(
+        ..., 
+        min_length=1,
+        max_length=50,
+        description="Unique identifier for the task"
+    )
     title: str = Field(
         ..., 
         min_length=5, 
-        max_length=100,
+        max_length=200,
         description="Task title"
     )
     description: str = Field(
         ..., 
         min_length=10, 
-        max_length=1000,
+        max_length=2000,
         description="Detailed task description"
     )
     category: OptimizationTaskCategory = Field(
         ..., 
         description="Task category"
     )
-    priority: int = Field(
+    priority: str = Field(
         ..., 
-        ge=1, 
-        le=5,
-        description="Priority level (1=highest, 5=lowest)"
+        description="Priority level (HIGH, MEDIUM, LOW)"
     )
-    estimatedEffort: int = Field(
-        ..., 
-        ge=1, 
-        le=160,
-        description="Estimated effort in hours"
-    )
-    expectedImpact: str = Field(
+    impactMetric: str = Field(
         ..., 
         min_length=10, 
-        max_length=300,
-        description="Expected impact description"
+        max_length=500,
+        description="Expected impact description with metrics"
     )
-    actionItems: List[str] = Field(
-        ..., 
-        min_items=1, 
-        max_items=10,
-        description="List of specific action items"
+    dependencies: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional task metadata, action items, and dependencies as JSON"
     )
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
+                "taskId": "brand_sentiment_improvement",
                 "title": "Improve brand mention sentiment",
-                "description": "Analyze current brand sentiment and develop strategies to improve positive mentions",
+                "description": "Analyze current brand sentiment and develop comprehensive strategies to improve positive mentions across AI platforms",
                 "category": "brand",
-                "priority": 2,
-                "estimatedEffort": 8,
-                "expectedImpact": "Increase positive brand sentiment by 15% within 3 months",
-                "actionItems": [
-                    "Conduct sentiment analysis audit",
-                    "Identify key improvement areas",
-                    "Develop content strategy",
-                    "Implement monitoring system"
-                ]
+                "priority": "HIGH",
+                "impactMetric": "Increase positive brand sentiment by 15% within 3 months and reduce negative mentions by 10%",
+                "dependencies": {
+                    "actionItems": [
+                        "Conduct sentiment analysis audit",
+                        "Identify key improvement areas",
+                        "Develop content strategy",
+                        "Implement monitoring system"
+                    ],
+                    "estimatedEffort": 8,
+                    "successMetrics": ["Sentiment score improvement", "Mention volume increase"],
+                    "prerequisites": []
+                }
             }
         }
 
@@ -525,26 +597,36 @@ class OptimizationTaskGeneration(BaseModel):
         description="When the tasks were generated"
     )
 
-    @root_validator
+    @model_validator(mode='before')
     def validate_total_tasks(cls, values):
         """Validate that totalTasks matches actual task count"""
-        tasks = values.get('tasks', [])
-        total = values.get('totalTasks', 0)
-        if len(tasks) != total:
-            values['totalTasks'] = len(tasks)
+        if isinstance(values, dict):
+            tasks = values.get('tasks', [])
+            total = values.get('totalTasks', 0)
+            if len(tasks) != total:
+                values['totalTasks'] = len(tasks)
         return values
 
 # ===== QUESTION ANSWERING MODELS =====
 
+class CitationSource(BaseModel):
+    """A citation source with detailed information"""
+    url: str = Field(..., description="URL of the source")
+    title: str = Field(..., description="Title of the source")
+    domain: str = Field(..., description="Domain of the source")
+    accessed_at: datetime = Field(default_factory=datetime.now, description="When the source was accessed")
+
 class QuestionResponse(BaseModel):
     """
-    Response to a question with metadata.
+    Response to a question with brand mentions and citations.
     
     Attributes:
         question: Original question
-        answer: Generated answer
+        answer: Generated answer with <brand> tags for mentions
         confidence: Confidence score (0-1)
-        sources: List of sources used
+        citations: List of web sources used to generate the answer
+        brand_mentions_count: Number of <brand> tags in the response
+        has_web_search: Whether web search was used to generate the answer
         timestamp: When the response was generated
     """
     question: str = Field(
@@ -556,8 +638,8 @@ class QuestionResponse(BaseModel):
     answer: str = Field(
         ..., 
         min_length=10, 
-        max_length=2000,
-        description="Generated answer"
+        max_length=10000,
+        description="Generated answer with <brand> tags for company mentions"
     )
     confidence: float = Field(
         ..., 
@@ -565,23 +647,49 @@ class QuestionResponse(BaseModel):
         le=1.0,
         description="Confidence score for the answer"
     )
-    sources: List[str] = Field(
-        default=[], 
-        max_items=10,
-        description="List of sources used"
+    citations: List[CitationSource] = Field(
+        default_factory=list,
+        max_items=5,
+        description="List of web sources used to generate the answer"
+    )
+    brand_mentions_count: int = Field(
+        default=0,
+        ge=0,
+        description="Number of <brand> tags in the response"
+    )
+    has_web_search: bool = Field(
+        default=False,
+        description="Whether web search was used to generate the answer"
     )
     timestamp: datetime = Field(
         default_factory=datetime.now,
         description="When the response was generated"
     )
 
+    @model_validator(mode='after')
+    def count_brand_mentions(self):
+        """Count <brand> tags in the answer"""
+        import re
+        brand_tags = re.findall(r'<brand>(.*?)</brand>', self.answer, re.IGNORECASE)
+        self.brand_mentions_count = len(brand_tags)
+        return self
+
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "question": "What are the key benefits of using project management software?",
-                "answer": "Project management software provides several key benefits including improved team collaboration, better task tracking, enhanced visibility into project progress, and more efficient resource allocation.",
+                "answer": "Project management software provides several key benefits including improved team collaboration, better task tracking, enhanced visibility into project progress, and more efficient resource allocation. Companies like <brand>Asana</brand> and <brand>Trello</brand> are popular choices.",
                 "confidence": 0.92,
-                "sources": ["Industry research", "User surveys", "Product documentation"],
+                "citations": [
+                    {
+                        "url": "https://example.com/pm-benefits",
+                        "title": "Benefits of Project Management Software",
+                        "domain": "example.com",
+                        "accessed_at": "2024-01-15T10:30:00Z"
+                    }
+                ],
+                "brand_mentions_count": 2,
+                "has_web_search": True,
                 "timestamp": "2024-01-15T10:30:00Z"
             }
         }
@@ -612,7 +720,7 @@ class AgentExecutionMetadata(BaseModel):
     fallbackUsed: bool = Field(..., description="Whether fallback was used")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "agentId": "sentiment_analyzer",
                 "modelUsed": "gpt-4o",

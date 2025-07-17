@@ -15,7 +15,7 @@ LLM interactions with detailed tracing and performance monitoring.
 - Custom business event tracking
 
 @dependencies
-- logfire: Main observability SDK for Python
+- logfire: Main observability SDK for Python (loaded lazily)
 - pydantic-ai: Agent framework
 - os: Environment variable access
 
@@ -29,22 +29,75 @@ LLM interactions with detailed tracing and performance monitoring.
 
 import os
 import logging
+import threading
+import signal
 from typing import Optional, Dict, Any, Union
 from dataclasses import dataclass
 from datetime import datetime
+from contextlib import contextmanager
 
-try:
-    import logfire
-    LOGFIRE_AVAILABLE = True
-except ImportError:
-    LOGFIRE_AVAILABLE = False
-    logfire = None
-
-from pydantic_ai import Agent
+# Lazy loading for logfire to prevent import hanging
+_logfire = None
+_logfire_import_attempted = False
+_logfire_import_lock = threading.Lock()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+@contextmanager
+def timeout_context(seconds):
+    """Context manager for handling timeouts during imports"""
+    def timeout_handler(signum, frame):
+        raise TimeoutError("Import operation timed out")
+    
+    # Set the signal handler
+    old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(seconds)
+    
+    try:
+        yield
+    finally:
+        # Restore the old signal handler
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old_handler)
+
+def _lazy_import_logfire():
+    """Lazy import logfire with timeout protection"""
+    global _logfire, _logfire_import_attempted
+    
+    with _logfire_import_lock:
+        if _logfire_import_attempted:
+            return _logfire
+        
+        _logfire_import_attempted = True
+        
+        # Check if logfire is disabled
+        if os.getenv('LOGFIRE_DISABLE') == '1' or os.getenv('DISABLE_LOGFIRE') == '1':
+            logger.info("Logfire disabled via environment variable")
+            return None
+        
+        try:
+            # Import with timeout protection (5 seconds max)
+            with timeout_context(5):
+                import logfire as _logfire_module
+                _logfire = _logfire_module
+                logger.info("Logfire imported successfully")
+                return _logfire
+                
+        except TimeoutError:
+            logger.warning("Logfire import timed out after 5 seconds - continuing without logfire")
+            return None
+        except ImportError:
+            logger.warning("Logfire not available - continuing without logfire")
+            return None
+        except Exception as e:
+            logger.warning(f"Failed to import logfire: {e} - continuing without logfire")
+            return None
+
+def is_logfire_available() -> bool:
+    """Check if logfire is available and can be imported"""
+    return _lazy_import_logfire() is not None
 
 @dataclass
 class LogfireConfig:
@@ -81,7 +134,9 @@ def setup_logfire(config: Optional[LogfireConfig] = None) -> bool:
         logger.warning("Logfire already initialized, skipping...")
         return True
     
-    if not LOGFIRE_AVAILABLE:
+    # Lazy import logfire
+    logfire = _lazy_import_logfire()
+    if not logfire:
         logger.warning("Logfire not available, skipping instrumentation")
         return False
     
@@ -102,38 +157,58 @@ def setup_logfire(config: Optional[LogfireConfig] = None) -> bool:
         # Validate Logfire token
         logfire_token = os.getenv('LOGFIRE_TOKEN')
         if not logfire_token:
-            logger.error("LOGFIRE_TOKEN environment variable is required")
+            logger.warning("LOGFIRE_TOKEN environment variable not set - skipping logfire setup")
             return False
         
-        # Configure Logfire
-        logfire.configure(
-            service_name=_config.service_name,
-            service_version=_config.service_version,
-            send_to_logfire=True,
-            console=_config.debug_mode,
-            pydantic_plugin={
-                'record': 'all'
-            }
-        )
+        # Configure Logfire with timeout protection
+        try:
+            with timeout_context(10):
+                logfire.configure(
+                    service_name=_config.service_name,
+                    service_version=_config.service_version,
+                    send_to_logfire=True,
+                    console=_config.debug_mode
+                )
+        except TimeoutError:
+            logger.warning("Logfire configuration timed out - continuing without logfire")
+            return False
+        
+        # Enable Pydantic instrumentation separately (new API)
+        try:
+            logfire.instrument_pydantic()
+        except Exception as e:
+            logger.warning(f"Failed to instrument Pydantic: {e}")
         
         # Enable comprehensive instrumentation
         if _config.enable_agent_instrumentation:
-            # PydanticAI instrumentation
-            logfire.instrument_pydantic_ai()
-            logger.info("PydanticAI instrumentation enabled")
+            try:
+                # PydanticAI instrumentation
+                logfire.instrument_pydantic_ai()
+                logger.info("PydanticAI instrumentation enabled")
+            except Exception as e:
+                logger.warning(f"Failed to instrument PydanticAI: {e}")
         
         if _config.enable_model_instrumentation:
-            # Model provider instrumentation
-            logfire.instrument_openai()
-            logfire.instrument_anthropic()
-            logger.info("LLM provider instrumentation enabled")
+            try:
+                # Model provider instrumentation
+                logfire.instrument_openai()
+                logfire.instrument_anthropic()
+                logger.info("LLM provider instrumentation enabled")
+            except Exception as e:
+                logger.warning(f"Failed to instrument LLM providers: {e}")
         
         # HTTP instrumentation for external API calls
-        logfire.instrument_httpx()
-        logfire.instrument_requests()
+        try:
+            logfire.instrument_httpx()
+            logfire.instrument_requests()
+        except Exception as e:
+            logger.warning(f"Failed to instrument HTTP clients: {e}")
         
         # Python logging integration
-        logfire.instrument_logging()
+        try:
+            logfire.instrument_logging()
+        except Exception as e:
+            logger.warning(f"Failed to instrument logging: {e}")
         
         _initialized = True
         
@@ -154,9 +229,9 @@ def setup_logfire(config: Optional[LogfireConfig] = None) -> bool:
 
 def get_logfire_instance():
     """Get the configured Logfire instance"""
-    if not LOGFIRE_AVAILABLE:
+    if not is_logfire_available():
         return None
-    return logfire if _initialized else None
+    return _lazy_import_logfire() if _initialized else None
 
 def get_config() -> Optional[LogfireConfig]:
     """Get the current Logfire configuration"""
@@ -164,7 +239,7 @@ def get_config() -> Optional[LogfireConfig]:
 
 def is_initialized() -> bool:
     """Check if Logfire is properly initialized"""
-    return _initialized and LOGFIRE_AVAILABLE
+    return _initialized and is_logfire_available()
 
 def track_agent_execution(
     agent_name: str,
@@ -187,23 +262,27 @@ def track_agent_execution(
         output_data: Output data (will be sanitized)
         metadata: Additional metadata
     """
-    if not is_initialized():
+    logfire = get_logfire_instance()
+    if not logfire or not is_initialized():
         return
     
     # Sanitize input/output data to avoid sending sensitive information
     sanitized_input = _sanitize_data(input_data) if input_data else None
     sanitized_output = _sanitize_data(output_data) if output_data else None
     
-    logfire.info('Agent Execution Tracked', 
-        agent_name=agent_name,
-        operation=operation,
-        duration_ms=duration_ms,
-        success=success,
-        input_length=len(str(sanitized_input)) if sanitized_input else 0,
-        output_length=len(str(sanitized_output)) if sanitized_output else 0,
-        metadata=metadata or {},
-        timestamp=datetime.now().isoformat()
-    )
+    try:
+        logfire.info('Agent Execution Tracked', 
+            agent_name=agent_name,
+            operation=operation,
+            duration_ms=duration_ms,
+            success=success,
+            input_length=len(str(sanitized_input)) if sanitized_input else 0,
+            output_length=len(str(sanitized_output)) if sanitized_output else 0,
+            metadata=metadata or {},
+            timestamp=datetime.now().isoformat()
+        )
+    except Exception as e:
+        logger.warning(f"Failed to track agent execution: {e}")
 
 def track_model_usage(
     provider: str,
@@ -230,21 +309,25 @@ def track_model_usage(
         error_message: Error message if the request failed
         metadata: Additional metadata
     """
-    if not is_initialized():
+    logfire = get_logfire_instance()
+    if not logfire or not is_initialized():
         return
     
-    logfire.info('Model Usage Tracked',
-        provider=provider,
-        model_id=model_id,
-        operation=operation,
-        tokens_used=tokens_used,
-        cost_estimate=cost_estimate,
-        duration_ms=duration_ms,
-        success=success,
-        error_message=error_message,
-        metadata=metadata or {},
-        timestamp=datetime.now().isoformat()
-    )
+    try:
+        logfire.info('Model Usage Tracked',
+            provider=provider,
+            model_id=model_id,
+            operation=operation,
+            tokens_used=tokens_used,
+            cost_estimate=cost_estimate,
+            duration_ms=duration_ms,
+            success=success,
+            error_message=error_message,
+            metadata=metadata or {},
+            timestamp=datetime.now().isoformat()
+        )
+    except Exception as e:
+        logger.warning(f"Failed to track model usage: {e}")
 
 def track_tool_execution(
     tool_name: str,
@@ -267,23 +350,27 @@ def track_tool_execution(
         output_result: Tool output result (will be sanitized)
         error_message: Error message if the tool failed
     """
-    if not is_initialized():
+    logfire = get_logfire_instance()
+    if not logfire or not is_initialized():
         return
     
     # Sanitize data
     sanitized_input = _sanitize_data(input_args) if input_args else None
     sanitized_output = _sanitize_data(output_result) if output_result else None
     
-    logfire.info('Tool Execution Tracked',
-        tool_name=tool_name,
-        agent_name=agent_name,
-        duration_ms=duration_ms,
-        success=success,
-        input_length=len(str(sanitized_input)) if sanitized_input else 0,
-        output_length=len(str(sanitized_output)) if sanitized_output else 0,
-        error_message=error_message,
-        timestamp=datetime.now().isoformat()
-    )
+    try:
+        logfire.info('Tool Execution Tracked',
+            tool_name=tool_name,
+            agent_name=agent_name,
+            duration_ms=duration_ms,
+            success=success,
+            input_length=len(str(sanitized_input)) if sanitized_input else 0,
+            output_length=len(str(sanitized_output)) if sanitized_output else 0,
+            error_message=error_message,
+            timestamp=datetime.now().isoformat()
+        )
+    except Exception as e:
+        logger.warning(f"Failed to track tool execution: {e}")
 
 def track_error(
     error: Exception,
@@ -302,18 +389,22 @@ def track_error(
         operation: Operation that was being performed
         metadata: Additional metadata
     """
-    if not is_initialized():
+    logfire = get_logfire_instance()
+    if not logfire or not is_initialized():
         return
     
-    logfire.error('Agent Error Tracked',
-        error_message=str(error),
-        error_type=type(error).__name__,
-        context=context,
-        agent_name=agent_name,
-        operation=operation,
-        metadata=metadata or {},
-        timestamp=datetime.now().isoformat()
-    )
+    try:
+        logfire.error('Agent Error Tracked',
+            error_message=str(error),
+            error_type=type(error).__name__,
+            context=context,
+            agent_name=agent_name,
+            operation=operation,
+            metadata=metadata or {},
+            timestamp=datetime.now().isoformat()
+        )
+    except Exception as e:
+        logger.warning(f"Failed to track error: {e}")
 
 def _sanitize_data(data: Any, max_length: int = 1000) -> Any:
     """
@@ -354,6 +445,24 @@ def _sanitize_data(data: Any, max_length: int = 1000) -> Any:
     
     return str_data
 
-# Auto-initialize if LOGFIRE_TOKEN is available
-if os.getenv('LOGFIRE_TOKEN') and not _initialized:
-    setup_logfire() 
+# Auto-initialization with lazy loading and timeout protection
+def auto_initialize():
+    """Auto-initialize logfire if conditions are met"""
+    try:
+        # Only attempt if LOGFIRE_TOKEN is available and logfire isn't disabled
+        if (os.getenv('LOGFIRE_TOKEN') and 
+            not os.getenv('LOGFIRE_DISABLE') and 
+            not os.getenv('DISABLE_LOGFIRE') and 
+            not _initialized):
+            
+            logger.info("Auto-initializing logfire...")
+            setup_logfire()
+    except Exception as e:
+        logger.warning(f"Auto-initialization failed: {e}")
+
+# Defer auto-initialization until explicitly called
+# This prevents hanging during module import
+if __name__ != "__main__":
+    # Only auto-initialize when this module is imported, not when run directly
+    import atexit
+    atexit.register(auto_initialize) 

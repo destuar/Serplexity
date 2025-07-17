@@ -24,6 +24,7 @@ interface StreamedResponse {
   engine: string;
   usage: { promptTokens: number; completionTokens: number; totalTokens: number };
   questionType: 'visibility' | 'benchmark' | 'personal';
+  citations?: StreamedCitation[];
 }
 
 interface StreamedMention {
@@ -32,9 +33,18 @@ interface StreamedMention {
   isCompany: boolean;
 }
 
+interface StreamedCitation {
+  url: string;
+  title: string;
+  domain: string;
+  accessedAt: Date;
+  position: number;
+}
+
 interface WriteStats {
   responsesWritten: number;
   mentionsWritten: number;
+  citationsWritten: number;
   batchesProcessed: number;
   totalWriteTime: number;
   avgBatchTime: number;
@@ -62,6 +72,7 @@ export class StreamingDatabaseWriter {
   private stats: WriteStats = {
     responsesWritten: 0,
     mentionsWritten: 0,
+    citationsWritten: 0,
     batchesProcessed: 0,
     totalWriteTime: 0,
     avgBatchTime: 0
@@ -393,6 +404,21 @@ export class StreamingDatabaseWriter {
             });
           }
           this.stats.mentionsWritten += mentions.length;
+        }
+
+        // Handle citations if present
+        if (r.citations && r.citations.length > 0) {
+          await tx.fanoutCitation.createMany({
+            data: r.citations.map(c => ({
+              fanoutResponseId: created.id,
+              url: c.url,
+              title: c.title,
+              domain: c.domain,
+              accessedAt: c.accessedAt,
+              position: c.position,
+            })),
+          });
+          this.stats.citationsWritten += r.citations.length;
         }
       }
     }, {

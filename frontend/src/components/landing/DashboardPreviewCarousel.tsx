@@ -201,13 +201,14 @@ const DashboardPreviewCarousel: React.FC = () => {
       }
     );
 
-    if (carouselRef.current) {
-      observer.observe(carouselRef.current);
+    const currentRef = carouselRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
     }
 
     return () => {
-      if (carouselRef.current) {
-        observer.unobserve(carouselRef.current);
+      if (currentRef) {
+        observer.unobserve(currentRef);
       }
     };
   }, []);

@@ -40,6 +40,7 @@ export interface TokenUsage {
 export interface ChatCompletionResponse<T> {
   data: T;
   usage: TokenUsage;
+  modelUsed?: string;
 }
 
 export interface CompetitorInfo {
@@ -77,7 +78,7 @@ const CompetitorSchema = z.object({
 const QuestionResponseSchema = z.object({
   response: z.string().min(1),
   confidence: z.number().min(0).max(1).optional(),
-  sources: z.array(z.string()).optional(),
+  sources: z.array(z.string()),
 });
 
 export type SentimentScores = z.infer<typeof SentimentScoresSchema>;
@@ -106,7 +107,7 @@ export async function generateSentimentScores(
 
     // Execute PydanticAI agent
     const result = await pydanticLlmService.executeAgent<SentimentScores>(
-      'sentiment_agent.py',
+      'web_search_sentiment_agent.py',
       {
         company_name: companyName,
         industry,
@@ -141,7 +142,8 @@ export async function generateSentimentScores(
         promptTokens: Math.floor(result.metadata.tokensUsed * 0.7),
         completionTokens: Math.floor(result.metadata.tokensUsed * 0.3),
         totalTokens: result.metadata.tokensUsed
-      }
+      },
+      modelUsed: result.metadata.modelUsed
     };
 
   } catch (error) {
@@ -220,7 +222,8 @@ export async function generateOverallSentimentSummary(
         promptTokens: Math.floor(result.metadata.tokensUsed * 0.7),
         completionTokens: Math.floor(result.metadata.tokensUsed * 0.3),
         totalTokens: result.metadata.tokensUsed
-      }
+      },
+      modelUsed: result.metadata.modelUsed
     };
 
   } catch (error) {
@@ -288,7 +291,8 @@ export async function generateQuestionResponse(
         promptTokens: Math.floor(result.metadata.tokensUsed * 0.6),
         completionTokens: Math.floor(result.metadata.tokensUsed * 0.4),
         totalTokens: result.metadata.tokensUsed
-      }
+      },
+      modelUsed: result.metadata.modelUsed
     };
 
   } catch (error) {
@@ -361,7 +365,8 @@ export async function generateWebsiteForCompetitors(
         promptTokens: Math.floor(result.metadata.tokensUsed * 0.8),
         completionTokens: Math.floor(result.metadata.tokensUsed * 0.2),
         totalTokens: result.metadata.tokensUsed
-      }
+      },
+      modelUsed: result.metadata.modelUsed
     };
 
   } catch (error) {
@@ -397,7 +402,7 @@ export async function generateChatCompletion(
     if (schema) {
       // Structured output with schema validation
       const result = await pydanticLlmService.executeAgent<any>(
-        'generic_agent.py',
+        'question_agent.py',
         {
           prompt,
           output_schema: schema,
@@ -423,7 +428,7 @@ export async function generateChatCompletion(
     } else {
       // Simple text completion
       const result = await pydanticLlmService.executeAgent<{ response: string }>(
-        'text_agent.py',
+        'question_agent.py',
         {
           prompt,
           structured: false
@@ -482,7 +487,7 @@ export async function generateAndValidate<T, U>(
 
     // Execute with PydanticAI agent
     const result = await pydanticLlmService.executeAgent<T>(
-      'validation_agent.py',
+      'question_agent.py',
       {
         prompt,
         task,

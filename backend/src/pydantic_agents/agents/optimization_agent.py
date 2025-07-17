@@ -41,10 +41,17 @@ Output Format:
 import asyncio
 import json
 import sys
+import os
+from pathlib import Path
 from typing import Dict, Any, Type, List
+from dotenv import load_dotenv
 
-from .base_agent import BaseAgent
-from .schemas import OptimizationTaskGeneration, OptimizationTask, OptimizationTaskCategory
+# Load environment variables from .env file
+load_dotenv(Path(__file__).parent.parent.parent.parent / '.env')
+
+from pydantic_agents.base_agent import BaseAgent
+from pydantic_agents.schemas import OptimizationTaskGeneration, OptimizationTask, OptimizationTaskCategory
+from pydantic_agents.config.models import get_default_model_for_task, ModelTask
 
 class OptimizationTaskAgent(BaseAgent):
     """
@@ -55,12 +62,15 @@ class OptimizationTaskAgent(BaseAgent):
     """
     
     def __init__(self):
+        # Get default model for optimization tasks
+        default_model_config = get_default_model_for_task(ModelTask.OPTIMIZATION_TASKS)
+        default_model = default_model_config.get_pydantic_model_id() if default_model_config else "openai:gpt-4.1-mini"
+        
         super().__init__(
             agent_id="optimization_task_generator",
-            default_model="openai:gpt-4o",
+            default_model=default_model,
             system_prompt=self._build_system_prompt(),
             temperature=0.7,  # Balanced temperature for creative yet focused tasks
-            max_tokens=2500,
             timeout=45000,
             max_retries=3
         )
@@ -108,17 +118,19 @@ IMPACT ASSESSMENT:
 - Account for competitive advantages
 - Include risk mitigation aspects
 
-ACTION ITEMS STRUCTURE:
-- Start with research and analysis
-- Include planning and strategy development
-- Detail implementation steps
-- Include testing and validation
-- End with monitoring and optimization
+TASK STRUCTURE REQUIREMENTS:
+- Each task must have a unique taskId (use snake_case format)
+- Use priority levels: HIGH, MEDIUM, or LOW
+- Put additional details in dependencies object including:
+  * actionItems: List of specific steps to complete the task
+  * estimatedEffort: Hours required to complete the task
+  * successMetrics: Measurable outcomes
+  * prerequisites: Any dependencies on other tasks
 
 Your response must follow the exact JSON format specified by the OptimizationTaskGeneration schema."""
     
-    def get_result_type(self) -> Type[OptimizationTaskGeneration]:
-        """Return the result type for this agent"""
+    def get_output_type(self) -> Type[OptimizationTaskGeneration]:
+        """Return the output type for this agent"""
         return OptimizationTaskGeneration
     
     async def process_input(self, input_data: Dict[str, Any]) -> str:
@@ -205,24 +217,33 @@ Ensure your response follows the exact JSON schema format for OptimizationTaskGe
         if len(set(task_titles)) != len(task_titles):
             return False
         
-        # Check that all tasks have action items
+        # Check that all tasks have action items in dependencies
         for task in tasks:
-            if not task.actionItems or len(task.actionItems) < 1:
+            dependencies = getattr(task, 'dependencies', {})
+            action_items = dependencies.get('actionItems', [])
+            if not action_items or len(action_items) < 1:
                 return False
         
         return True
     
     def _validate_effort_estimates(self, tasks: List[OptimizationTask]) -> bool:
         """Validate that effort estimates are realistic"""
-        total_effort = sum(task.estimatedEffort for task in tasks)
+        total_effort = 0
+        high_effort_tasks = 0
+        
+        for task in tasks:
+            dependencies = getattr(task, 'dependencies', {})
+            effort = dependencies.get('estimatedEffort', 0)
+            total_effort += effort
+            if effort > 40:
+                high_effort_tasks += 1
         
         # Check for reasonable total effort (not too low or too high)
         if total_effort < 10 or total_effort > 1000:
             return False
         
         # Check for reasonable effort distribution
-        high_effort_tasks = [task for task in tasks if task.estimatedEffort > 40]
-        if len(high_effort_tasks) > len(tasks) // 2:
+        if high_effort_tasks > len(tasks) // 2:
             return False
         
         return True
@@ -246,8 +267,9 @@ Ensure your response follows the exact JSON schema format for OptimizationTaskGe
                 result.tasks = result.tasks[:max_tasks]
             result.totalTasks = len(result.tasks)
         
-        # Sort tasks by priority
-        result.tasks.sort(key=lambda x: x.priority)
+        # Sort tasks by priority (HIGH first, then MEDIUM, then LOW)
+        priority_order = {"HIGH": 1, "MEDIUM": 2, "LOW": 3}
+        result.tasks.sort(key=lambda x: priority_order.get(x.priority, 3))
         
         return result
 
@@ -261,8 +283,12 @@ async def main():
         agent = OptimizationTaskAgent()
         result = await agent.execute(input_data)
         
+        # Convert result to JSON-serializable format
+        if 'result' in result and hasattr(result['result'], 'model_dump'):
+            result['result'] = result['result'].model_dump()
+        
         # Output result
-        print(json.dumps(result))
+        print(json.dumps(result, indent=2, default=str))
         
     except Exception as e:
         # Output error in consistent format

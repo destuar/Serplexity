@@ -143,6 +143,7 @@ model FanoutResponse {
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
   mentions         FanoutMention[]
+  citations        FanoutCitation[]
   fanoutQuestion   FanoutQuestion  @relation(fields: [fanoutQuestionId], references: [id], onDelete: Cascade)
   run              ReportRun       @relation(fields: [runId], references: [id], onDelete: Cascade)
 
@@ -169,6 +170,24 @@ model FanoutMention {
   @@index([companyId])
   @@index([fanoutResponseId, companyId])
   @@index([fanoutResponseId, competitorId])
+}
+
+model FanoutCitation {
+  id               String         @id @default(cuid())
+  fanoutResponseId String
+  url              String
+  title            String
+  domain           String
+  accessedAt       DateTime
+  position         Int            // Order of citation in the response
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  fanoutResponse   FanoutResponse @relation(fields: [fanoutResponseId], references: [id], onDelete: Cascade)
+
+  @@index([fanoutResponseId])
+  @@index([domain])
+  @@index([url])
+  @@index([fanoutResponseId, position])
 }
 
 model ReportMetric {
