@@ -10,13 +10,11 @@ from .sentiment_summary_agent import SentimentSummaryAgent
 from .fanout_agent import IntelligentFanoutAgent
 from .question_agent import QuestionAnsweringAgent
 from .website_enrichment_agent import WebsiteEnrichmentAgent
-from .optimization_agent import OptimizationTaskAgent
 
 __all__ = [
     'WebSearchSentimentAgent',
     'SentimentSummaryAgent',
     'IntelligentFanoutAgent',
     'QuestionAnsweringAgent',
-    'WebsiteEnrichmentAgent',
-    'OptimizationTaskAgent'
+    'WebsiteEnrichmentAgent'
 ]

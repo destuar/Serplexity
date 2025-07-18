@@ -233,75 +233,76 @@ describe('🔗 TypeScript Service Integration Tests', () => {
   });
 
   describe('🎯 Optimization Task Service Integration', () => {
-    it('should integrate persistOptimizationTasks with optimization_agent.py data', async () => {
-      console.log('\\n🎯 Testing optimizationTaskService ↔ optimization_agent.py...');
+    // DISABLED: Optimization agent has been removed in favor of hardcoded preset tasks
+    // it('should integrate persistOptimizationTasks with optimization_agent.py data', async () => {
+    //   console.log('\\n🎯 Testing optimizationTaskService ↔ optimization_agent.py...');
 
-      try {
-        // First generate tasks using optimization_agent.py
-        const optimizationInput = {
-          company_name: "TestCorp",
-          industry: "Technology", 
-          context: "Integration test for optimization tasks",
-          categories: ["content", "brand"],
-          max_tasks: 3
-        };
+    //   try {
+    //     // First generate tasks using optimization_agent.py
+    //     const optimizationInput = {
+    //       company_name: "TestCorp",
+    //       industry: "Technology", 
+    //       context: "Integration test for optimization tasks",
+    //       categories: ["content", "brand"],
+    //       max_tasks: 3
+    //     };
 
-        const agentResult = await pydanticLlmService.executeAgent(
-          'optimization_agent.py',
-          optimizationInput,
-          null,
-          { timeout: 30000 }
-        );
+    //     const agentResult = await pydanticLlmService.executeAgent(
+    //       'optimization_agent.py',
+    //       optimizationInput,
+    //       null,
+    //       { timeout: 30000 }
+    //     );
 
-        // Validate agent result structure
-        expect(agentResult.data).toBeDefined();
-        expect(agentResult.data.tasks).toBeDefined();
-        expect(Array.isArray(agentResult.data.tasks)).toBe(true);
-        expect(agentResult.data.tasks.length).toBeGreaterThan(0);
+    //     // Validate agent result structure
+    //     expect(agentResult.data).toBeDefined();
+    //     expect(agentResult.data.tasks).toBeDefined();
+    //     expect(Array.isArray(agentResult.data.tasks)).toBe(true);
+    //     expect(agentResult.data.tasks.length).toBeGreaterThan(0);
 
-        console.log(`   ✅ Generated ${agentResult.data.tasks.length} optimization tasks`);
+    //     console.log(`   ✅ Generated ${agentResult.data.tasks.length} optimization tasks`);
 
-        // Test task data structure compatibility (without database persistence)
-        const mockRunId = 'test-run-123';
-        const tasks = agentResult.data.tasks;
+    //     // Test task data structure compatibility (without database persistence)
+    //     const mockRunId = 'test-run-123';
+    //     const tasks = agentResult.data.tasks;
 
-        // Validate each task has required fields for persistence
-        tasks.forEach((task: any, index: number) => {
-          expect(task).toHaveProperty('title');
-          expect(task).toHaveProperty('description');
-          expect(task).toHaveProperty('category');
-          expect(typeof task.title).toBe('string');
-          expect(typeof task.description).toBe('string');
-          expect(task.title.length).toBeGreaterThan(0);
-          expect(task.description.length).toBeGreaterThan(0);
+    //     // Validate each task has required fields for persistence
+    //     tasks.forEach((task: any, index: number) => {
+    //       expect(task).toHaveProperty('title');
+    //       expect(task).toHaveProperty('description');
+    //       expect(task).toHaveProperty('category');
+    //       expect(typeof task.title).toBe('string');
+    //       expect(typeof task.description).toBe('string');
+    //       expect(task.title.length).toBeGreaterThan(0);
+    //       expect(task.description.length).toBeGreaterThan(0);
 
-          console.log(`   📋 Task ${index + 1}: [${task.category}] ${task.title.substring(0, 50)}...`);
-        });
+    //       console.log(`   📋 Task ${index + 1}: [${task.category}] ${task.title.substring(0, 50)}...`);
+    //     });
 
-        // Mock the persistOptimizationTasks function behavior (without database)
-        const mockPersistResult = {
-          tasksCreated: tasks.length,
-          runId: mockRunId,
-          tasks: tasks.map((task: any, index: number) => ({
-            id: `mock-task-${index + 1}`,
-            title: task.title,
-            description: task.description,
-            category: task.category,
-            completed: false
-          }))
-        };
+    //     // Mock the persistOptimizationTasks function behavior (without database)
+    //     const mockPersistResult = {
+    //       tasksCreated: tasks.length,
+    //       runId: mockRunId,
+    //       tasks: tasks.map((task: any, index: number) => ({
+    //         id: `mock-task-${index + 1}`,
+    //         title: task.title,
+    //         description: task.description,
+    //         category: task.category,
+    //         completed: false
+    //       }))
+    //     };
 
-        console.log(`   ✅ Mock persistence: ${mockPersistResult.tasksCreated} tasks would be saved`);
-        console.log(`   🎯 Integration validated: optimization_agent.py → optimizationTaskService`);
+    //     console.log(`   ✅ Mock persistence: ${mockPersistResult.tasksCreated} tasks would be saved`);
+    //     console.log(`   🎯 Integration validated: optimization_agent.py → optimizationTaskService`);
 
-      } catch (error) {
-        if (error instanceof Error && error.message.includes('API key')) {
-          console.warn('   ⚠️  Skipping due to missing API keys');
-          return;
-        }
-        throw new Error(`Optimization task service integration failed: ${error}`);
-      }
-    }, 45000);
+    //   } catch (error) {
+    //     if (error instanceof Error && error.message.includes('API key')) {
+    //       console.warn('   ⚠️  Skipping due to missing API keys');
+    //       return;
+    //     }
+    //     throw new Error(`Optimization task service integration failed: ${error}`);
+    //   }
+    // }, 45000);
   });
 
   describe('📊 Metrics Service Integration', () => {

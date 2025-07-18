@@ -548,6 +548,19 @@ export const getLatestReport = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'No completed report found for this company.' });
     }
 
+    // Debug: Check citation counts for this report
+    const citationCount = await prismaReadReplica.fanoutCitation.count({
+      where: {
+        fanoutResponse: { runId: latestRun.id }
+      }
+    });
+    
+    const responseCount = await prismaReadReplica.fanoutResponse.count({
+      where: { runId: latestRun.id }
+    });
+    
+    console.log(`[getLatestReport] Report ${latestRun.id} has ${responseCount} responses and ${citationCount} citations`);
+
     // Fetch all pre-computed metrics for the latest report
     const metrics = await getFullReportMetrics(latestRun.id, effectiveModel);
 
@@ -637,7 +650,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
       createdAt: latestRun.createdAt,
       updatedAt: latestRun.updatedAt,
       lastUpdated: latestRun.updatedAt.toISOString(),
-      aiVisibilitySummary: latestRun.aiVisibilitySummary || null,
+
       optimizationTasks,
       sentimentDetails, // Add sentiment details to the response
       ...metrics, // Spread all the pre-computed metrics (may include history if present)
@@ -663,6 +676,127 @@ export const getLatestReport = async (req: Request, res: Response) => {
     }, `Failed to retrieve latest report for company ${companyId}`, 'ERROR');
     
     res.status(500).json({ error: 'Failed to retrieve report' });
+  }
+};
+
+// Debug endpoint to check citation data for a specific report
+export const getReportCitationDebug = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
+  const prismaReadReplica = await getReadDbClient();
+  const { runId } = req.params;
+  const userId = req.user?.id;
+
+  try {
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // Get report info and verify ownership
+    const report = await prismaReadReplica.reportRun.findFirst({
+      where: {
+        id: runId,
+        company: { userId }
+      },
+      include: {
+        company: {
+          select: { id: true, name: true }
+        }
+      }
+    });
+
+    if (!report) {
+      return res.status(404).json({ error: 'Report not found or access denied' });
+    }
+
+    // Get citation counts
+    const totalCitations = await prismaReadReplica.fanoutCitation.count({
+      where: {
+        fanoutResponse: { runId }
+      }
+    });
+
+    // Get sample citations with their response info
+    const sampleCitations = await prismaReadReplica.fanoutCitation.findMany({
+      where: {
+        fanoutResponse: { runId }
+      },
+      select: {
+        id: true,
+        url: true,
+        title: true,
+        domain: true,
+        position: true,
+        fanoutResponse: {
+          select: {
+            id: true,
+            model: true,
+            engine: true,
+            fanoutQuestion: {
+              select: {
+                text: true,
+                type: true
+              }
+            }
+          }
+        }
+      },
+      take: 10,
+      orderBy: { position: 'asc' }
+    });
+
+    // Get citation counts by domain
+    const citationsByDomain = await prismaReadReplica.$queryRaw`
+      SELECT 
+        domain,
+        COUNT(*) as count
+      FROM "FanoutCitation" fc
+      JOIN "FanoutResponse" fr ON fc."fanoutResponseId" = fr.id
+      WHERE fr."runId" = ${runId}
+      GROUP BY domain
+      ORDER BY count DESC
+      LIMIT 20
+    `;
+
+    // Get response counts for context
+    const totalResponses = await prismaReadReplica.fanoutResponse.count({
+      where: { runId }
+    });
+
+    const responsesWithCitations = await prismaReadReplica.fanoutResponse.count({
+      where: {
+        runId,
+        citations: {
+          some: {}
+        }
+      }
+    });
+
+    return res.status(200).json({
+      reportId: runId,
+      companyName: report.company.name,
+      summary: {
+        totalResponses,
+        responsesWithCitations,
+        totalCitations,
+        citationRate: totalResponses > 0 ? (responsesWithCitations / totalResponses * 100).toFixed(1) + '%' : '0%'
+      },
+      citationsByDomain,
+      sampleCitations: sampleCitations.map(c => ({
+        id: c.id,
+        url: c.url,
+        title: c.title,
+        domain: c.domain,
+        position: c.position,
+        model: c.fanoutResponse.model,
+        engine: c.fanoutResponse.engine,
+        questionType: c.fanoutResponse.fanoutQuestion?.type,
+        questionText: c.fanoutResponse.fanoutQuestion?.text?.substring(0, 100) + '...'
+      }))
+    });
+
+  } catch (error) {
+    console.error(`[getReportCitationDebug] Error:`, error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
 

@@ -78,11 +78,12 @@ const CompetitorSchema = z.object({
 const QuestionResponseSchema = z.object({
   question: z.string(),
   answer: z.string().min(1),
-  confidence: z.number().min(0).max(1).optional(),
   citations: z.array(z.object({
     url: z.string(),
     title: z.string(),
     domain: z.string(),
+    accessedAt: z.string().optional(),
+    position: z.number().optional(),
   })).optional(),
   has_web_search: z.boolean().optional(),
   brand_mentions_count: z.number().optional(),
@@ -266,7 +267,12 @@ export async function generateOverallSentimentSummary(
 export async function generateQuestionResponse(
   question: QuestionInput,
   model: Model
-): Promise<ChatCompletionResponse<string>> {
+): Promise<ChatCompletionResponse<{
+  answer: string;
+  citations?: Array<{ url: string; title: string; domain: string; accessedAt: Date; position: number }>;
+  has_web_search?: boolean;
+  brand_mentions_count?: number;
+}>> {
   const startTime = Date.now();
   
   try {
@@ -283,8 +289,7 @@ export async function generateQuestionResponse(
     const result = await pydanticLlmService.executeAgent<{
       question: string;
       answer: string;
-      confidence?: number;
-      citations?: Array<{ url: string; title: string; domain: string }>;
+      citations?: Array<{ url: string; title: string; domain: string; accessedAt?: string; position?: number }>;
       has_web_search?: boolean;
       brand_mentions_count?: number;
     }>(
@@ -310,11 +315,26 @@ export async function generateQuestionResponse(
       questionId: question.id,
       executionTime,
       tokensUsed: result.metadata.tokensUsed,
-      success: result.metadata.success
+      success: result.metadata.success,
+      citationsCount: result.data.citations?.length || 0
     });
 
+    // Convert and validate citations format
+    const citations = result.data.citations?.map((citation, index) => ({
+      url: citation.url,
+      title: citation.title,
+      domain: citation.domain,
+      accessedAt: citation.accessedAt ? new Date(citation.accessedAt) : new Date(),
+      position: citation.position || index + 1
+    })) || [];
+
     return {
-      data: result.data.answer,
+      data: {
+        answer: result.data.answer,
+        citations: citations,
+        has_web_search: result.data.has_web_search,
+        brand_mentions_count: result.data.brand_mentions_count
+      },
       usage: {
         promptTokens: Math.floor(result.metadata.tokensUsed * 0.6),
         completionTokens: Math.floor(result.metadata.tokensUsed * 0.4),

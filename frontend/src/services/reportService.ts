@@ -137,7 +137,4 @@ export const updateTaskStatus = async (reportRunId: string, taskId: string, stat
   return data.task;
 };
 
-export const getVisibilitySummary = async (companyId: string): Promise<string | null> => {
-  const { data } = await apiClient.get(`/reports/companies/${companyId}/visibility-summary`);
-  return data.summary;
-}; 
+ 

@@ -261,72 +261,73 @@ describe('PydanticAI Agent Unit Tests', () => {
     });
   });
 
-  describe('Optimization Tasks Agent', () => {
-    const mockOptimizationInput = {
-      company_name: "TestCorp",
-      industry: "Technology",
-      context: "Generate optimization tasks based on AI visibility metrics",
-      categories: ["content", "technical", "brand", "visibility", "performance"],
-      max_tasks: 10,
-      priority_focus: "high_impact"
-    };
+  // describe('Optimization Tasks Agent', () => {
+  //   // DISABLED: Optimization agent has been removed in favor of hardcoded preset tasks
+  //   // const mockOptimizationInput = {
+  //   //   company_name: "TestCorp",
+  //   //   industry: "Technology",
+  //   //   context: "Generate optimization tasks based on AI visibility metrics",
+  //   //   categories: ["content", "technical", "brand", "visibility", "performance"],
+  //   //   max_tasks: 10,
+  //   //   priority_focus: "high_impact"
+  //   // };
 
-    it('should generate actionable optimization tasks', async () => {
-      const mockExecuteAgent = jest.spyOn(pydanticLlmService, 'executeAgent')
-        .mockResolvedValueOnce({
-          data: {
-            companyName: "TestCorp",
-            industry: "Technology",
-            tasks: [
-              {
-                title: "Improve SEO content strategy",
-                description: "Enhance content to increase search visibility",
-                category: "content",
-                priority: 1,
-                estimatedEffort: 40,
-                expectedImpact: "High visibility improvement",
-                actionItems: [
-                  "Conduct keyword research",
-                  "Create topic clusters",
-                  "Optimize existing content"
-                ]
-              }
-            ],
-            totalTasks: 10,
-            generationTimestamp: new Date().toISOString()
-          },
-          metadata: {
-            modelUsed: "gpt-4.1-mini",
-            tokensUsed: 1200,
-            executionTime: 3000,
-            providerId: "openai",
-            success: true,
-            attemptCount: 1,
-            fallbackUsed: false
-          }
-        });
+  //   // it('should generate actionable optimization tasks', async () => {
+  //   //   const mockExecuteAgent = jest.spyOn(pydanticLlmService, 'executeAgent')
+  //   //     .mockResolvedValueOnce({
+  //   //       data: {
+  //   //         companyName: "TestCorp",
+  //   //         industry: "Technology",
+  //   //         tasks: [
+  //   //           {
+  //   //             title: "Improve SEO content strategy",
+  //   //             description: "Enhance content to increase search visibility",
+  //   //             category: "content",
+  //   //             priority: 1,
+  //   //             estimatedEffort: 40,
+  //   //             expectedImpact: "High visibility improvement",
+  //   //             actionItems: [
+  //   //               "Conduct keyword research",
+  //   //               "Create topic clusters",
+  //   //               "Optimize existing content"
+  //   //             ]
+  //   //           }
+  //   //         ],
+  //   //         totalTasks: 10,
+  //   //         generationTimestamp: new Date().toISOString()
+  //   //       },
+  //   //       metadata: {
+  //   //         modelUsed: "gpt-4.1-mini",
+  //   //         tokensUsed: 1200,
+  //   //         executionTime: 3000,
+  //   //         providerId: "openai",
+  //   //         success: true,
+  //   //         attemptCount: 1,
+  //   //         fallbackUsed: false
+  //   //       }
+  //   //     });
 
-      const result = await pydanticLlmService.executeAgent(
-        'optimization_agent.py',
-        mockOptimizationInput,
-        null
-      );
+  //   //   const result = await pydanticLlmService.executeAgent(
+  //   //     'optimization_agent.py',
+  //   //     mockOptimizationInput,
+  //   //     null
+  //   //   );
 
-      expect(result.data.tasks).toBeDefined();
-      expect(Array.isArray(result.data.tasks)).toBe(true);
+  //   //   expect(result.data.tasks).toBeDefined();
+  //   //   expect(Array.isArray(result.data.tasks)).toBe(true);
       
-      result.data.tasks.forEach((task: any) => {
-        expect(task).toHaveProperty('title');
-        expect(task).toHaveProperty('description');
-        expect(task).toHaveProperty('category');
-        expect(task).toHaveProperty('priority');
-        expect(task).toHaveProperty('estimatedEffort');
-        expect(Array.isArray(task.actionItems)).toBe(true);
-      });
+  //   //   result.data.tasks.forEach((task: any) => {
+  //   //     expect(task).toHaveProperty('title');
+  //   //     expect(task).toHaveProperty('description');
+  //   //     expect(task).toHaveProperty('category');
+  //   //     expect(task).toHaveProperty('priority');
+  //   //     expect(task).toHaveProperty('estimatedEffort');
+  //   //     expect(Array.isArray(task.actionItems)).toBe(true);
+  //   //   });
 
-      mockExecuteAgent.mockRestore();
-    });
-  });
+  //   //   mockExecuteAgent.mockRestore();
+  //   // });
+  // });
 
   describe('Provider Management', () => {
     it('should have available providers', () => {

@@ -1,35 +1,27 @@
 /**
  * @file optimizationTaskService.ts
- * @deprecated This service is PARTIALLY DEPRECATED in favor of PydanticAI optimization_agent.py
+ * @description Optimization task service using hardcoded preset tasks
  * 
- * ⚠️  MIGRATION NOTICE: Task generation has been replaced by PydanticAI agents
- * - NEW: Use backend/src/pydantic_agents/optimization_agent.py for task generation
- * - BENEFITS: Advanced prompt management, industry-specific generation, better validation
- * - COMPATIBILITY: Database functions still needed for persistence and management
+ * This service provides database management and predefined optimization tasks for the report system.
+ * The system now uses hardcoded preset tasks instead of AI-generated tasks for better reliability.
  * 
- * @description This file provides LEGACY task generation and database management for optimization tasks.
- * The task generation has been migrated to PydanticAI agents which provide superior:
- * - Context-aware prompt optimization
- * - Industry-specific task generation
- * - Priority-based task ranking with effort estimation
- * - Comprehensive error handling and validation
+ * @description This file provides task management and database operations for optimization tasks.
+ * Uses proven, hardcoded optimization tasks that provide consistent value to clients.
  *
- * @migration_status
- * - ❌ generateOptimizationTasksAndSummary: REPLACED by PydanticAI optimization_agent.py
- * - ✅ persistOptimizationTasks: STILL USED for database persistence
- * - ✅ getOptimizationTasks: STILL USED for task retrieval
- * - ✅ toggleTaskCompletion: STILL USED for task management
- * - ✅ updateTaskStatus: STILL USED for task management
- * - ✅ PRESET_TASKS: STILL USED for fallback/compatibility
+ * @current_status
+ * - ❌ generateOptimizationTasksAndSummary: DEPRECATED (was causing reliability issues)
+ * - ✅ persistOptimizationTasks: USED for database persistence
+ * - ✅ getOptimizationTasks: USED for task retrieval
+ * - ✅ toggleTaskCompletion: USED for task management
+ * - ✅ updateTaskStatus: USED for task management
+ * - ✅ PRESET_TASKS: PRIMARY SOURCE for optimization tasks
  */
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
-// NOTE: LLM imports removed - generateOptimizationTasksAndSummary is DEPRECATED
-// Use backend/src/pydantic_agents/optimization_agent.py directly instead
+// NOTE: LLM imports removed - now using hardcoded preset tasks
 import { ModelTask, ModelEngine, getModelsByTask } from '../config/models';
 
-// NOTE: Optimization prompts are now handled by PydanticAI optimization_agent.py
-// This service should be deprecated in favor of direct PydanticAI agent calls
+// NOTE: Now using hardcoded preset tasks for reliability and consistency
 
 const PRESET_TASKS = [
     {
@@ -115,7 +107,7 @@ export interface OptimizationTasksResult {
 }
 
 /**
- * @deprecated REPLACED by PydanticAI optimization_agent.py
+ * @deprecated REPLACED by hardcoded preset tasks
  * This function throws an error to prevent accidental usage
  */
 export async function generateOptimizationTasksAndSummary(
@@ -126,9 +118,9 @@ export async function generateOptimizationTasksAndSummary(
 ): Promise<OptimizationTasksResult> {
   // DEPRECATED: This function should not be used - throw explicit error
   throw new Error(
-    'DEPRECATED: generateOptimizationTasksAndSummary has been replaced by PydanticAI agents. ' +
-    'Use backend/src/pydantic_agents/optimization_agent.py directly instead. ' +
-    'See reportWorker.ts for the modern implementation pattern.'
+    'DEPRECATED: generateOptimizationTasksAndSummary has been replaced by hardcoded preset tasks. ' +
+    'Use the preset tasks directly in reportWorker.ts instead. ' +
+    'See reportWorker.ts for the current implementation pattern.'
   );
 }
 

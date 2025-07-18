@@ -16,6 +16,7 @@
  *
  * @exports
  * - calculateCompetitorRankings: Calculates competitor rankings based on mentions.
+ * - calculateCitationRankings: Calculates citation source rankings based on citation domains.
  * - calculateTopQuestions: Calculates top-ranking questions based on company mentions.
  * - calculateTopResponses: Calculates response-level data for questions, including position and mentions.
  * - calculateShareOfVoiceHistory: Retrieves historical share of voice data.
@@ -24,6 +25,53 @@
  * - saveSentimentOverTimePoint: Saves a historical sentiment data point.
  */
 import { getDbClient, getReadDbClient } from '../config/database';
+
+/**
+ * Normalizes a domain for citation analytics by removing common subdomains and standardizing format
+ * Examples:
+ * - "https://www.reddit.com/r/programming" -> "reddit.com"
+ * - "blog.example.com" -> "example.com"
+ * - "en.wikipedia.org" -> "wikipedia.org" (preserves important subdomains)
+ * - "support.github.com" -> "github.com"
+ */
+function normalizeDomainForAnalytics(domain: string): string {
+  try {
+    // Remove protocol if present
+    let normalized = domain.replace(/^https?:\/\//, '');
+    
+    // Remove path and query parameters
+    normalized = normalized.split('/')[0].split('?')[0].split('#')[0];
+    
+    // Convert to lowercase
+    normalized = normalized.toLowerCase();
+    
+    // Remove common subdomains but preserve important ones
+    const importantSubdomains = ['en', 'fr', 'de', 'es', 'it', 'pt', 'ru', 'ja', 'zh', 'ko']; // Language codes
+    const parts = normalized.split('.');
+    
+    if (parts.length > 2) {
+      const subdomain = parts[0];
+      const rootParts = parts.slice(-2); // Get last 2 parts (domain.tld)
+      
+      // Special cases for important subdomains we want to preserve
+      if (importantSubdomains.includes(subdomain) || 
+          subdomain === 'docs' || 
+          subdomain === 'api' ||
+          (parts.length === 3 && rootParts.join('.') === 'wikipedia.org')) {
+        return parts.slice(-3).join('.'); // Keep subdomain.domain.tld
+      }
+      
+      // For most cases, just use domain.tld
+      return rootParts.join('.');
+    }
+    
+    return normalized;
+  } catch (error) {
+    // If parsing fails, return the original domain
+    console.warn(`[normalizeDomainForAnalytics] Failed to normalize domain: ${domain}`, error);
+    return domain.toLowerCase();
+  }
+}
 
 export async function calculateCompetitorRankings(runId: string, companyId: string, filters?: { aiModel?: string }) {
   const prisma = await getDbClient();
@@ -91,136 +139,175 @@ export async function calculateCompetitorRankings(runId: string, companyId: stri
   };
 }
 
+export async function calculateCitationRankings(runId: string, companyId: string, filters?: { aiModel?: string }) {
+  const prisma = await getDbClient();
+  const prismaReadReplica = await getReadDbClient();
+  
+  // Prefer pre-computed citationRankings if present
+  const metric = await prismaReadReplica.reportMetric.findFirst({
+    where: { reportId: runId, aiModel: (filters?.aiModel ?? 'all') },
+    select: { competitorRankings: true }
+  });
+
+  // Check if citation rankings are already computed and stored in competitorRankings
+  if (metric?.competitorRankings && (metric.competitorRankings as any).citationRankings) {
+    return (metric.competitorRankings as any).citationRankings;
+  }
+
+  // Fallback – compute citation share of voice via FanoutCitation
+  const citations = await prismaReadReplica.fanoutCitation.findMany({
+    where: {
+      fanoutResponse: {
+        runId,
+        ...(filters?.aiModel && filters.aiModel !== 'all' ? { model: filters.aiModel } : {}),
+      },
+    },
+    select: { domain: true, url: true, title: true },
+  });
+
+  console.log(`[calculateCitationRankings] Found ${citations.length} citations for runId: ${runId}, aiModel: ${filters?.aiModel || 'all'}`);
+
+  if (citations.length === 0) {
+    return { sources: [], chartSources: [], totalCitations: 0 };
+  }
+
+  // Group citations by normalized domain for analytics
+  const domainCounts = new Map<string, { 
+    count: number; 
+    urls: Set<string>; 
+    titles: Set<string>; 
+    originalDomain: string; // Keep original domain for display
+    normalizedDomain: string; // For grouping
+  }>();
+  
+  citations.forEach(citation => {
+    const originalDomain = citation.domain;
+    const normalizedDomain = normalizeDomainForAnalytics(originalDomain);
+    
+    if (!domainCounts.has(normalizedDomain)) {
+      domainCounts.set(normalizedDomain, { 
+        count: 0, 
+        urls: new Set(), 
+        titles: new Set(),
+        originalDomain: originalDomain, // Use first occurrence as display domain
+        normalizedDomain: normalizedDomain
+      });
+    }
+    
+    const domainData = domainCounts.get(normalizedDomain)!;
+    domainData.count += 1;
+    domainData.urls.add(citation.url);
+    domainData.titles.add(citation.title);
+  });
+
+  const total = citations.length;
+
+  const ranked = Array.from(domainCounts.entries())
+    .map(([normalizedDomain, data]) => ({
+      domain: data.originalDomain, // Display the original domain format
+      normalizedDomain: normalizedDomain, // For reference if needed
+      name: data.originalDomain,
+      shareOfVoice: (data.count / total) * 100,
+      citationCount: data.count,
+      uniqueUrls: data.urls.size,
+      sampleTitle: Array.from(data.titles)[0] || 'Web Source',
+    }))
+    .sort((a, b) => b.shareOfVoice - a.shareOfVoice);
+
+  console.log(`[calculateCitationRankings] Computed rankings for ${ranked.length} unique domains from ${citations.length} total citations`);
+  
+  // Log top domains for debugging
+  ranked.slice(0, 5).forEach((source, index) => {
+    console.log(`[calculateCitationRankings] #${index + 1}: ${source.domain} (${source.shareOfVoice.toFixed(1)}%, ${source.citationCount} citations)`);
+  });
+
+  return {
+    sources: ranked,
+    chartSources: ranked,
+    totalCitations: total,
+  };
+}
+
 export async function calculateTopQuestions(runId?: string, companyId?: string, filters?: { aiModel?: string; questionType?: string }, limit: number = 20, skip: number = 0) {
   const prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
+  
   if (!runId || !companyId) {
     return { questions: [], totalCount: 0 };
   }
 
-  // If metrics were pre-computed into ReportMetric.topQuestions, prefer that first
-  const preComputed = await prismaReadReplica.reportMetric.findFirst({
-    where: {
-      reportId: runId,
-      aiModel: filters?.aiModel ?? 'all',
-    },
-    select: { topQuestions: true },
-  });
+  console.log(`[calculateTopQuestions] Computing for ${runId}, companyId: ${companyId}, filters:`, filters);
 
-  if (preComputed?.topQuestions && Array.isArray(preComputed.topQuestions) && preComputed.topQuestions.length > 0) {
-    console.log(`[calculateTopQuestions] Using pre-computed data for ${runId}, aiModel: ${filters?.aiModel ?? 'all'}`);
-    let questions = preComputed.topQuestions;
-    
-    // Debug: Check for questions without mentions in pre-computed data
-    const questionsWithoutMentions = questions.filter((q: any) => q.bestPosition === null);
-    console.log(`[calculateTopQuestions] Pre-computed data: ${questions.length} total, ${questionsWithoutMentions.length} without mentions`);
-    if (questionsWithoutMentions.length > 0) {
-      console.log(`[calculateTopQuestions] Sample no-mention questions:`, questionsWithoutMentions.slice(0, 3).map((q: any) => ({
-        question: q.question?.substring(0, 30),
-        bestPosition: q.bestPosition,
-        totalMentions: q.totalMentions
-      })));
-    }
-    
-    // Apply questionType filter on pre-computed data if provided
-    if (filters?.questionType && filters.questionType !== 'all') {
-      questions = questions.filter((q: any) => q.type === filters.questionType);
-    }
-    
-    const totalCount = questions.length;
-    const sliced = questions.slice(skip, skip + limit);
-    console.log(`[calculateTopQuestions] Pre-computed result: ${sliced.length} questions after pagination (skip: ${skip}, limit: ${limit})`);
-    return { questions: sliced, totalCount } as any;
-  }
-
-  console.log(`[calculateTopQuestions] Using on-the-fly calculation for ${runId}, aiModel: ${filters?.aiModel ?? 'all'}`);
-
-  // On-the-fly calculation from fan-out tables (may be slower but keeps UI functional)
-
-  // Build where clause for fanout questions
-  const questionWhere: any = { companyId };
-  
-  // Apply questionType filter if provided
-  if (filters?.questionType && filters.questionType !== 'all') {
-    questionWhere.type = filters.questionType;
-  }
-
-  // Fetch relevant fanout questions with their responses & company mentions
-  const questions = await prismaReadReplica.fanoutQuestion.findMany({
-    where: questionWhere,
-    select: {
-      id: true,
-      text: true,
-      type: true,
-      responses: {
-        where: {
-          runId,
-          ...(filters?.aiModel && filters.aiModel !== 'all' ? { model: filters.aiModel } : {}),
-        },
-        select: {
-          id: true,
-          model: true,
-          content: true,
-          createdAt: true,
-          mentions: {
-            where: { companyId },
-            select: { position: true },
-          },
-        },
-      },
-    },
-  });
-
-  // Transform into TopRankingQuestion shape
-  type Q = {
-    id: string;
-    question: string;
-    type: string;
-    bestPosition: number | null; // Allow null for questions with no mentions
-    totalMentions: number;
-    averagePosition: number | null; // Allow null for questions with no mentions
-    bestResponse: string;
-    bestResponseModel: string;
-    productName?: string | null;
-    responses: Array<{ model: string; response: string; position?: number | null; createdAt?: string }>;
+  // Build where clauses
+  const whereResponse: any = {
+    runId,
+    ...(filters?.aiModel && filters.aiModel !== 'all' ? { model: filters.aiModel } : {})
   };
 
-  const transformed: Q[] = [];
+  const whereQuestion: any = {
+    companyId,
+    ...(filters?.questionType && filters.questionType !== 'all' ? { type: filters.questionType } : {})
+  };
+
+  // Get all questions with their responses and mentions
+  const questions = await prismaReadReplica.fanoutQuestion.findMany({
+    where: whereQuestion,
+    include: {
+      responses: {
+        where: whereResponse,
+        include: {
+          mentions: {
+            where: { companyId },
+            select: { position: true }
+          }
+        },
+        orderBy: { model: 'asc' }
+      }
+    },
+    orderBy: { text: 'asc' }
+  });
+
+  console.log(`[calculateTopQuestions] Found ${questions.length} questions`);
+
+  // Transform data: each question gets aggregated metrics across all its responses
+  const transformed = [];
 
   for (const q of questions) {
-    const companyMentionsPerResponse = q.responses.map(r => ({
-      response: r,
-      positions: r.mentions.map(m => m.position),
-    }));
+    if (q.responses.length === 0) {
+      continue; // Skip questions with no responses for this filter
+    }
 
-    // Always include the question, even if company was never mentioned
-    let bestPos: number | null = null;
-    let bestResp: typeof companyMentionsPerResponse[number] | null = null;
-    let totalPositions: number[] = [];
-
-    // Find best position among responses that mention the company
-    const responsesWithMentions = companyMentionsPerResponse.filter(r => r.positions.length > 0);
-    
-    if (responsesWithMentions.length > 0) {
-      // Company was mentioned - find best position
-      for (const { response, positions } of responsesWithMentions) {
-        const minPos = Math.min(...positions);
-        if (bestPos === null || minPos < bestPos) {
-          bestPos = minPos;
-          bestResp = { response, positions };
+    // Collect all positions for this question across all model responses
+    const allPositions: number[] = [];
+    q.responses.forEach(r => {
+      r.mentions.forEach(m => {
+        if (m.position !== undefined && m.position !== null) {
+          allPositions.push(m.position);
         }
-        totalPositions.push(...positions);
+      });
+    });
+
+    // Calculate aggregated metrics for the question
+    const totalPositions = allPositions;
+    const bestPos = totalPositions.length > 0 ? Math.min(...totalPositions) : null;
+    const avgPos = totalPositions.length > 0 
+      ? Math.round(totalPositions.reduce((a, b) => a + b, 0) / totalPositions.length * 100) / 100 
+      : null;
+
+    // Find the response with the best position for this question
+    let bestResp = q.responses[0]; // Default to first response
+    let bestRespPos = null;
+
+    for (const r of q.responses) {
+      const respPositions = r.mentions.map(m => m.position).filter(p => p !== undefined && p !== null);
+      if (respPositions.length > 0) {
+        const respBestPos = Math.min(...respPositions);
+        if (bestRespPos === null || respBestPos < bestRespPos) {
+          bestRespPos = respBestPos;
+          bestResp = r;
+        }
       }
     }
-
-    // If no mentions found, use the first response as best response
-    if (!bestResp && q.responses.length > 0) {
-      bestResp = { response: q.responses[0], positions: [] };
-    }
-
-    if (!bestResp) continue; // Skip if no responses at all
-
-    const avgPos = totalPositions.length > 0 ? totalPositions.reduce((a, b) => a + b, 0) / totalPositions.length : null;
 
     const questionData = {
       id: q.id,
@@ -229,8 +316,8 @@ export async function calculateTopQuestions(runId?: string, companyId?: string, 
       bestPosition: bestPos, // Will be null if no mentions
       totalMentions: totalPositions.length,
       averagePosition: avgPos, // Will be null if no mentions
-      bestResponse: bestResp.response.content,
-      bestResponseModel: bestResp.response.model,
+      bestResponse: bestResp.content,
+      bestResponseModel: bestResp.model,
       responses: q.responses.map(r => ({
         model: r.model,
         response: r.content,
@@ -268,8 +355,6 @@ export async function calculateTopQuestions(runId?: string, companyId?: string, 
 
   const totalCount = transformed.length;
   const paginated = transformed.slice(skip, skip + limit);
-
-  console.log(`[calculateTopQuestions] On-the-fly result: ${totalCount} total questions, ${paginated.length} after pagination (skip: ${skip}, limit: ${limit})`);
   
   return { questions: paginated, totalCount };
 }
@@ -333,69 +418,61 @@ export async function calculateTopResponses(
   // Pre-compute best position per question for ranking
   const questionBestPosition = new Map<string, number>();
   responses.forEach(r => {
-    if (r.mentions.length > 0) {
-      const minPos = Math.min(...r.mentions.map(m => m.position));
-      const current = questionBestPosition.get(r.fanoutQuestionId);
-      if (current === undefined || minPos < current) {
-        questionBestPosition.set(r.fanoutQuestionId, minPos);
+    const questionId = r.fanoutQuestion.id;
+    const positions = r.mentions.map(m => m.position).filter(p => p !== undefined && p !== null);
+    if (positions.length > 0) {
+      const bestPos = Math.min(...positions);
+      const currentBest = questionBestPosition.get(questionId);
+      if (currentBest === undefined || bestPos < currentBest) {
+        questionBestPosition.set(questionId, bestPos);
       }
     }
   });
 
-  // Transform to flat response format
-  type FlatResponse = {
-    id: string;              // questionId
-    question: string;
-    type: string;
-    model: string;
-    response: string;
-    position: number | null; // this model's position (or null)
-    bestPosition: number | null; // question-level best across all models
-    createdAt: string;
-  };
-
-  const flatResponses: FlatResponse[] = responses.map(r => ({
-    id: r.fanoutQuestionId,
-    question: r.fanoutQuestion!.text,
-    type: r.fanoutQuestion!.type,
+  // Transform responses with enriched data
+  const transformed = responses.map(r => {
+    const positions = r.mentions.map(m => m.position).filter(p => p !== undefined && p !== null);
+    const responsePosition = positions.length > 0 ? Math.min(...positions) : null;
+    const questionBestPos = questionBestPosition.get(r.fanoutQuestion.id) || null;
+    
+    return {
+      id: r.id,
+      questionId: r.fanoutQuestion.id,
+      question: r.fanoutQuestion.text,
+      questionType: r.fanoutQuestion.type,
     model: r.model,
     response: r.content,
-    position: r.mentions.length > 0 ? Math.min(...r.mentions.map(m => m.position)) : null,
-    bestPosition: questionBestPosition.get(r.fanoutQuestionId) ?? null,
-    createdAt: r.createdAt.toISOString()
-  }));
+      position: responsePosition, // null if no mentions for this response
+      totalMentions: positions.length,
+      questionBestPosition: questionBestPos, // For sorting - best position across all responses for this question
+      createdAt: r.createdAt?.toISOString?.() ?? undefined,
+    };
+  });
 
-  // Sort: primary by bestPosition (nulls last), secondary by question text, tertiary by model
-  flatResponses.sort((a, b) => {
-    // Primary sort: questions with mentions (bestPosition !== null) come first
-    if (a.bestPosition !== null && b.bestPosition !== null) {
-      // Both have mentions - sort by best position (ascending = rank 1 first)
-      const posDiff = a.bestPosition - b.bestPosition;
-      if (posDiff !== 0) return posDiff;
-    } else if (a.bestPosition !== null && b.bestPosition === null) {
-      return -1; // a has mentions, b doesn't - a comes first
-    } else if (a.bestPosition === null && b.bestPosition !== null) {
-      return 1; // b has mentions, a doesn't - b comes first
+  // Sort by: 1) questions with mentions first (by best position), 2) questions without mentions by name
+  transformed.sort((a, b) => {
+    // Primary sort: by question-level best position
+    if (a.questionBestPosition !== null && b.questionBestPosition !== null) {
+      const positionDiff = a.questionBestPosition - b.questionBestPosition;
+      if (positionDiff !== 0) return positionDiff;
+    } else if (a.questionBestPosition !== null && b.questionBestPosition === null) {
+      return -1; // a's question has mentions, b's doesn't
+    } else if (a.questionBestPosition === null && b.questionBestPosition !== null) {
+      return 1; // b's question has mentions, a's doesn't
     }
-    // If both have no mentions (bestPosition === null), continue to secondary sort
-
-    // Secondary sort by question text
+    
+    // Secondary sort: by question text (alphabetical)
     const questionDiff = a.question.localeCompare(b.question);
     if (questionDiff !== 0) return questionDiff;
 
-    // Tertiary sort by model
+    // Tertiary sort: by model name (alphabetical)
     return a.model.localeCompare(b.model);
   });
 
-  const totalCount = flatResponses.length;
-  const paginated = flatResponses.slice(skip, skip + limit);
+  const totalCount = transformed.length;
+  const paginated = transformed.slice(skip, skip + limit);
 
-  console.log(`[calculateTopResponses] Response-level result: ${totalCount} total responses, ${paginated.length} after pagination (skip: ${skip}, limit: ${limit})`);
-  
-  // Debug stats
-  const responsesWithMentions = flatResponses.filter(r => r.position !== null).length;
-  const responsesWithoutMentions = flatResponses.filter(r => r.position === null).length;
-  console.log(`[calculateTopResponses] Breakdown: ${responsesWithMentions} with mentions, ${responsesWithoutMentions} without mentions (N/A)`);
+  console.log(`[calculateTopResponses] Returning ${paginated.length} responses out of ${totalCount} total`);
 
   return { responses: paginated, totalCount };
 }
@@ -418,6 +495,7 @@ export async function calculateShareOfVoiceHistory(_runId: string, companyId: st
   return history;
 }
 
+// runId is ignored in new pipeline but kept for backward compatibility
 export async function calculateSentimentOverTime(_runId: string, companyId: string, filters?: { aiModel?: string }) {
   const prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();

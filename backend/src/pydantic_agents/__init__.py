@@ -10,7 +10,6 @@ Core Agents (aligned with models.ts tasks):
 3. IntelligentFanoutAgent - Intelligent fanout query generation
 4. QuestionAnsweringAgent - Question answering with web search
 5. WebsiteEnrichmentAgent - Website enrichment for competitors
-6. OptimizationTaskAgent - Optimization task generation
 
 Each agent is designed to be:
 - Stateless and process-safe
@@ -28,7 +27,6 @@ from .agents.sentiment_summary_agent import SentimentSummaryAgent
 from .agents.fanout_agent import IntelligentFanoutAgent
 from .agents.question_agent import QuestionAnsweringAgent
 from .agents.website_enrichment_agent import WebsiteEnrichmentAgent
-from .agents.optimization_agent import OptimizationTaskAgent
 
 # Base classes and utilities
 from .base_agent import BaseAgent
@@ -41,7 +39,6 @@ __all__ = [
     'IntelligentFanoutAgent',
     'QuestionAnsweringAgent',
     'WebsiteEnrichmentAgent',
-    'OptimizationTaskAgent',
     # Base classes
     'BaseAgent',
     # Schemas are imported via *

@@ -1310,10 +1310,10 @@ const jobTimer = new Timer();
         const startTime = Date.now();
         
         try {
-            const { data: answer, usage, modelUsed } = await questionLimit(() => generateQuestionResponse(questionInput, model));
+            const { data: responseData, usage, modelUsed } = await questionLimit(() => generateQuestionResponse(questionInput, model));
             
-            // Handle case where answer is undefined or empty
-            if (!answer) {
+            // Handle case where responseData is undefined or empty
+            if (!responseData || !responseData.answer) {
                 throw new Error(`Question agent returned empty answer for question ${question.id}`);
             }
             
@@ -1324,7 +1324,7 @@ const jobTimer = new Timer();
             // Extract brands from answer and stream to pipeline immediately
             const brandRegex = /<brand>(.*?)<\/brand>/gi;
             let match;
-            while ((match = brandRegex.exec(answer)) !== null) {
+            while ((match = brandRegex.exec(responseData.answer)) !== null) {
                 const brandName = match[1].trim();
                 if (brandName) {
                     // Stream brand to pipeline for immediate processing
@@ -1337,17 +1337,23 @@ const jobTimer = new Timer();
                 runId, 
                 stage: 'DATA_GATHERING', 
                 step: 'RESPONSE_SAVE_DEFERRED', 
-                metadata: { questionId: question.id, modelId: model.id, questionType: question.type } 
+                metadata: { 
+                    questionId: question.id, 
+                    modelId: model.id, 
+                    questionType: question.type,
+                    citationsCount: responseData.citations?.length || 0
+                } 
             }, `Deferred save for ${question.type} question ${question.id}`, 'DEBUG');
 
             // Create response data structure for processing
-            const responseData = {
+            const responseDataStructure = {
                 questionId: question.id,
                 questionType: question.type,
                 fanoutType: question.fanoutType,
                 sourceModel: question.sourceModel,
-                answer,
+                answer: responseData.answer,
                 modelId: model.id,
+                citations: responseData.citations || []
             };
 
             // Update progress tracking
@@ -1379,13 +1385,14 @@ const jobTimer = new Timer();
                     fanoutType: question.fanoutType,
                     sourceModel: question.sourceModel,
                     success: true,
-                    answerLength: answer.length,
+                    answerLength: responseData.answer.length,
+                    citationsCount: responseData.citations?.length || 0,
                     completedCombinations: completedResponses,
                     totalExpected: questionModelCombinations.length
                 },
             }, `Successfully processed fanout response ${question.id} with ${model.id} (${mapProgress(localFanoutPct, PROGRESS.FANOUT_START, PROGRESS.FANOUT_END)}% complete)`);
 
-            return { response: responseData, success: true };
+            return { response: responseDataStructure, success: true };
         } catch (error) {
             const duration = Date.now() - startTime;
             log({
@@ -1535,6 +1542,15 @@ const jobTimer = new Timer();
     // Convert responses to StreamingDatabaseWriter format and stream them with progress tracking
     let processedStreamingResponses = 0;
     for (const response of collectedResponses) {
+        // Convert citations to StreamedCitation format
+        const streamedCitations = response.citations?.map((citation: any, index: number) => ({
+            url: citation.url,
+            title: citation.title,
+            domain: citation.domain,
+            accessedAt: citation.accessedAt || new Date(),
+            position: citation.position || index + 1
+        })) || [];
+
         // Create properly formatted StreamedResponse
         const streamedResponse = {
             questionId: response.questionId,
@@ -1542,7 +1558,8 @@ const jobTimer = new Timer();
             modelId: response.modelId,
             engine: response.modelId, // engine = modelId for consistency
             usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 }, // Token usage already tracked
-            questionType: response.questionType as 'visibility' | 'benchmark' | 'personal'
+            questionType: response.questionType as 'visibility' | 'benchmark' | 'personal',
+            citations: streamedCitations // ✅ Include citations!
         };
 
         // Stream the response (mentions will be automatically detected by StreamingDatabaseWriter)
@@ -1573,10 +1590,11 @@ const jobTimer = new Timer();
         metadata: { 
             responsesWritten: writeStats.responsesWritten,
             mentionsWritten: writeStats.mentionsWritten,
+            citationsWritten: writeStats.citationsWritten,
             batchesProcessed: writeStats.batchesProcessed,
             avgBatchTime: writeStats.avgBatchTime
         }
-    }, `Optimized batch-write completed: ${writeStats.responsesWritten} responses, ${writeStats.mentionsWritten} mentions in ${writeStats.batchesProcessed} batches`);
+    }, `Optimized batch-write completed: ${writeStats.responsesWritten} responses, ${writeStats.mentionsWritten} mentions, ${writeStats.citationsWritten} citations in ${writeStats.batchesProcessed} batches`);
 
     // Collect successful responses for final statistics
     let successfulResponses = 0;
@@ -1733,78 +1751,70 @@ const jobTimer = new Timer();
             }, 'Error computing and persisting metrics (report still continuing)', 'ERROR');
         }
 
-        // 2️⃣  Generate optimisation tasks + visibility summary (first report only)
+        // 2️⃣  Generate optimisation tasks using hardcoded preset tasks
         try {
-            log({ runId, stage: 'POST_COMPLETION', step: 'OPTIMIZATION_START' }, 'Generating optimisation tasks and AI visibility summary…');
+            log({ runId, stage: 'POST_COMPLETION', step: 'OPTIMIZATION_START' }, 'Generating optimisation tasks using preset tasks…');
             await updateProgress(prisma, runId, 'Generating Optimization Tasks', 30, PROGRESS.OPTIMIZATION_START, PROGRESS.OPTIMIZATION_END, 'Starting task generation');
 
-            // Import only the persistence function from legacy service
+            // Import preset tasks and persistence function
             const { persistOptimizationTasks } = await import('../services/optimizationTaskService');
             
-            await updateProgress(prisma, runId, 'Generating Optimization Tasks', 50, PROGRESS.OPTIMIZATION_START, PROGRESS.OPTIMIZATION_END, 'Processing with AI models');
+            await updateProgress(prisma, runId, 'Generating Optimization Tasks', 50, PROGRESS.OPTIMIZATION_START, PROGRESS.OPTIMIZATION_END, 'Using preset tasks');
             
-            // Call PydanticAI optimization agent directly (modern approach)
-            log({ runId, stage: 'POST_COMPLETION', step: 'PYDANTIC_OPTIMIZATION_CALL' }, 'Using PydanticAI optimization agent');
+            // Use hardcoded preset tasks
+            log({ runId, stage: 'POST_COMPLETION', step: 'USING_PRESET_TASKS' }, 'Using hardcoded preset optimization tasks');
             
-            // Import PydanticAI service for optimization tasks
-            const { pydanticLlmService } = await import('../services/pydanticLlmService');
-            const optimizationAgentInput = {
-                company_name: company.name,
-                industry: company.industry || 'Technology',
-                context: 'Generate optimization tasks based on AI visibility metrics',
-                categories: ["content", "technical", "brand", "visibility", "performance"],
-                max_tasks: 10,
-                priority_focus: 'high_impact'
-            };
-
-            // Trust PydanticAI structured output - no validation bottleneck
-            const pydanticOptimizationResult = await pydanticLlmService.executeAgent(
-                'optimization_agent.py',
-                optimizationAgentInput,
-                null, // No Zod validation
+            // Get preset tasks from optimizationTaskService
+            const presetTasks = [
                 {
-                    temperature: 0.7,
-                    maxTokens: 2500,
-                    timeout: 45000
+                    id: 'S01',
+                    title: 'Verify robots.txt & llms.txt',
+                    description: '1. Navigate to https://<domain>/robots.txt in your browser; 2. If the file is missing or blocks key directories, copy a best-practice template from any reputable robots.txt generator; 3. In a text editor, create "llms.txt" with a one-sentence brand description and "Allow: /"; 4. Upload both files via your CMS file manager or hosting control panel; 5. Reload both URLs to confirm they return a 200 status.',
+                    category: 'Technical SEO' as const,
+                    priority: 'High' as const,
+                    impact_metric: 'inclusionRate' as const,
+                },
+                {
+                    id: 'S02',
+                    title: 'Implement Comprehensive Schema Markup',
+                    description: '1. Use an online schema markup generator and choose "Organization", "Product" and "Article"; 2. Fill in your company details and copy the JSON-LD; 3. In your CMS, paste the code into the global "Header / Custom HTML" field; 4. Save, publish and test three URLs in a rich-results testing tool; 5. If errors appear, edit and retest until green; 6. Resubmit the pages in your search console for faster indexing.',
+                    category: 'Technical SEO' as const,
+                    priority: 'High' as const,
+                    impact_metric: 'averagePosition' as const,
+                },
+                {
+                    id: 'S03',
+                    title: 'Create Brand-Specific Landing Pages',
+                    description: '1. Research the top 10 queries where competitors rank but you don\'t; 2. For each query, create a 500+ word landing page with title tag including the exact query; 3. Include your brand name naturally 3-5 times; 4. Add internal links to your main product/service pages; 5. Submit the new URLs to your search console; 6. Monitor for visibility improvements over 2-4 weeks.',
+                    category: 'Content & Messaging' as const,
+                    priority: 'High' as const,
+                    impact_metric: 'visibility' as const,
+                },
+                {
+                    id: 'S04',
+                    title: 'Optimize Core Service Pages for AI Mentions',
+                    description: '1. Identify your 5 most important service/product pages; 2. For each page, add a FAQ section with 3-5 questions customers actually ask; 3. Write clear, direct answers using natural language; 4. Include your brand name in 2-3 FAQ answers; 5. Update the page title to include your primary service keyword; 6. Test the updated pages using AI search tools to verify improved mentions.',
+                    category: 'Content & Messaging' as const,
+                    priority: 'High' as const,
+                    impact_metric: 'inclusionRate' as const,
+                },
+                {
+                    id: 'S05',
+                    title: 'Establish Thought Leadership Content Hub',
+                    description: '1. Choose 3 topics where your company has genuine expertise; 2. Create a dedicated resource page for each topic with 5+ in-depth articles; 3. Include case studies, statistics, and unique insights; 4. Link to authoritative external sources to build trust; 5. Share the content on professional networks; 6. Monitor AI search results for mentions in industry-related queries.',
+                    category: 'Brand Positioning' as const,
+                    priority: 'Medium' as const,
+                    impact_metric: 'visibility' as const,
                 }
-            );
+            ];
 
-            // Convert PydanticAI result to legacy format for compatibility with persistence
-            type LegacyCategory = 'Technical SEO' | 'Content & Messaging' | 'Brand Positioning' | 'Link Building' | 'Local SEO';
-            type LegacyImpactMetric = 'visibility' | 'averagePosition' | 'inclusionRate';
-
-            const categoryMapping: Record<string, LegacyCategory> = {
-                'content': 'Content & Messaging',
-                'technical': 'Technical SEO',
-                'brand': 'Brand Positioning',
-                'visibility': 'Technical SEO',
-                'performance': 'Technical SEO'
-            };
-
-            const impactMetricMapping: Record<string, LegacyImpactMetric> = {
-                'content': 'visibility',
-                'technical': 'inclusionRate',
-                'brand': 'averagePosition',
-                'visibility': 'averagePosition',
-                'performance': 'inclusionRate'
-            };
-
-            // Trust PydanticAI structured output
-            const optimizationResponse = pydanticOptimizationResult.data as any;
             const optimisationResult = {
-                tasks: (optimizationResponse.tasks || []).map((task: any, index: number) => ({
-                    id: `T${String(index + 1).padStart(2, '0')}`,
-                    title: String(task.title || 'Optimization Task'),
-                    description: String(task.description || 'No description available'),
-                    category: categoryMapping[task.category] || 'Technical SEO',
-                    priority: (task.priority === 1 ? 'High' : task.priority <= 3 ? 'Medium' : 'Low') as 'High' | 'Medium' | 'Low',
-                    impact_metric: impactMetricMapping[task.category] || 'visibility'
-                })),
-                summary: `Generated ${optimizationResponse.totalTasks || 0} optimization tasks using PydanticAI. Focus areas include ${(optimizationResponse.tasks || []).map((t: any) => t.category).slice(0, 3).join(', ') || 'general optimization'}.`,
+                tasks: presetTasks,
+                summary: `Generated ${presetTasks.length} optimization tasks using proven best practices. Focus areas include Technical SEO, Content & Messaging, and Brand Positioning for improved AI visibility.`,
                 tokenUsage: {
-                    promptTokens: Math.floor(pydanticOptimizationResult.metadata.tokensUsed * 0.7),
-                    completionTokens: Math.floor(pydanticOptimizationResult.metadata.tokensUsed * 0.3),
-                    totalTokens: pydanticOptimizationResult.metadata.tokensUsed
+                    promptTokens: 0,
+                    completionTokens: 0,
+                    totalTokens: 0
                 }
             };
             await updateProgress(prisma, runId, 'Generating Optimization Tasks', 90, PROGRESS.OPTIMIZATION_START, PROGRESS.OPTIMIZATION_END, 'Tasks generated');
@@ -1826,22 +1836,9 @@ const jobTimer = new Timer();
                 data: { aiVisibilitySummary: optimisationResult.summary }
             });
 
-            // Calculate optimization cost
-            optimizationCost = addCostFromUsage(
-                pydanticOptimizationResult.metadata.modelUsed,
-                optimisationResult.tokenUsage.promptTokens,
-                optimisationResult.tokenUsage.completionTokens
-            );
+            // No optimization cost since we're using hardcoded tasks
+            optimizationCost = 0;
             
-            // Update token usage and USD cost
-            await prisma.reportRun.update({
-                where: { id: runId },
-                data: { 
-                    tokensUsed: finalTokenUsage + optimisationResult.tokenUsage.totalTokens,
-                    usdCost: totalUsdCost + optimizationCost
-                }
-            });
-
             await updateProgress(prisma, runId, 'Generating Optimization Tasks', 100, PROGRESS.OPTIMIZATION_START, PROGRESS.OPTIMIZATION_END, 'Optimization complete');
             
             log({ 
@@ -1855,9 +1852,10 @@ const jobTimer = new Timer();
                 },
                 metadata: { 
                     tasksGenerated: optimisationResult.tasks.length > 0,
-                    summaryGenerated: true
+                    summaryGenerated: true,
+                    presetTasksUsed: true
                 }
-            }, 'Optimisation tasks and summary generation complete');
+            }, 'Optimisation tasks and summary generation complete using preset tasks');
         } catch (optimisationError) {
             log({ 
                 runId, 

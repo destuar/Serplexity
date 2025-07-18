@@ -80,29 +80,4 @@ export const updateOptimizationTaskStatus = async (req: Request, res: Response) 
     }
 };
 
-export const getCompanyVisibilitySummary = async (req: Request, res: Response) => {
-  const prisma = await getDbClient();
-    try {
-        const { companyId } = req.params;
-        
-        const latestReport = await prisma.reportRun.findFirst({
-            where: { 
-                companyId,
-                status: 'COMPLETED',
-                aiVisibilitySummary: { not: null }
-            },
-            select: { aiVisibilitySummary: true },
-            orderBy: { createdAt: 'desc' }
-        });
-        
-        res.json({ 
-            summary: latestReport?.aiVisibilitySummary || null
-        });
-    } catch (error) {
-        console.error('Error fetching visibility summary:', error);
-        res.status(500).json({ 
-            error: 'Failed to fetch visibility summary',
-            details: error instanceof Error ? error.message : 'Unknown error'
-        });
-    }
-}; 
+ 

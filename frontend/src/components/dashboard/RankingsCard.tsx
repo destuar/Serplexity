@@ -16,20 +16,25 @@
  * @exports
  * - RankingsCard: React functional component for displaying competitor rankings.
  */
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp, ChevronDown, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import Card from '../ui/Card';
 import { useDashboard } from '../../hooks/useDashboard';
 import { getCompanyLogo } from '../../lib/logoService';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 
+type TabType = 'mentions' | 'citations';
+
 const RankingsCard = () => {
   const { data, loading, error } = useDashboard();
   const navigate = useNavigate();
   const isTallerScreen = useMediaQuery('(min-height: 900px)');
+  const [activeTab, setActiveTab] = useState<TabType>('mentions');
 
       // Data is now pre-calculated on the backend
     const rankingsData = data?.competitorRankings;
+    const citationData = data?.citationRankings;
 
     // Define the competitor type based on companyService structure
     type Competitor = {
@@ -39,6 +44,16 @@ const RankingsCard = () => {
       change?: number;
       changeType?: 'increase' | 'decrease' | 'stable';
       isUserCompany: boolean;
+    };
+
+    // Define the citation type for source domains
+    type Citation = {
+      domain: string;
+      name: string;
+      shareOfVoice: number;
+      citationCount: number;
+      uniqueUrls: number;
+      sampleTitle: string;
     };
 
     const getOrdinalSuffix = (num: number): string => {
@@ -154,7 +169,7 @@ const RankingsCard = () => {
     );
   };
 
-  const renderCompetitorsList = () => {
+  const renderMentionsView = () => {
     if (loading) {
       return (
         <div className="flex-1 flex items-center justify-center">
@@ -305,6 +320,192 @@ const RankingsCard = () => {
     );
   };
 
+  const renderCitationsView = () => {
+    if (loading) {
+      return (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="animate-pulse text-gray-400">Loading...</div>
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-gray-400 text-sm">Error loading data</p>
+        </div>
+      );
+    }
+
+    // Use citation sources from backend
+    if (!citationData || !citationData.sources || citationData.sources.length === 0) {
+      return (
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-gray-400 text-sm">No citation sources found</p>
+        </div>
+      );
+    }
+
+    const maxSlots = isTallerScreen ? 4 : 3;
+    const allSources = citationData.sources;
+
+    // If we have more sources than available slots, reserve the last slot for "X+ others"
+    let displaySources: any[];
+    if (allSources.length > maxSlots) {
+      const topSources = allSources.slice(0, maxSlots - 1);
+      const remainingSources = allSources.slice(maxSlots - 1);
+      const remainingCount = remainingSources.length;
+      
+      // Calculate combined share of voice for remaining sources
+      const remainingShareOfVoice = remainingSources.reduce((total: number, source: Citation) => total + source.shareOfVoice, 0);
+      
+      displaySources = [
+        ...topSources,
+        {
+          domain: `${remainingCount}+ others`,
+          name: `${remainingCount}+ others`,
+          shareOfVoice: remainingShareOfVoice,
+          citationCount: remainingSources.reduce((total: number, source: Citation) => total + source.citationCount, 0),
+          uniqueUrls: 0,
+          sampleTitle: 'Additional sources'
+        }
+      ];
+    } else {
+      // Show all sources if they fit within the available slots
+      displaySources = allSources;
+    }
+
+    return (
+      <div className="flex-1 space-y-2">
+        {displaySources.map((source: Citation, index: number) => {
+          const isOthers = source.domain.includes('others');
+          
+          return (
+            <div 
+              key={`${source.domain}-${index}`} 
+              className="flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-gray-50"
+            >
+              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                <span className="text-sm font-medium w-4 flex-shrink-0 text-gray-600">
+                  {index + 1}.
+                </span>
+                
+                {/* Domain Favicon/Icon */}
+                {!isOthers && (
+                  <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center">
+                    <img
+                      src={`https://www.google.com/s2/favicons?domain=${source.domain}&sz=32`}
+                      alt={`${source.domain} favicon`}
+                      className="w-4 h-4"
+                      onError={(e) => {
+                        // Fallback to first letter if favicon fails to load
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
+                      }}
+                    />
+                    <div 
+                      className="w-full h-full bg-gray-200 flex items-center justify-center text-xs font-semibold text-gray-600"
+                      style={{ display: 'none' }}
+                    >
+                      {source.domain.charAt(0).toUpperCase()}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Add spacing for Others entry to align with other entries */}
+                {isOthers && <div className="w-6 h-6 flex-shrink-0"></div>}
+
+                {/* Domain Name - fixed width container for consistent alignment */}
+                <div className="flex-1 min-w-0">
+                  <span className={`text-sm font-medium block break-words ${
+                    isOthers ? 'text-gray-500 italic' : 'text-gray-800'
+                  }`} style={{
+                    display: '-webkit-box',
+                    WebkitLineClamp: 1,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                    overflowWrap: 'anywhere'
+                  }}>
+                    {source.domain}
+                  </span>
+                  {!isOthers && (
+                    <div className="text-xs text-gray-500 truncate">
+                      {source.citationCount} citation{source.citationCount !== 1 ? 's' : ''}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Share of Voice and External Link */}
+              <div className="flex items-center flex-shrink-0">
+                {/* External link for non-others */}
+                <div className="w-12 flex justify-start">
+                  {!isOthers && (
+                    <a
+                      href={`https://${source.domain}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <ExternalLink size={12} />
+                    </a>
+                  )}
+                </div>
+                {/* Share of voice with fixed width for alignment */}
+                <div className="w-10 text-right">
+                  <span className={`text-sm font-semibold ${
+                    isOthers ? 'text-gray-500' : 'text-gray-700'
+                  }`}>
+                    {source.shareOfVoice.toFixed(0)}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderTabButtons = () => {
+    return (
+      <div className="flex bg-gray-100 rounded-lg p-1 mb-2">
+        <button
+          onClick={() => setActiveTab('mentions')}
+          className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+            activeTab === 'mentions'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Mentions
+        </button>
+        <button
+          onClick={() => setActiveTab('citations')}
+          className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+            activeTab === 'citations'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Citations
+        </button>
+      </div>
+    );
+  };
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'mentions':
+        return renderMentionsView();
+      case 'citations':
+        return renderCitationsView();
+      default:
+        return renderMentionsView();
+    }
+  };
+
   return (
     <Card>
       <div className="flex flex-col lg:flex-row h-full w-full">
@@ -313,8 +514,8 @@ const RankingsCard = () => {
           {renderIndustryRanking()}
         </div>
         <div className="w-full lg:w-1/2 pl-0 lg:pl-4 flex flex-col">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Top Competitors</h3>
-          {renderCompetitorsList()}
+          {renderTabButtons()}
+          {renderTabContent()}
         </div>
       </div>
     </Card>

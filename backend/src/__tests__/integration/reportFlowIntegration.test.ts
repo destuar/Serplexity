@@ -233,8 +233,8 @@ describe('Report Generation Integration Tests', () => {
               return mockFanoutResponse;
             case 'question_agent.py':
               return mockQuestionResponse;
-            case 'optimization_agent.py':
-              return mockOptimizationResponse;
+            // DISABLED: case 'optimization_agent.py':
+            //   return mockOptimizationResponse;
             default:
               throw new Error(`Unknown agent: ${agentScript}`);
           }

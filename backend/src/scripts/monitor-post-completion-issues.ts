@@ -116,32 +116,7 @@ async function monitorPostCompletionIssues(): Promise<void> {
       }
     }
 
-    // 4. Check for reports with missing AI visibility summaries
-    console.log('📝 Checking for reports missing AI visibility summaries...');
-    
-    const reportsWithoutSummaries = await prisma.reportRun.findMany({
-      where: {
-        status: 'COMPLETED',
-        aiVisibilitySummary: null,
-        createdAt: {
-          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
-        }
-      },
-      include: {
-        company: { select: { name: true } }
-      }
-    });
-
-    for (const report of reportsWithoutSummaries) {
-      issues.push({
-        runId: report.id,
-        companyName: report.company.name,
-        issue: 'COMPLETED report missing AI visibility summary',
-        severity: 'LOW',
-        recommendation: 'Regenerate AI visibility summary. Check LLM service availability.',
-        createdAt: report.createdAt
-      });
-    }
+    // 4. AI visibility summary monitoring removed - feature no longer needed
 
     // 5. Check for archive queue failures
     console.log('🗄️ Checking for potential archive queue issues...');

@@ -156,6 +156,25 @@ export interface DashboardData {
 
   // Complex, pre-computed data objects
   competitorRankings: CompetitorRankingsResponse;
+  citationRankings?: {
+    sources: Array<{
+      domain: string;
+      name: string;
+      shareOfVoice: number;
+      citationCount: number;
+      uniqueUrls: number;
+      sampleTitle: string;
+    }>;
+    chartSources: Array<{
+      domain: string;
+      name: string;
+      shareOfVoice: number;
+      citationCount: number;
+      uniqueUrls: number;
+      sampleTitle: string;
+    }>;
+    totalCitations: number;
+  };
   topQuestions: TopRankingQuestion[];
   sentimentOverTime: { date: string; sentimentScore: number; aiModel: string; }[];
   shareOfVoiceHistory: { date: string; shareOfVoice: number; aiModel: string; }[];
@@ -170,7 +189,7 @@ export interface DashboardData {
   aiModel?: string;
 
   // AI Visibility Summary and Optimization Tasks
-  aiVisibilitySummary?: string | null;
+
   optimizationTasks?: import('../services/reportService').OptimizationTask[];
 }
 

@@ -18,7 +18,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import MockOverviewPage from './mock-dashboard/pages/MockOverviewPage';
-import MockVisibilityReportPage from './mock-dashboard/pages/MockVisibilityReportPage';
+
 import MockSentimentAnalysisPage from './mock-dashboard/pages/MockSentimentAnalysisPage';
 import MockResponseDetailsPage from './mock-dashboard/pages/MockResponseDetailsPage';
 import MockCompetitorRankingsPage from './mock-dashboard/pages/MockCompetitorRankingsPage';
@@ -26,7 +26,7 @@ import MockModelComparisonPage from './mock-dashboard/pages/MockModelComparisonP
 
 // Memoized page components for performance
 const MemoizedOverviewPage = React.memo(MockOverviewPage);
-const MemoizedVisibilityReportPage = React.memo(MockVisibilityReportPage);
+
 const MemoizedSentimentAnalysisPage = React.memo(MockSentimentAnalysisPage);
 const MemoizedResponseDetailsPage = React.memo(MockResponseDetailsPage);
 const MemoizedCompetitorRankingsPage = React.memo(MockCompetitorRankingsPage);
@@ -39,7 +39,6 @@ const MemoizedModelComparisonPage = React.memo(MockModelComparisonPage);
  */
 const pages = [
   { name: 'Overview', component: <MemoizedOverviewPage /> },
-  { name: 'Progress Report', component: <MemoizedVisibilityReportPage /> },
   { name: 'Sentiment Analysis', component: <MemoizedSentimentAnalysisPage /> },
   { name: 'Response Details', component: <MemoizedResponseDetailsPage /> },
   { name: 'Competitor Rankings', component: <MemoizedCompetitorRankingsPage /> },

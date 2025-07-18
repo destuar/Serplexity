@@ -149,9 +149,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
           {(!isDesktopCollapsed && openSections.actionCenter) && (
             <nav className="flex flex-col space-y-1 mt-2">
-              <Link to="/progress-report" className={getLinkClass('/progress-report')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
-                {!isDesktopCollapsed && <span className="ml-3">Progress Report</span>}
-              </Link>
               <Link to="/visibility-tasks" className={getLinkClass('/visibility-tasks')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
                 {!isDesktopCollapsed && <span className="ml-3">Visibility Tasks</span>}
               </Link>
