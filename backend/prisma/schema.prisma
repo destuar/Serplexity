@@ -134,18 +134,18 @@ model SentimentScore {
 }
 
 model FanoutResponse {
-  id               String          @id @default(cuid())
+  id               String           @id @default(cuid())
   fanoutQuestionId String
   engine           String
   model            String
   content          String
   runId            String
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  mentions         FanoutMention[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
   citations        FanoutCitation[]
-  fanoutQuestion   FanoutQuestion  @relation(fields: [fanoutQuestionId], references: [id], onDelete: Cascade)
-  run              ReportRun       @relation(fields: [runId], references: [id], onDelete: Cascade)
+  mentions         FanoutMention[]
+  fanoutQuestion   FanoutQuestion   @relation(fields: [fanoutQuestionId], references: [id], onDelete: Cascade)
+  run              ReportRun        @relation(fields: [runId], references: [id], onDelete: Cascade)
 
   @@index([fanoutQuestionId])
   @@index([runId])
@@ -179,7 +179,7 @@ model FanoutCitation {
   title            String
   domain           String
   accessedAt       DateTime
-  position         Int            // Order of citation in the response
+  position         Int
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   fanoutResponse   FanoutResponse @relation(fields: [fanoutResponseId], references: [id], onDelete: Cascade)

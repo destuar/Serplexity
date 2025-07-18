@@ -104,6 +104,10 @@ const createReportSchema = z.object({
   force: z.boolean().optional().default(false),
 });
 
+// Simple cache to track report status changes and reduce log noise
+const statusCache = new Map<string, { status: string; stepStatus: string; lastLogged: number }>();
+const STATUS_LOG_COOLDOWN = 30000; // Only log status every 30 seconds max
+
 export const createReport = async (req: Request, res: Response) => {
   const prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
@@ -399,15 +403,16 @@ export const getReportStatus = async (req: Request, res: Response) => {
   const userId = req.user?.id;
   const reportId = req.params.id;
 
-  controllerLog({ 
-    endpoint, 
-    userId, 
-    reportId,
-    metadata: { 
-      userAgent: req.headers['user-agent'],
-      ip: req.ip
-    }
-  }, 'Report status request received');
+  // Only log initial request, not the frequent polling
+  // controllerLog({ 
+  //   endpoint, 
+  //   userId, 
+  //   reportId,
+  //   metadata: { 
+  //     userAgent: req.headers['user-agent'],
+  //     ip: req.ip
+  //   }
+  // }, 'Report status request received');
 
   try {
     if (!userId) {
@@ -461,19 +466,35 @@ export const getReportStatus = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Report not found or access denied' });
     }
 
-    controllerLog({ 
-      endpoint, 
-      userId, 
-      reportId, 
-      companyId: report.company.id,
-      duration, 
-      statusCode: 200,
-      metadata: { 
+    // Smart logging: only log when status changes or periodically
+    const cacheKey = reportId;
+    const cached = statusCache.get(cacheKey);
+    const now = Date.now();
+    const statusChanged = !cached || cached.status !== report.status || cached.stepStatus !== report.stepStatus;
+    const shouldLog = statusChanged || (now - (cached?.lastLogged || 0) > STATUS_LOG_COOLDOWN);
+    
+    if (shouldLog) {
+      controllerLog({ 
+        endpoint, 
+        userId, 
+        reportId, 
+        companyId: report.company.id,
+        duration, 
+        statusCode: 200,
+        metadata: { 
+          status: report.status,
+          stepStatus: report.stepStatus,
+          companyName: report.company.name,
+          statusChanged
+        }
+      }, `Report status ${statusChanged ? 'changed to' : 'update'}: ${report.status}`);
+      
+      statusCache.set(cacheKey, {
         status: report.status,
-        stepStatus: report.stepStatus,
-        companyName: report.company.name
-      }
-    }, `Report status retrieved: ${report.status}`);
+        stepStatus: report.stepStatus || '',
+        lastLogged: now
+      });
+    }
 
     res.status(200).json({
       id: report.id,

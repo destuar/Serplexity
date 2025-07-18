@@ -205,12 +205,12 @@ class DatabaseService {
 
     const primary = new PrismaClient({
       datasources: { db: { url: primaryUrl } },
-      log: env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error']
+      log: env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error']
     });
 
     const replica = new PrismaClient({
       datasources: { db: { url: replicaUrl } },
-      log: env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error']
+      log: env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error']
     });
 
     return { primary, replica };

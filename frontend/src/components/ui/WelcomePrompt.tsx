@@ -12,15 +12,9 @@
  * - WelcomePrompt: The main welcome prompt component.
  */
 import React from 'react';
-import { Sparkles, Loader, CheckCircle } from 'lucide-react';
+import { Sparkles, Loader } from 'lucide-react';
 import { useCompany } from '../../contexts/CompanyContext';
 
-interface CompletionState {
-  timestamp: number;
-  companyId: string;
-  reportCompleted: boolean;
-  dashboardRefreshed: boolean;
-}
 
 interface WelcomePromptProps {
   onGenerateReport: () => void;
@@ -29,7 +23,6 @@ interface WelcomePromptProps {
   progress?: number;
   isButtonDisabled?: boolean;
   generationState?: string;
-  completionState?: CompletionState | null;
 }
 
 const WelcomePrompt: React.FC<WelcomePromptProps> = ({
@@ -38,8 +31,7 @@ const WelcomePrompt: React.FC<WelcomePromptProps> = ({
   generationStatus,
   progress = 0,
   isButtonDisabled = false,
-  generationState,
-  completionState
+  generationState: _generationState
 }) => {
   const { selectedCompany: _selectedCompany } = useCompany();
 
@@ -48,15 +40,6 @@ const WelcomePrompt: React.FC<WelcomePromptProps> = ({
 
   // Enhanced button state logic
   const getButtonContent = () => {
-    if (completionState && !completionState.dashboardRefreshed) {
-      return (
-        <div className="flex items-center justify-center gap-3">
-          <CheckCircle size={20} className="text-green-400" />
-          <span>Report completed! Loading dashboard...</span>
-        </div>
-      );
-    }
-
     if (isGenerating) {
       return (
         <>
@@ -78,24 +61,6 @@ const WelcomePrompt: React.FC<WelcomePromptProps> = ({
       );
     }
 
-    if (generationState === 'COMPLETED') {
-      return (
-        <div className="flex items-center justify-center gap-3">
-          <CheckCircle size={20} className="text-green-400" />
-          <span>Report completed! Refresh to view dashboard</span>
-        </div>
-      );
-    }
-
-    if (generationState === 'FAILED') {
-      return (
-        <div className="flex items-center justify-center gap-3">
-          <Sparkles size={20} />
-          <span>Generate Your First Report</span>
-        </div>
-      );
-    }
-
     return (
       <div className="flex items-center justify-center gap-3">
         <Sparkles size={20} />
@@ -108,20 +73,8 @@ const WelcomePrompt: React.FC<WelcomePromptProps> = ({
   const getButtonClass = () => {
     const baseClass = "w-full flex flex-col gap-2 px-6 py-3 rounded-lg transition-all text-lg font-medium shadow-lg hover:shadow-xl relative overflow-hidden";
     
-    if (completionState && !completionState.dashboardRefreshed) {
-      return `${baseClass} bg-green-600 text-white cursor-not-allowed opacity-90`;
-    }
-
     if (isButtonDisabled) {
       return `${baseClass} bg-gray-400 text-white cursor-not-allowed opacity-50`;
-    }
-
-    if (generationState === 'COMPLETED') {
-      return `${baseClass} bg-green-600 text-white cursor-not-allowed opacity-90`;
-    }
-
-    if (generationState === 'FAILED') {
-      return `${baseClass} bg-gradient-to-r from-[#7762ff] to-[#9e52ff] text-white hover:from-[#6650e6] hover:to-[#8a47e6]`;
     }
 
     return `${baseClass} bg-gradient-to-r from-[#7762ff] to-[#9e52ff] text-white hover:from-[#6650e6] hover:to-[#8a47e6]`;
@@ -158,7 +111,7 @@ const WelcomePrompt: React.FC<WelcomePromptProps> = ({
               {getButtonContent()}
             </button>
             
-            {!isGenerating && !completionState && (
+            {!isGenerating && (
               <p className="text-xs text-gray-500">
                 Report generation typically takes 2-5 minutes depending on market complexity.
               </p>

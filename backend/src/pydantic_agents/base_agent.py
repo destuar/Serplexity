@@ -111,7 +111,20 @@ class BaseAgent(ABC):
         
         # Get configuration from environment with centralized fallbacks
         self.provider_id = os.getenv('PYDANTIC_PROVIDER_ID', 'openai')
-        self.model_id = os.getenv('PYDANTIC_MODEL_ID', default_model)
+        
+        # Handle model ID with proper conversion for PydanticAI compatibility
+        env_model_id = os.getenv('PYDANTIC_MODEL_ID')
+        if env_model_id:
+            # Convert model ID if it's in our configuration
+            from .config.models import get_model_by_id
+            model_config = get_model_by_id(env_model_id)
+            if model_config:
+                self.model_id = model_config.get_pydantic_model_id()
+            else:
+                self.model_id = env_model_id
+        else:
+            self.model_id = default_model
+            
         self.env_temperature = float(os.getenv('PYDANTIC_TEMPERATURE', str(self.temperature)))
         self.env_max_tokens = int(os.getenv('PYDANTIC_MAX_TOKENS', str(self.max_tokens)))
         self.env_system_prompt = os.getenv('PYDANTIC_SYSTEM_PROMPT', system_prompt)
@@ -172,6 +185,24 @@ class BaseAgent(ABC):
                 # Execute the agent
                 result = await self.agent.run(prompt)
                 
+                # Debug: Log the raw result from PydanticAI
+                logger.info(f"🔍 Raw PydanticAI result: {result}")
+                logger.info(f"🔍 Result type: {type(result)}")
+                if hasattr(result, 'data'):
+                    logger.info(f"🔍 Result.data: {result.data}")
+                    logger.info(f"🔍 Result.data type: {type(result.data)}")
+                else:
+                    logger.warning(f"⚠️ Result has no 'data' attribute")
+                
+                # Check if result.data is None or empty
+                if not result.data:
+                    logger.error(f"❌ PydanticAI returned empty result.data for {self.agent_id}")
+                    logger.error(f"❌ Full result object: {vars(result) if hasattr(result, '__dict__') else result}")
+                    # Try to extract any error information
+                    if hasattr(result, 'error'):
+                        logger.error(f"❌ Result error: {result.error}")
+                    raise RuntimeError(f"PydanticAI agent {self.agent_id} returned empty result.data")
+                
                 # Validate result
                 validated_result = self._validate_result(result.data)
                 
@@ -226,7 +257,12 @@ class BaseAgent(ABC):
                     "metadata": metadata,
                     "execution_time": execution_time,
                     "attempt_count": attempt_count,
-                    "agent_id": self.agent_id
+                    "agent_id": self.agent_id,
+                    # TypeScript compatibility fields
+                    "model_used": metadata.modelUsed,
+                    "tokens_used": metadata.tokensUsed,
+                    "modelUsed": metadata.modelUsed,
+                    "tokensUsed": metadata.tokensUsed
                 }
                 
             except ValidationError as e:
@@ -282,31 +318,53 @@ class BaseAgent(ABC):
             "error": str(last_error),
             "execution_time": execution_time,
             "attempt_count": attempt_count,
-            "agent_id": self.agent_id
+            "agent_id": self.agent_id,
+            # TypeScript compatibility fields for error cases
+            "model_used": self._extract_model_used(None),
+            "tokens_used": 0,
+            "modelUsed": self._extract_model_used(None),
+            "tokensUsed": 0
         }
     
     def _extract_model_used(self, result: Any) -> str:
         """Extract model name from result"""
-        try:
-            if hasattr(result, 'model_name'):
-                return result.model_name
-            elif hasattr(result, '_model_name'):
-                return result._model_name
-            else:
-                return self.model_id
-        except:
-            return self.model_id
+        # Return the actual configured model ID (e.g., 'openai:gpt-4.1-mini' -> 'gpt-4.1-mini')
+        if ':' in self.model_id:
+            return self.model_id.split(':')[1]
+        return self.model_id
     
     def _extract_tokens_used(self, result: Any) -> int:
-        """Extract token usage from result"""
+        """Extract token usage from PydanticAI result"""
         try:
-            if hasattr(result, 'usage') and hasattr(result.usage, 'total_tokens'):
-                return result.usage.total_tokens
-            elif hasattr(result, 'token_usage'):
-                return result.token_usage
-            else:
-                return 0
-        except:
+            # PydanticAI result structure: result.usage() method returns usage info
+            if hasattr(result, 'usage'):
+                if callable(result.usage):
+                    # usage is a method, call it to get usage info
+                    usage = result.usage()
+                    if usage and hasattr(usage, 'total_tokens') and usage.total_tokens is not None:
+                        return int(usage.total_tokens)
+                    elif usage and hasattr(usage, 'request_tokens') and hasattr(usage, 'response_tokens'):
+                        req_tokens = getattr(usage, 'request_tokens', 0) or 0
+                        resp_tokens = getattr(usage, 'response_tokens', 0) or 0
+                        return int(req_tokens + resp_tokens)
+                else:
+                    # usage is a property
+                    usage = result.usage
+                    if usage and hasattr(usage, 'total_tokens') and usage.total_tokens is not None:
+                        return int(usage.total_tokens)
+                    elif usage and hasattr(usage, 'request_tokens') and hasattr(usage, 'response_tokens'):
+                        req_tokens = getattr(usage, 'request_tokens', 0) or 0
+                        resp_tokens = getattr(usage, 'response_tokens', 0) or 0
+                        return int(req_tokens + resp_tokens)
+            
+            # Fallback: try direct token_usage attribute
+            if hasattr(result, 'token_usage') and result.token_usage is not None:
+                return int(result.token_usage)
+            
+            # If no token usage found, return 0 (this is acceptable for tests)
+            return 0
+        except (ValueError, TypeError, AttributeError) as e:
+            logger.error(f"Error extracting tokens from result: {e}")
             return 0
     
     def _extract_fallback_used(self, result: Any) -> bool:

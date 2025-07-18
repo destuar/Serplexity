@@ -184,7 +184,27 @@ export const LLM_PRICING: Record<string, ModelPricing> = {
     }
   },
 
-  // Perplexity Models
+  // Perplexity Models (legacy alias for backward compatibility)
+  'perplexity': {
+    modelId: 'perplexity',
+    provider: 'perplexity',
+    displayName: 'Perplexity Sonar (Legacy)',
+    tokens: {
+      inputTokensPerMillion: 1000,  // $1.00 per 1M input tokens
+      outputTokensPerMillion: 1000, // $1.00 per 1M output tokens
+    },
+    webSearch: {
+      enabled: true,
+      costPer1000Searches: 0,       // Included in model pricing
+      includesTokens: true,         // Search included in model
+    },
+    rateLimits: {
+      requestsPerMinute: 500,
+      tokensPerMinute: 200000,
+      searchesPerMinute: 100
+    }
+  },
+
   'sonar': {
     modelId: 'sonar',
     provider: 'perplexity',

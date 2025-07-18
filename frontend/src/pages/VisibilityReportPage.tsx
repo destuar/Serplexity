@@ -31,7 +31,7 @@ const VisibilityReportPage: React.FC = () => {
     generateReport, 
     isButtonDisabled, 
     generationState, 
-    completionState 
+     
   } = useReportGeneration(selectedCompany);
 
   const handleRefresh = () => {
@@ -51,7 +51,6 @@ const VisibilityReportPage: React.FC = () => {
           progress={progress}
           isButtonDisabled={isButtonDisabled}
           generationState={generationState}
-          completionState={completionState}
         />
       ) : (
         <>

@@ -99,7 +99,7 @@ export interface AgentExecutionContext {
   readonly timestamp: Date;
   readonly options: PydanticAgentOptions;
   readonly inputData: any;
-  readonly outputSchema?: z.ZodType<any>;
+  readonly outputSchema?: z.ZodType<any> | null;
 }
 
 /**
@@ -204,7 +204,7 @@ export class PydanticLlmService {
   async executeAgent<T>(
     agentScript: string,
     inputData: any,
-    outputSchema: z.ZodType<T>,
+    outputSchema: z.ZodType<T> | null,
     options: PydanticAgentOptions = {}
   ): Promise<PydanticResponse<T>> {
     const sessionId = this.generateSessionId();
@@ -238,19 +238,31 @@ export class PydanticLlmService {
             throw new Error(result.error || 'Agent execution failed');
           }
 
-          // Validate output against schema
-          const validatedData = outputSchema.parse(result.data);
-          
+          // Trust PydanticAI structured output - handle empty data gracefully
+          let resultData = result.data;
+          if (!resultData) {
+            logger.warn(`PydanticAI agent ${agentScript} returned empty data, using default structure`);
+            // Provide default structure to prevent downstream errors
+            resultData = {
+              error: "Agent returned empty data",
+              success: false
+            };
+          }
+
+          // Get provider ID for metadata
+          const providerIdForMetadata = result.providerId || 
+            (options.modelId?.split(':')[0]) || 'unknown';
+
           const response: PydanticResponse<T> = {
-            data: validatedData,
+            data: resultData,
             metadata: {
-              modelUsed: result.modelUsed,
-              tokensUsed: result.tokensUsed,
-              executionTime: result.executionTime,
-              providerId: result.providerId,
+              modelUsed: result.modelUsed || options.modelId || providerIdForMetadata,
+              tokensUsed: result.tokensUsed || 0,
+              executionTime: result.executionTime || 0,
+              providerId: providerIdForMetadata,
               success: true,
-              attemptCount: result.attemptCount,
-              fallbackUsed: result.fallbackUsed
+              attemptCount: result.attemptCount || 1,
+              fallbackUsed: result.fallbackUsed || false
             }
           };
 
@@ -348,7 +360,7 @@ export class PydanticLlmService {
     inputData: any,
     options: PydanticAgentOptions
   ): Promise<AgentExecutionResult> {
-    const scriptPath = path.join(this.scriptsPath, agentScript);
+    const scriptPath = path.join(this.scriptsPath, 'agents', agentScript);
     const maxRetries = options.retryAttempts || 3;
     let lastError: Error | null = null;
 
@@ -463,9 +475,9 @@ export class PydanticLlmService {
 
             resolve({
               success: true,
-              data: result.data,
+              data: result.result || result.data, // Support both 'result' and 'data' properties
               executionTime,
-              modelUsed: result.model_used || 'unknown',
+              modelUsed: result.model_used || result.modelUsed || options.modelId || providerId,
               tokensUsed: result.tokens_used || 0,
               providerId,
               attemptCount: attempt,

@@ -45,7 +45,7 @@ const CompetitorRankingsPage = () => {
     generateReport, 
     isButtonDisabled, 
     generationState, 
-    completionState 
+     
   } = useReportGeneration(selectedCompany);
 
   // Local state for competitor rankings specific features
@@ -292,7 +292,6 @@ const CompetitorRankingsPage = () => {
           progress={progress}
           isButtonDisabled={isButtonDisabled}
           generationState={generationState}
-          completionState={completionState}
         />
       ) : (
         <>

@@ -384,7 +384,7 @@ const ModelComparisonPage: React.FC = () => {
     generateReport, 
     isButtonDisabled, 
     generationState, 
-    completionState 
+     
   } = useReportGeneration(selectedCompany);
   const { data: comparisonData, loading: comparisonLoading, refreshData: refreshComparison } = useModelComparison();
   
@@ -510,7 +510,6 @@ const ModelComparisonPage: React.FC = () => {
           progress={progress}
           isButtonDisabled={isButtonDisabled}
           generationState={generationState}
-          completionState={completionState}
         />
       ) : (
         <>

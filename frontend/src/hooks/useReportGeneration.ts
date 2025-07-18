@@ -207,7 +207,6 @@ export const useReportGeneration = (selectedCompany: Company | null) => {
 
   // Enhanced state management for production-ready race condition prevention
   const [generationState, setGenerationState] = useState<GenerationState>(GenerationState.IDLE);
-  const [completionState, setCompletionState] = useState<CompletionState | null>(null);
   const [crossTabLock, setCrossTabLock] = useState<boolean>(false);
   
   // Refs for cleanup and state management
@@ -374,7 +373,6 @@ export const useReportGeneration = (selectedCompany: Company | null) => {
           const completion = JSON.parse(stored) as CompletionState;
           completion.dashboardRefreshed = true;
           localStorage.setItem(completionKey, JSON.stringify(completion));
-          setCompletionState(completion);
         }
       }
     };
@@ -428,14 +426,6 @@ export const useReportGeneration = (selectedCompany: Company | null) => {
     progressRef.current = progressValue;
     setIsGenerating(!!storedRunId);
     
-    // Check for completion state
-    const completionKey = `${COMPLETION_STATE_PREFIX}${selectedCompany.id}`;
-    const storedCompletion = localStorage.getItem(completionKey);
-    if (storedCompletion) {
-      const completion: CompletionState = JSON.parse(storedCompletion);
-      setCompletionState(completion);
-      setGenerationState(GenerationState.COMPLETED);
-    }
   }, [selectedCompany]);
 
   // Enhanced completion state management
@@ -445,20 +435,10 @@ export const useReportGeneration = (selectedCompany: Company | null) => {
     setGenerationState(GenerationState.COMPLETING);
     syncCrossTab(companyId, GenerationState.COMPLETING);
     
-    const completionData: CompletionState = {
-      timestamp: Date.now(),
-      companyId,
-      reportCompleted: true,
-      dashboardRefreshed: false
-    };
-    
-    setCompletionState(completionData);
-    localStorage.setItem(`${COMPLETION_STATE_PREFIX}${companyId}`, JSON.stringify(completionData));
-    
     // Set final progress and status
     setProgress(100);
     progressRef.current = 100;
-    setGenerationStatus('Report completed! Loading dashboard...');
+    setGenerationStatus('Report generation completed');
     
     // Clean up generation state
     setIsGenerating(false);
@@ -470,7 +450,7 @@ export const useReportGeneration = (selectedCompany: Company | null) => {
       pollIntervalRef.current = null;
     }
     
-    // Clear generation data but keep completion state
+    // Clear generation data
     localStorage.removeItem(`${RUN_ID_PREFIX}${companyId}`);
     localStorage.removeItem(`${STATUS_PREFIX}${companyId}`);
     localStorage.removeItem(`${PROGRESS_PREFIX}${companyId}`);
@@ -482,19 +462,11 @@ export const useReportGeneration = (selectedCompany: Company | null) => {
     
     // Transition to completed state after brief delay
     setTimeout(() => {
-      setGenerationState(GenerationState.COMPLETED);
-      syncCrossTab(companyId, GenerationState.COMPLETED);
+      setGenerationState(GenerationState.IDLE);
+      syncCrossTab(companyId, GenerationState.IDLE);
       
       // Release lock after completion
       releaseGenerationLock(companyId);
-      
-      // Auto-clear completion state after 30 seconds
-      setTimeout(() => {
-        setCompletionState(null);
-        localStorage.removeItem(`${COMPLETION_STATE_PREFIX}${companyId}`);
-        setGenerationState(GenerationState.IDLE);
-        syncCrossTab(companyId, GenerationState.IDLE);
-      }, 30000);
     }, 2000);
   }, [syncCrossTab, releaseGenerationLock]);
 
@@ -609,19 +581,6 @@ export const useReportGeneration = (selectedCompany: Company | null) => {
       return;
     }
 
-    // Check for recent completion
-    const completionKey = `${COMPLETION_STATE_PREFIX}${selectedCompany.id}`;
-    const storedCompletion = localStorage.getItem(completionKey);
-    if (storedCompletion) {
-      const completion: CompletionState = JSON.parse(storedCompletion);
-      const timeSinceCompletion = Date.now() - completion.timestamp;
-      
-      // Block generation for 30 seconds after completion
-      if (timeSinceCompletion < 30000) {
-        console.warn('[ReportGeneration] Recent completion detected, blocking generation');
-        return;
-      }
-    }
 
     // Acquire generation lock
     if (!acquireGenerationLock(selectedCompany.id)) {
@@ -638,9 +597,6 @@ export const useReportGeneration = (selectedCompany: Company | null) => {
       progressRef.current = 0;
       setGenerationStatus('Initializing report generation pipeline...');
       
-      // Clear any existing completion state
-      setCompletionState(null);
-      localStorage.removeItem(`${COMPLETION_STATE_PREFIX}${selectedCompany.id}`);
       
       // Validate prerequisites
       const hasCompetitors = selectedCompany.competitors && selectedCompany.competitors.length > 0;
@@ -706,10 +662,9 @@ export const useReportGeneration = (selectedCompany: Company | null) => {
     if (!selectedCompany.competitors?.length) return true;
     if (generationState !== GenerationState.IDLE) return true;
     if (crossTabLock) return true;
-    if (completionState && !completionState.dashboardRefreshed) return true;
     
     return false;
-  }, [selectedCompany, generationState, crossTabLock, completionState]);
+  }, [selectedCompany, generationState, crossTabLock]);
 
   // Clean up on unmount
   useEffect(() => {
@@ -736,6 +691,5 @@ export const useReportGeneration = (selectedCompany: Company | null) => {
     formatTimeRemaining,
     isButtonDisabled: isButtonDisabled(),
     generationState,
-    completionState,
   };
 }; 

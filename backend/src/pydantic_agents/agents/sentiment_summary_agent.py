@@ -183,8 +183,12 @@ async def main():
         # Execute the agent using BaseAgent pattern
         result = await agent.execute(input_data)
         
+        # Convert result to JSON-serializable format
+        if 'result' in result and hasattr(result['result'], 'model_dump'):
+            result['result'] = result['result'].model_dump()
+        
         # Output result
-        print(json.dumps(result, indent=2))
+        print(json.dumps(result, indent=2, default=str))
         
     except Exception as e:
         error_output = {

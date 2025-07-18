@@ -462,7 +462,8 @@ def auto_initialize():
 
 # Defer auto-initialization until explicitly called
 # This prevents hanging during module import
-if __name__ != "__main__":
-    # Only auto-initialize when this module is imported, not when run directly
-    import atexit
-    atexit.register(auto_initialize) 
+# TEMPORARILY DISABLED - logfire causing span_style errors
+# if __name__ != "__main__":
+#     # Only auto-initialize when this module is imported, not when run directly
+#     import atexit
+#     atexit.register(auto_initialize) 

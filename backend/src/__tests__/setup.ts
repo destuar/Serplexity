@@ -55,8 +55,9 @@ beforeAll(async () => {
   
   // Verify we're connected to test database
   const dbName = await prisma.$queryRaw<{database_name: string}[]>`SELECT current_database() as database_name`;
-  if (!dbName[0].database_name.includes('test')) {
-    throw new Error(`SECURITY ERROR: Not connected to test database! Connected to: ${dbName[0].database_name}`);
+  if (!dbName || dbName.length === 0 || !dbName[0]?.database_name?.includes('test')) {
+    const actualDb = dbName?.[0]?.database_name || 'unknown';
+    throw new Error(`SECURITY ERROR: Not connected to test database! Connected to: ${actualDb}`);
   }
   
   console.log(`✅ Connected to test database: ${dbName[0].database_name}`);

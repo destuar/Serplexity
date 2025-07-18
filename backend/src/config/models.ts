@@ -44,7 +44,9 @@ export interface Model {
 export const LLM_CONFIG = {
   // Fanout generation parameters
   FANOUT_CONCURRENCY: 4, // Increased to allow more parallel fanout generation (tuned for current rate limits)
-  FANOUT_MAX_QUERIES_PER_TYPE: 4, // Allow up to 4 queries per type per model for comprehensive coverage
+  FANOUT_MAX_QUERIES_PER_TYPE: 1, // DEPRECATED: New logic uses FANOUT_TOTAL_TARGET and FANOUT_GENERATION_THRESHOLD.
+  FANOUT_TOTAL_TARGET: 5, // The target number of total fanout questions per benchmark question.
+  FANOUT_GENERATION_THRESHOLD: 3, // If existing questions are AT or ABOVE this, do not generate new ones.
   
   // Response length configuration
   MAX_TOKENS: 8192, // Maximum tokens for model responses to prevent truncation
@@ -79,9 +81,9 @@ export const LLM_CONFIG = {
   // Logging configuration - Simple on/off toggles
   LOGGING: {
     SHOW_STAGES: true,              // Show stage transitions (START/COMPLETE)
-    SHOW_GENERATED_CONTENT: true,   // Show actual questions, competitors, responses
+    SHOW_GENERATED_CONTENT: false,  // Hide verbose content for cleaner logs
     SHOW_PERFORMANCE: false,        // Show timing and token usage
-    SHOW_TECHNICAL_DETAILS: true, // Show model IDs, metadata, etc.
+    SHOW_TECHNICAL_DETAILS: false, // Hide verbose metadata for cleaner logs
     SHOW_ERRORS: true,              // Show error messages
   },
   

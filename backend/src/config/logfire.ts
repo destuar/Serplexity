@@ -240,12 +240,15 @@ export function trackPerformance(
     }
   });
   
-  logger.info('Performance Metric', {
-    operationName,
-    duration,
-    success,
-    metadata
-  });
+  // Only log performance metrics if explicitly enabled
+  if (process.env.LOG_PERFORMANCE_METRICS === 'true') {
+    logger.info('Performance Metric', {
+      operationName,
+      duration,
+      success,
+      metadata
+    });
+  }
   
   span.end();
 }

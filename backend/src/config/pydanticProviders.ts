@@ -292,13 +292,17 @@ export class PydanticProviderManager {
       webSearchAvailable: webSearchAvailable ?? current.webSearchAvailable
     });
 
-    logger.info(`Provider health updated: ${id}`, {
-      available,
-      errorCount,
-      avgResponseTime,
-      statusMessage: error,
-      webSearchAvailable: webSearchAvailable ?? current.webSearchAvailable
-    });
+    // Only log when availability status changes to reduce noise
+    if (current.available !== available) {
+      logger.info(`Provider health changed: ${id}`, {
+        previousStatus: current.available ? 'available' : 'unavailable',
+        newStatus: available ? 'available' : 'unavailable',
+        errorCount,
+        avgResponseTime,
+        statusMessage: error,
+        webSearchAvailable: webSearchAvailable ?? current.webSearchAvailable
+      });
+    }
 
     // Track provider health metrics with Logfire
     try {

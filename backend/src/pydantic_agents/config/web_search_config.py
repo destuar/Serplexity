@@ -303,7 +303,7 @@ Website Enrichment Search Strategy:
                 
                 # Use Anthropic's Messages API with web search tool
                 message = client.messages.create(
-                    model="claude-3-5-sonnet-20241022",
+                    model="claude-3-5-haiku-20241022",
                     max_tokens=1000,
                     tools=[{
                         "type": "web_search_20250305",

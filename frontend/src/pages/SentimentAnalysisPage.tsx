@@ -34,7 +34,7 @@ const SentimentAnalysisPage: React.FC = () => {
     generateReport, 
     isButtonDisabled, 
     generationState, 
-    completionState 
+     
   } = useReportGeneration(selectedCompany);
 
   const dateRangeOptions = [
@@ -64,7 +64,6 @@ const SentimentAnalysisPage: React.FC = () => {
           progress={progress}
           isButtonDisabled={isButtonDisabled}
           generationState={generationState}
-          completionState={completionState}
         />
       ) : (
         <>

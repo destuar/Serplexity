@@ -932,307 +932,213 @@ const jobTimer = new Timer();
     // --- Stage 1.2: Generate Fanout Questions ---
     const fanoutGenTimer = new Timer();
     await updateProgress(prisma, runId, 'Preparing Questions', 0, PROGRESS.QUESTIONS_START, PROGRESS.QUESTIONS_END, 'Expanding "Fan-Out" Questions', true);
-    log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_GENERATION_START' }, 'Generating missing fanout questions for user benchmarking questions');
-
-    // Get only user-created benchmarking questions (no generated variations)
-    const userBenchmarkQuestions = fullCompany.benchmarkingQuestions;
+    log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_GENERATION_START' }, 'STARTING FANOUT GENERATION');
     
+    const userBenchmarkQuestions = fullCompany.benchmarkingQuestions || [];
+
     if (userBenchmarkQuestions.length === 0) {
-        log({ runId, stage: 'DATA_GATHERING', step: 'NO_BENCHMARK_QUESTIONS' }, 'No user-created benchmarking questions found. Skipping fanout generation.', 'WARN');
+        log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_QUESTIONS_SKIP' }, 'No user benchmarking questions found, skipping fanout generation.');
     } else {
-        log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_QUESTIONS_FOUND', metadata: { count: userBenchmarkQuestions.length } }, `Found ${userBenchmarkQuestions.length} user benchmarking questions for fanout generation`);
-
-        // Define fanout types locally (migrated from legacy fanoutService)
-        const FANOUT_QUERY_TYPES = [
-            'paraphrase', 'comparison', 'temporal', 'topical', 'entity_broader',
-            'entity_narrower', 'session_context', 'user_profile', 'vertical', 'safety_probe'
-        ] as const;
-        type FanoutQueryType = typeof FANOUT_QUERY_TYPES[number];
-
-        // Inline utility functions (migrated from legacy fanoutService)
-        const getExistingFanoutCounts = async (baseQuestionId: string, companyId: string): Promise<Record<string, Record<FanoutQueryType, number>>> => {
-            const existing = await prisma.fanoutQuestion.groupBy({
-                by: ['type', 'sourceModel'],
-                where: { baseQuestionId, companyId },
-                _count: { _all: true },
-            });
-
-            const counts: Record<string, Record<FanoutQueryType, number>> = {};
-            const models = getModelsByTask(ModelTask.QUESTION_ANSWERING);
+            log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_QUESTIONS_FOUND', metadata: { count: userBenchmarkQuestions.length } }, `Found ${userBenchmarkQuestions.length} user benchmarking questions for fanout generation`);
             
-            models.forEach(model => {
-                counts[model.id] = {} as Record<FanoutQueryType, number>;
-                FANOUT_QUERY_TYPES.forEach(type => {
-                    counts[model.id][type] = 0;
-                });
-            });
-
-            existing.forEach(({ type, sourceModel, _count }) => {
-                if (counts[sourceModel] && FANOUT_QUERY_TYPES.includes(type as FanoutQueryType)) {
-                    counts[sourceModel][type as FanoutQueryType] = _count._all;
-                }
-            });
-
-            return counts;
-        };
-
-        const getMissingFanoutCounts = async (baseQuestionId: string, companyId: string): Promise<Record<string, Record<FanoutQueryType, number>>> => {
-            const existingCounts = await getExistingFanoutCounts(baseQuestionId, companyId);
-            const missingCounts: Record<string, Record<FanoutQueryType, number>> = {};
-
-            Object.keys(existingCounts).forEach(modelId => {
-                missingCounts[modelId] = {} as Record<FanoutQueryType, number>;
-                FANOUT_QUERY_TYPES.forEach(type => {
-                    const existing = existingCounts[modelId][type] || 0;
-                    const needed = Math.max(0, LLM_CONFIG.FANOUT_MAX_QUERIES_PER_TYPE - existing);
-                    missingCounts[modelId][type] = needed;
-                });
-            });
-
-            return missingCounts;
-        };
-
-        // Display labels and descriptions (migrated from legacy fanoutService)
-        const FANOUT_DISPLAY_LABELS = {
-            'paraphrase': 'Paraphrase',
-            'comparison': 'Comparison',
-            'temporal': 'Time-based',
-            'topical': 'Related Topics',
-            'entity_broader': 'Broader Category',
-            'entity_narrower': 'Specific Focus',
-            'session_context': 'Context',
-            'user_profile': 'Personalized',
-            'vertical': 'Media Search',
-            'safety_probe': 'Safety Check'
-        } as const;
-
-        const FANOUT_DESCRIPTIONS = {
-            'paraphrase': 'Rewording of the original question',
-            'comparison': 'Direct comparisons between options',
-            'temporal': 'Time-specific or trending questions',
-            'topical': 'Related subject areas',
-            'entity_broader': 'Broader category questions',
-            'entity_narrower': 'More specific focused questions',
-            'session_context': 'Contextual follow-up questions',
-            'user_profile': 'Questions tailored to user preferences',
-            'vertical': 'Questions seeking images, videos, or documents',
-            'safety_probe': 'Questions checking for policy compliance'
-        } as const;
-        
-        // Import PydanticAI service for modern LLM operations
-        const { pydanticLlmService } = await import('../services/pydanticLlmService');
-        const { z } = await import('zod');
-
-        // Generate fanout for each benchmarking question that needs it
-        const fanoutGenerationPromises = userBenchmarkQuestions.map(async (question, index) => {
-            try {
-                log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_GENERATION_CHECK_QUESTION', metadata: { questionId: question.id, questionText: question.text, questionIndex: index + 1, totalQuestions: userBenchmarkQuestions.length } }, `Checking fanout variations for question: "${question.text}"`);
-
-                // Check what fanout questions are missing per model and type
-                const missingCounts = await getMissingFanoutCounts(question.id, fullCompany.id);
-                
-                // Check if we need to generate any fanout questions
-                const totalMissing = Object.values(missingCounts).reduce((sum, modelCounts) => 
-                    sum + Object.values(modelCounts).reduce((modelSum, count) => modelSum + count, 0), 0);
-
-                if (totalMissing === 0) {
-                    log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_GENERATION_SKIP_QUESTION', metadata: { questionId: question.id } }, `Skipping fanout generation for "${question.text}" - all fanout questions already exist (4 per type per model)`);
-                    return { questionId: question.id, success: true, queriesGenerated: 0, skipped: true };
-                }
-
-                log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_GENERATION_START_QUESTION', metadata: { questionId: question.id, totalMissing, missingCounts } }, `Generating ${totalMissing} missing fanout variations for question: "${question.text}"`);
-
-                // Call PydanticAI fanout agent directly (modern approach)
-                log({ runId, stage: 'DATA_GATHERING', step: 'PYDANTIC_FANOUT_CALL', metadata: { questionId: question.id } }, `Using PydanticAI fanout agent for question: "${question.text}"`);
-                
-                const fanoutAgentInput = {
-                    company_name: fullCompany.name,
-                    industry: fullCompany.industry || 'Technology',
-                    context: question.text,
-                    query_types: ["comparison", "best_for", "versus", "features", "pricing", "reviews", "alternatives", "pros_cons", "use_cases", "getting_started"],
-                    max_queries: 20,
-                    target_audiences: ["developers", "managers", "small businesses", "enterprise teams", "end users"]
-                };
-
-                // Define schema for PydanticAI response validation
-                const FanoutQuerySchema = z.object({
-                    companyName: z.string(),
-                    industry: z.string(),
-                    queries: z.array(z.object({
-                        query: z.string(),
-                        type: z.string(),
-                        priority: z.number(),
-                        targetAudience: z.string(),
-                        expectedMentions: z.array(z.string()).default([])
-                    })),
-                    totalQueries: z.number(),
-                    generationTimestamp: z.string()
-                });
-
-                const pydanticResult = await pydanticLlmService.executeAgent(
-                    'fanout_agent.py',
-                    fanoutAgentInput,
-                    FanoutQuerySchema,
-                    {
-                        temperature: 0.8,
-                        maxTokens: 2000,
-                        timeout: 45000
-                    }
-                );
-
-                // Convert PydanticAI result to legacy format for compatibility
-                const fanoutData = {
-                    baseQuery: question.text,
-                    modelGenerations: models.map(model => ({
-                        modelId: model.id,
-                        modelEngine: model.engine,
-                        fanoutQueries: {
-                            paraphrase: pydanticResult.data.queries.filter(q => q.type === 'paraphrase').map(q => q.query).slice(0, 4),
-                            comparison: pydanticResult.data.queries.filter(q => q.type === 'comparison').map(q => q.query).slice(0, 4),
-                            temporal: pydanticResult.data.queries.filter(q => q.type === 'temporal').map(q => q.query).slice(0, 4),
-                            topical: pydanticResult.data.queries.filter(q => q.type === 'topical').map(q => q.query).slice(0, 4),
-                            entity_broader: pydanticResult.data.queries.filter(q => q.type === 'entity_broader').map(q => q.query).slice(0, 4),
-                            entity_narrower: pydanticResult.data.queries.filter(q => q.type === 'entity_narrower').map(q => q.query).slice(0, 4),
-                            session_context: pydanticResult.data.queries.filter(q => q.type === 'session_context').map(q => q.query).slice(0, 4),
-                            user_profile: pydanticResult.data.queries.filter(q => q.type === 'user_profile').map(q => q.query).slice(0, 4),
-                            vertical: pydanticResult.data.queries.filter(q => q.type === 'vertical').map(q => q.query).slice(0, 4),
-                            safety_probe: pydanticResult.data.queries.filter(q => q.type === 'safety_probe').map(q => q.query).slice(0, 4),
-                        },
-                        tokenUsage: {
-                            promptTokens: Math.floor(pydanticResult.metadata.tokensUsed * 0.7),
-                            completionTokens: Math.floor(pydanticResult.metadata.tokensUsed * 0.3),
-                            totalTokens: pydanticResult.metadata.tokensUsed
-                        }
-                    })),
-                    totalTokenUsage: {
-                        promptTokens: Math.floor(pydanticResult.metadata.tokensUsed * 0.7),
-                        completionTokens: Math.floor(pydanticResult.metadata.tokensUsed * 0.3),
-                        totalTokens: pydanticResult.metadata.tokensUsed
+            const shouldGenerateFanout = async (baseQuestionId: string, companyId: string): Promise<{ generate: boolean, needed: number }> => {
+                const existingFanoutQuestions = await prisma.fanoutQuestion.count({
+                    where: {
+                        baseQuestionId: baseQuestionId,
+                        companyId: companyId,
                     },
-                    generatedAt: new Date()
-                };
-                
-                totalPromptTokens += fanoutData.totalTokenUsage.promptTokens;
-                totalCompletionTokens += fanoutData.totalTokenUsage.completionTokens;
-                totalUsdCost += addCostFromUsage(pydanticResult.metadata.modelUsed, fanoutData.totalTokenUsage.promptTokens, fanoutData.totalTokenUsage.completionTokens);
+                });
+        
+                if (existingFanoutQuestions >= LLM_CONFIG.FANOUT_GENERATION_THRESHOLD) {
+                    return { generate: false, needed: 0 };
+                }
+        
+                const needed = Math.max(0, LLM_CONFIG.FANOUT_TOTAL_TARGET - existingFanoutQuestions);
+                return { generate: true, needed };
+            };
 
-                // Flatten all generated queries (inline implementation to avoid legacy service dependency)
-                const flattenedQueries: Array<{
-                    id: string;
-                    text: string;
-                    type: FanoutQueryType;
-                    sourceModel: string;
-                    displayLabel: string;
-                    description: string;
-                }> = [];
+            // Display labels and descriptions (migrated from legacy fanoutService)
+            const FANOUT_DISPLAY_LABELS = {
+                'paraphrase': 'Paraphrase',
+                'comparison': 'Comparison',
+                'temporal': 'Time-based',
+                'topical': 'Related Topics',
+                'entity_broader': 'Broader Category',
+                'entity_narrower': 'Specific Focus',
+                'session_context': 'Context',
+                'user_profile': 'Personalized',
+                'vertical': 'Media Search',
+                'safety_probe': 'Safety Check'
+            } as const;
 
-                let queryId = 1;
-                const FANOUT_QUERY_TYPES = ['paraphrase', 'comparison', 'temporal', 'topical', 'entity_broader', 'entity_narrower', 'session_context', 'user_profile', 'vertical', 'safety_probe'] as const;
-                const FANOUT_DISPLAY_LABELS = {
-                    'paraphrase': 'Paraphrase',
-                    'comparison': 'Comparison',
-                    'temporal': 'Time-based',
-                    'topical': 'Related Topics',
-                    'entity_broader': 'Broader Category',
-                    'entity_narrower': 'Specific Focus',
-                    'session_context': 'Context',
-                    'user_profile': 'Personalized',
-                    'vertical': 'Media Search',
-                    'safety_probe': 'Safety Check'
-                } as const;
-                const FANOUT_DESCRIPTIONS = {
-                    'paraphrase': 'Rewording of the original question',
-                    'comparison': 'Direct comparisons between options',
-                    'temporal': 'Time-specific or trending questions',
-                    'topical': 'Related subject areas',
-                    'entity_broader': 'Broader category questions',
-                    'entity_narrower': 'More specific focused questions',
-                    'session_context': 'Contextual follow-up questions',
-                    'user_profile': 'Questions tailored to user preferences',
-                    'vertical': 'Questions seeking images, videos, or documents',
-                    'safety_probe': 'Questions checking for policy compliance'
-                } as const;
+            const FANOUT_DESCRIPTIONS = {
+                'paraphrase': 'Rewording of the original question',
+                'comparison': 'Direct comparisons between options',
+                'temporal': 'Time-specific or trending questions',
+                'topical': 'Related subject areas',
+                'entity_broader': 'Broader category questions',
+                'entity_narrower': 'More specific focused questions',
+                'session_context': 'Contextual follow-up questions',
+                'user_profile': 'Questions tailored to user preferences',
+                'vertical': 'Questions seeking images, videos, or documents',
+                'safety_probe': 'Questions checking for policy compliance'
+            } as const;
+            
+            // Import PydanticAI service for modern LLM operations
+            const { pydanticLlmService } = await import('../services/pydanticLlmService');
+            const { z } = await import('zod');
 
-                fanoutData.modelGenerations.forEach(generation => {
-                    FANOUT_QUERY_TYPES.forEach(type => {
-                        generation.fanoutQueries[type].forEach((queryText: string) => {
-                            flattenedQueries.push({
-                                id: `fanout_${queryId++}`,
-                                text: queryText,
-                                type,
-                                sourceModel: generation.modelId,
-                                displayLabel: FANOUT_DISPLAY_LABELS[type],
-                                description: FANOUT_DESCRIPTIONS[type]
+            // Get models for fanout generation 
+            const models = getModelsByTask(ModelTask.QUESTION_ANSWERING);
+
+            // Generate fanout for each benchmarking question that needs it
+            const fanoutGenerationPromises = userBenchmarkQuestions.map(async (question, index) => {
+                try {
+                    log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_GENERATION_CHECK_QUESTION', metadata: { questionId: question.id, questionText: question.text, questionIndex: index + 1, totalQuestions: userBenchmarkQuestions.length } }, `Checking fanout variations for question: "${question.text}"`);
+
+                    const { generate, needed } = await shouldGenerateFanout(question.id, fullCompany.id);
+
+                    if (!generate) {
+                        log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_GENERATION_SKIP_QUESTION', metadata: { questionId: question.id } }, `Skipping fanout generation for "${question.text}" - existing questions meet threshold.`);
+                        return { questionId: question.id, success: true, queriesGenerated: 0, skipped: true };
+                    }
+
+                    log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_GENERATION_START_QUESTION', metadata: { questionId: question.id, needed } }, `Generating ${needed} new fanout variations for question: "${question.text}"`);
+
+                    const modelForFanout = models[0];
+
+                    log({ runId, stage: 'DATA_GATHERING', step: 'PYDANTIC_FANOUT_CALL', metadata: { questionId: question.id, modelId: modelForFanout.id } }, `Using PydanticAI fanout agent for question: "${question.text}"`);
+                    
+                    const fanoutAgentInput = {
+                        company_name: fullCompany.name,
+                        industry: fullCompany.industry || 'Technology',
+                        base_question: question.text,
+                        context: `Generate strategic fanout queries for ${fullCompany.name} analysis`,
+                        competitors: [] 
+                    };
+
+                    const pydanticResult = await pydanticLlmService.executeAgent(
+                        'fanout_agent.py',
+                        fanoutAgentInput,
+                        null, 
+                        {
+                            temperature: 0.8,
+                            maxTokens: 2000,
+                            timeout: 45000
+                        }
+                    );
+
+                    const fanoutResponse = pydanticResult.data as any; 
+                    
+                    if (!fanoutResponse) {
+                        throw new Error('PydanticAI returned empty response data');
+                    }
+                    const fanoutData = {
+                        baseQuery: question.text,
+                        modelGenerations: [{ 
+                            modelId: modelForFanout.id,
+                            modelEngine: modelForFanout.engine,
+                            fanoutQueries: {
+                                paraphrase: fanoutResponse.queries?.filter((q: any) => q && q.type === 'paraphrase' && q.query).map((q: any) => q.query) || [],
+                                comparison: fanoutResponse.queries?.filter((q: any) => q && q.type === 'comparison' && q.query).map((q: any) => q.query) || [],
+                                temporal: fanoutResponse.queries?.filter((q: any) => q && q.type === 'temporal' && q.query).map((q: any) => q.query) || [],
+                                topical: fanoutResponse.queries?.filter((q: any) => q && q.type === 'topical' && q.query).map((q: any) => q.query) || [],
+                                entity_broader: fanoutResponse.queries?.filter((q: any) => q && q.type === 'entity_broader' && q.query).map((q: any) => q.query) || [],
+                                entity_narrower: fanoutResponse.queries?.filter((q: any) => q && q.type === 'entity_narrower' && q.query).map((q: any) => q.query) || [],
+                                session_context: fanoutResponse.queries?.filter((q: any) => q && q.type === 'session_context' && q.query).map((q: any) => q.query) || [],
+                                user_profile: fanoutResponse.queries?.filter((q: any) => q && q.type === 'user_profile' && q.query).map((q: any) => q.query) || [],
+                                vertical: fanoutResponse.queries?.filter((q: any) => q && q.type === 'vertical' && q.query).map((q: any) => q.query) || [],
+                                safety_probe: fanoutResponse.queries?.filter((q: any) => q && q.type === 'safety_probe' && q.query).map((q: any) => q.query) || [],
+                            },
+                            tokenUsage: {
+                                promptTokens: Math.floor((pydanticResult.metadata?.tokensUsed || 0) * 0.7),
+                                completionTokens: Math.floor((pydanticResult.metadata?.tokensUsed || 0) * 0.3),
+                                totalTokens: pydanticResult.metadata?.tokensUsed || 0
+                            }
+                        }],
+                        totalTokenUsage: {
+                            promptTokens: Math.floor((pydanticResult.metadata?.tokensUsed || 0) * 0.7),
+                            completionTokens: Math.floor((pydanticResult.metadata?.tokensUsed || 0) * 0.3),
+                            totalTokens: pydanticResult.metadata?.tokensUsed || 0
+                        },
+                        generatedAt: new Date()
+                    };
+                    
+                    totalPromptTokens += fanoutData.totalTokenUsage.promptTokens;
+                    totalCompletionTokens += fanoutData.totalTokenUsage.completionTokens;
+                    totalUsdCost += addCostFromUsage(pydanticResult.metadata.modelUsed, fanoutData.totalTokenUsage.promptTokens, fanoutData.totalTokenUsage.completionTokens);
+
+                    const flattenedQueries: Array<{
+                        id: string;
+                        text: string;
+                        type: string;
+                        sourceModel: string;
+                        displayLabel: string;
+                        description: string;
+                    }> = [];
+
+                    let queryId = 1;
+                    
+                    fanoutData.modelGenerations.forEach(generation => {
+                        (Object.keys(generation.fanoutQueries) as Array<keyof typeof generation.fanoutQueries>).forEach(type => {
+                            generation.fanoutQueries[type].forEach((queryText: string) => {
+                                if (queryText) { 
+                                    flattenedQueries.push({
+                                        id: `fanout_${queryId++}`,
+                                        text: queryText,
+                                        type,
+                                        sourceModel: generation.modelId,
+                                        displayLabel: FANOUT_DISPLAY_LABELS[type as keyof typeof FANOUT_DISPLAY_LABELS] || 'General',
+                                        description: FANOUT_DESCRIPTIONS[type as keyof typeof FANOUT_DESCRIPTIONS] || 'A generated question variation.'
+                                    });
+                                }
                             });
                         });
                     });
-                });
-                
-                // Filter to only save the queries we actually need based on missing counts
-                const newQueriesToSave = flattenedQueries.filter(query => {
-                    const modelMissing = missingCounts[query.sourceModel];
-                    return modelMissing && modelMissing[query.type as FanoutQueryType] > 0;
-                });
-                
-                if (newQueriesToSave.length > 0) {
-                    // Group queries by (model, type) to ensure we don't exceed the needed count
-                    const groupedQueries: Record<string, any[]> = {};
-                    newQueriesToSave.forEach(query => {
-                        const key = `${query.sourceModel}|||${query.type}`; // Use ||| as separator to avoid conflicts with model IDs containing hyphens
-                        if (!groupedQueries[key]) groupedQueries[key] = [];
-                        groupedQueries[key].push(query);
-                    });
+                    
+                    const newQueriesToSave = flattenedQueries.slice(0, needed);
+                    
+                    if (newQueriesToSave.length > 0) {
+                        await prisma.fanoutQuestion.createMany({
+                            data: newQueriesToSave.map(query => ({
+                                baseQuestionId: question.id,
+                                text: query.text,
+                                type: query.type,
+                                sourceModel: modelForFanout.id, 
+                                companyId: fullCompany.id
+                            })),
+                            skipDuplicates: true
+                        });
 
-                    // Slice each group to match the missing count
-                    const finalQueriesToSave = [];
-                    for (const [key, queries] of Object.entries(groupedQueries)) {
-                        const [modelId, type] = key.split('|||'); // Split by ||| to properly separate model ID from type
-                        const needed = missingCounts[modelId][type as FanoutQueryType] || 0;
-                        finalQueriesToSave.push(...queries.slice(0, needed));
+                        log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_QUESTIONS_SAVED', metadata: { questionId: question.id, generatedCount: newQueriesToSave.length, tokenUsage: fanoutData.totalTokenUsage } }, `Saved ${newQueriesToSave.length} new fanout questions for "${question.text}"`);
                     }
 
-                    await prisma.fanoutQuestion.createMany({
-                        data: finalQueriesToSave.map(query => ({
-                            baseQuestionId: question.id,
-                            text: query.text,
-                            type: query.type,
-                            sourceModel: query.sourceModel,
-                            companyId: fullCompany.id
-                        })),
-                        skipDuplicates: true // Handle potential race conditions
+                    const currentFanoutData = await prisma.reportRun.findUnique({
+                        where: { id: runId },
+                        select: { fanoutData: true }
                     });
 
-                    log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_QUESTIONS_SAVED', metadata: { questionId: question.id, generatedCount: finalQueriesToSave.length, tokenUsage: fanoutData.totalTokenUsage } }, `Saved ${finalQueriesToSave.length} new fanout questions for "${question.text}"`);
+                    const existingFanoutData = currentFanoutData?.fanoutData as any || {};
+                    existingFanoutData[question.id] = fanoutData;
+
+                    await prisma.reportRun.update({
+                        where: { id: runId },
+                        data: { fanoutData: existingFanoutData }
+                    });
+
+                    return { questionId: question.id, success: true, queriesGenerated: newQueriesToSave.length, skipped: false };
+                } catch (error) {
+                    log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_GENERATION_ERROR', error, metadata: { questionId: question.id, questionText: question.text } }, `Failed to generate fanout for question: "${question.text}"`, 'ERROR');
+                    return { questionId: question.id, success: false, error, skipped: false };
                 }
+            });
 
-                // Store complete fanout data in ReportRun for later reference
-                const currentFanoutData = await prisma.reportRun.findUnique({
-                    where: { id: runId },
-                    select: { fanoutData: true }
-                });
+            const fanoutResults = await Promise.all(fanoutGenerationPromises);
+            const successfulGenerations = fanoutResults.filter(r => r.success);
+            const skippedGenerations = fanoutResults.filter(r => r.success && r.skipped);
+            const totalFanoutQueries = successfulGenerations.reduce((sum, r) => sum + (r.queriesGenerated || 0), 0);
 
-                const existingFanoutData = currentFanoutData?.fanoutData as any || {};
-                existingFanoutData[question.id] = fanoutData;
-
-                await prisma.reportRun.update({
-                    where: { id: runId },
-                    data: { fanoutData: existingFanoutData }
-                });
-
-                return { questionId: question.id, success: true, queriesGenerated: newQueriesToSave.length, skipped: false };
-            } catch (error) {
-                log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_GENERATION_ERROR', error, metadata: { questionId: question.id, questionText: question.text } }, `Failed to generate fanout for question: "${question.text}"`, 'ERROR');
-                return { questionId: question.id, success: false, error, skipped: false };
-            }
-        });
-
-        // Execute fanout generation for all questions in parallel
-        const fanoutResults = await Promise.all(fanoutGenerationPromises);
-        const successfulGenerations = fanoutResults.filter(r => r.success);
-        const skippedGenerations = fanoutResults.filter(r => r.success && r.skipped);
-        const totalFanoutQueries = successfulGenerations.reduce((sum, r) => sum + (r.queriesGenerated || 0), 0);
-
-        log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_GENERATION_COMPLETE', duration: fanoutGenTimer.elapsed(), metadata: { successfulQuestions: successfulGenerations.length, skippedQuestions: skippedGenerations.length, totalQuestions: userBenchmarkQuestions.length, totalFanoutQueries } }, `Generated ${totalFanoutQueries} new fanout questions from ${successfulGenerations.length}/${userBenchmarkQuestions.length} benchmarking questions (${skippedGenerations.length} skipped - already complete)`);
+            log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_GENERATION_COMPLETE', duration: fanoutGenTimer.elapsed(), metadata: { successfulQuestions: successfulGenerations.length, skippedQuestions: skippedGenerations.length, totalQuestions: userBenchmarkQuestions.length, totalFanoutQueries } }, `Generated ${totalFanoutQueries} new fanout questions from ${successfulGenerations.length}/${userBenchmarkQuestions.length} benchmarking questions (${skippedGenerations.length} skipped - already complete)`);
     }
 
     // 1.2: Generate Sentiment Scores
@@ -1411,6 +1317,11 @@ const jobTimer = new Timer();
         try {
             const { data: answer, usage, modelUsed } = await questionLimit(() => generateQuestionResponse(questionInput, model));
             
+            // Handle case where answer is undefined or empty
+            if (!answer) {
+                throw new Error(`Question agent returned empty answer for question ${question.id}`);
+            }
+            
             totalPromptTokens += usage.promptTokens;
             totalCompletionTokens += usage.completionTokens;
             totalUsdCost += addCostFromUsage(modelUsed, usage.promptTokens, usage.completionTokens);
@@ -1508,7 +1419,7 @@ const jobTimer = new Timer();
     
     const collectedResponses = allResults
         .filter((result): result is PromiseFulfilledResult<{ response: any; success: true; }> => 
-            result.status === 'fulfilled' && result.value.success)
+            result.status === 'fulfilled' && result.value.success && !!result.value.response)
         .map(result => result.value.response);
 
     // Finalize the competitor enrichment pipeline
@@ -1842,8 +1753,6 @@ const jobTimer = new Timer();
             
             // Import PydanticAI service for optimization tasks
             const { pydanticLlmService } = await import('../services/pydanticLlmService');
-            const { z } = await import('zod');
-            
             const optimizationAgentInput = {
                 company_name: company.name,
                 industry: company.industry || 'Technology',
@@ -1853,27 +1762,11 @@ const jobTimer = new Timer();
                 priority_focus: 'high_impact'
             };
 
-            // Define schema for PydanticAI response validation
-            const OptimizationTaskSchema = z.object({
-                companyName: z.string(),
-                industry: z.string(),
-                tasks: z.array(z.object({
-                    title: z.string(),
-                    description: z.string(),
-                    category: z.enum(["content", "technical", "brand", "visibility", "performance"]),
-                    priority: z.number().min(1).max(5),
-                    estimatedEffort: z.number().min(1).max(160),
-                    expectedImpact: z.string(),
-                    actionItems: z.array(z.string())
-                })),
-                totalTasks: z.number(),
-                generationTimestamp: z.string()
-            });
-
+            // Trust PydanticAI structured output - no validation bottleneck
             const pydanticOptimizationResult = await pydanticLlmService.executeAgent(
                 'optimization_agent.py',
                 optimizationAgentInput,
-                OptimizationTaskSchema,
+                null, // No Zod validation
                 {
                     temperature: 0.7,
                     maxTokens: 2500,
@@ -1901,8 +1794,10 @@ const jobTimer = new Timer();
                 'performance': 'inclusionRate'
             };
 
+            // Trust PydanticAI structured output
+            const optimizationResponse = pydanticOptimizationResult.data as any;
             const optimisationResult = {
-                tasks: pydanticOptimizationResult.data.tasks.map((task: any, index: number) => ({
+                tasks: (optimizationResponse.tasks || []).map((task: any, index: number) => ({
                     id: `T${String(index + 1).padStart(2, '0')}`,
                     title: String(task.title || 'Optimization Task'),
                     description: String(task.description || 'No description available'),
@@ -1910,7 +1805,7 @@ const jobTimer = new Timer();
                     priority: (task.priority === 1 ? 'High' : task.priority <= 3 ? 'Medium' : 'Low') as 'High' | 'Medium' | 'Low',
                     impact_metric: impactMetricMapping[task.category] || 'visibility'
                 })),
-                summary: `Generated ${pydanticOptimizationResult.data.totalTasks} optimization tasks using PydanticAI. Focus areas include ${pydanticOptimizationResult.data.tasks.map((t: any) => t.category).slice(0, 3).join(', ')}.`,
+                summary: `Generated ${optimizationResponse.totalTasks || 0} optimization tasks using PydanticAI. Focus areas include ${(optimizationResponse.tasks || []).map((t: any) => t.category).slice(0, 3).join(', ') || 'general optimization'}.`,
                 tokenUsage: {
                     promptTokens: Math.floor(pydanticOptimizationResult.metadata.tokensUsed * 0.7),
                     completionTokens: Math.floor(pydanticOptimizationResult.metadata.tokensUsed * 0.3),

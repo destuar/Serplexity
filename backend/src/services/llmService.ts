@@ -76,9 +76,16 @@ const CompetitorSchema = z.object({
 });
 
 const QuestionResponseSchema = z.object({
-  response: z.string().min(1),
+  question: z.string(),
+  answer: z.string().min(1),
   confidence: z.number().min(0).max(1).optional(),
-  sources: z.array(z.string()),
+  citations: z.array(z.object({
+    url: z.string(),
+    title: z.string(),
+    domain: z.string(),
+  })).optional(),
+  has_web_search: z.boolean().optional(),
+  brand_mentions_count: z.number().optional(),
 });
 
 export type SentimentScores = z.infer<typeof SentimentScoresSchema>;
@@ -189,17 +196,16 @@ export async function generateOverallSentimentSummary(
       customerService: Math.round(allRatings.reduce((sum, r) => sum + r.customerService, 0) / allRatings.length)
     };
 
-    // Generate summary using PydanticAI
+    // Generate summary using existing sentiment agent
     const result = await pydanticLlmService.executeAgent<SentimentScores>(
-      'sentiment_summary_agent.py',
+      'web_search_sentiment_agent.py',
       {
         company_name: companyName,
-        industry: sentiments[0].industry,
-        aggregated_ratings: averages,
-        individual_sentiments: sentiments,
-        analysis_type: 'summary'
+        search_queries: [`${companyName} reviews`, `${companyName} sentiment`],
+        max_results_per_query: 3,
+        context: `Generate summary for ${companyName} based on aggregated sentiment data`
       },
-      SentimentScoresSchema,
+      null, // No Zod validation - trust PydanticAI structured output
       {
         temperature: 0.4,
         maxTokens: 1500,
@@ -259,7 +265,14 @@ export async function generateQuestionResponse(
     const context = `Answer the following question professionally: ${question.text}`;
 
     // Execute PydanticAI agent
-    const result = await pydanticLlmService.executeAgent<{ response: string }>(
+    const result = await pydanticLlmService.executeAgent<{
+      question: string;
+      answer: string;
+      confidence?: number;
+      citations?: Array<{ url: string; title: string; domain: string }>;
+      has_web_search?: boolean;
+      brand_mentions_count?: number;
+    }>(
       'question_agent.py',
       {
         question: question.text,
@@ -286,7 +299,7 @@ export async function generateQuestionResponse(
     });
 
     return {
-      data: result.data.response,
+      data: result.data.answer,
       usage: {
         promptTokens: Math.floor(result.metadata.tokensUsed * 0.6),
         completionTokens: Math.floor(result.metadata.tokensUsed * 0.4),

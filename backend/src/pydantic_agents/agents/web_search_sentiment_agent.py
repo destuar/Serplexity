@@ -60,12 +60,18 @@ class WebSearchSentimentAgent(BaseAgent):
         elif provider == "anthropic":
             model_config = get_model_by_id("claude-3-5-haiku-20241022")
             default_model = model_config.get_pydantic_model_id() if model_config else "anthropic:claude-3-5-haiku-20241022"
-        elif provider == "perplexity":
+        elif provider == "perplexity" or provider == "sonar":
             # Use custom OpenAI provider for Perplexity
             default_model = self._create_perplexity_model()
         else:
-            model_config = get_model_by_id("gpt-4.1-mini")
-            default_model = model_config.get_pydantic_model_id() if model_config else "openai:gpt-4.1-mini"
+            # Handle direct model names by looking them up in the configuration
+            model_config = get_model_by_id(provider)
+            if model_config:
+                default_model = model_config.get_pydantic_model_id()
+            else:
+                # Fallback to GPT-4.1-mini
+                model_config = get_model_by_id("gpt-4.1-mini")
+                default_model = model_config.get_pydantic_model_id() if model_config else "openai:gpt-4.1-mini"
         
         super().__init__(
             agent_id="web_search_sentiment_analyzer",

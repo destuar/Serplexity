@@ -14,6 +14,15 @@ jest.mock('../config/env', () => ({
   },
 }));
 
+// Mock Prisma Role enum
+jest.mock('@prisma/client', () => ({
+  ...jest.requireActual('@prisma/client'),
+  Role: {
+    ADMIN: 'ADMIN',
+    USER: 'USER',
+  },
+}));
+
 // Mock passport configuration
 jest.mock('../config/passport', () => ({}));
 
@@ -39,6 +48,13 @@ jest.mock('../services/reportSchedulingService', () => {
     queueReport: jest.fn(),
   };
 });
+
+// Mock payment controller to avoid Stripe dependency
+jest.mock('../controllers/paymentController', () => ({
+  createCheckoutSession: jest.fn(),
+  getStripeConfig: jest.fn(),
+  stripeWebhook: jest.fn(),
+}));
 
 import { queueReport } from '../services/reportSchedulingService';
 const mockedQueueReport = queueReport as jest.MockedFunction<typeof queueReport>;

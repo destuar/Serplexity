@@ -40,7 +40,7 @@ const OverviewPage = () => {
     generateReport, 
     isButtonDisabled, 
     generationState, 
-    completionState 
+     
   } = useReportGeneration(selectedCompany);
   const isTallerScreen = useMediaQuery('(min-height: 1080px)');
   
@@ -76,7 +76,6 @@ const OverviewPage = () => {
           progress={progress}
           isButtonDisabled={isButtonDisabled}
           generationState={generationState}
-          completionState={completionState}
         />
       ) : (
         <>

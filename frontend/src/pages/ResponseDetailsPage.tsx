@@ -175,7 +175,7 @@ const ResponseDetailsPage: React.FC = () => {
       generateReport, 
       isButtonDisabled, 
       generationState, 
-      completionState 
+       
     } = useReportGeneration(selectedCompany);
 
     // Initial fetch and re-fetch on filter change
@@ -299,7 +299,6 @@ const ResponseDetailsPage: React.FC = () => {
                     progress={progress}
                     isButtonDisabled={isButtonDisabled}
                     generationState={generationState}
-                    completionState={completionState}
                 />
             ) : (
                 <>

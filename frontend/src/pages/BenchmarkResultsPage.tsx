@@ -27,8 +27,7 @@ const BenchmarkResultsPage: React.FC = () => {
     progress, 
     generateReport, 
     isButtonDisabled, 
-    generationState, 
-    completionState 
+    generationState 
   } = useReportGeneration(selectedCompany);
 
   return (
@@ -36,14 +35,13 @@ const BenchmarkResultsPage: React.FC = () => {
       {loading || hasReport === null ? (
         <BlankLoadingState message="Loading benchmark results..." />
       ) : hasReport === false ? (
-        <WelcomePrompt
+                <WelcomePrompt 
           onGenerateReport={generateReport}
           isGenerating={isGenerating}
           generationStatus={generationStatus}
           progress={progress}
           isButtonDisabled={isButtonDisabled}
           generationState={generationState}
-          completionState={completionState}
         />
       ) : !data || Object.keys(data).length === 0 ? (
         <BlankLoadingState message="Processing benchmark data..." />
