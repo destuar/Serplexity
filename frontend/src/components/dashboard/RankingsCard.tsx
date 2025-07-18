@@ -350,7 +350,7 @@ const RankingsCard = () => {
     const allSources = citationData.sources;
 
     // If we have more sources than available slots, reserve the last slot for "X+ others"
-    let displaySources: any[];
+    let displaySources: (Citation | { domain: string; name: string; shareOfVoice: number; citationCount: number; uniqueUrls: number; sampleTitle: string })[];
     if (allSources.length > maxSlots) {
       const topSources = allSources.slice(0, maxSlots - 1);
       const remainingSources = allSources.slice(maxSlots - 1);

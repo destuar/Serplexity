@@ -347,11 +347,20 @@ Remember: Every company, brand, or service name MUST be wrapped in <brand> tags.
             
             execution_time = (time.time() - start_time) * 1000
             
+            # Extract token usage from OpenAI response
+            tokens_used = 0
+            if hasattr(response, 'usage') and response.usage:
+                tokens_used = response.usage.total_tokens
+            
             return {
                 "result": result,
                 "execution_time": execution_time,
                 "attempt_count": 1,
-                "agent_id": self.agent_id
+                "agent_id": self.agent_id,
+                "tokens_used": tokens_used,
+                "tokensUsed": tokens_used,
+                "model_used": model_name,
+                "modelUsed": model_name
             }
             
         except Exception as e:
@@ -541,11 +550,21 @@ Please include actual URLs from your searches in the response text."""
             
             execution_time = (time.time() - start_time) * 1000
             
+            # Extract token usage from Perplexity response
+            tokens_used = 0
+            model_used = "sonar"  # Override for Perplexity
+            if hasattr(raw_result, 'usage') and raw_result.usage:
+                tokens_used = raw_result.usage.total_tokens if hasattr(raw_result.usage, 'total_tokens') else 0
+            
             return {
                 "result": result,
                 "execution_time": execution_time,
                 "attempt_count": 1,
-                "agent_id": self.agent_id
+                "agent_id": self.agent_id,
+                "tokens_used": tokens_used,
+                "tokensUsed": tokens_used,
+                "model_used": model_used,
+                "modelUsed": model_used
             }
             
         except Exception as e:
@@ -623,11 +642,21 @@ Please include actual URLs from your searches in the response text."""
             
             execution_time = (time.time() - start_time) * 1000
             
+            # Extract token usage from Gemini response
+            tokens_used = 0
+            model_used = self.model_id
+            if hasattr(response, 'usage_metadata') and response.usage_metadata:
+                tokens_used = (response.usage_metadata.prompt_token_count or 0) + (response.usage_metadata.candidates_token_count or 0)
+            
             return {
                 "result": result,
                 "execution_time": execution_time,
                 "attempt_count": 1,
-                "agent_id": self.agent_id
+                "agent_id": self.agent_id,
+                "tokens_used": tokens_used,
+                "tokensUsed": tokens_used,
+                "model_used": model_used,
+                "modelUsed": model_used
             }
             
         except Exception as e:
