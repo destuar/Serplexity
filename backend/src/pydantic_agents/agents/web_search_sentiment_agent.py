@@ -78,7 +78,7 @@ class WebSearchSentimentAgent(BaseAgent):
             default_model=default_model,
             system_prompt=self._build_system_prompt(),
             temperature=0.3,
-            timeout=60000,  # Longer timeout for web search
+            timeout=90000,  # Increased from 60s to 90s for Perplexity web search
             max_retries=3
         )
     
@@ -282,9 +282,12 @@ Provide structured sentiment scores across all five dimensions with explanations
             # Create OpenAI client
             client = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
             
+            # Use the configured model ID (extract from model_id if it contains provider prefix)
+            model_name = self.model_id.split(':')[-1] if ':' in self.model_id else self.model_id
+            
             # Use Responses API with web search
             response = client.responses.create(
-                model="gpt-4o",  # Responses API requires gpt-4o
+                model=model_name,  # Use the configured model
                 input=prompt,
                 tools=[{
                     "type": "web_search"

@@ -53,7 +53,7 @@ export const LLM_CONFIG = {
   
   // Worker parameters
   WORKER_CONCURRENCY: 15, // Allow the worker to process more jobs concurrently
-  QUESTION_ANSWERING_CONCURRENCY: 12, // Increased but still below original 25 to balance DB load
+  QUESTION_ANSWERING_CONCURRENCY: 16, // Increased from 12 to 16 to reduce queueing for slower providers
   WORKER_RATE_LIMIT: {
     max: 10,
     duration: 1000, // milliseconds

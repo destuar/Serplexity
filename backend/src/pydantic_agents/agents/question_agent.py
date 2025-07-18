@@ -283,9 +283,12 @@ Remember: Every company, brand, or service name MUST be wrapped in <brand> tags.
             # Create OpenAI client
             client = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
             
+            # Use the configured model ID (extract from model_id if it contains provider prefix)
+            model_name = self.model_id.split(':')[-1] if ':' in self.model_id else self.model_id
+            
             # Use Responses API with web search
             response = client.responses.create(
-                model="gpt-4o",  # Responses API requires gpt-4o
+                model=model_name,  # Use the configured model
                 input=prompt,
                 tools=[{
                     "type": "web_search"

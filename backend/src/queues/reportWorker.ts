@@ -1256,24 +1256,19 @@ const jobTimer = new Timer();
     // Create individual question-model combinations for parallel processing
     const questionModelCombinations = allQuestions.flatMap(question => {
         if (question.type === 'fanout') {
-            // Fanout questions should only be answered by the model that generated them
-            const availableModels = models.filter(model => model.id === question.sourceModel);
-            if (availableModels.length === 0) {
-                log({ runId, stage: 'DATA_GATHERING', step: 'FANOUT_MODEL_UNAVAILABLE', metadata: { questionId: question.id, sourceModel: question.sourceModel, availableModels: models.map(m => m.id) } }, `Skipping fanout question ${question.id} - source model ${question.sourceModel} not available`, 'WARN');
-                return [];
-            }
-            return availableModels.map(model => ({ question, model }));
+            // Fanout questions should now be answered by all models for comprehensive analysis
+            return models.map(model => ({ question, model }));
         } else {
             // Benchmark questions are answered by all models
             return models.map(model => ({ question, model }));
         }
     });
 
-    // Calculate expected combinations for new fanout system
+    // Calculate expected combinations for updated fanout system
     const benchmarkQuestionCount = fullCompany.benchmarkingQuestions.length;
     const fanoutQuestionCount = fanoutQuestions.length;
     const expectedBenchmarkCombinations = benchmarkQuestionCount * models.length;
-    const expectedFanoutCombinations = fanoutQuestionCount; // 1:1 with source model
+    const expectedFanoutCombinations = fanoutQuestionCount * models.length; // All models answer fanout questions
     const expectedTotal = expectedBenchmarkCombinations + expectedFanoutCombinations;
 
     log({ 

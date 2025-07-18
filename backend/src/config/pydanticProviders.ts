@@ -174,17 +174,17 @@ export const PYDANTIC_PROVIDERS: ReadonlyArray<PydanticProviderConfig> = [
     id: 'perplexity',
     name: 'Perplexity',
     apiKey: env.PERPLEXITY_API_KEY || '',
-    timeout: 30000,
+    timeout: 45000, // Increased from 30s to 45s for web search
     maxRetries: 3,
     enabled: Boolean(env.PERPLEXITY_API_KEY),
-    priority: 4,
+    priority: 2, // Increased from 4 to 2 - higher priority for better utilization
     capabilities: ['chat', 'completion', 'built_in_web_search'],
     webSearch: {
       enabled: true,
       toolName: 'built_in_search',
       costPer1000Searches: 0.0, // Included in model pricing
       maxResultsPerSearch: 10,
-      timeoutMs: 30000,
+      timeoutMs: 45000, // Increased from 30s to 45s to match provider timeout
       supportsStreaming: true,
       requiresTools: false // Built-in search capability
     },

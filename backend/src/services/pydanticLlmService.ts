@@ -430,8 +430,12 @@ export class PydanticLlmService {
       const existingPythonPath = process.env.PYTHONPATH || '';
       const pythonPath = existingPythonPath ? `${pythonPackageDir}:${existingPythonPath}` : pythonPackageDir;
 
-      const pythonProcess = spawn(this.pythonPath, [scriptPath], {
+      // Convert file path to module name for proper import
+      const moduleName = this.convertPathToModuleName(scriptPath);
+
+      const pythonProcess = spawn(this.pythonPath, ['-m', moduleName], {
         stdio: ['pipe', 'pipe', 'pipe'],
+        cwd: pythonPackageDir, // Set working directory to src for module imports
         env: {
           ...process.env,
           PYTHONPATH: pythonPath,
@@ -444,8 +448,12 @@ export class PydanticLlmService {
         }
       });
 
-      // Send input data
-      pythonProcess.stdin?.write(JSON.stringify(inputData));
+      // Send input data with provider information
+      const enhancedInputData = {
+        ...inputData,
+        provider: providerId
+      };
+      pythonProcess.stdin?.write(JSON.stringify(enhancedInputData));
       pythonProcess.stdin?.end();
 
       let stdout = '';
@@ -532,6 +540,22 @@ export class PydanticLlmService {
   }
 
   /**
+   * Convert file path to Python module name for import
+   */
+  private convertPathToModuleName(scriptPath: string): string {
+    // Extract the script name (e.g., "web_search_sentiment_agent.py")
+    const scriptName = path.basename(scriptPath, '.py');
+    
+    // If the script path includes 'agents', construct the module name
+    if (scriptPath.includes('agents')) {
+      return `pydantic_agents.agents.${scriptName}`;
+    }
+    
+    // For other scripts, assume they're in the main pydantic_agents directory
+    return `pydantic_agents.${scriptName}`;
+  }
+
+  /**
    * Select appropriate provider based on options and availability
    */
   private selectProvider(
@@ -540,9 +564,16 @@ export class PydanticLlmService {
   ): string {
     if (options.modelId) {
       const [providerId] = options.modelId.split(':');
-      const provider = providers.find(p => p.id === providerId);
+      
+      // Handle special model ID mappings
+      let actualProviderId = providerId;
+      if (providerId === 'sonar') {
+        actualProviderId = 'perplexity';
+      }
+      
+      const provider = providers.find(p => p.id === actualProviderId);
       if (provider) {
-        return providerId;
+        return actualProviderId;
       }
     }
 

@@ -112,17 +112,25 @@ class BaseAgent(ABC):
         # Get configuration from environment with centralized fallbacks
         self.provider_id = os.getenv('PYDANTIC_PROVIDER_ID', 'openai')
         
-        # Handle model ID with proper conversion for PydanticAI compatibility
-        env_model_id = os.getenv('PYDANTIC_MODEL_ID')
-        if env_model_id:
-            # Convert model ID if it's in our configuration
-            from .config.models import get_model_by_id
-            model_config = get_model_by_id(env_model_id)
-            if model_config:
-                self.model_id = model_config.get_pydantic_model_id()
+        # Handle model ID - prefer properly configured models over environment variables
+        if isinstance(default_model, str):
+            # If default_model is already a proper PydanticAI model ID (contains ':' or is custom), use it
+            if ':' in default_model or default_model.startswith('gemini'):
+                self.model_id = default_model
             else:
-                self.model_id = env_model_id
+                # Otherwise, try to use environment variable or look up model config
+                env_model_id = os.getenv('PYDANTIC_MODEL_ID')
+                if env_model_id:
+                    from .config.models import get_model_by_id
+                    model_config = get_model_by_id(env_model_id)
+                    if model_config:
+                        self.model_id = model_config.get_pydantic_model_id()
+                    else:
+                        self.model_id = env_model_id
+                else:
+                    self.model_id = default_model
         else:
+            # For custom model objects (like Perplexity), always preserve them
             self.model_id = default_model
             
         self.env_temperature = float(os.getenv('PYDANTIC_TEMPERATURE', str(self.temperature)))

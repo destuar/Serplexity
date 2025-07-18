@@ -196,7 +196,7 @@ export async function generateOverallSentimentSummary(
       customerService: Math.round(allRatings.reduce((sum, r) => sum + r.customerService, 0) / allRatings.length)
     };
 
-    // Generate summary using existing sentiment agent
+    // Generate summary description using sentiment agent
     const result = await pydanticLlmService.executeAgent<SentimentScores>(
       'web_search_sentiment_agent.py',
       {
@@ -213,17 +213,32 @@ export async function generateOverallSentimentSummary(
       }
     );
 
+    // Use pre-calculated averages to ensure consistent radar chart data
+    const summaryData: SentimentScores = {
+      companyName: companyName,
+      industry: sentiments[0]?.industry || 'Unknown',
+      ratings: [{
+        quality: averages.quality,
+        priceValue: averages.priceValue,
+        brandReputation: averages.brandReputation,
+        brandTrust: averages.brandTrust,
+        customerService: averages.customerService,
+        summaryDescription: result.data.ratings[0]?.summaryDescription || `Aggregated sentiment summary for ${companyName} based on ${allRatings.length} individual model ratings.`
+      }]
+    };
+
     const executionTime = Date.now() - startTime;
     
     logger.info('PydanticAI sentiment summary completed', {
       companyName,
       executionTime,
       tokensUsed: result.metadata.tokensUsed,
-      success: result.metadata.success
+      success: result.metadata.success,
+      averages: averages
     });
 
     return {
-      data: result.data,
+      data: summaryData,
       usage: {
         promptTokens: Math.floor(result.metadata.tokensUsed * 0.7),
         completionTokens: Math.floor(result.metadata.tokensUsed * 0.3),
