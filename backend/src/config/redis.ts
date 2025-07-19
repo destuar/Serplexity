@@ -19,13 +19,13 @@ import Redis, { RedisOptions } from "ioredis";
 import env from "./env";
 import logger from "../utils/logger";
 
-// Connection pool configuration
+// Connection pool configuration - Optimized for stability
 const POOL_SIZE = 5;
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 1000;
-const HEALTH_CHECK_INTERVAL = 30000; // 30 seconds
-const CIRCUIT_BREAKER_THRESHOLD = 5;
-const CIRCUIT_BREAKER_TIMEOUT = 60000; // 1 minute
+const MAX_RETRIES = 5; // More retries for unstable networks
+const RETRY_DELAY_MS = 2000; // Longer retry delay
+const HEALTH_CHECK_INTERVAL = 60000; // 60 seconds - less aggressive
+const CIRCUIT_BREAKER_THRESHOLD = 10; // Higher threshold before opening circuit
+const CIRCUIT_BREAKER_TIMEOUT = 120000; // 2 minutes - longer recovery time
 
 // Circuit breaker state
 enum CircuitState {
@@ -53,22 +53,27 @@ class RedisConnectionManager {
     enableReadyCheck: true,
     showFriendlyErrorStack: env.NODE_ENV !== "production",
 
-    // Conservative connection settings
-    connectTimeout: 10000,
+    // More generous connection settings for unstable networks
+    connectTimeout: 30000, // 30 seconds - much longer timeout
+    commandTimeout: 15000, // 15 seconds for commands
     lazyConnect: true, // Don't connect immediately
 
     // Retry strategy with exponential backoff
     retryStrategy: (times: number) => {
       if (times > MAX_RETRIES) return null;
-      const delay = Math.min(times * RETRY_DELAY_MS, 5000);
+      const delay = Math.min(times * RETRY_DELAY_MS, 10000); // Up to 10 seconds
       logger.warn(`[Redis] Retry attempt ${times}, delay ${delay}ms`);
       return delay;
     },
 
-    // Keep-alive and TCP settings
-    keepAlive: 30000,
+    // Keep-alive and TCP settings - more resilient
+    keepAlive: 60000, // 60 seconds keep-alive
     family: 4, // Force IPv4
-
+    
+    // Additional stability settings
+    enableOfflineQueue: true, // Queue commands when disconnected
+    maxLoadingTimeout: 10000, // 10 seconds for LOADING responses
+    
     // TLS configuration
     tls: env.REDIS_USE_TLS
       ? {
@@ -157,15 +162,19 @@ class RedisConnectionManager {
       try {
         const healthyConnections = await this.checkConnectionHealth();
 
-        // Only log if the health status changes or not fully healthy
+        // Only log if the health status changes significantly
         if (healthyConnections !== this.lastHealthyCount) {
-          if (healthyConnections < POOL_SIZE) {
+          if (healthyConnections === 0) {
+            logger.error(
+              `[Redis] Health check: ALL connections unhealthy`,
+            );
+          } else if (healthyConnections < POOL_SIZE / 2) {
             logger.warn(
               `[Redis] Health check: ${healthyConnections}/${POOL_SIZE} connections healthy`,
             );
-          } else {
+          } else if (healthyConnections === POOL_SIZE && this.lastHealthyCount < POOL_SIZE) {
             logger.info(
-              `[Redis] Health check: all ${POOL_SIZE} connections healthy`,
+              `[Redis] Health check: all ${POOL_SIZE} connections recovered`,
             );
           }
           this.lastHealthyCount = healthyConnections;

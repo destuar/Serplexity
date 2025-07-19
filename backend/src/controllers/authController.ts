@@ -26,7 +26,7 @@ import bcrypt from "bcrypt";
 import jwt, { SignOptions } from "jsonwebtoken";
 import { Role } from "@prisma/client";
 import env from "../config/env";
-import { getDbClient } from "../config/database";
+import { getPrismaClient } from "../config/dbCache";
 
 const { JWT_SECRET, JWT_REFRESH_SECRET } = env;
 
@@ -51,7 +51,7 @@ const accessTokenOptions: SignOptions = { expiresIn: "15m" };
 const refreshTokenOptions: SignOptions = { expiresIn: "7d" };
 
 export const register = async (req: Request, res: Response) => {
-  const prisma = await getDbClient();
+  const prisma = await getPrismaClient();
   try {
     const { email, password, name } = registerSchema.parse(req.body);
 
@@ -122,7 +122,7 @@ export const register = async (req: Request, res: Response) => {
 };
 
 export const login = async (req: Request, res: Response) => {
-  const prisma = await getDbClient();
+  const prisma = await getPrismaClient();
   try {
     const { email, password } = loginSchema.parse(req.body);
 
@@ -193,7 +193,7 @@ export const login = async (req: Request, res: Response) => {
 };
 
 export const logout = async (req: Request, res: Response) => {
-  const prisma = await getDbClient();
+  const prisma = await getPrismaClient();
   res.clearCookie("refreshToken", {
     httpOnly: true,
     secure: env.NODE_ENV === "production",
@@ -217,7 +217,7 @@ export const logout = async (req: Request, res: Response) => {
 };
 
 export const refresh = async (req: Request, res: Response) => {
-  const prisma = await getDbClient();
+  const prisma = await getPrismaClient();
   const { refreshToken } = req.cookies;
 
   if (!refreshToken) {
@@ -299,7 +299,7 @@ export const refresh = async (req: Request, res: Response) => {
 };
 
 export const getMe = async (req: Request, res: Response) => {
-  const prisma = await getDbClient();
+  const prisma = await getPrismaClient();
   // The user object is attached to the request by the authenticate middleware
   if (req.user) {
     res.status(200).json({ user: req.user });

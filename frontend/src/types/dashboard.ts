@@ -34,7 +34,7 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     engine: 'anthropic',
     displayName: 'Claude 3.5 Haiku',
     company: 'Anthropic',
-    logoUrl: 'https://www.anthropic.com/favicon.ico'
+    logoUrl: 'https://claude.ai/favicon.ico'
   },
   'gemini-2.5-flash': {
     id: 'gemini-2.5-flash',

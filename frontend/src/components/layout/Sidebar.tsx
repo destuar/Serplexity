@@ -29,6 +29,7 @@ import {
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useCompany } from "../../hooks/useCompany";
+import { useNavigation } from "../../hooks/useNavigation";
 import CompanyLogo from "../company/CompanyLogo";
 import CompanyProfileForm from "../company/CompanyProfileForm";
 import { Company } from "../../types/schemas";
@@ -47,6 +48,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const location = useLocation();
   const { companies, selectedCompany, selectCompany, canCreateMore, maxCompanies } = useCompany();
+  const { closeEmbeddedPageForRoute } = useNavigation();
   const [openSections, setOpenSections] = useState({
     aiPerformance: true,
     actionCenter: true,
@@ -112,7 +114,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   }, [showCreateModal]);
 
   const isActive = (path: string) => {
-    return location.pathname === path || (path === '/dashboard' && location.pathname === '/');
+    return location.pathname === path || (path === '/dashboard' && location.pathname === '/') || (path === '/prompts' && location.pathname === '/response-details');
   };
 
   const getLinkClass = (path: string) => {
@@ -295,15 +297,24 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
           {(isDesktopCollapsed || openSections.aiPerformance) && (
             <nav className={`flex flex-col space-y-1 ${!isDesktopCollapsed ? 'mt-2' : ''}`}>
-              <Link to="/dashboard" className={getLinkClass('/dashboard')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
+              <Link to="/dashboard" className={getLinkClass('/dashboard')} onClick={(e) => {
+                if (isDesktopCollapsed) e.stopPropagation();
+                closeEmbeddedPageForRoute('/dashboard');
+              }}>
                 <BarChart3 className="text-gray-600" size={16} />
                 {!isDesktopCollapsed && <span className="text-sm font-medium">Dashboard</span>}
               </Link>
-              <Link to="/response-details" className={getLinkClass('/response-details')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
+              <Link to="/prompts" className={getLinkClass('/prompts')} onClick={(e) => {
+                if (isDesktopCollapsed) e.stopPropagation();
+                closeEmbeddedPageForRoute('/prompts');
+              }}>
                 <MessageSquare className="text-gray-600" size={16} />
                 {!isDesktopCollapsed && <span className="text-sm">Prompts</span>}
               </Link>
-              <Link to="/competitor-rankings" className={getLinkClass('/competitor-rankings')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
+              <Link to="/competitors" className={getLinkClass('/competitors')} onClick={(e) => {
+                if (isDesktopCollapsed) e.stopPropagation();
+                closeEmbeddedPageForRoute('/competitors');
+              }}>
                 <Users className="text-gray-600" size={16} />
                 {!isDesktopCollapsed && <span className="text-sm">Competitors</span>}
               </Link>

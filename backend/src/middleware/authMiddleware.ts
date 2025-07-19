@@ -20,7 +20,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { Role } from "@prisma/client";
 import env from "../config/env";
-import { getDbClient } from "../config/database";
+import { getPrismaClient } from "../config/dbCache";
 
 const { JWT_SECRET } = env;
 
@@ -34,7 +34,7 @@ export const authenticate = async (
   res: Response,
   next: NextFunction,
 ) => {
-  const prisma = await getDbClient();
+  const prisma = await getPrismaClient();
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {

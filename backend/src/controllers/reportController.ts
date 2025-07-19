@@ -30,7 +30,7 @@
  */
 import { Request, Response } from "express";
 import { z } from "zod";
-import { getDbClient, getReadDbClient } from "../config/database";
+import { getPrismaClient, getReadPrismaClient } from "../config/dbCache";
 import { redis } from "../config/redis";
 import { queueReport } from "../services/reportSchedulingService";
 import { scheduleEmergencyReportTrigger } from "../queues/backupScheduler";
@@ -131,8 +131,8 @@ const statusCache = new Map<
 const STATUS_LOG_COOLDOWN = 30000; // Only log status every 30 seconds max
 
 export const createReport = async (req: Request, res: Response) => {
-  const prisma = await getDbClient();
-  const prismaReadReplica = await getReadDbClient();
+  const prisma = await getPrismaClient();
+  const prismaReadReplica = await getReadPrismaClient();
   const startTime = Date.now();
   const endpoint = "CREATE_REPORT";
   const userId = req.user?.id;
@@ -457,8 +457,8 @@ export const createReport = async (req: Request, res: Response) => {
 };
 
 export const getReportStatus = async (req: Request, res: Response) => {
-  const prisma = await getDbClient();
-  const prismaReadReplica = await getReadDbClient();
+  const prisma = await getPrismaClient();
+  const prismaReadReplica = await getReadPrismaClient();
   const startTime = Date.now();
   const endpoint = "GET_REPORT_STATUS";
   const userId = req.user?.id;
@@ -607,8 +607,8 @@ export const getReportStatus = async (req: Request, res: Response) => {
 };
 
 export const getLatestReport = async (req: Request, res: Response) => {
-  const prisma = await getDbClient();
-  const prismaReadReplica = await getReadDbClient();
+  const prisma = await getPrismaClient();
+  const prismaReadReplica = await getReadPrismaClient();
   const startTime = Date.now();
   const endpoint = "GET_LATEST_REPORT";
   const userId = req.user?.id;
@@ -830,8 +830,8 @@ export const getLatestReport = async (req: Request, res: Response) => {
 
 // Debug endpoint to check citation data for a specific report
 export const getReportCitationDebug = async (req: Request, res: Response) => {
-  const prisma = await getDbClient();
-  const prismaReadReplica = await getReadDbClient();
+  const prisma = await getPrismaClient();
+  const prismaReadReplica = await getReadPrismaClient();
   const { runId } = req.params;
   const userId = req.user?.id;
 
@@ -957,8 +957,8 @@ export const getCompetitorRankingsForReport = async (
   req: Request,
   res: Response,
 ) => {
-  const prisma = await getDbClient();
-  const prismaReadReplica = await getReadDbClient();
+  const prisma = await getPrismaClient();
+  const prismaReadReplica = await getReadPrismaClient();
   const { runId } = req.params;
   const { companyId, aiModel } = req.query;
 
@@ -983,8 +983,8 @@ export const getCompetitorRankingsForReport = async (
 };
 
 export const getReportResponses = async (req: Request, res: Response) => {
-  const prisma = await getDbClient();
-  const prismaReadReplica = await getReadDbClient();
+  const prisma = await getPrismaClient();
+  const prismaReadReplica = await getReadPrismaClient();
   const { runId } = req.params;
   const { companyId, aiModel, page = "1", limit = "100" } = req.query;
 
@@ -1021,8 +1021,8 @@ export const emergencyTriggerCompanyReport = async (
   req: Request,
   res: Response,
 ) => {
-  const prisma = await getDbClient();
-  const prismaReadReplica = await getReadDbClient();
+  const prisma = await getPrismaClient();
+  const prismaReadReplica = await getReadPrismaClient();
   const startTime = Date.now();
   const { companyId } = req.params;
   const { reason = "Manual emergency trigger" } = req.body;
@@ -1137,8 +1137,8 @@ export const emergencyTriggerAllReports = async (
   req: Request,
   res: Response,
 ) => {
-  const prisma = await getDbClient();
-  const prismaReadReplica = await getReadDbClient();
+  const prisma = await getPrismaClient();
+  const prismaReadReplica = await getReadPrismaClient();
   const startTime = Date.now();
   const {
     reason = "Manual emergency trigger for all companies",
@@ -1267,8 +1267,8 @@ export const emergencyTriggerAllReports = async (
  * System health check endpoint that validates all critical components
  */
 export const getSystemHealth = async (req: Request, res: Response) => {
-  const prisma = await getDbClient();
-  const prismaReadReplica = await getReadDbClient();
+  const prisma = await getPrismaClient();
+  const prismaReadReplica = await getReadPrismaClient();
   const startTime = Date.now();
 
   try {
@@ -1379,7 +1379,7 @@ const processHealthResult = (result: PromiseSettledResult<any>) => {
 // Enhanced database health check
 const checkDatabaseHealth = async () => {
   try {
-    const prisma = await getDbClient();
+    const prisma = await getPrismaClient();
     const start = Date.now();
     await prisma.$queryRaw`SELECT 1`;
     const latency = Date.now() - start;
@@ -1401,7 +1401,7 @@ const checkDatabaseHealth = async () => {
 // Enhanced recent reports health check
 const checkRecentReportsHealth = async () => {
   try {
-    const prisma = await getDbClient();
+    const prisma = await getPrismaClient();
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     const recentReports = await prisma.reportRun.findMany({

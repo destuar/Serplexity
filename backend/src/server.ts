@@ -20,7 +20,7 @@ import "./config/tracing"; // IMPORTANT: Must be the first import to ensure all 
 import app from "./app";
 import http from "http";
 import env from "./config/env";
-import { testDbConnection } from "./config/database";
+import { dbCache } from "./config/dbCache";
 import "./queues/reportWorker"; // This initializes and starts the worker process
 import "./queues/archiveWorker"; // This initializes and starts the archive worker process
 import "./queues/masterSchedulerWorker"; // This initializes the daily report scheduler worker
@@ -34,14 +34,10 @@ const server = http.createServer(app);
 
 const startServer = async () => {
   try {
-    console.log("🔗 Initializing database connection...");
+    console.log("🔗 Initializing database cache...");
 
-    const isConnected = await testDbConnection();
-    if (!isConnected) {
-      throw new Error("Failed to connect to database");
-    }
-
-    console.log("✅ Database connection successful.");
+    await dbCache.initialize();
+    console.log("✅ Database cache initialized successfully.");
 
     // Initialize daily report scheduler
     await scheduleDailyReportTrigger();

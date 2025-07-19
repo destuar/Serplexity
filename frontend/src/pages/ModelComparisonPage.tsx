@@ -155,7 +155,7 @@ const ModelShareOfVoiceChart: React.FC<{ data: TimeSeriesDataPoint[]; modelIds: 
     const sorted = [...payload].sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
 
     return (
-      <div className="bg-white border border-gray-200 rounded-lg shadow p-2 text-xs">
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-2 text-xs">
         <p className="font-semibold text-gray-800 mb-1">{label}</p>
         {sorted.map((entry) => (
           <div key={entry.dataKey} className="flex items-center gap-2" style={{ color: entry.stroke }}>
@@ -229,7 +229,7 @@ const ModelShareOfVoiceChart: React.FC<{ data: TimeSeriesDataPoint[]; modelIds: 
           </ResponsiveContainer>
         </div>
       </div>
-      <div className="absolute top-4 right-4 bg-white/60 backdrop-blur-md border border-gray-200/50 rounded-lg shadow p-2 space-y-1 text-xs" style={{ pointerEvents: 'none' }}>
+      <div className="absolute top-4 right-4 bg-white/60 backdrop-blur-md border border-gray-200/50 rounded-lg shadow-sm p-2 space-y-1 text-xs" style={{ pointerEvents: 'none' }}>
         {modelIds.map((modelId, idx) => (
           <div key={`legend-${modelId}`} className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full" style={{ backgroundColor: modelColors[idx % modelColors.length] }}></span>
@@ -536,7 +536,7 @@ const ModelComparisonPage: React.FC = () => {
               <button
                 onClick={refreshData}
                 disabled={loading || refreshing}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-[#7762ff] text-white rounded-lg hover:bg-[#6650e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2 sm:col-span-3"
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-[#7762ff] text-white rounded-lg shadow-sm border border-[#7762ff] hover:bg-[#6650e6] hover:border-[#6650e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2 sm:col-span-3"
               >
                 {refreshing || loading ? (
                   <><Loader size={16} className="animate-spin" /><span>Refreshing...</span></>

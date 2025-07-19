@@ -30,7 +30,7 @@
  */
 import { Request, Response } from "express";
 import { z } from "zod";
-import { getDbClient, getReadDbClient } from "../config/database";
+import { getPrismaClient, getReadPrismaClient } from "../config/dbCache";
 import { getFullReportMetrics } from "../services/metricsService";
 import { calculateTopQuestions } from "../services/dashboardService";
 
@@ -68,7 +68,7 @@ const updateCompanySchema = z.object({
  */
 export const createCompany = async (req: Request, res: Response) => {
   try {
-    const prisma = await getDbClient();
+    const prisma = await getPrismaClient();
     const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -134,7 +134,7 @@ export const createCompany = async (req: Request, res: Response) => {
  */
 export const getCompanies = async (req: Request, res: Response) => {
   try {
-    const prismaReadReplica = await getReadDbClient();
+    const prismaReadReplica = await getReadPrismaClient();
     const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -163,7 +163,7 @@ export const getCompanies = async (req: Request, res: Response) => {
  */
 export const getCompany = async (req: Request, res: Response) => {
   try {
-    const prismaReadReplica = await getReadDbClient();
+    const prismaReadReplica = await getReadPrismaClient();
     const userId = req.user?.id;
     const { id } = req.params;
 
@@ -203,7 +203,7 @@ export const getCompany = async (req: Request, res: Response) => {
 
 // ===== Helper =====
 const findLatestRuns = async (companyId: string) => {
-  const prismaReadReplica = await getReadDbClient();
+  const prismaReadReplica = await getReadPrismaClient();
   const latestRun = await prismaReadReplica.reportRun.findFirst({
     where: { companyId, status: "COMPLETED" },
     orderBy: { createdAt: "desc" },
@@ -220,7 +220,7 @@ const findLatestRuns = async (companyId: string) => {
 // --- Average Inclusion Rate (pre-computed) ---
 export const getAverageInclusionRate = async (req: Request, res: Response) => {
   try {
-    const prismaReadReplica = await getReadDbClient();
+    const prismaReadReplica = await getReadPrismaClient();
     const { id: companyId } = req.params;
     const { aiModel } = req.query;
     const userId = req.user?.id;
@@ -267,7 +267,7 @@ export const getAverageInclusionRate = async (req: Request, res: Response) => {
 // --- Average Position (pre-computed) ---
 export const getAveragePosition = async (req: Request, res: Response) => {
   try {
-    const prismaReadReplica = await getReadDbClient();
+    const prismaReadReplica = await getReadPrismaClient();
     const { id: companyId } = req.params;
     const { aiModel } = req.query;
     const userId = req.user?.id;
@@ -309,7 +309,7 @@ export const getAveragePosition = async (req: Request, res: Response) => {
 // --- Share of Voice (pre-computed) ---
 export const getShareOfVoice = async (req: Request, res: Response) => {
   try {
-    const prismaReadReplica = await getReadDbClient();
+    const prismaReadReplica = await getReadPrismaClient();
     const { id: companyId } = req.params;
     const { aiModel } = req.query;
     const userId = req.user?.id;
@@ -351,7 +351,7 @@ export const getShareOfVoice = async (req: Request, res: Response) => {
 // --- Competitor Rankings (placeholder using pre-computed JSON) ---
 export const getCompetitorRankings = async (req: Request, res: Response) => {
   try {
-    const prismaReadReplica = await getReadDbClient();
+    const prismaReadReplica = await getReadPrismaClient();
     const { id: companyId } = req.params;
     const { aiModel } = req.query;
     const userId = req.user?.id;
@@ -402,9 +402,114 @@ export const getSentimentData = async (_req: Request, res: Response) => {
   return res.json({ sentimentScore: null, change: null });
 };
 
+/**
+ * Get all questions with responses and brand mentions for prompts page
+ */
+export const getPromptsWithResponses = async (req: Request, res: Response) => {
+  try {
+    const startTime = Date.now();
+    const prismaReadReplica = await getReadPrismaClient();
+    const { id: companyId } = req.params;
+    const userId = req.user?.id;
+
+    console.log(`[GET_PROMPTS_WITH_RESPONSES] Request for company: ${companyId}`);
+
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    // Verify ownership
+    const company = await prismaReadReplica.company.findFirst({
+      where: { id: companyId, userId },
+    });
+    if (!company) {
+      return res
+        .status(404)
+        .json({ error: "Company not found or unauthorized" });
+    }
+
+    // Get all questions for this company that have at least one response
+    const questions = await prismaReadReplica.question.findMany({
+      where: {
+        companyId,
+        responses: {
+          some: {}, // Only questions that have at least one response
+        },
+      },
+      include: {
+        responses: {
+          include: {
+            mentions: {
+              where: {
+                companyId, // Only mentions of the user's company
+              },
+              select: {
+                position: true,
+              },
+            },
+          },
+          orderBy: [{ model: "asc" }, { createdAt: "desc" }],
+        },
+      },
+      orderBy: { text: "asc" },
+    });
+
+    // Helper function to extract brand mentions from response content
+    const extractBrandMentions = (content: string): string[] => {
+      const brandMentionRegex = /<brand(?:\s+position="(\d+)")?>([^<]+)<\/brand>/gi;
+      const brands: string[] = [];
+      let match;
+      
+      while ((match = brandMentionRegex.exec(content)) !== null) {
+        const brandName = match[2].trim();
+        if (!brands.includes(brandName)) {
+          brands.push(brandName);
+        }
+      }
+      
+      return brands;
+    };
+
+    // Transform the data to match the required format
+    const transformedQuestions = questions.map((question) => ({
+      id: question.id,
+      question: question.text,
+      type: question.type,
+      responses: question.responses.map((response) => {
+        // Calculate position from mentions
+        const positions = response.mentions
+          .map(m => m.position)
+          .filter(p => p !== null && p !== undefined);
+        const position = positions.length > 0 ? Math.min(...positions) : null;
+
+        return {
+          id: response.id,
+          model: response.model,
+          response: response.content,
+          position,
+          createdAt: response.createdAt.toISOString(),
+          brands: extractBrandMentions(response.content),
+        };
+      }),
+    }));
+
+    const endTime = Date.now();
+    console.log(
+      `[GET_PROMPTS_WITH_RESPONSES] Completed in ${endTime - startTime}ms. Found ${transformedQuestions.length} questions with ${transformedQuestions.reduce((total, q) => total + q.responses.length, 0)} total responses.`
+    );
+
+    res.json({
+      questions: transformedQuestions,
+    });
+  } catch (error) {
+    console.error("[GET PROMPTS WITH RESPONSES ERROR]", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 export const getTopRankingQuestions = async (req: Request, res: Response) => {
   try {
-    const prismaReadReplica = await getReadDbClient();
+    const prismaReadReplica = await getReadPrismaClient();
     const { id: companyId } = req.params;
     const { aiModel, limit, questionType } = req.query;
     const userId = req.user?.id;
@@ -530,7 +635,7 @@ export const getSentimentOverTime = async (_req: Request, res: Response) => {
 
 export const getShareOfVoiceHistory = async (req: Request, res: Response) => {
   try {
-    const prismaReadReplica = await getReadDbClient();
+    const prismaReadReplica = await getReadPrismaClient();
     const { id: companyId } = req.params;
     const { aiModel } = req.query;
     const userId = req.user?.id;
@@ -566,7 +671,7 @@ export const getShareOfVoiceHistory = async (req: Request, res: Response) => {
  */
 export const updateCompany = async (req: Request, res: Response) => {
   try {
-    const prisma = await getDbClient();
+    const prisma = await getPrismaClient();
     const userId = req.user?.id;
     const { id } = req.params;
 
@@ -635,7 +740,7 @@ export const updateCompany = async (req: Request, res: Response) => {
  */
 export const deleteCompany = async (req: Request, res: Response) => {
   try {
-    const prisma = await getDbClient();
+    const prisma = await getPrismaClient();
     const userId = req.user?.id;
     const { id } = req.params;
 
@@ -665,6 +770,370 @@ export const deleteCompany = async (req: Request, res: Response) => {
     res.json({ message: "Company deleted successfully" });
   } catch (error) {
     console.error("[DELETE COMPANY ERROR]", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/**
+ * Get accepted competitors for a company (user's company + manually accepted competitors)
+ */
+export const getAcceptedCompetitors = async (req: Request, res: Response) => {
+  try {
+    const prisma = await getReadPrismaClient();
+    const userId = req.user?.id;
+    const { id: companyId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    // Verify user owns this company
+    const company = await prisma.company.findFirst({
+      where: { id: companyId, userId },
+    });
+
+    if (!company) {
+      return res.status(404).json({ error: "Company not found" });
+    }
+
+    // Get accepted competitors (user's company + accepted auto-discovered + manually added)
+    const acceptedCompetitors = await prisma.competitor.findMany({
+      where: {
+        companyId,
+        OR: [
+          { isGenerated: false }, // Manually added competitors
+          { AND: [{ isGenerated: true }, { isAccepted: true }] }, // Accepted auto-discovered
+        ],
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    // Add user's company to the list
+    const competitors = [
+      {
+        id: company.id,
+        name: company.name,
+        website: company.website,
+        isGenerated: false,
+        isAccepted: true,
+      },
+      ...acceptedCompetitors,
+    ];
+
+    res.json({ competitors });
+  } catch (error) {
+    console.error("[GET ACCEPTED COMPETITORS ERROR]", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/**
+ * Get suggested competitors for a company (auto-discovered but not yet accepted/declined)
+ */
+export const getSuggestedCompetitors = async (req: Request, res: Response) => {
+  try {
+    const prisma = await getReadPrismaClient();
+    const userId = req.user?.id;
+    const { id: companyId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    // Verify user owns this company
+    const company = await prisma.company.findFirst({
+      where: { id: companyId, userId },
+    });
+
+    if (!company) {
+      return res.status(404).json({ error: "Company not found" });
+    }
+
+    // Get suggested competitors (auto-discovered but not yet accepted/declined)
+    const suggestedCompetitors = await prisma.competitor.findMany({
+      where: {
+        companyId,
+        isGenerated: true,
+        isAccepted: null, // Not yet accepted or declined
+      },
+      include: {
+        mentions: {
+          select: { id: true },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    // Transform to include mention counts
+    const competitors = suggestedCompetitors.map(competitor => ({
+      id: competitor.id,
+      name: competitor.name,
+      website: competitor.website,
+      isGenerated: competitor.isGenerated,
+      isAccepted: false,
+      mentions: competitor.mentions.length,
+    }));
+
+    res.json({ competitors });
+  } catch (error) {
+    console.error("[GET SUGGESTED COMPETITORS ERROR]", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/**
+ * Accept a suggested competitor
+ */
+export const acceptCompetitor = async (req: Request, res: Response) => {
+  try {
+    const prisma = await getPrismaClient();
+    const userId = req.user?.id;
+    const { id: companyId, competitorId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    // Verify user owns this company
+    const company = await prisma.company.findFirst({
+      where: { id: companyId, userId },
+    });
+
+    if (!company) {
+      return res.status(404).json({ error: "Company not found" });
+    }
+
+    // Update competitor to accepted
+    const updatedCompetitor = await prisma.competitor.update({
+      where: {
+        id: competitorId,
+        companyId,
+        isGenerated: true,
+        isAccepted: null,
+      },
+      data: {
+        isAccepted: true,
+      },
+    });
+
+    res.json({ competitor: updatedCompetitor });
+  } catch (error) {
+    console.error("[ACCEPT COMPETITOR ERROR]", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/**
+ * Decline a suggested competitor
+ */
+export const declineCompetitor = async (req: Request, res: Response) => {
+  try {
+    const prisma = await getPrismaClient();
+    const userId = req.user?.id;
+    const { id: companyId, competitorId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    // Verify user owns this company
+    const company = await prisma.company.findFirst({
+      where: { id: companyId, userId },
+    });
+
+    if (!company) {
+      return res.status(404).json({ error: "Company not found" });
+    }
+
+    // Update competitor to declined
+    const updatedCompetitor = await prisma.competitor.update({
+      where: {
+        id: competitorId,
+        companyId,
+        isGenerated: true,
+        isAccepted: null,
+      },
+      data: {
+        isAccepted: false,
+      },
+    });
+
+    res.json({ competitor: updatedCompetitor });
+  } catch (error) {
+    console.error("[DECLINE COMPETITOR ERROR]", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/**
+ * Add a new competitor manually
+ */
+export const addCompetitor = async (req: Request, res: Response) => {
+  try {
+    const addCompetitorSchema = z.object({
+      name: z.string().min(1, "Name is required").max(100),
+      website: z.string().url("Valid website URL is required"),
+    });
+
+    const validatedData = addCompetitorSchema.parse(req.body);
+    const prisma = await getPrismaClient();
+    const userId = req.user?.id;
+    const { id: companyId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    // Verify user owns this company
+    const company = await prisma.company.findFirst({
+      where: { id: companyId, userId },
+    });
+
+    if (!company) {
+      return res.status(404).json({ error: "Company not found" });
+    }
+
+    // Create new competitor
+    const newCompetitor = await prisma.competitor.create({
+      data: {
+        name: validatedData.name,
+        website: validatedData.website,
+        companyId,
+        isGenerated: false,
+        isAccepted: true, // Manually added competitors are automatically accepted
+      },
+    });
+
+    res.json(newCompetitor);
+  } catch (error) {
+    console.error("[ADD COMPETITOR ERROR]", error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors });
+    }
+
+    // Handle Prisma unique constraint violations
+    if (error && typeof error === "object" && "code" in error) {
+      if (error.code === "P2002" && "meta" in error && error.meta) {
+        const meta = error.meta as { target?: string[] };
+        if (meta.target?.includes("website") && meta.target?.includes("companyId")) {
+          return res.status(400).json({
+            error: "A competitor with this website already exists for your company.",
+          });
+        }
+      }
+    }
+
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/**
+ * Update a competitor
+ */
+export const updateCompetitor = async (req: Request, res: Response) => {
+  try {
+    const updateCompetitorSchema = z.object({
+      name: z.string().min(1, "Name is required").max(100),
+      website: z.string().url("Valid website URL is required"),
+    });
+
+    const validatedData = updateCompetitorSchema.parse(req.body);
+    const prisma = await getPrismaClient();
+    const userId = req.user?.id;
+    const { id: companyId, competitorId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    // Verify user owns this company
+    const company = await prisma.company.findFirst({
+      where: { id: companyId, userId },
+    });
+
+    if (!company) {
+      return res.status(404).json({ error: "Company not found" });
+    }
+
+    // Update competitor
+    const updatedCompetitor = await prisma.competitor.update({
+      where: {
+        id: competitorId,
+        companyId,
+      },
+      data: {
+        name: validatedData.name,
+        website: validatedData.website,
+      },
+    });
+
+    res.json(updatedCompetitor);
+  } catch (error) {
+    console.error("[UPDATE COMPETITOR ERROR]", error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors });
+    }
+
+    // Handle Prisma unique constraint violations
+    if (error && typeof error === "object" && "code" in error) {
+      if (error.code === "P2002" && "meta" in error && error.meta) {
+        const meta = error.meta as { target?: string[] };
+        if (meta.target?.includes("website") && meta.target?.includes("companyId")) {
+          return res.status(400).json({
+            error: "A competitor with this website already exists for your company.",
+          });
+        }
+      }
+    }
+
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/**
+ * Delete a competitor
+ */
+export const deleteCompetitor = async (req: Request, res: Response) => {
+  try {
+    const prisma = await getPrismaClient();
+    const userId = req.user?.id;
+    const { id: companyId, competitorId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    // Verify user owns this company
+    const company = await prisma.company.findFirst({
+      where: { id: companyId, userId },
+    });
+
+    if (!company) {
+      return res.status(404).json({ error: "Company not found" });
+    }
+
+    // Check if competitor exists and belongs to this company
+    const competitor = await prisma.competitor.findFirst({
+      where: {
+        id: competitorId,
+        companyId,
+      },
+    });
+
+    if (!competitor) {
+      return res.status(404).json({ error: "Competitor not found" });
+    }
+
+    // Delete competitor
+    await prisma.competitor.delete({
+      where: {
+        id: competitorId,
+      },
+    });
+
+    res.json({ message: "Competitor deleted successfully" });
+  } catch (error) {
+    console.error("[DELETE COMPETITOR ERROR]", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };

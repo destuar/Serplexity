@@ -52,8 +52,8 @@ const OverviewPage = () => {
      
   } = useReportGeneration(selectedCompany);
   const isTallerScreen = useMediaQuery('(min-height: 1080px)');
-  const { embeddedPage, openEmbeddedPage, isEmbedded } = useEmbeddedPage('Dashboard');
-  const { setBreadcrumbs } = useNavigation();
+  const { embeddedPage, openEmbeddedPage, closeEmbeddedPage, isEmbedded } = useEmbeddedPage('Dashboard');
+  const { setBreadcrumbs, registerEmbeddedPageCloser, unregisterEmbeddedPageCloser } = useNavigation();
 
   // Set initial breadcrumb
   useEffect(() => {
@@ -61,6 +61,12 @@ const OverviewPage = () => {
       setBreadcrumbs([{ label: 'Dashboard' }]);
     }
   }, [isEmbedded, setBreadcrumbs]);
+
+  // Register/unregister embedded page closer
+  useEffect(() => {
+    registerEmbeddedPageCloser('/dashboard', closeEmbeddedPage);
+    return () => unregisterEmbeddedPageCloser('/dashboard');
+  }, [registerEmbeddedPageCloser, unregisterEmbeddedPageCloser, closeEmbeddedPage]);
   
   const handleFilterChange = (filterUpdates: { [key: string]: string | string[] }) => {
     updateFilters(filterUpdates);
@@ -139,7 +145,7 @@ const OverviewPage = () => {
               <button 
                 onClick={handleRefresh}
                 disabled={loading || refreshing}
-                className="flex items-center justify-center w-full lg:w-auto gap-2 px-4 py-2 bg-[#7762ff] text-white rounded-lg hover:bg-[#6650e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2"
+                className="flex items-center justify-center w-full lg:w-auto gap-2 px-4 py-2 bg-[#7762ff] text-white rounded-lg shadow-sm border border-[#7762ff] hover:bg-[#6650e6] hover:border-[#6650e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2"
               >
                 {refreshing ? (
                   <>

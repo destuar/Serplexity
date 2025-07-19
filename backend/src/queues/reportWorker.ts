@@ -13,7 +13,7 @@ import { Worker, Job } from "bullmq";
 import pLimit from "p-limit";
 import env from "../config/env";
 import { getBullMQConnection } from "../config/bullmq";
-import { getDbClient } from "../config/database";
+import { getPrismaClient } from "../config/dbCache";
 import { Prisma } from ".prisma/client";
 import {
   generateSentimentScores,
@@ -159,6 +159,134 @@ class CompetitorPipeline {
 }
 
 /**
+ * Advanced competitor deduplication using multiple strategies
+ */
+async function deduplicateCompetitors(
+  competitors: CompetitorInfo[], 
+  companyId: string, 
+  prisma: any
+): Promise<CompetitorInfo[]> {
+  if (competitors.length === 0) return competitors;
+
+  // Helper function to normalize brand names for comparison
+  function normalizeBrandName(name: string): string {
+    return name
+      .toLowerCase()
+      .replace(/\s+(inc\.?|llc\.?|corp\.?|corporation|company|co\.?|ltd\.?|limited)$/i, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  // Helper function to extract root domain from website
+  function extractRootDomain(website: string): string {
+    try {
+      const url = website.startsWith('http') ? website : `https://${website}`;
+      const parsed = new URL(url);
+      let domain = parsed.hostname.toLowerCase();
+      
+      // Remove www. prefix
+      if (domain.startsWith('www.')) {
+        domain = domain.substring(4);
+      }
+      
+      return domain;
+    } catch {
+      return website.toLowerCase();
+    }
+  }
+
+  // Helper function to check if two domains are similar (same root domain)
+  function areSimilarDomains(domain1: string, domain2: string): boolean {
+    const root1 = extractRootDomain(domain1);
+    const root2 = extractRootDomain(domain2);
+    
+    // Exact match
+    if (root1 === root2) return true;
+    
+    // Check if one is a subdomain of the other
+    return root1.includes(root2) || root2.includes(root1);
+  }
+
+  // Get existing competitors for this company to avoid conflicts
+  const existingCompetitors = await prisma.competitor.findMany({
+    where: { companyId },
+    select: { name: true, website: true }
+  });
+
+  // Create a map for existing competitors by normalized name and domain
+  const existingByName = new Map<string, string>();
+  const existingByDomain = new Map<string, string>();
+  
+  for (const existing of existingCompetitors) {
+    const normName = normalizeBrandName(existing.name);
+    const domain = extractRootDomain(existing.website);
+    existingByName.set(normName, existing.website);
+    existingByDomain.set(domain, existing.name);
+  }
+
+  // Deduplicate the new competitors
+  const seenNames = new Set<string>();
+  const seenDomains = new Set<string>();
+  const deduplicated: CompetitorInfo[] = [];
+
+  // Sort by confidence score (highest first) to keep the best entries
+  const sortedCompetitors = [...competitors].sort((a, b) => {
+    const confA = (a as any).confidence || 0.8; // Default confidence if missing
+    const confB = (b as any).confidence || 0.8;
+    return confB - confA;
+  });
+
+  for (const competitor of sortedCompetitors) {
+    const normalizedName = normalizeBrandName(competitor.name);
+    const rootDomain = extractRootDomain(competitor.website);
+
+    // Skip if we've already seen this brand name (normalized)
+    if (seenNames.has(normalizedName)) {
+      console.log(`🔄 Skipping duplicate brand name: ${competitor.name} (normalized: ${normalizedName})`);
+      continue;
+    }
+
+    // Skip if we've already seen this domain
+    if (seenDomains.has(rootDomain)) {
+      console.log(`🔄 Skipping duplicate domain: ${competitor.website} (domain: ${rootDomain})`);
+      continue;
+    }
+
+    // Check for similar domains (e.g., cedars-sinai.com vs www.cedars-sinai.com/health)
+    let hasSimilarDomain = false;
+    for (const seenDomain of seenDomains) {
+      if (areSimilarDomains(rootDomain, seenDomain)) {
+        console.log(`🔄 Skipping similar domain: ${rootDomain} (similar to ${seenDomain})`);
+        hasSimilarDomain = true;
+        break;
+      }
+    }
+    
+    if (hasSimilarDomain) continue;
+
+    // Check against existing competitors to avoid conflicts
+    if (existingByName.has(normalizedName) || existingByDomain.has(rootDomain)) {
+      console.log(`🔄 Skipping existing competitor: ${competitor.name} / ${rootDomain}`);
+      continue;
+    }
+
+    // This competitor passes all deduplication checks
+    seenNames.add(normalizedName);
+    seenDomains.add(rootDomain);
+    deduplicated.push({
+      name: competitor.name,
+      website: `https://${rootDomain}`, // Ensure canonical format
+    });
+  }
+
+  console.log(
+    `🎯 Deduplication complete: ${competitors.length} → ${deduplicated.length} competitors`
+  );
+  
+  return deduplicated;
+}
+
+/**
  * Main report processing function
  */
 async function processReport(runId: string, company: any): Promise<void> {
@@ -167,7 +295,7 @@ async function processReport(runId: string, company: any): Promise<void> {
   );
   console.log(`📊 Stage 0: Getting database client...`);
 
-  const prisma = await getDbClient();
+  const prisma = await getPrismaClient();
   console.log(`✅ Database client obtained successfully`);
 
   const startTime = Date.now();
@@ -570,8 +698,11 @@ async function processReport(runId: string, company: any): Promise<void> {
     totalTokens += competitorTokens;
     totalCost += competitorCost;
 
+    // Apply final deduplication before storage
+    const deduplicatedCompetitors = await deduplicateCompetitors(competitors, fullCompany.id, prisma);
+    
     // Save enriched competitors
-    for (const competitor of competitors) {
+    for (const competitor of deduplicatedCompetitors) {
       await prisma.competitor.upsert({
         where: {
           companyId_website: {
@@ -591,8 +722,10 @@ async function processReport(runId: string, company: any): Promise<void> {
         },
       });
     }
+    
+    console.log(`🔄 Deduplicated ${competitors.length} → ${deduplicatedCompetitors.length} competitors`);
 
-    console.log(`✅ Enriched ${competitors.length} competitors`);
+    console.log(`✅ Stored ${deduplicatedCompetitors.length} unique competitors`);
 
     // === FINALIZATION ===
     const duration = Date.now() - startTime;

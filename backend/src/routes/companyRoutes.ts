@@ -28,7 +28,15 @@ import {
   getShareOfVoice,
   getShareOfVoiceHistory,
   getTopRankingQuestions,
+  getPromptsWithResponses,
   updateCompany,
+  getAcceptedCompetitors,
+  getSuggestedCompetitors,
+  acceptCompetitor,
+  declineCompetitor,
+  addCompetitor,
+  updateCompetitor,
+  deleteCompetitor,
 } from "../controllers/companyController";
 
 const router = Router();
@@ -50,9 +58,17 @@ router.get("/:id/metrics/share-of-voice", getShareOfVoice); // GET /api/companie
 router.get("/:id/metrics/competitor-rankings", getCompetitorRankings);
 router.get("/:id/metrics/sentiment", getSentimentData); // GET /api/companies/:id/metrics/sentiment
 router.get("/:id/top-ranking-questions", getTopRankingQuestions); // GET /api/companies/:id/top-ranking-questions
+router.get("/:id/prompts-with-responses", getPromptsWithResponses); // GET /api/companies/:id/prompts-with-responses
 router.get("/:id/metrics/sentiment-over-time", getSentimentOverTime);
 router.get("/:id/share-of-voice-history", getShareOfVoiceHistory);
 
-// AI-powered features (competitor generation removed - competitors are now discovered from responses)
+// Competitor management routes
+router.get("/:id/competitors/accepted", getAcceptedCompetitors); // GET /api/companies/:id/competitors/accepted
+router.get("/:id/competitors/suggested", getSuggestedCompetitors); // GET /api/companies/:id/competitors/suggested
+router.post("/:id/competitors/:competitorId/accept", acceptCompetitor); // POST /api/companies/:id/competitors/:competitorId/accept
+router.post("/:id/competitors/:competitorId/decline", declineCompetitor); // POST /api/companies/:id/competitors/:competitorId/decline
+router.post("/:id/competitors", addCompetitor); // POST /api/companies/:id/competitors
+router.put("/:id/competitors/:competitorId", updateCompetitor); // PUT /api/companies/:id/competitors/:competitorId
+router.delete("/:id/competitors/:competitorId", deleteCompetitor); // DELETE /api/companies/:id/competitors/:competitorId
 
 export default router;

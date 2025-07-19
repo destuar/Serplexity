@@ -185,7 +185,10 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     // If user has active subscription, redirect to customer portal
     if (user?.subscriptionStatus === 'active') {
       // This would typically be a customer portal link from Stripe
-      window.open('https://billing.stripe.com/p/login/test_XXXXXX', '_blank');
+      const billingUrl = process.env.VITE_STRIPE_BILLING_PORTAL_URL || '#';
+      if (billingUrl !== '#') {
+        window.open(billingUrl, '_blank');
+      }
     } else {
       // Navigate to the payment page to choose a plan
       navigate('/payment');

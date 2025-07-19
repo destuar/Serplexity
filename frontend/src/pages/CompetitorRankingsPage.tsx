@@ -24,6 +24,7 @@ import { getModelFilterOptions, DashboardFilters } from '../types/dashboard';
 import { getCompanyLogo } from '../lib/logoService';
 import { cn } from '../lib/utils';
 import { useReportGeneration } from '../hooks/useReportGeneration';
+import { useNavigation } from '../hooks/useNavigation';
 
 type SortOption = 'shareOfVoice' | 'change' | 'name' | 'ranking';
 type SortDirection = 'asc' | 'desc';
@@ -31,6 +32,7 @@ type SortDirection = 'asc' | 'desc';
 const CompetitorRankingsPage = () => {
   const { selectedCompany } = useCompany();
   const { data: dashboardData, filters, loading: dashboardLoading, refreshing, updateFilters, refreshData, lastUpdated, hasReport, refreshTrigger } = useDashboard();
+  const { setBreadcrumbs, registerEmbeddedPageCloser, unregisterEmbeddedPageCloser } = useNavigation();
   
   // New local state for this page's specific, detailed data
   const [rankingsData, setRankingsData] = useState<CompetitorRankingsResponse | null>(null);
@@ -52,6 +54,18 @@ const CompetitorRankingsPage = () => {
   const [sortBy, setSortBy] = useState<SortOption>('shareOfVoice');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [displayLimit, setDisplayLimit] = useState<number>(20);
+
+  // Set breadcrumb for this page
+  useEffect(() => {
+    setBreadcrumbs([{ label: 'Competitors' }]);
+  }, [setBreadcrumbs]);
+
+  // Register/unregister embedded page closer (for future embedded functionality)
+  useEffect(() => {
+    const closeEmbeddedPage = () => {}; // No embedded pages yet, but keeping for consistency
+    registerEmbeddedPageCloser('/competitors', closeEmbeddedPage);
+    return () => unregisterEmbeddedPageCloser('/competitors');
+  }, [registerEmbeddedPageCloser, unregisterEmbeddedPageCloser]);
 
   // Filter and sort options
   const aiModelOptions = getModelFilterOptions();

@@ -108,6 +108,31 @@ export const getTopRankingQuestions = async (companyId: string, filters?: { aiMo
   return data;
 };
 
+export interface PromptResponse {
+  id: string;
+  model: string;
+  response: string;
+  position: number | null;
+  createdAt: string;
+  brands: string[];
+}
+
+export interface PromptQuestion {
+  id: string;
+  question: string;
+  type: string;
+  responses: PromptResponse[];
+}
+
+export interface PromptsWithResponsesResponse {
+  questions: PromptQuestion[];
+}
+
+export const getPromptsWithResponses = async (companyId: string): Promise<PromptsWithResponsesResponse> => {
+  const { data } = await apiClient.get(`/companies/${companyId}/prompts-with-responses`);
+  return data;
+};
+
 export const getCompetitorRankings = async (companyId: string, filters?: { dateRange?: string; aiModel?: string }): Promise<CompetitorRankingsResponse> => {
   const params = new URLSearchParams();
   if (filters?.dateRange) params.append('dateRange', filters.dateRange);
@@ -141,5 +166,54 @@ export const getSentimentOverTime = async (companyId: string, filters?: { dateRa
   if (filters?.aiModel) params.append('aiModel', filters.aiModel);
 
   const { data } = await apiClient.get(`/companies/${companyId}/metrics/sentiment-over-time?${params.toString()}`);
+  return data;
+};
+
+// Competitor management APIs
+export interface CompetitorData {
+  id: string;
+  name: string;
+  website?: string;
+  isGenerated: boolean;
+  isAccepted?: boolean;
+  mentions?: number;
+}
+
+export interface CompetitorsResponse {
+  competitors: CompetitorData[];
+}
+
+export const getAcceptedCompetitors = async (companyId: string): Promise<CompetitorsResponse> => {
+  const { data } = await apiClient.get(`/companies/${companyId}/competitors/accepted`);
+  return data;
+};
+
+export const getSuggestedCompetitors = async (companyId: string): Promise<CompetitorsResponse> => {
+  const { data } = await apiClient.get(`/companies/${companyId}/competitors/suggested`);
+  return data;
+};
+
+export const acceptCompetitor = async (companyId: string, competitorId: string): Promise<{ competitor: CompetitorData }> => {
+  const { data } = await apiClient.post(`/companies/${companyId}/competitors/${competitorId}/accept`);
+  return data;
+};
+
+export const declineCompetitor = async (companyId: string, competitorId: string): Promise<{ competitor: CompetitorData }> => {
+  const { data } = await apiClient.post(`/companies/${companyId}/competitors/${competitorId}/decline`);
+  return data;
+};
+
+export const addCompetitor = async (companyId: string, competitor: { name: string; website: string }): Promise<CompetitorData> => {
+  const { data } = await apiClient.post(`/companies/${companyId}/competitors`, competitor);
+  return data;
+};
+
+export const updateCompetitor = async (companyId: string, competitorId: string, updates: { name: string; website: string }): Promise<CompetitorData> => {
+  const { data } = await apiClient.put(`/companies/${companyId}/competitors/${competitorId}`, updates);
+  return data;
+};
+
+export const deleteCompetitor = async (companyId: string, competitorId: string): Promise<{ message: string }> => {
+  const { data } = await apiClient.delete(`/companies/${companyId}/competitors/${competitorId}`);
   return data;
 }; 

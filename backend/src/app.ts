@@ -47,7 +47,7 @@ import { authenticate } from "./middleware/authMiddleware";
 import env from "./config/env";
 import { PrismaClient } from "@prisma/client";
 import { stripeWebhook } from "./controllers/paymentController";
-import { getDbClient } from "./config/database";
+import { dbCache } from "./config/dbCache";
 
 dotenv.config();
 
@@ -144,7 +144,7 @@ app.get("/api/health", (req: Request, res: Response) => {
 
 app.get("/api/health/deep", async (req: Request, res: Response) => {
   try {
-    const dbClient = await getDbClient();
+    const dbClient = await dbCache.getPrimaryClient();
     await dbClient.$queryRaw`SELECT 1`;
 
     // Check for write access
@@ -186,15 +186,13 @@ app.get("/", (req: Request, res: Response) => {
 });
 
 const main = async () => {
-  // Test database connection using appropriate client
+  // Initialize database cache for proper connection pooling
   try {
-    console.log("Testing database connection...");
-    const dbClient = await getDbClient();
-    await dbClient.$connect();
-    console.log("Database connection successful.");
-    await dbClient.$disconnect();
+    console.log("Initializing database cache...");
+    await dbCache.initialize();
+    console.log("✅ Database cache initialized successfully.");
   } catch (error) {
-    console.error("Error connecting to the database:", error);
+    console.error("❌ Error initializing database cache:", error);
   }
 };
 

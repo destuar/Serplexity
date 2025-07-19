@@ -31,8 +31,9 @@ import DashboardLayout from './components/layout/DashboardLayout';
 import OverviewPage from './pages/OverviewPage';
 
 import VisibilityTasksPage from './pages/VisibilityTasksPage';
-import ResponseDetailsPage from './pages/ResponseDetailsPage';
+import PromptsPage from './pages/PromptsPage';
 import CompetitorRankingsPage from './pages/CompetitorRankingsPage';
+import CompetitorsPage from './pages/CompetitorsPage';
 
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
@@ -56,8 +57,10 @@ const DashboardRoutes: React.FC = () => (
         <Route path="/overview" element={<OverviewPage />} />
         <Route path="/dashboard" element={<OverviewPage />} />
         <Route path="/visibility-tasks" element={<VisibilityTasksPage />} />
-        <Route path="/response-details" element={<ResponseDetailsPage />} />
+        <Route path="/response-details" element={<PromptsPage />} />
+        <Route path="/prompts" element={<PromptsPage />} />
         <Route path="/competitor-rankings" element={<CompetitorRankingsPage />} />
+        <Route path="/competitors" element={<CompetitorsPage />} />
 
         <Route path="/experimental-search" element={<ExperimentalSearchPage />} />
       </Routes>

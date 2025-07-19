@@ -182,41 +182,17 @@ const ResponseDetailsPage: React.FC = () => {
     useEffect(() => {
         // Only fetch if we have the required data and filters have actually changed
         if (dashboardData?.id && selectedCompany?.id) {
-            console.log('[ResponseDetailsPage] useEffect triggered - filters changed, fetching questions');
             setQuestionsRaw([]);
             
-            // Inline the fetch logic to avoid dependency issues
             const doFetch = async () => {
                 try {
                     setIsLoading(true);
                     const modelParam = filters.aiModel === 'all' ? undefined : filters.aiModel;
                     const typeParam = questionTypeFilter === 'all' ? undefined : questionTypeFilter;
-                    console.log('[ResponseDetailsPage] Fetching questions for company:', selectedCompany.id, 'model:', modelParam, 'type:', typeParam);
                     const data = await getTopRankingQuestions(selectedCompany.id, { 
                         aiModel: modelParam,
                         questionType: typeParam 
                     });
-                    console.log('[ResponseDetailsPage] Raw API response:', data);
-                    console.log('[ResponseDetailsPage] Questions received:', data.questions?.length || 0);
-                    
-                    // Debug: Check for shared rankings in the raw data
-                    if (data.questions && Array.isArray(data.questions)) {
-                        const questionsWithRank1 = data.questions.filter((q: TopRankingQuestion) => q.bestPosition === 1);
-                        const questionsWithoutMentions = data.questions.filter((q: TopRankingQuestion) => q.bestPosition === null);
-                        const questionsWithBadData = data.questions.filter((q: TopRankingQuestion) => q.bestPosition === 1 && q.totalMentions === 0);
-                        
-                        console.log('[ResponseDetailsPage] Debug stats:');
-                        console.log('- Questions with rank 1:', questionsWithRank1.length);
-                        console.log('- Questions without mentions (null bestPosition):', questionsWithoutMentions.length);
-                        console.log('- Questions with rank 1 but 0 mentions (BUG):', questionsWithBadData.length);
-                        
-                        if (questionsWithBadData.length > 0) {
-                            console.warn('[ResponseDetailsPage] FOUND BUGGY DATA - Questions with rank 1 but no mentions:');
-                            questionsWithBadData.slice(0, 3).forEach((q: TopRankingQuestion, i: number) => {
-                                console.warn(`${i + 1}. "${q.question?.substring(0, 50)}..." - bestPosition: ${q.bestPosition}, totalMentions: ${q.totalMentions}`);
-                            });
-                        }
-                    }
                     
                     setQuestionsRaw(data.questions || []);
                     setError(null);
@@ -242,16 +218,11 @@ const ResponseDetailsPage: React.FC = () => {
 
     // Process and filter data from the new local state
     const processedResponses = useMemo(() => {
-        console.log('[ResponseDetailsPage] Processing responses from questionsRaw:', questionsRaw.length, 'questions');
-        
-        // 10x APPROACH: Backend now sends response-level data directly
-        // No need for complex grouping - just transform to expected format
         const responses: FlattenedResponse[] = questionsRaw.map(q => {
-            // Extract the single response (backend now sends one row per response)
             const response = q.responses && q.responses.length > 0 ? q.responses[0] : {
                 model: q.bestResponseModel,
                 response: q.bestResponse,
-                position: q.averagePosition ?? null, // Use averagePosition as it's the model-specific position
+                position: q.averagePosition ?? null,
                 createdAt: undefined
             };
 
@@ -266,12 +237,7 @@ const ResponseDetailsPage: React.FC = () => {
             };
         });
 
-        // Apply client-side limit for UI control
-        const limited = showLimit === 'all' ? responses : responses.slice(0, parseInt(showLimit, 10));
-
-        console.log('[ResponseDetailsPage] Processed', responses.length, 'responses, showing', limited.length, 'after limit');
-        
-        return limited;
+        return showLimit === 'all' ? responses : responses.slice(0, parseInt(showLimit, 10));
     }, [questionsRaw, showLimit]);
 
     useEffect(() => {

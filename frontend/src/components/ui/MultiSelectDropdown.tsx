@@ -96,7 +96,7 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
         className={cn(
-          "flex items-center justify-between w-full lg:w-48 gap-2 px-4 py-2 bg-white rounded-lg shadow-md text-sm transition-colors",
+          "flex items-center justify-between w-full lg:w-48 gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg shadow-sm text-sm transition-colors",
           disabled 
             ? "opacity-50 cursor-not-allowed" 
             : "hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -118,7 +118,7 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
 
       {/* Dropdown Menu */}
       {isOpen && !disabled && (
-        <div className="absolute top-full left-0 mt-1 w-full min-w-48 bg-white rounded-lg shadow-lg z-50 py-2 max-h-64 overflow-y-auto">
+        <div className="absolute top-full left-0 mt-1 w-full min-w-48 bg-white border border-gray-200 rounded-lg shadow-sm z-50 py-2 max-h-64 overflow-y-auto">
           {/* Select All Option */}
           <button
             onClick={handleSelectAll}

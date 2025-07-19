@@ -17,6 +17,9 @@ export interface NavigationContextType {
   pushBreadcrumb: (item: BreadcrumbItem) => void;
   popBreadcrumb: () => void;
   resetBreadcrumbs: () => void;
+  registerEmbeddedPageCloser: (route: string, closeFn: () => void) => void;
+  unregisterEmbeddedPageCloser: (route: string) => void;
+  closeEmbeddedPageForRoute: (route: string) => boolean;
 }
 
 export const NavigationContext = createContext<NavigationContextType | undefined>(undefined); 
