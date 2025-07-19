@@ -152,10 +152,7 @@ export function Navbar() {
                     "lg:transition-all lg:duration-200 lg:ease-in-out",
                   )}
                 />
-                <span className={cn(
-                  "text-xl font-bold",
-                  isLandingStylePage ? "text-white" : "text-gray-900"
-                )}>Serplexity</span>
+                <span className="text-xl font-bold text-gray-900">Serplexity</span>
               </Link>
             </div>
 
@@ -171,7 +168,7 @@ export function Navbar() {
                     <button
                       key={item.sectionId}
                       onClick={() => scrollToSection(item.sectionId)}
-                      className="text-base font-medium text-gray-300 hover:text-white transition-colors cursor-pointer"
+                      className="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors cursor-pointer"
                     >
                       {item.label}
                     </button>
@@ -182,13 +179,13 @@ export function Navbar() {
                 <>
                   <Link 
                     to="/" 
-                    className="text-base font-medium text-gray-300 hover:text-white transition-colors"
+                    className="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors"
                   >
                     Home
                   </Link>
                   <Link 
                     to="/overview" 
-                    className="text-base font-medium text-gray-300 hover:text-white transition-colors"
+                    className="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors"
                   >
                     Dashboard
                   </Link>
@@ -198,19 +195,19 @@ export function Navbar() {
                 <>
                   <Link 
                     to="/" 
-                    className="text-base font-medium text-gray-300 hover:text-white transition-colors"
+                    className="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors"
                   >
                     Home
                   </Link>
                   <Link 
                     to="/research" 
-                    className="text-base font-medium text-gray-300 hover:text-white transition-colors"
+                    className="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors"
                   >
                     Research
                   </Link>
                   <Link 
                     to="/overview" 
-                    className="text-base font-medium text-gray-300 hover:text-white transition-colors"
+                    className="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors"
                   >
                     Dashboard
                   </Link>
@@ -241,7 +238,7 @@ export function Navbar() {
                         className={cn(
                           "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 flex-shrink-0",
                           isLandingStylePage 
-                            ? "bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white" 
+                            ? "bg-white/10 backdrop-blur-sm hover:bg-white/20 text-gray-600" 
                             : "bg-gray-200 hover:bg-gray-300 text-gray-600"
                         )}
                       >
@@ -271,7 +268,7 @@ export function Navbar() {
                                       setShowProfileModal(true);
                                       setIsProfileDropdownOpen(false);
                                     }}
-                                    className="w-full text-left px-4 py-3 text-sm flex items-center gap-3 transition-all duration-200 text-gray-300 hover:bg-white/10 hover:text-white rounded-xl group"
+                                    className="w-full text-left px-4 py-3 text-sm flex items-center gap-3 transition-all duration-200 text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-xl group"
                                   >
                                     <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-gradient-to-r from-[#5271ff]/20 to-[#9e52ff]/20 group-hover:from-[#5271ff]/30 group-hover:to-[#9e52ff]/30 transition-all duration-200">
                                       <Settings size={16} />
@@ -283,7 +280,7 @@ export function Navbar() {
                                       logout();
                                       setIsProfileDropdownOpen(false);
                                     }}
-                                    className="w-full text-left px-4 py-3 text-sm flex items-center gap-3 transition-all duration-200 text-gray-300 hover:bg-white/10 hover:text-white rounded-xl group"
+                                    className="w-full text-left px-4 py-3 text-sm flex items-center gap-3 transition-all duration-200 text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-xl group"
                                   >
                                     <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-gradient-to-r from-[#5271ff]/20 to-[#9e52ff]/20 group-hover:from-[#5271ff]/30 group-hover:to-[#9e52ff]/30 transition-all duration-200">
                                       <LogOut size={16} />
@@ -327,7 +324,7 @@ export function Navbar() {
                     <>
                       <Link to="/login" className={cn(
                         "text-base font-medium",
-                        isLandingStylePage ? "text-gray-300 hover:text-white" : "text-gray-600 hover:text-gray-900"
+                        isLandingStylePage ? "text-gray-700 hover:text-gray-900" : "text-gray-600 hover:text-gray-900"
                       )}>
                         Login
                       </Link>
@@ -348,10 +345,7 @@ export function Navbar() {
                 className="p-2 lg:hidden"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               >
-                <Menu className={cn(
-                  "h-6 w-6",
-                  isLandingStylePage ? "text-white" : "text-gray-800"
-                )} />
+                <Menu className="h-6 w-6 text-gray-800" />
                 <span className="sr-only">Open navigation menu</span>
               </button>
             </div>
@@ -363,7 +357,7 @@ export function Navbar() {
           <div className={cn(
             "lg:hidden",
             isLandingStylePage 
-              ? "bg-black/20 backdrop-blur-xl border-t border-white/10" 
+              ? "bg-white/95 backdrop-blur-xl border-t border-gray-200" 
               : "bg-white border-t border-gray-200"
           )}>
             <div className="px-6 py-4 space-y-4">
@@ -374,12 +368,12 @@ export function Navbar() {
                     <button
                       key={item.sectionId}
                       onClick={() => scrollToSection(item.sectionId)}
-                      className="block w-full text-left text-base font-medium text-gray-300 hover:text-white transition-colors py-2"
+                      className="block w-full text-left text-base font-medium text-gray-700 hover:text-gray-900 transition-colors py-2"
                     >
                       {item.label}
                     </button>
                   ))}
-                  <div className="border-t border-white/10 pt-4 space-y-4">
+                  <div className="border-t border-gray-200 pt-4 space-y-4">
                     {user ? (
                       <>
                         <button 
@@ -387,7 +381,7 @@ export function Navbar() {
                             setShowProfileModal(true);
                             setIsMobileMenuOpen(false);
                           }}
-                          className="block w-full text-left text-base font-medium text-gray-300 hover:text-white py-2 flex items-center gap-2"
+                          className="block w-full text-left text-base font-medium text-gray-700 hover:text-gray-900 py-2 flex items-center gap-2"
                         >
                           <Settings size={16} />
                           Edit Profile
@@ -397,7 +391,7 @@ export function Navbar() {
                             logout();
                             setIsMobileMenuOpen(false);
                           }}
-                          className="block w-full text-left text-base font-medium text-gray-300 hover:text-white py-2 flex items-center gap-2"
+                          className="block w-full text-left text-base font-medium text-gray-700 hover:text-gray-900 py-2 flex items-center gap-2"
                         >
                           <LogOut size={16} />
                           Logout
@@ -407,7 +401,7 @@ export function Navbar() {
                       <>
                         <Link 
                           to="/login" 
-                          className="block text-base font-medium text-gray-300 hover:text-white py-2"
+                          className="block text-base font-medium text-gray-700 hover:text-gray-900 py-2"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
                           Login
@@ -429,19 +423,19 @@ export function Navbar() {
                 <>
                   <Link 
                     to="/" 
-                    className="block text-base font-medium text-gray-300 hover:text-white py-2"
+                    className="block text-base font-medium text-gray-700 hover:text-gray-900 py-2"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     Home
                   </Link>
                   <Link 
                     to="/overview" 
-                    className="block text-base font-medium text-gray-300 hover:text-white py-2"
+                    className="block text-base font-medium text-gray-700 hover:text-gray-900 py-2"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     Dashboard
                   </Link>
-                  <div className="border-t border-white/10 pt-4 space-y-4">
+                  <div className="border-t border-gray-200 pt-4 space-y-4">
                     {user ? (
                       <>
                         <button 
@@ -449,7 +443,7 @@ export function Navbar() {
                             setShowProfileModal(true);
                             setIsMobileMenuOpen(false);
                           }}
-                          className="block w-full text-left text-base font-medium text-gray-300 hover:text-white py-2 flex items-center gap-2"
+                          className="block w-full text-left text-base font-medium text-gray-700 hover:text-gray-900 py-2 flex items-center gap-2"
                         >
                           <Settings size={16} />
                           Edit Profile
@@ -459,7 +453,7 @@ export function Navbar() {
                             logout();
                             setIsMobileMenuOpen(false);
                           }}
-                          className="block w-full text-left text-base font-medium text-gray-300 hover:text-white py-2 flex items-center gap-2"
+                          className="block w-full text-left text-base font-medium text-gray-700 hover:text-gray-900 py-2 flex items-center gap-2"
                         >
                           <LogOut size={16} />
                           Logout
@@ -469,7 +463,7 @@ export function Navbar() {
                       <>
                         <Link 
                           to="/login" 
-                          className="block text-base font-medium text-gray-300 hover:text-white py-2"
+                          className="block text-base font-medium text-gray-700 hover:text-gray-900 py-2"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
                           Login

@@ -33,8 +33,6 @@ import { formatBlogDate, estimateReadTime, extractFirstCategory, truncateText, s
 const LandingPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const starContainerRef = useRef<HTMLDivElement>(null);
-  const timeoutIdRef = useRef<number | null>(null);
   const isLargeScreen = useMediaQuery('(min-width: 1024px)');
   const { posts: blogPosts, loading: postsLoading, error: postsError } = useBlogPosts({ limit: 3 });
   
@@ -152,8 +150,6 @@ const LandingPage: React.FC = () => {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    
-    const starContainer = starContainerRef.current;
 
     // Load Twitter widgets script
     const script = document.createElement('script');
@@ -161,105 +157,6 @@ const LandingPage: React.FC = () => {
     script.async = true;
     script.charset = 'utf-8';
     document.head.appendChild(script);
-
-    const createStar = () => {
-      if (!starContainerRef.current) return;
-
-      const starEl = document.createElement('div');
-      starEl.className = "absolute h-px bg-gradient-to-r from-transparent via-white to-transparent";
-      starEl.style.width = '120px';
-      
-      const duration = (Math.random() * 1.5 + 1) * 1000; // 1s-2.5s in ms
-
-      let startX_vw = -5, startY_vh = 50, endX_vw = 105, endY_vh = 50;
-      const startEdge = Math.floor(Math.random() * 4);
-      switch (startEdge) {
-        case 0: startX_vw = Math.random() * 100; startY_vh = -5; break;
-        case 1: startX_vw = 105; startY_vh = Math.random() * 100; break;
-        case 2: startX_vw = Math.random() * 100; startY_vh = 105; break;
-        case 3: startX_vw = -5; startY_vh = Math.random() * 100; break;
-      }
-
-      const endEdge = (startEdge + 2) % 4;
-      switch (endEdge) {
-        case 0: endX_vw = Math.random() * 100; endY_vh = -5; break;
-        case 1: endX_vw = 105; endY_vh = Math.random() * 100; break;
-        case 2: endX_vw = Math.random() * 100; endY_vh = 105; break;
-        case 3: endX_vw = -5; endY_vh = Math.random() * 100; break;
-      }
-      
-      const deltaX_px = (endX_vw - startX_vw) * window.innerWidth;
-      const deltaY_px = (endY_vh - startY_vh) * window.innerHeight;
-      const angle = Math.atan2(deltaY_px, deltaX_px) * 180 / Math.PI;
-      const opacity = Math.random() * 0.4 + 0.5;
-
-      const keyframes = [
-        { transform: `translate(${startX_vw}vw, ${startY_vh}vh) rotate(${angle}deg)`, opacity: 0 },
-        { opacity: 0, offset: 0.05 },
-        { opacity: opacity, offset: 0.15 },
-        { opacity: opacity, offset: 0.75 },
-        { opacity: 0, offset: 0.85 },
-        { transform: `translate(${endX_vw}vw, ${endY_vh}vh) rotate(${angle}deg)`, opacity: 0 }
-      ];
-
-      const animation = starEl.animate(keyframes, { duration, easing: 'linear' });
-
-      animation.onfinish = () => {
-        starEl.remove();
-      };
-
-      starContainerRef.current.appendChild(starEl);
-      
-      const randomInterval = Math.random() * 8000 + 4000; // 4-12 seconds
-      timeoutIdRef.current = window.setTimeout(createStar, randomInterval);
-    };
-
-    timeoutIdRef.current = window.setTimeout(createStar, Math.random() * 5000);
-
-    const createStaticStars = () => {
-      if (!starContainerRef.current) return;
-      const numStars = 200;
-      for (let i = 0; i < numStars; i++) {
-        const star = document.createElement('div');
-        star.className = 'absolute rounded-full bg-white';
-        const size = Math.random() * 1.5 + 0.5;
-        star.style.width = `${size}px`;
-        star.style.height = `${size}px`;
-        star.style.left = `${Math.random() * 100}%`;
-        star.style.top = `${Math.random() * 100}%`;
-        const glowSize = Math.random() * 4 + 2;
-        star.style.boxShadow = `0 0 ${glowSize}px ${glowSize / 4}px rgba(255, 255, 255, 0.5)`;
-        const initialOpacity = Math.random() * 0.5 + 0.3;
-        star.style.opacity = `${initialOpacity}`;
-
-        const twinkleDuration = Math.random() * 4 + 2;
-        star.animate(
-          [
-            { opacity: initialOpacity },
-            { opacity: initialOpacity * 0.3 },
-            { opacity: initialOpacity },
-          ],
-          {
-            duration: twinkleDuration * 1000,
-            iterations: Infinity,
-            easing: 'ease-in-out',
-          }
-        );
-
-        starContainerRef.current.appendChild(star);
-      }
-    };
-    createStaticStars();
-
-    return () => {
-      const timeoutId = timeoutIdRef.current;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      if (starContainer) {
-        starContainer.innerHTML = '';
-      }
-    };
   }, []);
 
   const faqItems = [
@@ -278,11 +175,11 @@ const LandingPage: React.FC = () => {
       answer: (
         <>
           <p className="mb-4">Our dashboard ingests the full text of AI answers and turns it into quantitative metrics:</p>
-          <ul className="space-y-2 list-disc list-inside text-gray-400 mb-4">
-            <li><span className="font-semibold text-white">Share of Voice:</span> The percentage of words—and citations—attributed to your brand versus competitors (visualised in the <em>Share of Voice</em> pie card).</li>
-            <li><span className="font-semibold text-white">Inclusion Rate:</span> How often your domain appears across the monitored query set (tracked in the <em>Average Inclusion Rate</em> card).</li>
-            <li><span className="font-semibold text-white">Average Position:</span> Where your first mention lands inside the answer narrative (early sentences vs. footnotes).</li>
-            <li><span className="font-semibold text-white">Sentiment &amp; Topic Scores:</span> A multi-category radar chart showing how engines describe your brand (quality, price, trust, etc.).</li>
+          <ul className="space-y-2 list-disc list-inside text-gray-700 mb-4">
+            <li><span className="font-semibold text-gray-900">Share of Voice:</span> The percentage of words—and citations—attributed to your brand versus competitors (visualised in the <em>Share of Voice</em> pie card).</li>
+            <li><span className="font-semibold text-gray-900">Inclusion Rate:</span> How often your domain appears across the monitored query set (tracked in the <em>Average Inclusion Rate</em> card).</li>
+            <li><span className="font-semibold text-gray-900">Average Position:</span> Where your first mention lands inside the answer narrative (early sentences vs. footnotes).</li>
+            <li><span className="font-semibold text-gray-900">Sentiment &amp; Topic Scores:</span> A multi-category radar chart showing how engines describe your brand (quality, price, trust, etc.).</li>
           </ul>
           <p>These metrics update automatically whenever a new report is generated.</p>
         </>
@@ -293,7 +190,7 @@ const LandingPage: React.FC = () => {
       answer: (
         <>
           <p className="mb-4">We currently monitor answers from:</p>
-          <ul className="space-y-2 list-disc list-inside text-gray-400 mb-4">
+          <ul className="space-y-2 list-disc list-inside text-gray-700 mb-4">
             <li>Google Search (AI Overviews / Gemini-powered responses)</li>
             <li>OpenAI ChatGPT (GPT-4.1 &amp; GPT-4o)</li>
             <li>Perplexity Sonar</li>
@@ -353,7 +250,7 @@ const LandingPage: React.FC = () => {
   const bottomRowLogos = companyLogos.slice(4, 7);
 
   return (
-    <div className="bg-gradient-to-br from-[#02040a] via-[#0a0a1a] to-[#050510] text-white relative min-h-screen">
+    <div className="bg-white text-gray-900 relative min-h-screen">
       <style>{`
       .gradient-text-clip {
         position: relative;
@@ -408,69 +305,7 @@ const LandingPage: React.FC = () => {
         vertical-align: middle;
       }
       
-      /* Vertical Grid Lines */
-      .vertical-grid-container {
-        position: relative;
-      }
-      
-      .vertical-grid-container::before,
-      .vertical-grid-container::after {
-        content: '';
-        position: fixed;
-        top: 0;
-        bottom: 0;
-        width: 1px;
-        background: linear-gradient(
-          to bottom,
-          transparent 0%,
-          rgba(82, 113, 255, 0.3) 10%,
-          rgba(118, 98, 255, 0.4) 50%,
-          rgba(158, 82, 255, 0.3) 90%,
-          transparent 100%
-        );
-        box-shadow: 0 0 8px rgba(118, 98, 255, 0.5);
-        z-index: 1;
-        pointer-events: none;
-        opacity: 0;
-        /* animation is now defined in the rule below to avoid being overridden */
-      }
-      
-      .vertical-grid-container::before {
-        left: 6rem;
-      }
-      
-      .vertical-grid-container::after {
-        right: 6rem;
-      }
-      
-      @keyframes gridFadeIn {
-        to { opacity: 1; }
-      }
-      
-      /* Hide on mobile for cleaner experience */
-      @media (max-width: 768px) {
-        .vertical-grid-container::before,
-        .vertical-grid-container::after {
-          display: none;
-        }
-      }
-      
-      /* Subtle pulse animation for added futuristic feel */
-      .vertical-grid-container::before,
-      .vertical-grid-container::after {
-        animation: gridFadeIn 1.5s ease-out 0.5s forwards, gridPulse 4s ease-in-out infinite 2s;
-      }
-      
-      @keyframes gridPulse {
-        0%, 100% { 
-          opacity: 1;
-          box-shadow: 0 0 8px rgba(118, 98, 255, 0.5);
-        }
-        50% { 
-          opacity: 0.7;
-          box-shadow: 0 0 12px rgba(118, 98, 255, 0.7);
-        }
-      }
+      /* Vertical Grid Lines - Removed */
       
 
       
@@ -702,12 +537,6 @@ const LandingPage: React.FC = () => {
         }
       }
       `}</style>
-      {/* Subtle background gradients */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#5271ff]/10 via-[#7662ff]/5 to-[#9e52ff]/10"></div>
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(82,113,255,0.04),transparent_50%)]"></div>
-      
-      {/* Shooting Stars */}
-      <div ref={starContainerRef} className="absolute inset-0 overflow-hidden pointer-events-none z-0" />
       
       <div className="relative z-10 vertical-grid-container">
         <Navbar />
@@ -724,7 +553,7 @@ const LandingPage: React.FC = () => {
                 transition={{ duration: 0.8, ease: "easeOut" }}
                 className="text-left"
               >
-                <h1 className="font-archivo text-6xl md:text-7xl lg:text-8xl font-semibold mb-6 text-white tracking-tighter leading-[1.4] max-w-6xl">
+                <h1 className="font-archivo text-6xl md:text-7xl lg:text-8xl font-semibold mb-6 text-gray-900 tracking-tighter leading-[1.4] max-w-6xl">
                   The Future of Search is
                   <br />
                   <span className="relative inline-block mt-4" style={{ paddingBottom: '15px' }}>
@@ -752,7 +581,7 @@ const LandingPage: React.FC = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8, delay: 0.2 }}
-                  className="text-lg md:text-xl text-gray-300 max-w-3xl mb-12 leading-relaxed"
+                  className="text-lg md:text-xl text-gray-700 max-w-3xl mb-12 leading-relaxed"
                 >
                   Serplexity is the complete software ecosystem purpose-built for AI search. Track, discover, and boost your visibility with the newest mediator of brand to customer relationships—AI agents.
                 </motion.p>
@@ -798,7 +627,7 @@ const LandingPage: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6 }}
-                className="text-3xl md:text-4xl font-bold text-white mb-4"
+                className="text-3xl md:text-4xl font-bold text-gray-900 mb-4"
               >
                 The All-In-One Brand SEO Software For AI Search Engines
               </motion.h2>
@@ -807,7 +636,7 @@ const LandingPage: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: 0.1 }}
-                className="text-lg md:text-xl text-gray-300"
+                className="text-lg md:text-xl text-gray-700"
               >
                 Join leading companies already optimizing for the future of search
               </motion.p>
@@ -842,10 +671,10 @@ const LandingPage: React.FC = () => {
                   transition={{ duration: 0.6, delay: index * 0.1 }}
                   className="text-center p-8 bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)]"
                 >
-                  <div className="text-4xl md:text-5xl font-bold text-white mb-2">
+                  <div className="text-4xl md:text-5xl font-bold text-gray-900 mb-2">
                     {stat.format(stat.value)}{stat.suffix}
                   </div>
-                  <div className="text-gray-300 font-medium">
+                  <div className="text-gray-700 font-medium">
                     {stat.label}
                   </div>
                 </motion.div>
@@ -890,7 +719,7 @@ const LandingPage: React.FC = () => {
                         />
                         
                         <h3 className={`text-3xl font-semibold transition-colors duration-300 ${
-                            index === currentStep ? 'text-white' : 'text-gray-500'
+                            index === currentStep ? 'text-gray-900' : 'text-gray-500'
                           }`}>
                           {step.title}
                         </h3>
@@ -1054,8 +883,10 @@ const LandingPage: React.FC = () => {
                               ? '32px'
                               : (logo.file === 'OpenAI_Logo.svg.png')
                                 ? '32px'
-                                : '48px',
-                      filter: 'brightness(0) invert(1)',
+                                : (logo.file === 'DeepSeek_logo.svg.png')
+                                  ? '72px'
+                                  : '48px',
+                      filter: 'brightness(0)',
                       marginTop: logo.file === 'OpenAI_Logo.svg.png'
                         ? '4px'
                         : logo.file === 'Google_Gemini_logo.svg.png'
@@ -1098,7 +929,7 @@ const LandingPage: React.FC = () => {
                               : logo.file === 'Google_Gemini_logo.svg.png'
                                 ? '36px'
                                 : '48px',
-                        filter: 'brightness(0) invert(1)',
+                        filter: 'brightness(0)',
                       }}
                     />
                   </motion.div>
@@ -1114,7 +945,11 @@ const LandingPage: React.FC = () => {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.6, delay: (i + 4) * 0.1 }}
-                    className="w-32 h-32 flex items-center justify-center"
+                    className={
+                      logo.file === 'DeepSeek_logo.svg.png'
+                        ? 'w-40 h-40 flex items-center justify-center'
+                        : 'w-32 h-32 flex items-center justify-center'
+                    }
                   >
                     <img
                       src={`/${logo.file}`}
@@ -1125,11 +960,11 @@ const LandingPage: React.FC = () => {
                           logo.file === 'copilot-logo.png'
                             ? '48px'
                             : logo.file === 'Grok-feb-2025-logo.svg.png'
-                              ? '42px'
-                              : logo.file === 'DeepSeek_logo.svg.png'
-                                ? '56px'
-                                : '48px',
-                        filter: 'brightness(0) invert(1)',
+                            ? '42px'
+                            : logo.file === 'DeepSeek_logo.svg.png'
+                              ? '72px'
+                              : '48px',
+                        filter: 'brightness(0)',
                       }}
                     />
                   </motion.div>
