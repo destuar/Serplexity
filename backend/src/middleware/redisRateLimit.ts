@@ -95,7 +95,7 @@ export function createRedisRateLimit(options: RateLimitOptions) {
 // Predefined rate limiters
 export const authLimiter = createRedisRateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 requests per window
+  max: 100, // 100 requests per window (industry standard)
   skipSuccessfulRequests: true,
   message: 'Too many authentication attempts, please try again later.'
 });

@@ -91,7 +91,7 @@ const globalLimiter = rateLimit({
 // Authentication rate limiting (stricter) - DISABLED in test environment
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: process.env.NODE_ENV === 'test' ? 0 : 10, // Disable in test environment
+    max: process.env.NODE_ENV === 'test' ? 0 : 100, // Disable in test environment, increased to industry standard of 100
     message: {
         error: 'Too many authentication attempts, please try again later.',
     },

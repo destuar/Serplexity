@@ -67,7 +67,7 @@ const PRESET_TASKS = [
 ];
 
 export enum TaskStatus {
-  PENDING = 'PENDING',
+  NOT_STARTED = 'NOT_STARTED',
   IN_PROGRESS = 'IN_PROGRESS',
   COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED'
@@ -139,7 +139,7 @@ export async function persistOptimizationTasks(
     category: task.category,
     priority: task.priority,
     impact_metric: task.impact_metric,
-    status: TaskStatus.PENDING,
+    status: TaskStatus.NOT_STARTED,
     reportId: runId,
     companyId: companyId,
   }));
@@ -186,7 +186,7 @@ export async function toggleTaskCompletion(taskId: string, prisma: PrismaClient)
   const task = await prisma.visibilityOptimizationTask.findFirst({ where: { taskId } });
   if (!task) throw new Error(`Task not found: ${taskId}`);
   
-  const newStatus = task.status === TaskStatus.COMPLETED ? TaskStatus.PENDING : TaskStatus.COMPLETED;
+  const newStatus = task.status === TaskStatus.COMPLETED ? TaskStatus.NOT_STARTED : TaskStatus.COMPLETED;
   
   return prisma.visibilityOptimizationTask.update({
     where: { id: task.id },
