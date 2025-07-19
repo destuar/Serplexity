@@ -63,7 +63,7 @@ const CompanyLogo: React.FC<CompanyLogoProps> = ({
   // If image failed to load or no website, show initials
   if (!company.website || imageError) {
     return (
-      <div className={`${sizeClasses[size]} ${className} ${colors[colorIndex]} rounded-lg flex items-center justify-center`}>
+      <div className={`${sizeClasses[size]} ${className} ${colors[colorIndex]} rounded flex items-center justify-center`}>
         <span className="text-white font-bold text-sm">
           {initials}
         </span>
@@ -75,7 +75,7 @@ const CompanyLogo: React.FC<CompanyLogoProps> = ({
   const domain = getDomainFromUrl(company.website);
   if (!domain) {
     return (
-      <div className={`${sizeClasses[size]} ${className} ${colors[colorIndex]} rounded-lg flex items-center justify-center`}>
+      <div className={`${sizeClasses[size]} ${className} ${colors[colorIndex]} rounded flex items-center justify-center`}>
         <span className="text-white font-bold text-sm">
           {initials}
         </span>
@@ -91,7 +91,7 @@ const CompanyLogo: React.FC<CompanyLogoProps> = ({
   ];
 
   return (
-    <div className={`${sizeClasses[size]} ${className} bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center`}>
+    <div className={`${sizeClasses[size]} ${className} bg-gray-100 rounded overflow-hidden flex items-center justify-center`}>
       <img
         src={faviconSources[0]} // Start with Clearbit
         alt={`${company.name} logo`}

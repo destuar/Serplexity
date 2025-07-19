@@ -83,10 +83,7 @@ const TestComponent = () => {
       <button onClick={() => createCompany({ 
         name: 'New Company', 
         website: 'https://example.com',
-        industry: 'Technology',
-        competitors: [],
-        benchmarkingQuestions: [],
-        products: []
+        industry: 'Technology'
       })}>
         Create Company
       </button>
@@ -234,10 +231,7 @@ describe('CompanyContext', () => {
       expect(mockApiClient.post).toHaveBeenCalledWith('/companies', {
         name: 'New Company',
         website: 'https://example.com',
-        industry: 'Technology',
-        competitors: [],
-        benchmarkingQuestions: [],
-        products: []
+        industry: 'Technology'
       });
       expect(localStorageMock.setItem).toHaveBeenCalledWith('selectedCompanyId', '2');
     });

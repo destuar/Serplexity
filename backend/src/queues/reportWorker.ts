@@ -38,6 +38,7 @@ import {
     generateOverallSentimentSummary, 
     generateQuestionResponse,
     generateWebsiteForCompetitors,
+    getModelsByTaskWithUserPreferences,
     SentimentScores,
     CompetitorInfo,
     QuestionInput,
@@ -889,6 +890,7 @@ const jobTimer = new Timer();
         include: { 
             competitors: true, 
             benchmarkingQuestions: true,
+            user: true
         }
     });
 
@@ -988,8 +990,8 @@ const jobTimer = new Timer();
             const { pydanticLlmService } = await import('../services/pydanticLlmService');
             const { z } = await import('zod');
 
-            // Get models for fanout generation 
-            const models = getModelsByTask(ModelTask.QUESTION_ANSWERING);
+            // Get models for fanout generation, filtered by user preferences
+            const models = await getModelsByTaskWithUserPreferences(ModelTask.QUESTION_ANSWERING, fullCompany.userId);
 
             // Generate fanout for each benchmarking question that needs it
             const fanoutGenerationPromises = userBenchmarkQuestions.map(async (question, index) => {
@@ -1146,7 +1148,7 @@ const jobTimer = new Timer();
     log({ runId, stage: 'DATA_GATHERING', step: 'SENTIMENT_START' }, 'Generating sentiment scores');
     await prisma.reportRun.update({ where: { id: runId }, data: { stepStatus: 'Analyzing Sentiment' } });
     
-    const sentimentModels = getModelsByTask(ModelTask.SENTIMENT);
+    const sentimentModels = await getModelsByTaskWithUserPreferences(ModelTask.SENTIMENT, fullCompany.userId);
     log({ 
         runId, 
         stage: 'DATA_GATHERING', 
@@ -1238,7 +1240,7 @@ const jobTimer = new Timer();
         }
     }, `Collected a total of ${totalQuestionsToProcess} questions to be answered (${fullCompany.benchmarkingQuestions.length} original + ${fanoutQuestions.length} fanout).`);
 
-    const models = getModelsByTask(ModelTask.QUESTION_ANSWERING);
+            const models = await getModelsByTaskWithUserPreferences(ModelTask.QUESTION_ANSWERING, fullCompany.userId);
 
     log({ 
         runId, 

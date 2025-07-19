@@ -13,7 +13,7 @@
  * - router: The Express router instance for user routes.
  */
 import { Router } from 'express';
-import { exportUserData, deleteUserData, getUserProfile, updateUserProfile, changePassword } from '../controllers/userController';
+import { exportUserData, deleteUserData, getUserProfile, updateUserProfile, changePassword, getModelPreferences, updateModelPreferences } from '../controllers/userController';
 import { authenticate } from '../middleware/authMiddleware';
 
 const router = Router();
@@ -22,6 +22,10 @@ const router = Router();
 router.get('/me/profile', authenticate, getUserProfile);
 router.put('/me/profile', authenticate, updateUserProfile);
 router.put('/me/password', authenticate, changePassword);
+
+// Model preferences routes
+router.get('/me/model-preferences', authenticate, getModelPreferences);
+router.put('/me/model-preferences', authenticate, updateModelPreferences);
 
 // Data management routes
 router.get('/me/export', authenticate, exportUserData);

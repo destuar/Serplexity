@@ -12,11 +12,11 @@
  * @exports
  * - ProfileModal: The main profile modal component.
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { X, User, Mail, Lock, Eye, EyeOff, AlertCircle, LogOut, CreditCard } from 'lucide-react';
+import { X, User, Mail, Lock, Eye, EyeOff, AlertCircle, LogOut, CreditCard, Cpu } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
 import { useNavigate } from 'react-router-dom';
@@ -64,10 +64,32 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isUpdatingModels, setIsUpdatingModels] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [modelsError, setModelsError] = useState<string | null>(null);
   const [profileSuccess, setProfileSuccess] = useState(false);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [modelsSuccess, setModelsSuccess] = useState(false);
+
+  // Model preferences state
+  const [modelPreferences, setModelPreferences] = useState<Record<string, boolean>>({
+    'gpt-4.1-mini': true,
+    'claude-3-5-haiku-20241022': true,
+    'gemini-2.5-flash': true,
+    'sonar': true
+  });
+
+  // Load model preferences when modal opens
+  const loadModelPreferences = async () => {
+    try {
+      const response = await apiClient.get('/users/me/model-preferences');
+      setModelPreferences(response.data.modelPreferences);
+    } catch (error) {
+      console.error('Failed to load model preferences:', error);
+      // Keep default preferences on error
+    }
+  };
 
   // Profile form
   const {
@@ -92,6 +114,13 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   } = useForm<PasswordFormData>({
     resolver: zodResolver(passwordChangeSchema),
   });
+
+  // Load model preferences when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      loadModelPreferences();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -163,6 +192,33 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
+  const handleModelToggle = (modelId: string) => {
+    setModelPreferences(prev => ({
+      ...prev,
+      [modelId]: !prev[modelId]
+    }));
+  };
+
+  const handleUpdateModels = async () => {
+    setIsUpdatingModels(true);
+    setModelsError(null);
+    setModelsSuccess(false);
+
+    try {
+      await apiClient.put('/users/me/model-preferences', {
+        modelPreferences
+      });
+      
+      setModelsSuccess(true);
+      setTimeout(() => setModelsSuccess(false), 3000);
+    } catch (error) {
+      const apiError = error as ApiError;
+      setModelsError(apiError.response?.data?.error || 'Failed to update model preferences');
+    } finally {
+      setIsUpdatingModels(false);
+    }
+  };
+
   const handleClose = () => {
     resetProfile({
       name: user?.name || '',
@@ -171,8 +227,10 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     resetPassword();
     setProfileError(null);
     setPasswordError(null);
+    setModelsError(null);
     setProfileSuccess(false);
     setPasswordSuccess(false);
+    setModelsSuccess(false);
     setActiveTab('profile');
     onClose();
   };
@@ -181,6 +239,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
   const tabs = [
     { id: 'profile', label: 'Profile Info', icon: User },
+    { id: 'models', label: 'Models', icon: Cpu },
     { id: 'subscription', label: 'Subscription', icon: CreditCard },
     { id: 'password', label: 'Change Password', icon: Lock, disabled: isOAuthUser },
   ];
@@ -322,6 +381,138 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                   >
                     <LogOut className="w-4 h-4 mr-2" />
                     {isSigningOut ? 'Signing out...' : 'Sign Out'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'models' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">AI Model Preferences</h3>
+                  <p className="text-gray-600 mb-4">
+                    Choose which AI models you'd like to use for your analysis. All models are enabled by default.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  {/* GPT-4.1 Mini */}
+                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-gradient-to-r from-green-400 to-blue-500 rounded-lg flex items-center justify-center">
+                        <span className="text-white font-semibold text-sm">GPT</span>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-900">GPT-4.1 Mini</h4>
+                        <p className="text-sm text-gray-600">OpenAI • Fast and reliable</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={modelPreferences['gpt-4.1-mini']}
+                        onChange={() => handleModelToggle('gpt-4.1-mini')}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#7762ff]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#7762ff]"></div>
+                    </label>
+                  </div>
+
+                  {/* Claude 3.5 Haiku */}
+                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-gradient-to-r from-orange-400 to-red-500 rounded-lg flex items-center justify-center">
+                        <span className="text-white font-semibold text-sm">C</span>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-900">Claude 3.5 Haiku</h4>
+                        <p className="text-sm text-gray-600">Anthropic • Balanced performance</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={modelPreferences['claude-3-5-haiku-20241022']}
+                        onChange={() => handleModelToggle('claude-3-5-haiku-20241022')}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#7762ff]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#7762ff]"></div>
+                    </label>
+                  </div>
+
+                  {/* Gemini 2.5 Flash */}
+                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-gradient-to-r from-blue-400 to-purple-500 rounded-lg flex items-center justify-center">
+                        <span className="text-white font-semibold text-sm">G</span>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-900">Gemini 2.5 Flash</h4>
+                        <p className="text-sm text-gray-600">Google • Web search enhanced</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={modelPreferences['gemini-2.5-flash']}
+                        onChange={() => handleModelToggle('gemini-2.5-flash')}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#7762ff]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#7762ff]"></div>
+                    </label>
+                  </div>
+
+                  {/* Perplexity Sonar */}
+                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-gradient-to-r from-purple-400 to-pink-500 rounded-lg flex items-center justify-center">
+                        <span className="text-white font-semibold text-sm">P</span>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-900">Perplexity Sonar</h4>
+                        <p className="text-sm text-gray-600">Perplexity • Real-time search</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={modelPreferences['sonar']}
+                        onChange={() => handleModelToggle('sonar')}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#7762ff]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#7762ff]"></div>
+                    </label>
+                  </div>
+                </div>
+
+                {modelsError && (
+                  <div className="flex items-center p-3 text-sm text-red-700 bg-red-50 rounded-lg">
+                    <AlertCircle className="w-4 h-4 mr-2" />
+                    {modelsError}
+                  </div>
+                )}
+
+                {modelsSuccess && (
+                  <div className="flex items-center p-3 text-sm text-green-700 bg-green-50 rounded-lg">
+                    <AlertCircle className="w-4 h-4 mr-2" />
+                    Model preferences updated successfully!
+                  </div>
+                )}
+
+                <div className="flex justify-end space-x-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleClose}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleUpdateModels}
+                    disabled={isUpdatingModels}
+                  >
+                    {isUpdatingModels ? 'Saving...' : 'Save Preferences'}
                   </Button>
                 </div>
               </div>

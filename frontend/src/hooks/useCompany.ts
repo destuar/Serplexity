@@ -13,17 +13,11 @@
 import { createContext, useContext } from 'react';
 import { Company } from '../types/schemas';
 
-// Company creation form data
+// Company creation form data - simplified to only required fields
 export interface CompanyFormData {
   name: string;
   website: string;
   industry: string;
-  competitors: {
-    name: string;
-    website?: string;
-  }[];
-  benchmarkingQuestions: string[];
-  products: string[];
 }
 
 export interface CompanyContextType {

@@ -22,30 +22,18 @@
  * - CompanyProfileForm: React functional component for company profile management.
  */
 import React, { useState, useRef, useEffect } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, X, Minus, Loader } from 'lucide-react';
+import { X, Loader } from 'lucide-react';
 import { useCompany, CompanyFormData, Company } from '../../contexts/CompanyContext';
-import { Product, Competitor, BenchmarkingQuestion } from '../../types/schemas';
 import { flexibleUrlSchema } from '../../utils/urlNormalizer';
 
-// Form validation schema
+// Simplified form validation schema - only required fields
 const formSchema = z.object({
   name: z.string().min(1, 'Company name is required'),
   website: flexibleUrlSchema,
   industry: z.string().min(1, 'Industry is required'),
-  description: z.string().optional(),
-  products: z.array(z.object({
-    name: z.string().min(1, 'Product name is required'),
-  })).min(1, 'At least one product is required').max(5, 'You can add up to 5 products'),
-  competitors: z.array(z.object({
-    name: z.string().min(1, 'Competitor name is required'),
-    website: flexibleUrlSchema,
-  })).min(1, 'At least one competitor is required'),
-  benchmarkingQuestions: z.array(z.object({
-    text: z.string().min(1, 'Question is required'),
-  })).min(1, 'At least one question is required'),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -264,29 +252,15 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
   const {
     register,
     handleSubmit,
-    formState: { errors, isDirty: _isDirty },
+    formState: { errors },
     setValue,
     watch,
-    control,
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: initialData?.name || '',
       website: initialData?.website || '',
       industry: initialData?.industry || '',
-      description: (initialData as Company & { description?: string })?.description || '',
-      products: (() => {
-        const userProducts = (initialData?.products || []).filter((p: Product) => !p.isGenerated);
-        return userProducts.length > 0 ? userProducts.map((p) => ({ name: p.name })) : [{ name: '' }];
-      })(),
-      competitors: (() => {
-        const userCompetitors = (initialData?.competitors || []).filter((c: Competitor) => !c.isGenerated);
-        return userCompetitors.length > 0 ? userCompetitors.map((c) => ({ name: c.name, website: c.website || '' })) : [{ name: '', website: '' }];
-      })(),
-      benchmarkingQuestions: (() => {
-        const userQuestions = (initialData?.benchmarkingQuestions || []).filter((q: BenchmarkingQuestion) => !q.isGenerated);
-        return userQuestions.length > 0 ? userQuestions.map((q) => ({ text: q.text })) : [{ text: '' }];
-      })(),
     }
   });
   
@@ -297,42 +271,21 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
     setIndustryValue(industry);
   }, [industry]);
 
-  const { fields: productFields, append: appendProduct, remove: removeProduct } = useFieldArray({
-    control,
-    name: 'products',
-  });
-
-  const { fields: competitorFields, append: appendCompetitor, remove: removeCompetitor } = useFieldArray({
-    control,
-    name: 'competitors',
-  });
-
-  const { fields: questionFields, append: appendQuestion, remove: removeQuestion } = useFieldArray({
-    control,
-    name: 'benchmarkingQuestions',
-  });
-
   const onSubmit = async (data: FormData) => {
     setSubmitting(true);
     try {
       const apiData: CompanyFormData = {
-        ...data,
-        products: data.products.map(p => p.name).filter(name => name.trim() !== ''),
-        competitors: data.competitors.filter(c => c.website.trim() !== '').map(c => ({ 
-          name: c.name || new URL(c.website).hostname.replace('www.', ''),
-          website: c.website 
-        })),
-        benchmarkingQuestions: data.benchmarkingQuestions.map(q => q.text),
+        name: data.name,
+        website: data.website,
+        industry: data.industry,
       };
 
       if (mode === 'edit' && initialData?.id) {
-        // The update payload is partial, so we can send the transformed data
         await updateCompany(initialData.id, apiData);
       } else {
         await createCompany(apiData);
       }
       
-      // Small delay to ensure context state is updated before navigation
       if (onSuccess) {
         setTimeout(() => {
           onSuccess();
@@ -403,12 +356,12 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
               </label>
               <input
                 type="text"
-                value={watch('name')}
-                onChange={(e) => setValue('name', e.target.value, { shouldValidate: true, shouldDirty: true })}
+                {...register('name')}
                 className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 [&:-webkit-autofill]:bg-white [&:-webkit-autofill]:text-gray-900 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_white]"
                 placeholder="Enter company name"
                 required
               />
+              {errors.name && <p className="text-sm text-red-500 mt-1">{errors.name.message}</p>}
             </div>
 
             <div>
@@ -417,17 +370,17 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
               </label>
               <input
                 type="url"
-                value={watch('website')}
-                onChange={(e) => setValue('website', e.target.value, { shouldValidate: true, shouldDirty: true })}
+                {...register('website')}
                 className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 [&:-webkit-autofill]:bg-white [&:-webkit-autofill]:text-gray-900 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_white]"
                 placeholder="https://example.com"
                 required
               />
+              {errors.website && <p className="text-sm text-red-500 mt-1">{errors.website.message}</p>}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Industry
+                Industry *
               </label>
               <IndustryAutocomplete
                 value={industryValue}
@@ -440,145 +393,6 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
                 isModal={isModal}
               />
               {errors.industry && <p className="text-sm text-red-500 mt-1">{errors.industry.message}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description
-              </label>
-              <textarea
-                value={watch('description') || ''}
-                onChange={(e) => setValue('description', e.target.value, { shouldValidate: true, shouldDirty: true })}
-                rows={3}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 resize-none [&:-webkit-autofill]:bg-white [&:-webkit-autofill]:text-gray-900 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_white]"
-                placeholder="Brief description of your company"
-              />
-            </div>
-          </div>
-
-          {/* Products & Services */}
-          <div className="space-y-4 pt-2 border-t border-gray-100">
-            <h3 className="text-sm font-medium text-gray-900 uppercase tracking-wide">Products & Services</h3>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Product/Service Names
-              </label>
-              <div className="space-y-2">
-                {productFields.map((field, index) => (
-                  <div key={field.id} className="flex gap-2">
-                    <input
-                      type="text"
-                      {...register(`products.${index}.name`)}
-                      className="flex-1 px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 [&:-webkit-autofill]:bg-white [&:-webkit-autofill]:text-gray-900 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_white]"
-                      placeholder={`Product ${index + 1}`}
-                    />
-                    {productFields.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeProduct(index)}
-                        className="px-3 py-3 text-gray-400 hover:text-red-500 transition-colors"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => appendProduct({ name: '' })}
-                  className="flex items-center gap-2 px-4 py-2 text-sm text-purple-600 hover:text-purple-700 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Product
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Competitors */}
-          <div className="space-y-4 pt-2 border-t border-gray-100">
-            <h3 className="text-sm font-medium text-gray-900 uppercase tracking-wide">Competitors</h3>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Competitor Websites
-              </label>
-              <div className="space-y-2">
-                {competitorFields.map((field, index) => (
-                  <div key={field.id} className="flex flex-col sm:flex-row gap-2">
-                    <input
-                      type="text"
-                      {...register(`competitors.${index}.name`)}
-                      className="flex-1 px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 [&:-webkit-autofill]:bg-white [&:-webkit-autofill]:text-gray-900 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_white]"
-                      placeholder={`Competitor ${index + 1} Name`}
-                    />
-                    <input
-                      type="url"
-                      {...register(`competitors.${index}.website`)}
-                      className="flex-1 px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 [&:-webkit-autofill]:bg-white [&:-webkit-autofill]:text-gray-900 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_white]"
-                      placeholder={`https://competitor${index + 1}.com`}
-                    />
-                    {competitorFields.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeCompetitor(index)}
-                        className="px-3 py-3 text-gray-400 hover:text-red-500 transition-colors self-center sm:self-auto"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => appendCompetitor({ name: '', website: '' })}
-                  className="flex items-center gap-2 px-4 py-2 text-sm text-purple-600 hover:text-purple-700 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Competitor
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Benchmarking Questions */}
-          <div className="space-y-4 pt-2 border-t border-gray-100">
-            <h3 className="text-sm font-medium text-gray-900 uppercase tracking-wide">Benchmarking Questions</h3>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Questions Users Might Ask
-              </label>
-              <div className="space-y-2">
-                {questionFields.map((field, index) => (
-                  <div key={field.id} className="flex gap-2">
-                    <input
-                      type="text"
-                      {...register(`benchmarkingQuestions.${index}.text`)}
-                      className="flex-1 px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 [&:-webkit-autofill]:bg-white [&:-webkit-autofill]:text-gray-900 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_white]"
-                      placeholder={`What ${index === 0 ? 'is the best solution for...' : 'question might users ask...'}`}
-                    />
-                    {questionFields.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeQuestion(index)}
-                        className="px-3 py-3 text-gray-400 hover:text-red-500 transition-colors"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => appendQuestion({ text: '' })}
-                  className="flex items-center gap-2 px-4 py-2 text-sm text-purple-600 hover:text-purple-700 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Question
-                </button>
-              </div>
             </div>
           </div>
 

@@ -261,4 +261,69 @@ export const changePassword = async (req: Request, res: Response) => {
     }
     res.status(500).json({ error: 'Failed to change password' });
   }
+};
+
+// Model preferences validation schema
+const modelPreferencesSchema = z.object({
+  modelPreferences: z.record(z.string(), z.boolean()),
+});
+
+export const getModelPreferences = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { modelPreferences: true },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Return default preferences if none are set
+    const preferences = user.modelPreferences as Record<string, boolean> || {
+      'gpt-4.1-mini': true,
+      'claude-3-5-haiku-20241022': true,
+      'gemini-2.5-flash': true,
+      'sonar': true
+    };
+
+    res.status(200).json({ modelPreferences: preferences });
+  } catch (error) {
+    console.error('[GET MODEL PREFERENCES ERROR]', error);
+    res.status(500).json({ error: 'Failed to get model preferences' });
+  }
+};
+
+export const updateModelPreferences = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { modelPreferences } = modelPreferencesSchema.parse(req.body);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { modelPreferences },
+    });
+
+    res.status(200).json({ 
+      message: 'Model preferences updated successfully',
+      modelPreferences 
+    });
+  } catch (error) {
+    console.error('[UPDATE MODEL PREFERENCES ERROR]', error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors });
+    }
+    res.status(500).json({ error: 'Failed to update model preferences' });
+  }
 }; 

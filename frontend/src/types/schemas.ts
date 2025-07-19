@@ -11,6 +11,7 @@
  */
 import { z } from 'zod';
 
+// Legacy schemas kept for backward compatibility with existing data
 export const CompetitorSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -47,6 +48,7 @@ export const CompanySchema = z.object({
   userId: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  // Legacy fields - kept optional for backward compatibility with existing analytics data
   competitors: z.array(CompetitorSchema).optional().default([]),
   benchmarkingQuestions: z.array(BenchmarkingQuestionSchema).optional().default([]),
   products: z.array(ProductSchema).optional().default([]),

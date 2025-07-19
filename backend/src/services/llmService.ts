@@ -28,7 +28,8 @@ import { z } from 'zod';
 import logger from '../utils/logger';
 import { pydanticLlmService, PydanticAgentOptions, PydanticResponse } from './pydanticLlmService';
 import { providerManager } from '../config/pydanticProviders';
-import { Model, ModelEngine, ModelTask } from '../config/models';
+import { Model, ModelEngine, ModelTask, getModelsByTask } from '../config/models';
+import { getDbClient } from '../config/database';
 
 // --- Enhanced Type Definitions ---
 export interface TokenUsage {
@@ -621,3 +622,50 @@ logger.info('PydanticAI LLM service initialized successfully', {
   availableProviders: providerManager.getAvailableProviders().length,
   healthyProviders: providerManager.getHealthReport().filter(p => p.available).length
 });
+
+/**
+ * Get user model preferences from database
+ */
+export async function getUserModelPreferences(userId: string): Promise<Record<string, boolean>> {
+  try {
+    const prisma = await getDbClient();
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { modelPreferences: true },
+    });
+
+    if (!user || !user.modelPreferences) {
+      // Return default preferences if none are set
+      return {
+        'gpt-4.1-mini': true,
+        'claude-3-5-haiku-20241022': true,
+        'gemini-2.5-flash': true,
+        'sonar': true
+      };
+    }
+
+    return user.modelPreferences as Record<string, boolean>;
+  } catch (error) {
+    logger.error('Failed to get user model preferences', { userId, error });
+    // Return default preferences on error
+    return {
+      'gpt-4.1-mini': true,
+      'claude-3-5-haiku-20241022': true,
+      'gemini-2.5-flash': true,
+      'sonar': true
+    };
+  }
+}
+
+/**
+ * Get models that can perform a specific task, filtered by user preferences
+ */
+export async function getModelsByTaskWithUserPreferences(
+  task: ModelTask, 
+  userId: string
+): Promise<Model[]> {
+  const allModels = getModelsByTask(task);
+  const userPreferences = await getUserModelPreferences(userId);
+  
+  return allModels.filter((model: Model) => userPreferences[model.id] === true);
+}
