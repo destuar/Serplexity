@@ -16,11 +16,11 @@
  * - authenticate: Middleware for authenticating users via JWT.
  * - authorize: Middleware for authorizing users based on their role.
  */
-import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { Role } from '@prisma/client';
-import env from '../config/env';
-import { getDbClient } from '../config/database';
+import { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
+import { Role } from "@prisma/client";
+import env from "../config/env";
+import { getDbClient } from "../config/database";
 
 const { JWT_SECRET } = env;
 
@@ -29,40 +29,57 @@ interface JwtPayload {
   tokenVersion?: number;
 }
 
-export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
+export const authenticate = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   const prisma = await getDbClient();
   const authHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Authorization header missing or incorrect format' });
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res
+      .status(401)
+      .json({ error: "Authorization header missing or incorrect format" });
   }
 
-  const token = authHeader.split(' ')[1];
+  const token = authHeader.split(" ")[1];
 
   try {
     const payload = jwt.verify(token, JWT_SECRET) as JwtPayload;
-    
+
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, email: true, name: true, role: true, tokenVersion: true, subscriptionStatus: true, stripeCustomerId: true, companies: { include: { competitors: true, benchmarkingQuestions: true } } }
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        tokenVersion: true,
+        subscriptionStatus: true,
+        stripeCustomerId: true,
+        companies: { include: { competitors: true } },
+      },
     });
 
     if (!user || user.tokenVersion !== payload.tokenVersion) {
-      return res.status(401).json({ error: 'Invalid token' });
+      return res.status(401).json({ error: "Invalid token" });
     }
-    
+
     req.user = user;
     next();
   } catch (error) {
-    return res.status(401).json({ error: 'Invalid or expired token' });
+    return res.status(401).json({ error: "Invalid or expired token" });
   }
 };
 
 export const authorize = (...roles: Role[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user || !roles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Forbidden: You do not have the required role' });
+      return res
+        .status(403)
+        .json({ error: "Forbidden: You do not have the required role" });
     }
     next();
   };
-}; 
+};

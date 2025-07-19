@@ -297,15 +297,6 @@ const CompetitorRankingsPage = () => {
         <>
           {/* Header Section - Always show when there's a report */}
           <div className="flex-shrink-0 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-2">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Competitor Rankings</h1>
-              {lastUpdated && (
-                <p className="text-sm text-gray-500 mt-1">
-                  Last updated: {new Date(lastUpdated).toLocaleString()}
-                </p>
-              )}
-            </div>
-            
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex items-center gap-2 w-full lg:w-auto">
               <FilterDropdown
                 label="Show"
@@ -348,6 +339,13 @@ const CompetitorRankingsPage = () => {
                   </>
                 )}
               </button>
+            </div>
+            <div>
+              {lastUpdated && (
+                <p className="text-sm text-gray-500">
+                  Last updated: {new Date(lastUpdated).toLocaleString()}
+                </p>
+              )}
             </div>
           </div>
 

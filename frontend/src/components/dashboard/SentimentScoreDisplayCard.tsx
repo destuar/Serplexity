@@ -18,12 +18,14 @@ import { useDashboard } from '../../hooks/useDashboard';
 import Card from '../ui/Card';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { Metric, SentimentScoreValue } from '../../types/dashboard';
+import { ArrowRight } from 'lucide-react';
 
 interface SentimentScoreDisplayCardProps {
     selectedModel: string;
+    onSeeMore?: () => void;
 }
 
-const SentimentScoreDisplayCard: React.FC<SentimentScoreDisplayCardProps> = ({ selectedModel }) => {
+const SentimentScoreDisplayCard: React.FC<SentimentScoreDisplayCardProps> = ({ selectedModel, onSeeMore }) => {
     const { data } = useDashboard();
 
     const categoryMapping = {
@@ -34,13 +36,20 @@ const SentimentScoreDisplayCard: React.FC<SentimentScoreDisplayCardProps> = ({ s
         customerService: 'Service',
     };
 
+    console.log('ALL sentimentDetails:', data?.sentimentDetails);
+    console.log('ALL sentimentDetails names:', data?.sentimentDetails?.map(m => ({ name: m.name, engine: m.engine })));
+    
     const sentimentMetrics: Metric<SentimentScoreValue>[] = data?.sentimentDetails?.filter(
-        (m) => m.name === 'Detailed Sentiment Scores'
+        (m) => m.name === 'Detailed Sentiment Scores' || m.name === 'Overall Sentiment Summary'
     ) || [];
+
+    console.log('Filtered sentimentMetrics:', sentimentMetrics);
+    console.log('Available engines:', sentimentMetrics.map(m => ({ engine: m.engine, name: m.name })));
 
     let metricToShow: Metric<SentimentScoreValue> | undefined;
     if (selectedModel === 'all') {
         metricToShow = sentimentMetrics.find(m => m.engine === 'serplexity-summary');
+        console.log('Looking for serplexity-summary, found:', metricToShow);
     } else {
         metricToShow = sentimentMetrics.find(m => m.engine === selectedModel);
     }
@@ -56,7 +65,18 @@ const SentimentScoreDisplayCard: React.FC<SentimentScoreDisplayCardProps> = ({ s
 
     return (
         <Card className="h-full">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">Sentiment Score</h3>
+            <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-semibold text-gray-800">Sentiment Score</h3>
+                {onSeeMore && (
+                    <button
+                        onClick={onSeeMore}
+                        className="flex items-center gap-1 text-sm text-[#7762ff] hover:text-[#6650e6] transition-colors"
+                    >
+                        See More
+                        <ArrowRight size={14} />
+                    </button>
+                )}
+            </div>
             <div className="flex-1 min-h-0">
                 <ResponsiveContainer width="100%" height="100%">
                     <RadarChart 

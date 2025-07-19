@@ -16,51 +16,57 @@
  * @exports
  * - router: The Express router instance for blog routes.
  */
-import { Router } from 'express';
-import path from 'path';
-import { authenticate, authorize } from '../middleware/authMiddleware';
-import { Role } from '@prisma/client';
+import { Router } from "express";
+import path from "path";
+import { authenticate, authorize } from "../middleware/authMiddleware";
+import { Role } from "@prisma/client";
 import {
   getAllBlogPosts,
   getBlogPostBySlug,
   getBlogPostById,
   createBlogPost,
   updateBlogPost,
-  deleteBlogPost
-} from '../controllers/blogController';
-import { upload, getFileUrl } from '../services/uploadService';
+  deleteBlogPost,
+} from "../controllers/blogController";
+import { upload, getFileUrl } from "../services/uploadService";
 
 const router = Router();
 
 // Public routes - no authentication required
-router.get('/', getAllBlogPosts);
-router.get('/:slug', getBlogPostBySlug);
+router.get("/", getAllBlogPosts);
+router.get("/:slug", getBlogPostBySlug);
 
 // File upload route (admin only)
-router.post('/upload', authenticate, authorize(Role.ADMIN), upload.single('image'), (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
+router.post(
+  "/upload",
+  authenticate,
+  authorize(Role.ADMIN),
+  upload.single("image"),
+  (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
 
-    const fileUrl = getFileUrl((req.file as any).key);
-    res.json({ 
-      url: fileUrl,
-      filename: (req.file as any).key,
-      originalName: req.file.originalname,
-      size: req.file.size,
-      mimeType: req.file.mimetype
-    });
-  } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500).json({ error: 'Failed to upload file' });
-  }
-});
+      const fileUrl = getFileUrl((req.file as any).key);
+      res.json({
+        url: fileUrl,
+        filename: (req.file as any).key,
+        originalName: req.file.originalname,
+        size: req.file.size,
+        mimeType: req.file.mimetype,
+      });
+    } catch (error) {
+      console.error("Upload error:", error);
+      res.status(500).json({ error: "Failed to upload file" });
+    }
+  },
+);
 
 // Admin-only routes
-router.get('/admin/:id', authenticate, authorize(Role.ADMIN), getBlogPostById);
-router.post('/', authenticate, authorize(Role.ADMIN), createBlogPost);
-router.put('/:id', authenticate, authorize(Role.ADMIN), updateBlogPost);
-router.delete('/:id', authenticate, authorize(Role.ADMIN), deleteBlogPost);
+router.get("/admin/:id", authenticate, authorize(Role.ADMIN), getBlogPostById);
+router.post("/", authenticate, authorize(Role.ADMIN), createBlogPost);
+router.put("/:id", authenticate, authorize(Role.ADMIN), updateBlogPost);
+router.delete("/:id", authenticate, authorize(Role.ADMIN), deleteBlogPost);
 
 export default router;

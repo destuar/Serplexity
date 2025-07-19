@@ -28,72 +28,57 @@ model User {
 }
 
 model Company {
-  id                    String                       @id @default(cuid())
-  name                  String
-  website               String                       @unique
-  industry              String?
-  userId                String
-  createdAt             DateTime                     @default(now())
-  updatedAt             DateTime                     @updatedAt
-  benchmarkingQuestions BenchmarkingQuestion[]
-  user                  User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  competitors           Competitor[]
-  fanoutMentions        FanoutMention[]
-  fanoutQuestions       FanoutQuestion[]
-  reportMetrics         ReportMetric[]
-  runs                  ReportRun[]
-  sentimentOverTime     SentimentOverTime[]
-  shareOfVoiceHistory   ShareOfVoiceHistory[]
-  optimizationTasks     VisibilityOptimizationTask[]
+  id                  String                       @id @default(cuid())
+  name                String
+  website             String                       @unique
+  industry            String?
+  userId              String
+  createdAt           DateTime                     @default(now())
+  updatedAt           DateTime                     @updatedAt
+  user                User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  competitors         Competitor[]
+  questions           Question[]
+  mentions            Mention[]
+  reportMetrics       ReportMetric[]
+  runs                ReportRun[]
+  sentimentOverTime   SentimentOverTime[]
+  shareOfVoiceHistory ShareOfVoiceHistory[]
+  optimizationTasks   VisibilityOptimizationTask[]
 
   @@index([userId])
 }
 
 model Competitor {
-  id             String          @id @default(cuid())
-  name           String
-  companyId      String
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  website        String
-  isGenerated    Boolean         @default(false)
-  company        Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  fanoutMentions FanoutMention[]
+  id          String    @id @default(cuid())
+  name        String
+  companyId   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  website     String
+  isGenerated Boolean   @default(false)
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  mentions    Mention[]
 
   @@unique([companyId, website])
   @@index([companyId])
 }
 
-model BenchmarkingQuestion {
-  id              String           @id @default(cuid())
-  text            String
-  companyId       String
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  company         Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  fanoutQuestions FanoutQuestion[]
+model Question {
+  id        String     @id @default(cuid())
+  text      String
+  type      String     @default("research")
+  companyId String
+  runId     String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  run       ReportRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  responses Response[]
 
+  @@unique([text, companyId, runId])
   @@index([companyId])
-}
-
-model FanoutQuestion {
-  id             String               @id @default(cuid())
-  baseQuestionId String
-  text           String
-  type           String
-  sourceModel    String
-  companyId      String
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
-  baseQuestion   BenchmarkingQuestion @relation(fields: [baseQuestionId], references: [id], onDelete: Cascade)
-  company        Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  responses      FanoutResponse[]
-
-  @@unique([baseQuestionId, type, sourceModel, text])
-  @@index([baseQuestionId])
-  @@index([companyId])
+  @@index([runId])
   @@index([type])
-  @@index([sourceModel])
 }
 
 model ReportRun {
@@ -107,8 +92,8 @@ model ReportRun {
   createdAt           DateTime                     @default(now())
   updatedAt           DateTime                     @updatedAt
   aiVisibilitySummary String?
-  fanoutData          Json?
-  fanoutResponses     FanoutResponse[]
+  questions           Question[]
+  responses           Response[]
   sentimentScores     SentimentScore[]
   reportMetrics       ReportMetric[]
   company             Company                      @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -134,61 +119,62 @@ model SentimentScore {
   @@map("Metric")
 }
 
-model FanoutResponse {
-  id               String           @id @default(cuid())
-  fanoutQuestionId String
-  engine           String
-  model            String
-  content          String
-  runId            String
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  citations        FanoutCitation[]
-  mentions         FanoutMention[]
-  fanoutQuestion   FanoutQuestion   @relation(fields: [fanoutQuestionId], references: [id], onDelete: Cascade)
-  run              ReportRun        @relation(fields: [runId], references: [id], onDelete: Cascade)
+model Response {
+  id         String     @id @default(cuid())
+  questionId String
+  content    String
+  model      String
+  engine     String
+  runId      String
+  metadata   Json?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  question   Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  run        ReportRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  citations  Citation[]
+  mentions   Mention[]
 
-  @@index([fanoutQuestionId])
+  @@index([questionId])
   @@index([runId])
   @@index([engine])
   @@index([model])
 }
 
-model FanoutMention {
-  id               String         @id @default(cuid())
-  fanoutResponseId String
-  position         Int
-  competitorId     String?
-  companyId        String?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  company          Company?       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  competitor       Competitor?    @relation(fields: [competitorId], references: [id], onDelete: Cascade)
-  fanoutResponse   FanoutResponse @relation(fields: [fanoutResponseId], references: [id], onDelete: Cascade)
+model Mention {
+  id           String      @id @default(cuid())
+  responseId   String
+  position     Int
+  competitorId String?
+  companyId    String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  company      Company?    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  competitor   Competitor? @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  response     Response    @relation(fields: [responseId], references: [id], onDelete: Cascade)
 
-  @@index([fanoutResponseId])
+  @@index([responseId])
   @@index([competitorId])
   @@index([companyId])
-  @@index([fanoutResponseId, companyId])
-  @@index([fanoutResponseId, competitorId])
+  @@index([responseId, companyId])
+  @@index([responseId, competitorId])
 }
 
-model FanoutCitation {
-  id               String         @id @default(cuid())
-  fanoutResponseId String
-  url              String
-  title            String
-  domain           String
-  accessedAt       DateTime
-  position         Int
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  fanoutResponse   FanoutResponse @relation(fields: [fanoutResponseId], references: [id], onDelete: Cascade)
+model Citation {
+  id         String   @id @default(cuid())
+  responseId String
+  url        String
+  title      String
+  domain     String
+  accessedAt DateTime
+  position   Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  response   Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
 
-  @@index([fanoutResponseId])
+  @@index([responseId])
   @@index([domain])
   @@index([url])
-  @@index([fanoutResponseId, position])
+  @@index([responseId, position])
 }
 
 model ReportMetric {
@@ -202,7 +188,7 @@ model ReportMetric {
   averageInclusionChange Float?
   averagePosition        Float
   averagePositionChange  Float?
-  sentimentScore         Float?
+  sentimentScore         Json?
   sentimentChange        Float?
   topRankingsCount       Int?
   rankingsChange         Float?

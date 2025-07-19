@@ -1,35 +1,44 @@
 /**
  * @file llmService.ts
  * @description Direct PydanticAI implementation replacing legacy LLM service
- * 
+ *
  * This service provides a clean, production-ready interface for PydanticAI
  * without migration layers or backward compatibility concerns. It offers
  * structured output, multi-provider support, and superior AI regulation.
- * 
+ *
  * @architecture
  * - Direct PydanticAI agent execution
  * - Structured output with Pydantic models
  * - Multi-provider support with health monitoring
  * - Comprehensive error handling and retries
  * - Performance monitoring and optimization
- * 
+ *
  * @dependencies
  * - pydanticLlmService: Core PydanticAI service
  * - providerManager: Provider health and selection
  * - zod: Schema validation for TypeScript compatibility
- * 
+ *
  * @exports
  * - All functions with same signatures as legacy service
  * - Enhanced types and interfaces
  * - Comprehensive error handling
  */
 
-import { z } from 'zod';
-import logger from '../utils/logger';
-import { pydanticLlmService, PydanticAgentOptions, PydanticResponse } from './pydanticLlmService';
-import { providerManager } from '../config/pydanticProviders';
-import { Model, ModelEngine, ModelTask, getModelsByTask } from '../config/models';
-import { getDbClient } from '../config/database';
+import { z } from "zod";
+import logger from "../utils/logger";
+import {
+  pydanticLlmService,
+  PydanticAgentOptions,
+  PydanticResponse,
+} from "./pydanticLlmService";
+import { providerManager } from "../config/pydanticProviders";
+import {
+  Model,
+  ModelEngine,
+  ModelTask,
+  getModelsByTask,
+} from "../config/models";
+import { getDbClient } from "../config/database";
 
 // --- Enhanced Type Definitions ---
 export interface TokenUsage {
@@ -79,13 +88,17 @@ const CompetitorSchema = z.object({
 const QuestionResponseSchema = z.object({
   question: z.string(),
   answer: z.string().min(1),
-  citations: z.array(z.object({
-    url: z.string(),
-    title: z.string(),
-    domain: z.string(),
-    accessedAt: z.string().optional(),
-    position: z.number().optional(),
-  })).optional(),
+  citations: z
+    .array(
+      z.object({
+        url: z.string(),
+        title: z.string(),
+        domain: z.string(),
+        accessedAt: z.string().optional(),
+        position: z.number().optional(),
+      }),
+    )
+    .optional(),
   has_web_search: z.boolean().optional(),
   brand_mentions_count: z.number().optional(),
 });
@@ -100,15 +113,15 @@ export type SentimentScores = z.infer<typeof SentimentScoresSchema>;
 export async function generateSentimentScores(
   companyName: string,
   industry: string,
-  model: Model
+  model: Model,
 ): Promise<ChatCompletionResponse<SentimentScores>> {
   const startTime = Date.now();
-  
+
   try {
-    logger.info('Starting PydanticAI sentiment analysis', {
+    logger.info("Starting PydanticAI sentiment analysis", {
       companyName,
       industry,
-      model: model.id
+      model: model.id,
     });
 
     // Context for PydanticAI agent (embedded system prompt)
@@ -116,33 +129,33 @@ export async function generateSentimentScores(
 
     // Execute PydanticAI agent
     const result = await pydanticLlmService.executeAgent<SentimentScores>(
-      'web_search_sentiment_agent.py',
+      "web_search_sentiment_agent.py",
       {
         company_name: companyName,
         industry,
         context,
-        analysis_type: 'comprehensive'
+        analysis_type: "comprehensive",
       },
       SentimentScoresSchema,
       {
         modelId: model.id,
         temperature: 0.3,
         maxTokens: 2000,
-        timeout: 30000
-      }
+        timeout: 30000,
+      },
     );
 
     // Performance tracking is now handled by PydanticAI agents internally
 
     const executionTime = Date.now() - startTime;
-    
-    logger.info('PydanticAI sentiment analysis completed', {
+
+    logger.info("PydanticAI sentiment analysis completed", {
       companyName,
       industry,
       executionTime,
       tokensUsed: result.metadata.tokensUsed,
       modelUsed: result.metadata.modelUsed,
-      success: result.metadata.success
+      success: result.metadata.success,
     });
 
     return {
@@ -150,22 +163,23 @@ export async function generateSentimentScores(
       usage: {
         promptTokens: Math.floor(result.metadata.tokensUsed * 0.7),
         completionTokens: Math.floor(result.metadata.tokensUsed * 0.3),
-        totalTokens: result.metadata.tokensUsed
+        totalTokens: result.metadata.tokensUsed,
       },
-      modelUsed: result.metadata.modelUsed
+      modelUsed: result.metadata.modelUsed,
     };
-
   } catch (error) {
     const executionTime = Date.now() - startTime;
-    
-    logger.error('PydanticAI sentiment analysis failed', {
+
+    logger.error("PydanticAI sentiment analysis failed", {
       companyName,
       industry,
       executionTime,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
 
-    throw new Error(`Sentiment analysis failed: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Sentiment analysis failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
@@ -174,69 +188,87 @@ export async function generateSentimentScores(
  */
 export async function generateOverallSentimentSummary(
   companyName: string,
-  sentiments: SentimentScores[]
+  sentiments: SentimentScores[],
 ): Promise<ChatCompletionResponse<SentimentScores>> {
   const startTime = Date.now();
-  
+
   try {
-    logger.info('Starting PydanticAI sentiment summary', {
+    logger.info("Starting PydanticAI sentiment summary", {
       companyName,
-      sentimentCount: sentiments.length
+      sentimentCount: sentiments.length,
     });
 
     if (sentiments.length === 0) {
-      throw new Error('No sentiment data provided for summary');
+      throw new Error("No sentiment data provided for summary");
     }
 
     // Aggregate ratings for analysis
-    const allRatings = sentiments.flatMap(s => s.ratings);
+    const allRatings = sentiments.flatMap((s) => s.ratings);
     const averages = {
-      quality: Math.round(allRatings.reduce((sum, r) => sum + r.quality, 0) / allRatings.length),
-      priceValue: Math.round(allRatings.reduce((sum, r) => sum + r.priceValue, 0) / allRatings.length),
-      brandReputation: Math.round(allRatings.reduce((sum, r) => sum + r.brandReputation, 0) / allRatings.length),
-      brandTrust: Math.round(allRatings.reduce((sum, r) => sum + r.brandTrust, 0) / allRatings.length),
-      customerService: Math.round(allRatings.reduce((sum, r) => sum + r.customerService, 0) / allRatings.length)
+      quality: Math.round(
+        allRatings.reduce((sum, r) => sum + r.quality, 0) / allRatings.length,
+      ),
+      priceValue: Math.round(
+        allRatings.reduce((sum, r) => sum + r.priceValue, 0) /
+          allRatings.length,
+      ),
+      brandReputation: Math.round(
+        allRatings.reduce((sum, r) => sum + r.brandReputation, 0) /
+          allRatings.length,
+      ),
+      brandTrust: Math.round(
+        allRatings.reduce((sum, r) => sum + r.brandTrust, 0) /
+          allRatings.length,
+      ),
+      customerService: Math.round(
+        allRatings.reduce((sum, r) => sum + r.customerService, 0) /
+          allRatings.length,
+      ),
     };
 
     // Generate summary description using sentiment agent
     const result = await pydanticLlmService.executeAgent<SentimentScores>(
-      'web_search_sentiment_agent.py',
+      "web_search_sentiment_agent.py",
       {
         company_name: companyName,
         search_queries: [`${companyName} reviews`, `${companyName} sentiment`],
         max_results_per_query: 3,
-        context: `Generate summary for ${companyName} based on aggregated sentiment data`
+        context: `Generate summary for ${companyName} based on aggregated sentiment data`,
       },
       null, // No Zod validation - trust PydanticAI structured output
       {
         temperature: 0.4,
         maxTokens: 1500,
-        timeout: 25000
-      }
+        timeout: 25000,
+      },
     );
 
     // Use pre-calculated averages to ensure consistent radar chart data
     const summaryData: SentimentScores = {
       companyName: companyName,
-      industry: sentiments[0]?.industry || 'Unknown',
-      ratings: [{
-        quality: averages.quality,
-        priceValue: averages.priceValue,
-        brandReputation: averages.brandReputation,
-        brandTrust: averages.brandTrust,
-        customerService: averages.customerService,
-        summaryDescription: result.data.ratings[0]?.summaryDescription || `Aggregated sentiment summary for ${companyName} based on ${allRatings.length} individual model ratings.`
-      }]
+      industry: sentiments[0]?.industry || "Unknown",
+      ratings: [
+        {
+          quality: averages.quality,
+          priceValue: averages.priceValue,
+          brandReputation: averages.brandReputation,
+          brandTrust: averages.brandTrust,
+          customerService: averages.customerService,
+          summaryDescription:
+            result.data.ratings[0]?.summaryDescription ||
+            `Aggregated sentiment summary for ${companyName} based on ${allRatings.length} individual model ratings.`,
+        },
+      ],
     };
 
     const executionTime = Date.now() - startTime;
-    
-    logger.info('PydanticAI sentiment summary completed', {
+
+    logger.info("PydanticAI sentiment summary completed", {
       companyName,
       executionTime,
       tokensUsed: result.metadata.tokensUsed,
       success: result.metadata.success,
-      averages: averages
+      averages: averages,
     });
 
     return {
@@ -244,21 +276,22 @@ export async function generateOverallSentimentSummary(
       usage: {
         promptTokens: Math.floor(result.metadata.tokensUsed * 0.7),
         completionTokens: Math.floor(result.metadata.tokensUsed * 0.3),
-        totalTokens: result.metadata.tokensUsed
+        totalTokens: result.metadata.tokensUsed,
       },
-      modelUsed: result.metadata.modelUsed
+      modelUsed: result.metadata.modelUsed,
     };
-
   } catch (error) {
     const executionTime = Date.now() - startTime;
-    
-    logger.error('PydanticAI sentiment summary failed', {
+
+    logger.error("PydanticAI sentiment summary failed", {
       companyName,
       executionTime,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
 
-    throw new Error(`Sentiment summary failed: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Sentiment summary failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
@@ -267,20 +300,28 @@ export async function generateOverallSentimentSummary(
  */
 export async function generateQuestionResponse(
   question: QuestionInput,
-  model: Model
-): Promise<ChatCompletionResponse<{
-  answer: string;
-  citations?: Array<{ url: string; title: string; domain: string; accessedAt: Date; position: number }>;
-  has_web_search?: boolean;
-  brand_mentions_count?: number;
-}>> {
+  model: Model,
+): Promise<
+  ChatCompletionResponse<{
+    answer: string;
+    citations?: Array<{
+      url: string;
+      title: string;
+      domain: string;
+      accessedAt: Date;
+      position: number;
+    }>;
+    has_web_search?: boolean;
+    brand_mentions_count?: number;
+  }>
+> {
   const startTime = Date.now();
-  
+
   try {
-    logger.info('Starting PydanticAI question response', {
+    logger.info("Starting PydanticAI question response", {
       questionId: question.id,
       questionLength: question.text.length,
-      model: model.id
+      model: model.id,
     });
 
     // Context for PydanticAI agent (embedded system prompt)
@@ -290,70 +331,80 @@ export async function generateQuestionResponse(
     const result = await pydanticLlmService.executeAgent<{
       question: string;
       answer: string;
-      citations?: Array<{ url: string; title: string; domain: string; accessedAt?: string; position?: number }>;
+      citations?: Array<{
+        url: string;
+        title: string;
+        domain: string;
+        accessedAt?: string;
+        position?: number;
+      }>;
       has_web_search?: boolean;
       brand_mentions_count?: number;
     }>(
-      'question_agent.py',
+      "question_agent.py",
       {
         question: question.text,
         system_prompt: question.systemPrompt,
         context,
-        question_id: question.id
+        question_id: question.id,
       },
       QuestionResponseSchema,
       {
         modelId: model.id,
         temperature: 0.7,
         maxTokens: 1500,
-        timeout: 30000
-      }
+        timeout: 30000,
+      },
     );
 
     const executionTime = Date.now() - startTime;
-    
-    logger.info('PydanticAI question response completed', {
+
+    logger.info("PydanticAI question response completed", {
       questionId: question.id,
       executionTime,
       tokensUsed: result.metadata.tokensUsed,
       success: result.metadata.success,
-      citationsCount: result.data.citations?.length || 0
+      citationsCount: result.data.citations?.length || 0,
     });
 
     // Convert and validate citations format
-    const citations = result.data.citations?.map((citation, index) => ({
-      url: citation.url,
-      title: citation.title,
-      domain: citation.domain,
-      accessedAt: citation.accessedAt ? new Date(citation.accessedAt) : new Date(),
-      position: citation.position || index + 1
-    })) || [];
+    const citations =
+      result.data.citations?.map((citation, index) => ({
+        url: citation.url,
+        title: citation.title,
+        domain: citation.domain,
+        accessedAt: citation.accessedAt
+          ? new Date(citation.accessedAt)
+          : new Date(),
+        position: citation.position || index + 1,
+      })) || [];
 
     return {
       data: {
         answer: result.data.answer,
         citations: citations,
         has_web_search: result.data.has_web_search,
-        brand_mentions_count: result.data.brand_mentions_count
+        brand_mentions_count: result.data.brand_mentions_count,
       },
       usage: {
         promptTokens: Math.floor(result.metadata.tokensUsed * 0.6),
         completionTokens: Math.floor(result.metadata.tokensUsed * 0.4),
-        totalTokens: result.metadata.tokensUsed
+        totalTokens: result.metadata.tokensUsed,
       },
-      modelUsed: result.metadata.modelUsed
+      modelUsed: result.metadata.modelUsed,
     };
-
   } catch (error) {
     const executionTime = Date.now() - startTime;
-    
-    logger.error('PydanticAI question response failed', {
+
+    logger.error("PydanticAI question response failed", {
       questionId: question.id,
       executionTime,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
 
-    throw new Error(`Question response failed: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Question response failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
@@ -361,51 +412,53 @@ export async function generateQuestionResponse(
  * Generate website enrichment for competitors using PydanticAI
  */
 export async function generateWebsiteForCompetitors(
-  competitorNames: string[]
+  competitorNames: string[],
 ): Promise<ChatCompletionResponse<CompetitorInfo[]>> {
   const startTime = Date.now();
-  
+
   try {
-    logger.info('Starting PydanticAI website enrichment', {
-      competitorCount: competitorNames.length
+    logger.info("Starting PydanticAI website enrichment", {
+      competitorCount: competitorNames.length,
     });
 
     if (competitorNames.length === 0) {
       return {
         data: [],
-        usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
+        usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
       };
     }
 
     // Context for PydanticAI agent (embedded system prompt)
-    const context = `Find official websites for these competitors: ${competitorNames.join(', ')}`;
+    const context = `Find official websites for these competitors: ${competitorNames.join(", ")}`;
 
     // Execute PydanticAI agent
-    const result = await pydanticLlmService.executeAgent<{ competitors: CompetitorInfo[] }>(
-      'website_enrichment_agent.py',
+    const result = await pydanticLlmService.executeAgent<{
+      competitors: CompetitorInfo[];
+    }>(
+      "website_enrichment_agent.py",
       {
         competitor_names: competitorNames,
         context,
-        search_depth: 'standard'
+        search_depth: "standard",
       },
       z.object({
-        competitors: z.array(CompetitorSchema)
+        competitors: z.array(CompetitorSchema),
       }),
       {
         temperature: 0.2,
         maxTokens: 2000,
-        timeout: 45000
-      }
+        timeout: 45000,
+      },
     );
 
     const executionTime = Date.now() - startTime;
-    
-    logger.info('PydanticAI website enrichment completed', {
+
+    logger.info("PydanticAI website enrichment completed", {
       competitorCount: competitorNames.length,
       foundWebsites: result.data.competitors.length,
       executionTime,
       tokensUsed: result.metadata.tokensUsed,
-      success: result.metadata.success
+      success: result.metadata.success,
     });
 
     return {
@@ -413,21 +466,22 @@ export async function generateWebsiteForCompetitors(
       usage: {
         promptTokens: Math.floor(result.metadata.tokensUsed * 0.8),
         completionTokens: Math.floor(result.metadata.tokensUsed * 0.2),
-        totalTokens: result.metadata.tokensUsed
+        totalTokens: result.metadata.tokensUsed,
       },
-      modelUsed: result.metadata.modelUsed
+      modelUsed: result.metadata.modelUsed,
     };
-
   } catch (error) {
     const executionTime = Date.now() - startTime;
-    
-    logger.error('PydanticAI website enrichment failed', {
+
+    logger.error("PydanticAI website enrichment failed", {
       competitorCount: competitorNames.length,
       executionTime,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
 
-    throw new Error(`Website enrichment failed: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Website enrichment failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
@@ -437,33 +491,33 @@ export async function generateWebsiteForCompetitors(
 export async function generateChatCompletion(
   model: Model,
   prompt: string,
-  schema?: z.ZodType<any>
+  schema?: z.ZodType<any>,
 ): Promise<{ content: string | null; usage: TokenUsage }> {
   const startTime = Date.now();
-  
+
   try {
-    logger.info('Starting PydanticAI chat completion', {
+    logger.info("Starting PydanticAI chat completion", {
       modelId: model.id,
       promptLength: prompt.length,
-      hasSchema: !!schema
+      hasSchema: !!schema,
     });
 
     if (schema) {
       // Structured output with schema validation
       const result = await pydanticLlmService.executeAgent<any>(
-        'question_agent.py',
+        "question_agent.py",
         {
           prompt,
           output_schema: schema,
-          structured: true
+          structured: true,
         },
         schema,
         {
           modelId: model.id,
           temperature: 0.7,
           maxTokens: 2000,
-          timeout: 30000
-        }
+          timeout: 30000,
+        },
       );
 
       return {
@@ -471,24 +525,26 @@ export async function generateChatCompletion(
         usage: {
           promptTokens: Math.floor(result.metadata.tokensUsed * 0.7),
           completionTokens: Math.floor(result.metadata.tokensUsed * 0.3),
-          totalTokens: result.metadata.tokensUsed
-        }
+          totalTokens: result.metadata.tokensUsed,
+        },
       };
     } else {
       // Simple text completion
-      const result = await pydanticLlmService.executeAgent<{ response: string }>(
-        'question_agent.py',
+      const result = await pydanticLlmService.executeAgent<{
+        response: string;
+      }>(
+        "question_agent.py",
         {
           prompt,
-          structured: false
+          structured: false,
         },
         z.object({ response: z.string() }),
         {
           modelId: model.id,
           temperature: 0.7,
           maxTokens: 2000,
-          timeout: 30000
-        }
+          timeout: 30000,
+        },
       );
 
       return {
@@ -496,21 +552,22 @@ export async function generateChatCompletion(
         usage: {
           promptTokens: Math.floor(result.metadata.tokensUsed * 0.7),
           completionTokens: Math.floor(result.metadata.tokensUsed * 0.3),
-          totalTokens: result.metadata.tokensUsed
-        }
+          totalTokens: result.metadata.tokensUsed,
+        },
       };
     }
-
   } catch (error) {
     const executionTime = Date.now() - startTime;
-    
-    logger.error('PydanticAI chat completion failed', {
+
+    logger.error("PydanticAI chat completion failed", {
       modelId: model.id,
       executionTime,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
 
-    throw new Error(`Chat completion failed: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Chat completion failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
@@ -523,34 +580,34 @@ export async function generateAndValidate<T, U>(
   model: Model,
   task: ModelTask,
   transform?: (data: T) => U,
-  rescue?: (data: any) => any
+  rescue?: (data: any) => any,
 ): Promise<{ data: U; usage: TokenUsage }> {
   const startTime = Date.now();
-  
+
   try {
-    logger.info('Starting PydanticAI generate and validate', {
+    logger.info("Starting PydanticAI generate and validate", {
       modelId: model.id,
       task,
-      promptLength: prompt.length
+      promptLength: prompt.length,
     });
 
     // Execute with PydanticAI agent
     const result = await pydanticLlmService.executeAgent<T>(
-      'question_agent.py',
+      "question_agent.py",
       {
         prompt,
         task,
         validation_schema: schema,
         transform_enabled: !!transform,
-        rescue_enabled: !!rescue
+        rescue_enabled: !!rescue,
       },
       schema,
       {
         modelId: model.id,
         temperature: 0.3,
         maxTokens: 2000,
-        timeout: 30000
-      }
+        timeout: 30000,
+      },
     );
 
     // Apply transformations if provided
@@ -562,13 +619,13 @@ export async function generateAndValidate<T, U>(
     }
 
     const executionTime = Date.now() - startTime;
-    
-    logger.info('PydanticAI generate and validate completed', {
+
+    logger.info("PydanticAI generate and validate completed", {
       modelId: model.id,
       task,
       executionTime,
       tokensUsed: result.metadata.tokensUsed,
-      success: result.metadata.success
+      success: result.metadata.success,
     });
 
     return {
@@ -576,21 +633,22 @@ export async function generateAndValidate<T, U>(
       usage: {
         promptTokens: Math.floor(result.metadata.tokensUsed * 0.7),
         completionTokens: Math.floor(result.metadata.tokensUsed * 0.3),
-        totalTokens: result.metadata.tokensUsed
-      }
+        totalTokens: result.metadata.tokensUsed,
+      },
     };
-
   } catch (error) {
     const executionTime = Date.now() - startTime;
-    
-    logger.error('PydanticAI generate and validate failed', {
+
+    logger.error("PydanticAI generate and validate failed", {
       modelId: model.id,
       task,
       executionTime,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
 
-    throw new Error(`Generate and validate failed: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Generate and validate failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
@@ -602,12 +660,13 @@ export async function generateAndValidate<T, U>(
 export function getServiceHealth() {
   const providerHealth = providerManager.getHealthReport();
   const serviceStats = pydanticLlmService.getServiceStatistics();
-  
+
   return {
     providers: providerHealth,
     activeExecutions: serviceStats.activeExecutions,
     poolSize: serviceStats.poolSize,
-    overallHealth: providerHealth.filter(p => p.available).length / providerHealth.length
+    overallHealth:
+      providerHealth.filter((p) => p.available).length / providerHealth.length,
   };
 }
 
@@ -618,15 +677,18 @@ export function getServiceStatistics() {
   return pydanticLlmService.getServiceStatistics();
 }
 
-logger.info('PydanticAI LLM service initialized successfully', {
+logger.info("PydanticAI LLM service initialized successfully", {
   availableProviders: providerManager.getAvailableProviders().length,
-  healthyProviders: providerManager.getHealthReport().filter(p => p.available).length
+  healthyProviders: providerManager.getHealthReport().filter((p) => p.available)
+    .length,
 });
 
 /**
  * Get user model preferences from database
  */
-export async function getUserModelPreferences(userId: string): Promise<Record<string, boolean>> {
+export async function getUserModelPreferences(
+  userId: string,
+): Promise<Record<string, boolean>> {
   try {
     const prisma = await getDbClient();
     const user = await prisma.user.findUnique({
@@ -637,22 +699,22 @@ export async function getUserModelPreferences(userId: string): Promise<Record<st
     if (!user || !user.modelPreferences) {
       // Return default preferences if none are set
       return {
-        'gpt-4.1-mini': true,
-        'claude-3-5-haiku-20241022': true,
-        'gemini-2.5-flash': true,
-        'sonar': true
+        "gpt-4.1-mini": true,
+        "claude-3-5-haiku-20241022": true,
+        "gemini-2.5-flash": true,
+        sonar: true,
       };
     }
 
     return user.modelPreferences as Record<string, boolean>;
   } catch (error) {
-    logger.error('Failed to get user model preferences', { userId, error });
+    logger.error("Failed to get user model preferences", { userId, error });
     // Return default preferences on error
     return {
-      'gpt-4.1-mini': true,
-      'claude-3-5-haiku-20241022': true,
-      'gemini-2.5-flash': true,
-      'sonar': true
+      "gpt-4.1-mini": true,
+      "claude-3-5-haiku-20241022": true,
+      "gemini-2.5-flash": true,
+      sonar: true,
     };
   }
 }
@@ -661,11 +723,11 @@ export async function getUserModelPreferences(userId: string): Promise<Record<st
  * Get models that can perform a specific task, filtered by user preferences
  */
 export async function getModelsByTaskWithUserPreferences(
-  task: ModelTask, 
-  userId: string
+  task: ModelTask,
+  userId: string,
 ): Promise<Model[]> {
   const allModels = getModelsByTask(task);
   const userPreferences = await getUserModelPreferences(userId);
-  
+
   return allModels.filter((model: Model) => userPreferences[model.id] === true);
 }

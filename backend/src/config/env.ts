@@ -12,45 +12,56 @@
  * @exports
  * - env: A validated and typed object containing all environment variables.
  */
-import dotenv from 'dotenv';
-import { z } from 'zod';
-import path from 'path';
+import dotenv from "dotenv";
+import { z } from "zod";
+import path from "path";
 
 // Load environment variables from .env file in the backend directory
 // Use __dirname to ensure we always look in the backend directory regardless of process.cwd()
-const envPath = path.resolve(__dirname, '../../.env');
+const envPath = path.resolve(__dirname, "../../.env");
 dotenv.config({ path: envPath });
-
 
 // Define the schema for environment variables
 const envSchema = z.object({
   // Server
-  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  PORT: z.string().default('8000'),
+  NODE_ENV: z
+    .enum(["development", "production", "test"])
+    .default("development"),
+  PORT: z.string().default("8000"),
 
   // Database - Legacy environment variables (optional when using cloud secrets)
   DATABASE_URL: z.string().optional(),
   READ_REPLICA_URL: z.string().optional(),
-  
+
   // Cloud Secrets Configuration
-  SECRETS_PROVIDER: z.enum(['aws', 'azure', 'gcp', 'environment', 'vault']).default('environment'),
+  SECRETS_PROVIDER: z
+    .enum(["aws", "azure", "gcp", "environment", "vault"])
+    .default("environment"),
   DATABASE_SECRET_NAME: z.string().optional(), // Name of the database secret in the secrets provider
   READ_REPLICA_SECRET_NAME: z.string().optional(), // Name of the read replica secret
-  USE_AWS_SECRETS: z.string().transform(val => val === 'true').default('false'), // Legacy flag for backward compatibility
+  USE_AWS_SECRETS: z
+    .string()
+    .transform((val) => val === "true")
+    .default("false"), // Legacy flag for backward compatibility
 
   // Redis
   REDIS_HOST: z.string(),
-  REDIS_PORT: z.string().transform(val => parseInt(val, 10)),
+  REDIS_PORT: z.string().transform((val) => parseInt(val, 10)),
   REDIS_PASSWORD: z.string().optional(),
-  REDIS_USE_TLS: z.string().transform(val => val === 'true').default('false'),
+  REDIS_USE_TLS: z
+    .string()
+    .transform((val) => val === "true")
+    .default("false"),
 
   // BullMQ
-  BULLMQ_QUEUE_PREFIX: z.string().default('serplexity-queue'),
+  BULLMQ_QUEUE_PREFIX: z.string().default("serplexity-queue"),
 
   // Auth
-  JWT_SECRET: z.string().min(1, 'JWT_SECRET must be a non-empty string'),
-  JWT_REFRESH_SECRET: z.string().min(1, 'JWT_REFRESH_SECRET must be a non-empty string'),
-  JWT_EXPIRES_IN: z.string().default('15m'),
+  JWT_SECRET: z.string().min(1, "JWT_SECRET must be a non-empty string"),
+  JWT_REFRESH_SECRET: z
+    .string()
+    .min(1, "JWT_REFRESH_SECRET must be a non-empty string"),
+  JWT_EXPIRES_IN: z.string().default("15m"),
   GOOGLE_CLIENT_ID: z.string(),
   GOOGLE_CLIENT_SECRET: z.string(),
   GOOGLE_CALLBACK_URL: z.string().url(),
@@ -81,7 +92,10 @@ const envSchema = z.object({
 
   // Email & Notifications
   SMTP_HOST: z.string().optional(),
-  SMTP_PORT: z.string().transform(val => val ? parseInt(val, 10) : 587).optional(),
+  SMTP_PORT: z
+    .string()
+    .transform((val) => (val ? parseInt(val, 10) : 587))
+    .optional(),
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
   SMTP_FROM_EMAIL: z.string().email().optional(),
@@ -89,13 +103,12 @@ const envSchema = z.object({
   ADMIN_EMAIL: z.string().email().optional(),
 });
 
-
 // Validate the environment variables
 const parsedEnv = envSchema.safeParse(process.env);
 
 if (!parsedEnv.success) {
-  console.error('❌ Invalid environment variables:', parsedEnv.error.format());
-  throw new Error('Invalid environment variables.');
+  console.error("❌ Invalid environment variables:", parsedEnv.error.format());
+  throw new Error("Invalid environment variables.");
 }
 
 // Additional validation for database configuration
@@ -103,27 +116,34 @@ const envData = parsedEnv.data;
 
 // Determine secrets provider (support legacy USE_AWS_SECRETS flag)
 let secretsProvider = envData.SECRETS_PROVIDER;
-if (envData.USE_AWS_SECRETS && secretsProvider === 'environment') {
-  secretsProvider = 'aws';
-  console.log('⚠️  Using legacy USE_AWS_SECRETS flag. Consider migrating to SECRETS_PROVIDER=aws');
+if (envData.USE_AWS_SECRETS && secretsProvider === "environment") {
+  secretsProvider = "aws";
+  console.log(
+    "⚠️  Using legacy USE_AWS_SECRETS flag. Consider migrating to SECRETS_PROVIDER=aws",
+  );
 }
 
-if (secretsProvider !== 'environment') {
+if (secretsProvider !== "environment") {
   // When using cloud secrets, DATABASE_SECRET_NAME is required
   if (!envData.DATABASE_SECRET_NAME) {
-    throw new Error(`FATAL ERROR: DATABASE_SECRET_NAME is required when SECRETS_PROVIDER=${secretsProvider}`);
+    throw new Error(
+      `FATAL ERROR: DATABASE_SECRET_NAME is required when SECRETS_PROVIDER=${secretsProvider}`,
+    );
   }
-  console.log(`✅ Using ${secretsProvider.toUpperCase()} secrets provider for database credentials`);
+  console.log(
+    `✅ Using ${secretsProvider.toUpperCase()} secrets provider for database credentials`,
+  );
 } else {
   // When using environment variables, DATABASE_URL is required
   if (!envData.DATABASE_URL) {
-    throw new Error('FATAL ERROR: DATABASE_URL is required when SECRETS_PROVIDER=environment');
+    throw new Error(
+      "FATAL ERROR: DATABASE_URL is required when SECRETS_PROVIDER=environment",
+    );
   }
-  console.log('✅ Using environment variables for database credentials');
+  console.log("✅ Using environment variables for database credentials");
 }
 
 // Export the validated and typed environment variables with computed secrets provider
 const env = { ...envData, COMPUTED_SECRETS_PROVIDER: secretsProvider };
 
-
-export default env; 
+export default env;

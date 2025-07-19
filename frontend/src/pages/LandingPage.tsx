@@ -60,7 +60,7 @@ const LandingPage: React.FC = () => {
   };
 
   const handleGetStarted = () => navigate('/register');
-  const handleDashboard = () => navigate('/overview');
+  const handleDashboard = () => window.open('/dashboard', '_blank');
 
   const handleCheckout = async (priceId: string) => {
     if (priceId === 'contact_sales') {

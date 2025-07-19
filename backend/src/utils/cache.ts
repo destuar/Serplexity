@@ -13,8 +13,8 @@
  * - CacheService: The class providing caching functionalities.
  * - default: A singleton instance of the CacheService.
  */
-import { redis } from '../config/redis';
-import logger from './logger';
+import { redis } from "../config/redis";
+import logger from "./logger";
 
 export class CacheService {
   private defaultTTL = 3600; // 1 hour default TTL
@@ -69,20 +69,18 @@ export class CacheService {
   // Cache keys for common operations
   static keys = {
     // Dashboard data cache
-    dashboardData: (companyId: string, timeRange: string) => 
+    dashboardData: (companyId: string, timeRange: string) =>
       `dashboard:${companyId}:${timeRange}`,
-    
+
     // Report metrics cache
-    reportMetrics: (reportId: string) => 
-      `metrics:report:${reportId}`,
-    
+    reportMetrics: (reportId: string) => `metrics:report:${reportId}`,
+
     // Company competitors cache
-    competitors: (companyId: string) => 
-      `competitors:${companyId}`,
-    
+    competitors: (companyId: string) => `competitors:${companyId}`,
+
     // LLM response cache (for repeated queries)
-    llmResponse: (prompt: string, model: string) => 
-      `llm:${model}:${Buffer.from(prompt).toString('base64').slice(0, 50)}`,
+    llmResponse: (prompt: string, model: string) =>
+      `llm:${model}:${Buffer.from(prompt).toString("base64").slice(0, 50)}`,
   };
 }
 

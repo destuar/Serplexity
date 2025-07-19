@@ -14,6 +14,7 @@ import { Bell, Settings, User, Menu } from "lucide-react";
 import React, { useState } from "react";
 import SettingsModal from "./SettingsModal";
 import ProfileModal from "./ProfileModal";
+import Breadcrumb from "../ui/Breadcrumb";
 
 interface HeaderProps {
   toggleMobileSidebar: () => void;
@@ -30,10 +31,11 @@ const Header: React.FC<HeaderProps> = ({ toggleMobileSidebar }) => {
         <div className="flex items-center">
           <button 
             onClick={toggleMobileSidebar}
-            className="p-2 rounded-lg hover:bg-gray-100 lg:hidden"
+            className="p-2 rounded-lg hover:bg-gray-100 lg:hidden mr-3"
           >
             <Menu />
           </button>
+          <Breadcrumb />
         </div>
         <div className="flex items-center">
           <button 

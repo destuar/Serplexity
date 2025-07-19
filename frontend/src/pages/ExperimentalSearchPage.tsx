@@ -35,7 +35,6 @@ const ExperimentalSearchPage: React.FC = () => {
       {/* Header */}
       <div className="flex-shrink-0 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-1 px-4 lg:px-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Experimental Search</h1>
         </div>
         {/* model filter moved to LlmSerpPane */}
       </div>

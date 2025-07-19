@@ -183,12 +183,14 @@ export function Navbar() {
                   >
                     Home
                   </Link>
-                  <Link 
-                    to="/overview" 
+                  <a 
+                    href="/dashboard" 
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors"
                   >
                     Dashboard
-                  </Link>
+                  </a>
                 </>
               ) : location.pathname.startsWith('/research/') ? (
                 // Blog post page navigation
@@ -205,21 +207,25 @@ export function Navbar() {
                   >
                     Research
                   </Link>
-                  <Link 
-                    to="/overview" 
+                  <a 
+                    href="/dashboard" 
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors"
                   >
                     Dashboard
-                  </Link>
+                  </a>
                 </>
               ) : !isLandingStylePage ? (
                 // Dashboard navigation
-                <Link 
-                  to="/overview" 
+                <a 
+                  href="/dashboard" 
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-base font-medium text-gray-600 hover:text-gray-900"
                 >
                   Dashboard
-                </Link>
+                </a>
               ) : null}
             </div>
 
@@ -428,13 +434,15 @@ export function Navbar() {
                   >
                     Home
                   </Link>
-                  <Link 
-                    to="/overview" 
+                  <a 
+                    href="/dashboard" 
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="block text-base font-medium text-gray-700 hover:text-gray-900 py-2"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     Dashboard
-                  </Link>
+                  </a>
                   <div className="border-t border-gray-200 pt-4 space-y-4">
                     {user ? (
                       <>
@@ -497,13 +505,15 @@ export function Navbar() {
                   >
                     Research
                   </Link>
-                  <Link 
-                    to="/overview" 
+                  <a 
+                    href="/dashboard" 
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="block text-base font-medium text-gray-300 hover:text-white py-2"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     Dashboard
-                  </Link>
+                  </a>
                   <div className="border-t border-white/10 pt-4 space-y-4">
                     {user ? (
                       <>

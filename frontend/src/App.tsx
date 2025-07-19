@@ -24,16 +24,16 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { CompanyProvider } from './contexts/CompanyContext';
 import { DashboardProvider } from './contexts/DashboardContext';
+import { NavigationProvider } from './contexts/NavigationContext';
 import CompanyGuard from './components/company/CompanyGuard';
 import PaymentGuard from './components/auth/PaymentGuard';
 import DashboardLayout from './components/layout/DashboardLayout';
 import OverviewPage from './pages/OverviewPage';
 
 import VisibilityTasksPage from './pages/VisibilityTasksPage';
-import SentimentAnalysisPage from './pages/SentimentAnalysisPage';
 import ResponseDetailsPage from './pages/ResponseDetailsPage';
 import CompetitorRankingsPage from './pages/CompetitorRankingsPage';
-import ModelComparisonPage from './pages/ModelComparisonPage';
+
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -50,17 +50,19 @@ import BlogEditorPage from './pages/BlogEditorPage';
 import { usePageTracking, useSessionTracking } from './hooks/useAnalytics';
 
 const DashboardRoutes: React.FC = () => (
-  <DashboardLayout>
-    <Routes>
-      <Route path="/overview" element={<OverviewPage />} />
-      <Route path="/visibility-tasks" element={<VisibilityTasksPage />} />
-      <Route path="/sentiment-analysis" element={<SentimentAnalysisPage />} />
-      <Route path="/response-details" element={<ResponseDetailsPage />} />
-      <Route path="/competitor-rankings" element={<CompetitorRankingsPage />} />
-      <Route path="/model-comparison" element={<ModelComparisonPage />} />
-      <Route path="/experimental-search" element={<ExperimentalSearchPage />} />
-    </Routes>
-  </DashboardLayout>
+  <NavigationProvider>
+    <DashboardLayout>
+      <Routes>
+        <Route path="/overview" element={<OverviewPage />} />
+        <Route path="/dashboard" element={<OverviewPage />} />
+        <Route path="/visibility-tasks" element={<VisibilityTasksPage />} />
+        <Route path="/response-details" element={<ResponseDetailsPage />} />
+        <Route path="/competitor-rankings" element={<CompetitorRankingsPage />} />
+
+        <Route path="/experimental-search" element={<ExperimentalSearchPage />} />
+      </Routes>
+    </DashboardLayout>
+  </NavigationProvider>
 );
 
 const ProtectedArea: React.FC = () => (

@@ -19,16 +19,19 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Flag,
-  Sparkles,
-  Wrench,
   Plus,
   Check,
+  BarChart3,
+  MessageSquare,
+  Users,
+  Search,
 } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useCompany } from "../../hooks/useCompany";
 import CompanyLogo from "../company/CompanyLogo";
 import CompanyProfileForm from "../company/CompanyProfileForm";
+import { Company } from "../../types/schemas";
 
 interface SidebarProps {
   isDesktopCollapsed: boolean;
@@ -71,7 +74,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
   }, []);
 
-  const handleSelectCompany = (company: any) => {
+  const handleSelectCompany = (company: Company) => {
     selectCompany(company);
     setIsCompanyDropdownOpen(false);
   };
@@ -109,11 +112,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   }, [showCreateModal]);
 
   const isActive = (path: string) => {
-    return location.pathname === path || (path === '/overview' && location.pathname === '/');
+    return location.pathname === path || (path === '/dashboard' && location.pathname === '/');
   };
 
   const getLinkClass = (path: string) => {
-    const baseClass = `flex items-center p-3 text-sm font-normal rounded-xl transition-all duration-300 ${isDesktopCollapsed ? 'justify-center' : ''}`;
+    const baseClass = `flex items-center p-3 text-sm font-normal rounded-xl transition-all duration-300 ${isDesktopCollapsed ? 'justify-center' : 'gap-3'}`;
     
     if (isActive(path)) {
       return `${baseClass} bg-gray-200/60 text-gray-900`;
@@ -279,70 +282,72 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex flex-col flex-1 overflow-hidden">
         <div className="flex flex-col px-4 pt-3 flex-1 overflow-y-auto space-y-4">
         <div>
-          <div 
-            className={getSectionHeaderClass()}
-            onClick={(e) => handleSectionClick('aiPerformance', e)}
-          >
-            <div className={`flex items-center ${isDesktopCollapsed ? 'justify-center' : ''}`}>
-              <Sparkles className="text-gray-600" size={20} />
-              {!isDesktopCollapsed && <span className="ml-2 text-sm text-gray-700 font-medium">AI Performance</span>}
+          {!isDesktopCollapsed && (
+            <div 
+              className={getSectionHeaderClass()}
+              onClick={(e) => handleSectionClick('aiPerformance', e)}
+            >
+              <div className="flex items-center">
+                <span className="text-sm text-gray-500 font-medium">AI Performance</span>
+              </div>
+              {openSections.aiPerformance ? <ChevronDown className="text-gray-400" size={16} /> : <ChevronRight className="text-gray-400" size={16} />}
             </div>
-            {!isDesktopCollapsed && (openSections.aiPerformance ? <ChevronDown className="text-gray-500" size={16} /> : <ChevronRight className="text-gray-500" size={16} />)}
-          </div>
-          {(!isDesktopCollapsed && openSections.aiPerformance) && (
-            <nav className="flex flex-col space-y-1 mt-2">
-              <Link to="/overview" className={getLinkClass('/overview')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
-                {!isDesktopCollapsed && <span className="ml-3 text-sm font-medium">Overview</span>}
-              </Link>
-              <Link to="/sentiment-analysis" className={getLinkClass('/sentiment-analysis')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
-                {!isDesktopCollapsed && <span className="ml-3 text-sm">Sentiment Analysis</span>}
+          )}
+          {(isDesktopCollapsed || openSections.aiPerformance) && (
+            <nav className={`flex flex-col space-y-1 ${!isDesktopCollapsed ? 'mt-2' : ''}`}>
+              <Link to="/dashboard" className={getLinkClass('/dashboard')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
+                <BarChart3 className="text-gray-600" size={16} />
+                {!isDesktopCollapsed && <span className="text-sm font-medium">Dashboard</span>}
               </Link>
               <Link to="/response-details" className={getLinkClass('/response-details')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
-                {!isDesktopCollapsed && <span className="ml-3 text-sm">Response Details</span>}
+                <MessageSquare className="text-gray-600" size={16} />
+                {!isDesktopCollapsed && <span className="text-sm">Prompts</span>}
               </Link>
               <Link to="/competitor-rankings" className={getLinkClass('/competitor-rankings')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
-                {!isDesktopCollapsed && <span className="ml-3 text-sm">Competitor Rankings</span>}
-              </Link>
-              <Link to="/model-comparison" className={getLinkClass('/model-comparison')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
-                {!isDesktopCollapsed && <span className="ml-3 text-sm">Model Comparison</span>}
+                <Users className="text-gray-600" size={16} />
+                {!isDesktopCollapsed && <span className="text-sm">Competitors</span>}
               </Link>
             </nav>
           )}
         </div>
         <div>
-          <div 
-            className={getSectionHeaderClass()}
-            onClick={(e) => handleSectionClick('actionCenter', e)}
-          >
-            <div className={`flex items-center ${isDesktopCollapsed ? 'justify-center' : ''}`}>
-              <Flag className="text-gray-600" size={20} />
-              {!isDesktopCollapsed && <span className="ml-2 text-sm text-gray-700 font-medium">Action Center</span>}
+          {!isDesktopCollapsed && (
+            <div 
+              className={getSectionHeaderClass()}
+              onClick={(e) => handleSectionClick('actionCenter', e)}
+            >
+              <div className="flex items-center">
+                <span className="text-sm text-gray-500 font-medium">Action Center</span>
+              </div>
+              {openSections.actionCenter ? <ChevronDown className="text-gray-400" size={16} /> : <ChevronRight className="text-gray-400" size={16} />}
             </div>
-            {!isDesktopCollapsed && (openSections.actionCenter ? <ChevronDown className="text-gray-500" size={16} /> : <ChevronRight className="text-gray-500" size={16} />)}
-          </div>
-          {(!isDesktopCollapsed && openSections.actionCenter) && (
-            <nav className="flex flex-col space-y-1 mt-2">
+          )}
+          {(isDesktopCollapsed || openSections.actionCenter) && (
+            <nav className={`flex flex-col space-y-1 ${!isDesktopCollapsed ? 'mt-2' : ''}`}>
               <Link to="/visibility-tasks" className={getLinkClass('/visibility-tasks')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
-                {!isDesktopCollapsed && <span className="ml-3 text-sm">Visibility Tasks</span>}
+                <Flag className="text-gray-600" size={16} />
+                {!isDesktopCollapsed && <span className="text-sm">Visibility Tasks</span>}
               </Link>
             </nav>
           )}
         </div>
         <div>
-          <div 
-            className={getSectionHeaderClass()}
-            onClick={(e) => handleSectionClick('aiContentTools', e)}
-          >
-            <div className={`flex items-center ${isDesktopCollapsed ? 'justify-center' : ''}`}>
-              <Wrench className="text-gray-600" size={20} />
-              {!isDesktopCollapsed && <span className="ml-2 text-sm text-gray-700 font-medium">AI Content Tools</span>}
+          {!isDesktopCollapsed && (
+            <div 
+              className={getSectionHeaderClass()}
+              onClick={(e) => handleSectionClick('aiContentTools', e)}
+            >
+              <div className="flex items-center">
+                <span className="text-sm text-gray-500 font-medium">AI Content Tools</span>
+              </div>
+              {openSections.aiContentTools ? <ChevronDown className="text-gray-400" size={16} /> : <ChevronRight className="text-gray-400" size={16} />}
             </div>
-            {!isDesktopCollapsed && (openSections.aiContentTools ? <ChevronDown className="text-gray-500" size={16} /> : <ChevronRight className="text-gray-500" size={16} />)}
-          </div>
-          {(!isDesktopCollapsed && openSections.aiContentTools) && (
-            <nav className="flex flex-col space-y-1 mt-2">
+          )}
+          {(isDesktopCollapsed || openSections.aiContentTools) && (
+            <nav className={`flex flex-col space-y-1 ${!isDesktopCollapsed ? 'mt-2' : ''}`}>
               <Link to="/experimental-search" className={getLinkClass('/experimental-search')} onClick={(e) => isDesktopCollapsed && e.stopPropagation()}>
-                {!isDesktopCollapsed && <span className="ml-3 text-sm">Experimental Search</span>}
+                <Search className="text-gray-600" size={16} />
+                {!isDesktopCollapsed && <span className="text-sm">Experimental Search</span>}
               </Link>
             </nav>
           )}

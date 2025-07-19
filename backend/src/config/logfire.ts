@@ -1,7 +1,7 @@
 /**
  * @file logfire.ts
  * @description Logfire configuration and instrumentation setup for Serplexity
- * 
+ *
  * This module provides comprehensive observability for the Serplexity backend through
  * Logfire integration via OpenTelemetry. It instruments:
  * - PydanticAI agent executions and performance
@@ -10,7 +10,7 @@
  * - Database operations and query performance
  * - Background job processing and queues
  * - Custom business metrics and events
- * 
+ *
  * @features
  * - Automatic OpenTelemetry instrumentation to Logfire
  * - Custom span creation for business logic
@@ -18,12 +18,12 @@
  * - Error tracking and alerting
  * - Cost tracking across multiple LLM providers
  * - User session and company-specific tracking
- * 
+ *
  * @dependencies
  * - @opentelemetry/*: OpenTelemetry instrumentation
  * - Express.js middleware integration
  * - Database connection monitoring
- * 
+ *
  * @exports
  * - initializeLogfire: Setup function
  * - createSpan: Helper for custom spans
@@ -31,10 +31,10 @@
  * - trackPerformance: Performance monitoring
  */
 
-import { trace, context, SpanStatusCode, SpanKind } from '@opentelemetry/api';
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
-import logger from '../utils/logger';
+import { trace, context, SpanStatusCode, SpanKind } from "@opentelemetry/api";
+import { NodeSDK } from "@opentelemetry/sdk-node";
+import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+import logger from "../utils/logger";
 
 // --- Configuration Interface ---
 export interface LogfireConfig {
@@ -52,51 +52,54 @@ export interface LogfireConfig {
 
 // --- Default Configuration ---
 const DEFAULT_CONFIG: LogfireConfig = {
-  projectName: 'serplexity-backend',
-  environment: process.env.NODE_ENV || 'development',
-  serviceName: 'serplexity-api',
-  serviceVersion: process.env.npm_package_version || '1.0.0',
+  projectName: "serplexity-backend",
+  environment: process.env.NODE_ENV || "development",
+  serviceName: "serplexity-api",
+  serviceVersion: process.env.npm_package_version || "1.0.0",
   enableAutoInstrumentation: true,
   enableCustomMetrics: true,
   enableErrorTracking: true,
   enablePerformanceMonitoring: true,
-  samplingRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
-  debugMode: process.env.NODE_ENV === 'development'
+  samplingRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
+  debugMode: process.env.NODE_ENV === "development",
 };
 
 // --- Service State ---
 let isInitialized = false;
 let config: LogfireConfig;
 let sdk: NodeSDK | null = null;
-const tracer = trace.getTracer('serplexity-backend');
+const tracer = trace.getTracer("serplexity-backend");
 
 /**
  * Initialize Logfire with comprehensive instrumentation
  */
-export async function initializeLogfire(customConfig?: Partial<LogfireConfig>): Promise<void> {
+export async function initializeLogfire(
+  customConfig?: Partial<LogfireConfig>,
+): Promise<void> {
   if (isInitialized) {
-    logger.warn('Logfire already initialized, skipping...');
+    logger.warn("Logfire already initialized, skipping...");
     return;
   }
 
   try {
     config = { ...DEFAULT_CONFIG, ...customConfig };
 
-    logger.info('Initializing Logfire observability', {
+    logger.info("Initializing Logfire observability", {
       projectName: config.projectName,
       environment: config.environment,
       serviceName: config.serviceName,
-      samplingRate: config.samplingRate
+      samplingRate: config.samplingRate,
     });
 
     // Validate Logfire token
     const logfireToken = process.env.LOGFIRE_TOKEN;
     if (!logfireToken) {
-      throw new Error('LOGFIRE_TOKEN environment variable is required');
+      throw new Error("LOGFIRE_TOKEN environment variable is required");
     }
 
     // Set up environment variables for OpenTelemetry to send to Logfire
-    process.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'https://logfire-api.pydantic.dev/v1/traces';
+    process.env.OTEL_EXPORTER_OTLP_ENDPOINT =
+      "https://logfire-api.pydantic.dev/v1/traces";
     process.env.OTEL_EXPORTER_OTLP_HEADERS = `Authorization=Bearer ${logfireToken}`;
     process.env.OTEL_SERVICE_NAME = config.serviceName;
     process.env.OTEL_SERVICE_VERSION = config.serviceVersion;
@@ -105,17 +108,19 @@ export async function initializeLogfire(customConfig?: Partial<LogfireConfig>): 
     // Create OpenTelemetry SDK configuration
     if (config.enableAutoInstrumentation) {
       sdk = new NodeSDK({
-        instrumentations: [getNodeAutoInstrumentations({
-          '@opentelemetry/instrumentation-express': {
-            enabled: true
-          },
-          '@opentelemetry/instrumentation-http': {
-            enabled: true
-          },
-          '@opentelemetry/instrumentation-redis': {
-            enabled: true
-          }
-        })]
+        instrumentations: [
+          getNodeAutoInstrumentations({
+            "@opentelemetry/instrumentation-express": {
+              enabled: true,
+            },
+            "@opentelemetry/instrumentation-http": {
+              enabled: true,
+            },
+            "@opentelemetry/instrumentation-redis": {
+              enabled: true,
+            },
+          }),
+        ],
       });
 
       // Start the SDK
@@ -124,18 +129,19 @@ export async function initializeLogfire(customConfig?: Partial<LogfireConfig>): 
 
     isInitialized = true;
 
-    logger.info('Logfire initialization completed successfully', {
+    logger.info("Logfire initialization completed successfully", {
       projectName: config.projectName,
       instrumentationEnabled: config.enableAutoInstrumentation,
-      metricsEnabled: config.enableCustomMetrics
+      metricsEnabled: config.enableCustomMetrics,
     });
-
   } catch (error) {
-    logger.error('Failed to initialize Logfire', {
+    logger.error("Failed to initialize Logfire", {
       error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
     });
-    throw new Error(`Logfire initialization failed: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Logfire initialization failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
@@ -146,17 +152,17 @@ export function createSpan<T>(
   spanName: string,
   operation: (span: any) => Promise<T> | T,
   attributes?: Record<string, any>,
-  spanKind: SpanKind = SpanKind.INTERNAL
+  spanKind: SpanKind = SpanKind.INTERNAL,
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     const span = tracer.startSpan(spanName, {
       kind: spanKind,
       attributes: {
-        'service.name': config?.serviceName || 'serplexity-api',
-        'service.version': config?.serviceVersion || '1.0.0',
-        'environment': config?.environment || 'development',
-        ...attributes
-      }
+        "service.name": config?.serviceName || "serplexity-api",
+        "service.version": config?.serviceVersion || "1.0.0",
+        environment: config?.environment || "development",
+        ...attributes,
+      },
     });
 
     const activeContext = trace.setSpan(context.active(), span);
@@ -169,7 +175,7 @@ export function createSpan<T>(
       } catch (error) {
         span.setStatus({
           code: SpanStatusCode.ERROR,
-          message: error instanceof Error ? error.message : String(error)
+          message: error instanceof Error ? error.message : String(error),
         });
         span.recordException(error as Error);
         reject(error);
@@ -191,23 +197,23 @@ export function trackLLMUsage(
   costEstimate?: number,
   duration?: number,
   success?: boolean,
-  metadata?: Record<string, any>
+  metadata?: Record<string, any>,
 ): void {
-  const span = tracer.startSpan('llm.usage', {
+  const span = tracer.startSpan("llm.usage", {
     attributes: {
-      'llm.provider': provider,
-      'llm.model': modelId,
-      'llm.operation': operation,
-      'llm.tokens.total': tokensUsed,
-      'llm.cost.estimate': costEstimate || 0,
-      'llm.duration.ms': duration || 0,
-      'llm.success': success !== false,
-      'timestamp': new Date().toISOString(),
-      ...metadata
-    }
+      "llm.provider": provider,
+      "llm.model": modelId,
+      "llm.operation": operation,
+      "llm.tokens.total": tokensUsed,
+      "llm.cost.estimate": costEstimate || 0,
+      "llm.duration.ms": duration || 0,
+      "llm.success": success !== false,
+      timestamp: new Date().toISOString(),
+      ...metadata,
+    },
   });
-  
-  logger.info('LLM Usage Tracked', {
+
+  logger.info("LLM Usage Tracked", {
     provider,
     modelId,
     operation,
@@ -215,9 +221,9 @@ export function trackLLMUsage(
     costEstimate,
     duration,
     success,
-    metadata
+    metadata,
   });
-  
+
   span.end();
 }
 
@@ -228,28 +234,28 @@ export function trackPerformance(
   operationName: string,
   duration: number,
   success: boolean,
-  metadata?: Record<string, any>
+  metadata?: Record<string, any>,
 ): void {
-  const span = tracer.startSpan('performance.metric', {
+  const span = tracer.startSpan("performance.metric", {
     attributes: {
-      'performance.operation': operationName,
-      'performance.duration.ms': duration,
-      'performance.success': success,
-      'timestamp': new Date().toISOString(),
-      ...metadata
-    }
+      "performance.operation": operationName,
+      "performance.duration.ms": duration,
+      "performance.success": success,
+      timestamp: new Date().toISOString(),
+      ...metadata,
+    },
   });
-  
+
   // Only log performance metrics if explicitly enabled
-  if (process.env.LOG_PERFORMANCE_METRICS === 'true') {
-    logger.info('Performance Metric', {
+  if (process.env.LOG_PERFORMANCE_METRICS === "true") {
+    logger.info("Performance Metric", {
       operationName,
       duration,
       success,
-      metadata
+      metadata,
     });
   }
-  
+
   span.end();
 }
 
@@ -260,25 +266,25 @@ export function trackBusinessEvent(
   eventName: string,
   userId?: string,
   companyId?: string,
-  metadata?: Record<string, any>
+  metadata?: Record<string, any>,
 ): void {
-  const span = tracer.startSpan('business.event', {
+  const span = tracer.startSpan("business.event", {
     attributes: {
-      'event.name': eventName,
-      'user.id': userId || '',
-      'company.id': companyId || '',
-      'timestamp': new Date().toISOString(),
-      ...metadata
-    }
+      "event.name": eventName,
+      "user.id": userId || "",
+      "company.id": companyId || "",
+      timestamp: new Date().toISOString(),
+      ...metadata,
+    },
   });
-  
-  logger.info('Business Event', {
+
+  logger.info("Business Event", {
     eventName,
     userId,
     companyId,
-    metadata
+    metadata,
   });
-  
+
   span.end();
 }
 
@@ -290,31 +296,31 @@ export function trackError(
   context: string,
   userId?: string,
   companyId?: string,
-  metadata?: Record<string, any>
+  metadata?: Record<string, any>,
 ): void {
-  const span = tracer.startSpan('error.tracked', {
+  const span = tracer.startSpan("error.tracked", {
     attributes: {
-      'error.message': error.message,
-      'error.context': context,
-      'user.id': userId || '',
-      'company.id': companyId || '',
-      'timestamp': new Date().toISOString(),
-      ...metadata
-    }
+      "error.message": error.message,
+      "error.context": context,
+      "user.id": userId || "",
+      "company.id": companyId || "",
+      timestamp: new Date().toISOString(),
+      ...metadata,
+    },
   });
-  
+
   span.recordException(error);
   span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
-  
-  logger.error('Application Error', {
+
+  logger.error("Application Error", {
     message: error.message,
     stack: error.stack,
     context,
     userId,
     companyId,
-    metadata
+    metadata,
   });
-  
+
   span.end();
 }
 
@@ -324,41 +330,46 @@ export function trackError(
 export function logfireMiddleware() {
   return (req: any, res: any, next: any) => {
     const startTime = Date.now();
-    const requestId = req.headers['x-request-id'] || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const requestId =
+      req.headers["x-request-id"] ||
+      `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     // Add request ID to response headers
-    res.setHeader('X-Request-ID', requestId);
+    res.setHeader("X-Request-ID", requestId);
 
     // Create span for this request
-    const span = tracer.startSpan(`HTTP ${req.method} ${req.route?.path || req.url}`, {
-      kind: SpanKind.SERVER,
-      attributes: {
-        'http.method': req.method,
-        'http.url': req.url,
-        'http.route': req.route?.path || req.url,
-        'http.user_agent': req.get('User-Agent') || '',
-        'http.request_id': requestId,
-        'user.id': req.user?.id || '',
-        'company.id': req.user?.companyId || ''
-      }
-    });
+    const span = tracer.startSpan(
+      `HTTP ${req.method} ${req.route?.path || req.url}`,
+      {
+        kind: SpanKind.SERVER,
+        attributes: {
+          "http.method": req.method,
+          "http.url": req.url,
+          "http.route": req.route?.path || req.url,
+          "http.user_agent": req.get("User-Agent") || "",
+          "http.request_id": requestId,
+          "user.id": req.user?.id || "",
+          "company.id": req.user?.companyId || "",
+        },
+      },
+    );
 
     // Track response
     const originalSend = res.send;
-    res.send = function(data: any) {
+    res.send = function (data: any) {
       const duration = Date.now() - startTime;
-      
+
       span.setAttributes({
-        'http.status_code': res.statusCode,
-        'http.duration.ms': duration,
-        'http.success': res.statusCode < 400
+        "http.status_code": res.statusCode,
+        "http.duration.ms": duration,
+        "http.success": res.statusCode < 400,
       });
-      
-      span.setStatus({ 
-        code: res.statusCode < 400 ? SpanStatusCode.OK : SpanStatusCode.ERROR 
+
+      span.setStatus({
+        code: res.statusCode < 400 ? SpanStatusCode.OK : SpanStatusCode.ERROR,
       });
-      
-      logger.info('HTTP Request Completed', {
+
+      logger.info("HTTP Request Completed", {
         method: req.method,
         url: req.url,
         statusCode: res.statusCode,
@@ -366,7 +377,7 @@ export function logfireMiddleware() {
         duration,
         success: res.statusCode < 400,
         userId: req.user?.id,
-        companyId: req.user?.companyId
+        companyId: req.user?.companyId,
       });
 
       span.end();
@@ -397,6 +408,6 @@ export function isLogfireInitialized(): boolean {
 export async function shutdownLogfire(): Promise<void> {
   if (sdk) {
     await sdk.shutdown();
-    logger.info('Logfire SDK shutdown completed');
+    logger.info("Logfire SDK shutdown completed");
   }
-} 
+}

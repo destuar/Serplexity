@@ -15,9 +15,9 @@
  * - checkRedisHealth: A function to perform a health check on the Redis connection pool.
  * - redisManager: The singleton instance of the RedisConnectionManager for advanced operations.
  */
-import Redis, { RedisOptions } from 'ioredis';
-import env from './env';
-import logger from '../utils/logger';
+import Redis, { RedisOptions } from "ioredis";
+import env from "./env";
+import logger from "../utils/logger";
 
 // Connection pool configuration
 const POOL_SIZE = 5;
@@ -29,9 +29,9 @@ const CIRCUIT_BREAKER_TIMEOUT = 60000; // 1 minute
 
 // Circuit breaker state
 enum CircuitState {
-  CLOSED = 'CLOSED',
-  OPEN = 'OPEN',
-  HALF_OPEN = 'HALF_OPEN'
+  CLOSED = "CLOSED",
+  OPEN = "OPEN",
+  HALF_OPEN = "HALF_OPEN",
 }
 
 class RedisConnectionManager {
@@ -47,16 +47,16 @@ class RedisConnectionManager {
     host: env.REDIS_HOST,
     port: env.REDIS_PORT,
     password: env.REDIS_PASSWORD,
-    
+
     // Production-optimized settings
     maxRetriesPerRequest: null, // Required for BullMQ
     enableReadyCheck: true,
-    showFriendlyErrorStack: env.NODE_ENV !== 'production',
-    
+    showFriendlyErrorStack: env.NODE_ENV !== "production",
+
     // Conservative connection settings
     connectTimeout: 10000,
     lazyConnect: true, // Don't connect immediately
-    
+
     // Retry strategy with exponential backoff
     retryStrategy: (times: number) => {
       if (times > MAX_RETRIES) return null;
@@ -64,16 +64,18 @@ class RedisConnectionManager {
       logger.warn(`[Redis] Retry attempt ${times}, delay ${delay}ms`);
       return delay;
     },
-    
+
     // Keep-alive and TCP settings
     keepAlive: 30000,
     family: 4, // Force IPv4
-    
+
     // TLS configuration
-    tls: env.REDIS_USE_TLS ? { 
-      servername: env.REDIS_HOST, 
-      rejectUnauthorized: false 
-    } : undefined,
+    tls: env.REDIS_USE_TLS
+      ? {
+          servername: env.REDIS_HOST,
+          rejectUnauthorized: false,
+        }
+      : undefined,
   };
 
   constructor() {
@@ -83,8 +85,10 @@ class RedisConnectionManager {
   }
 
   private initializeConnections(): void {
-    logger.info(`[Redis] Initializing connection pool with ${POOL_SIZE} connections`);
-    
+    logger.info(
+      `[Redis] Initializing connection pool with ${POOL_SIZE} connections`,
+    );
+
     for (let i = 0; i < POOL_SIZE; i++) {
       const connection = new Redis(this.baseConfig);
       this.setupConnectionHandlers(connection, i);
@@ -93,32 +97,32 @@ class RedisConnectionManager {
   }
 
   private setupConnectionHandlers(connection: Redis, index: number): void {
-    connection.on('connect', () => {
+    connection.on("connect", () => {
       logger.info(`[Redis:${index}] Connected`);
       this.onConnectionSuccess();
     });
 
-    connection.on('ready', () => {
+    connection.on("ready", () => {
       logger.info(`[Redis:${index}] Ready`);
     });
 
-    connection.on('error', (err) => {
+    connection.on("error", (err) => {
       logger.error(`[Redis:${index}] Error: ${err.message}`);
       this.onConnectionError(err);
     });
 
-    connection.on('close', () => {
+    connection.on("close", () => {
       logger.warn(`[Redis:${index}] Connection closed`);
     });
 
-    connection.on('reconnecting', () => {
+    connection.on("reconnecting", () => {
       logger.info(`[Redis:${index}] Reconnecting...`);
     });
   }
 
   private onConnectionSuccess(): void {
     if (this.circuitState === CircuitState.HALF_OPEN) {
-      logger.info('[Redis] Circuit breaker: HALF_OPEN -> CLOSED');
+      logger.info("[Redis] Circuit breaker: HALF_OPEN -> CLOSED");
       this.circuitState = CircuitState.CLOSED;
       this.failureCount = 0;
     }
@@ -128,15 +132,17 @@ class RedisConnectionManager {
     this.failureCount++;
     this.lastFailureTime = Date.now();
 
-    if (this.failureCount >= CIRCUIT_BREAKER_THRESHOLD && 
-        this.circuitState === CircuitState.CLOSED) {
-      logger.error('[Redis] Circuit breaker: CLOSED -> OPEN');
+    if (
+      this.failureCount >= CIRCUIT_BREAKER_THRESHOLD &&
+      this.circuitState === CircuitState.CLOSED
+    ) {
+      logger.error("[Redis] Circuit breaker: CLOSED -> OPEN");
       this.circuitState = CircuitState.OPEN;
-      
+
       // Schedule circuit breaker reset
       setTimeout(() => {
         if (this.circuitState === CircuitState.OPEN) {
-          logger.info('[Redis] Circuit breaker: OPEN -> HALF_OPEN');
+          logger.info("[Redis] Circuit breaker: OPEN -> HALF_OPEN");
           this.circuitState = CircuitState.HALF_OPEN;
           this.failureCount = 0;
         }
@@ -147,36 +153,42 @@ class RedisConnectionManager {
   private startHealthCheck(): void {
     this.healthCheckInterval = setInterval(async () => {
       if (this.isShuttingDown) return;
-      
+
       try {
         const healthyConnections = await this.checkConnectionHealth();
-        
+
         // Only log if the health status changes or not fully healthy
         if (healthyConnections !== this.lastHealthyCount) {
           if (healthyConnections < POOL_SIZE) {
-            logger.warn(`[Redis] Health check: ${healthyConnections}/${POOL_SIZE} connections healthy`);
+            logger.warn(
+              `[Redis] Health check: ${healthyConnections}/${POOL_SIZE} connections healthy`,
+            );
           } else {
-            logger.info(`[Redis] Health check: all ${POOL_SIZE} connections healthy`);
+            logger.info(
+              `[Redis] Health check: all ${POOL_SIZE} connections healthy`,
+            );
           }
           this.lastHealthyCount = healthyConnections;
         }
-        
+
         if (healthyConnections === 0) {
-          logger.error('[Redis] All connections unhealthy, attempting recovery');
+          logger.error(
+            "[Redis] All connections unhealthy, attempting recovery",
+          );
           await this.recoverConnections();
         }
       } catch (error) {
-        logger.error('[Redis] Health check failed:', error);
+        logger.error("[Redis] Health check failed:", error);
       }
     }, HEALTH_CHECK_INTERVAL);
   }
 
   private async checkConnectionHealth(): Promise<number> {
     let healthyCount = 0;
-    
+
     for (const connection of this.connections) {
       try {
-        if (connection.status === 'ready') {
+        if (connection.status === "ready") {
           await connection.ping();
           healthyCount++;
         }
@@ -184,17 +196,17 @@ class RedisConnectionManager {
         // Connection is unhealthy, skip
       }
     }
-    
+
     return healthyCount;
   }
 
   private async recoverConnections(): Promise<void> {
-    logger.info('[Redis] Starting connection recovery');
-    
+    logger.info("[Redis] Starting connection recovery");
+
     for (let i = 0; i < this.connections.length; i++) {
       const connection = this.connections[i];
-      
-      if (connection.status !== 'ready') {
+
+      if (connection.status !== "ready") {
         try {
           await connection.connect();
           logger.info(`[Redis:${i}] Recovered connection`);
@@ -207,23 +219,27 @@ class RedisConnectionManager {
 
   public getConnection(): Redis {
     if (this.circuitState === CircuitState.OPEN) {
-      throw new Error('Redis circuit breaker is OPEN - service temporarily unavailable');
+      throw new Error(
+        "Redis circuit breaker is OPEN - service temporarily unavailable",
+      );
     }
 
     // Find a healthy connection
     for (const connection of this.connections) {
-      if (connection.status === 'ready') {
+      if (connection.status === "ready") {
         return connection;
       }
     }
 
     // If no ready connections, try to use any available connection
-    const availableConnection = this.connections.find(c => c.status !== 'end');
+    const availableConnection = this.connections.find(
+      (c) => c.status !== "end",
+    );
     if (availableConnection) {
       return availableConnection;
     }
 
-    throw new Error('No Redis connections available');
+    throw new Error("No Redis connections available");
   }
 
   public async ping(): Promise<string> {
@@ -231,45 +247,51 @@ class RedisConnectionManager {
     return await connection.ping();
   }
 
-  public async healthCheck(): Promise<{ status: string; latency?: number; error?: string; poolStatus: any }> {
+  public async healthCheck(): Promise<{
+    status: string;
+    latency?: number;
+    error?: string;
+    poolStatus: any;
+  }> {
     try {
       const start = Date.now();
       await this.ping();
       const latency = Date.now() - start;
-      
+
       const poolStatus = {
         totalConnections: this.connections.length,
-        readyConnections: this.connections.filter(c => c.status === 'ready').length,
+        readyConnections: this.connections.filter((c) => c.status === "ready")
+          .length,
         circuitState: this.circuitState,
-        failureCount: this.failureCount
+        failureCount: this.failureCount,
       };
-      
-      return { status: 'healthy', latency, poolStatus };
+
+      return { status: "healthy", latency, poolStatus };
     } catch (error) {
       const poolStatus = {
         totalConnections: this.connections.length,
         readyConnections: 0,
         circuitState: this.circuitState,
-        failureCount: this.failureCount
+        failureCount: this.failureCount,
       };
-      
-      return { 
-        status: 'unhealthy', 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        poolStatus
+
+      return {
+        status: "unhealthy",
+        error: error instanceof Error ? error.message : "Unknown error",
+        poolStatus,
       };
     }
   }
 
   private setupGracefulShutdown(): void {
     const shutdown = async () => {
-      logger.info('[Redis] Starting graceful shutdown');
+      logger.info("[Redis] Starting graceful shutdown");
       this.isShuttingDown = true;
-      
+
       if (this.healthCheckInterval) {
         clearInterval(this.healthCheckInterval);
       }
-      
+
       // Close all connections
       await Promise.all(
         this.connections.map(async (connection, index) => {
@@ -279,14 +301,14 @@ class RedisConnectionManager {
           } catch (error) {
             logger.error(`[Redis:${index}] Error during shutdown: ${error}`);
           }
-        })
+        }),
       );
-      
-      logger.info('[Redis] Shutdown complete');
+
+      logger.info("[Redis] Shutdown complete");
     };
 
-    process.on('SIGTERM', shutdown);
-    process.on('SIGINT', shutdown);
+    process.on("SIGTERM", shutdown);
+    process.on("SIGINT", shutdown);
   }
 }
 

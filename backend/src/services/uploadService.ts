@@ -15,10 +15,10 @@
  * - upload: Multer instance configured for S3 uploads.
  * - getFileUrl: Function to construct the public URL of an uploaded file.
  */
-import multer from 'multer';
-import path from 'path';
-import { S3Client } from '@aws-sdk/client-s3';
-const multerS3 = require('multer-s3');
+import multer from "multer";
+import path from "path";
+import { S3Client } from "@aws-sdk/client-s3";
+const multerS3 = require("multer-s3");
 
 const s3 = new S3Client({
   credentials: {
@@ -32,22 +32,28 @@ const storage = multerS3({
   s3: s3,
   bucket: process.env.AWS_BUCKET_NAME!,
   key: (req: any, file: Express.Multer.File, cb: any) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     const extension = path.extname(file.originalname);
     cb(null, `blog/${uniqueSuffix}${extension}`);
   },
   contentType: multerS3.AUTO_CONTENT_TYPE,
 });
 
-const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+const fileFilter = (
+  req: any,
+  file: Express.Multer.File,
+  cb: multer.FileFilterCallback,
+) => {
   const allowedTypes = /jpeg|jpg|png|gif|webp/;
-  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+  const extname = allowedTypes.test(
+    path.extname(file.originalname).toLowerCase(),
+  );
   const mimetype = allowedTypes.test(file.mimetype);
 
   if (mimetype && extname) {
     return cb(null, true);
   } else {
-    cb(new Error('Only image files are allowed'));
+    cb(new Error("Only image files are allowed"));
   }
 };
 
@@ -56,7 +62,7 @@ export const upload = multer({
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
-  fileFilter
+  fileFilter,
 });
 
 export const getFileUrl = (filename: string): string => {

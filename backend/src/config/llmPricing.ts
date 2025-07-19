@@ -1,13 +1,13 @@
 /**
  * @file llmPricing.ts
  * @description Comprehensive pricing configuration for all LLM providers
- * 
+ *
  * This file contains accurate, up-to-date pricing information for all supported
  * LLM providers including token costs, web search costs, and other tool-specific
  * pricing. Used for cost calculation and optimization across the platform.
- * 
+ *
  * @updated 2025-01-17
- * @sources 
+ * @sources
  * - https://platform.openai.com/docs/pricing
  * - https://www.anthropic.com/pricing#api
  * - https://ai.google.dev/gemini-api/docs/pricing
@@ -15,7 +15,7 @@
  */
 
 export interface TokenPricing {
-  readonly inputTokensPerMillion: number;  // USD per 1M input tokens
+  readonly inputTokensPerMillion: number; // USD per 1M input tokens
   readonly outputTokensPerMillion: number; // USD per 1M output tokens
   readonly contextCachingPerMillion?: number; // USD per 1M cached tokens
   readonly contextCachingStoragePerHour?: number; // USD per 1M tokens per hour
@@ -48,222 +48,222 @@ export interface ModelPricing {
  */
 export const LLM_PRICING: Record<string, ModelPricing> = {
   // OpenAI Models
-  'gpt-4.1-mini': {
-    modelId: 'gpt-4.1-mini',
-    provider: 'openai',
-    displayName: 'GPT-4.1 Mini',
+  "gpt-4.1-mini": {
+    modelId: "gpt-4.1-mini",
+    provider: "openai",
+    displayName: "GPT-4.1 Mini",
     tokens: {
-      inputTokensPerMillion: 150,   // $0.15 per 1M input tokens
-      outputTokensPerMillion: 600,  // $0.60 per 1M output tokens
+      inputTokensPerMillion: 0.15, // $0.15 per 1M input tokens
+      outputTokensPerMillion: 0.6, // $0.60 per 1M output tokens
     },
     webSearch: {
       enabled: true,
-      costPer1000Searches: 25,      // $25 per 1K searches
-      includesTokens: true,         // Search content tokens included
+      costPer1000Searches: 25, // $25 per 1K searches
+      includesTokens: true, // Search content tokens included
     },
     rateLimits: {
       requestsPerMinute: 10000,
       tokensPerMinute: 2000000,
-      searchesPerMinute: 100
-    }
+      searchesPerMinute: 100,
+    },
   },
-  
-  'gpt-4o': {
-    modelId: 'gpt-4o',
-    provider: 'openai',
-    displayName: 'GPT-4o',
+
+  "gpt-4o": {
+    modelId: "gpt-4o",
+    provider: "openai",
+    displayName: "GPT-4o",
     tokens: {
-      inputTokensPerMillion: 2500,  // $2.50 per 1M input tokens
-      outputTokensPerMillion: 10000, // $10.00 per 1M output tokens
+      inputTokensPerMillion: 2.5, // $2.50 per 1M input tokens
+      outputTokensPerMillion: 10.0, // $10.00 per 1M output tokens
     },
     webSearch: {
       enabled: true,
-      costPer1000Searches: 25,      // $25 per 1K searches
-      includesTokens: true,         // Search content tokens included
+      costPer1000Searches: 25, // $25 per 1K searches
+      includesTokens: true, // Search content tokens included
     },
     rateLimits: {
       requestsPerMinute: 10000,
       tokensPerMinute: 2000000,
-      searchesPerMinute: 100
-    }
+      searchesPerMinute: 100,
+    },
   },
 
   // Anthropic Models
-  'claude-3-5-haiku-20241022': {
-    modelId: 'claude-3-5-haiku-20241022',
-    provider: 'anthropic',
-    displayName: 'Claude 3.5 Haiku',
+  "claude-3-5-haiku-20241022": {
+    modelId: "claude-3-5-haiku-20241022",
+    provider: "anthropic",
+    displayName: "Claude 3.5 Haiku",
     tokens: {
-      inputTokensPerMillion: 800,   // $0.80 per 1M input tokens
-      outputTokensPerMillion: 4000, // $4.00 per 1M output tokens
-      contextCachingPerMillion: 1000, // $1.00 per 1M cached tokens (write)
+      inputTokensPerMillion: 0.8, // $0.80 per 1M input tokens
+      outputTokensPerMillion: 4.0, // $4.00 per 1M output tokens
+      contextCachingPerMillion: 1.0, // $1.00 per 1M cached tokens (write)
     },
     webSearch: {
       enabled: true,
-      costPer1000Searches: 10,      // $10 per 1K searches
-      includesTokens: false,        // Tokens charged separately
+      costPer1000Searches: 10, // $10 per 1K searches
+      includesTokens: false, // Tokens charged separately
     },
     otherTools: {
-      'code_execution': 0.05,       // $0.05 per hour per container
+      code_execution: 0.05, // $0.05 per hour per container
     },
     rateLimits: {
       requestsPerMinute: 4000,
       tokensPerMinute: 400000,
-      searchesPerMinute: 50
-    }
+      searchesPerMinute: 50,
+    },
   },
 
-  'claude-3-sonnet-20240229': {
-    modelId: 'claude-3-sonnet-20240229',
-    provider: 'anthropic',
-    displayName: 'Claude 3 Sonnet',
+  "claude-3-sonnet-20240229": {
+    modelId: "claude-3-sonnet-20240229",
+    provider: "anthropic",
+    displayName: "Claude 3 Sonnet",
     tokens: {
-      inputTokensPerMillion: 3000,  // $3.00 per 1M input tokens
-      outputTokensPerMillion: 15000, // $15.00 per 1M output tokens
-      contextCachingPerMillion: 3750, // $3.75 per 1M cached tokens (write)
+      inputTokensPerMillion: 3.0, // $3.00 per 1M input tokens
+      outputTokensPerMillion: 15.0, // $15.00 per 1M output tokens
+      contextCachingPerMillion: 3.75, // $3.75 per 1M cached tokens (write)
     },
     webSearch: {
       enabled: true,
-      costPer1000Searches: 10,      // $10 per 1K searches
-      includesTokens: false,        // Tokens charged separately
+      costPer1000Searches: 10, // $10 per 1K searches
+      includesTokens: false, // Tokens charged separately
     },
     otherTools: {
-      'code_execution': 0.05,       // $0.05 per hour per container
+      code_execution: 0.05, // $0.05 per hour per container
     },
     rateLimits: {
       requestsPerMinute: 4000,
       tokensPerMinute: 400000,
-      searchesPerMinute: 50
-    }
+      searchesPerMinute: 50,
+    },
   },
 
   // Google Gemini Models
-  'gemini-2.5-flash': {
-    modelId: 'gemini-2.5-flash',
-    provider: 'gemini',
-    displayName: 'Gemini 2.5 Flash',
+  "gemini-2.5-flash": {
+    modelId: "gemini-2.5-flash",
+    provider: "gemini",
+    displayName: "Gemini 2.5 Flash",
     tokens: {
-      inputTokensPerMillion: 300,   // $0.30 per 1M input tokens (text/image/video)
-      outputTokensPerMillion: 2500, // $2.50 per 1M output tokens
-      contextCachingPerMillion: 75, // $0.075 per 1M cached tokens
-      contextCachingStoragePerHour: 1000, // $1.00 per 1M tokens per hour
+      inputTokensPerMillion: 0.3, // $0.30 per 1M input tokens (text/image/video)
+      outputTokensPerMillion: 2.5, // $2.50 per 1M output tokens
+      contextCachingPerMillion: 0.075, // $0.075 per 1M cached tokens
+      contextCachingStoragePerHour: 1.0, // $1.00 per 1M tokens per hour
     },
     webSearch: {
       enabled: true,
-      costPer1000Searches: 35,      // $35 per 1K searches
-      includesTokens: false,        // Tokens charged separately
-      freeSearchesPerDay: 1500,     // Free searches per day
+      costPer1000Searches: 35, // $35 per 1K searches
+      includesTokens: false, // Tokens charged separately
+      freeSearchesPerDay: 1500, // Free searches per day
     },
     rateLimits: {
       requestsPerMinute: 300,
       tokensPerMinute: 4000000,
-      searchesPerMinute: 60
-    }
+      searchesPerMinute: 60,
+    },
   },
 
-  'gemini-1.5-pro': {
-    modelId: 'gemini-1.5-pro',
-    provider: 'gemini',
-    displayName: 'Gemini 1.5 Pro',
+  "gemini-1.5-pro": {
+    modelId: "gemini-1.5-pro",
+    provider: "gemini",
+    displayName: "Gemini 1.5 Pro",
     tokens: {
-      inputTokensPerMillion: 1250,  // $1.25 per 1M input tokens
-      outputTokensPerMillion: 5000, // $5.00 per 1M output tokens
-      contextCachingPerMillion: 312.5, // $0.3125 per 1M cached tokens
-      contextCachingStoragePerHour: 1000, // $1.00 per 1M tokens per hour
+      inputTokensPerMillion: 1.25, // $1.25 per 1M input tokens
+      outputTokensPerMillion: 5.0, // $5.00 per 1M output tokens
+      contextCachingPerMillion: 0.3125, // $0.3125 per 1M cached tokens
+      contextCachingStoragePerHour: 1.0, // $1.00 per 1M tokens per hour
     },
     webSearch: {
       enabled: true,
-      costPer1000Searches: 35,      // $35 per 1K searches
-      includesTokens: false,        // Tokens charged separately
-      freeSearchesPerDay: 1500,     // Free searches per day
+      costPer1000Searches: 35, // $35 per 1K searches
+      includesTokens: false, // Tokens charged separately
+      freeSearchesPerDay: 1500, // Free searches per day
     },
     rateLimits: {
       requestsPerMinute: 300,
       tokensPerMinute: 4000000,
-      searchesPerMinute: 60
-    }
+      searchesPerMinute: 60,
+    },
   },
 
   // Perplexity Models (legacy alias for backward compatibility)
-  'perplexity': {
-    modelId: 'perplexity',
-    provider: 'perplexity',
-    displayName: 'Perplexity Sonar (Legacy)',
+  perplexity: {
+    modelId: "perplexity",
+    provider: "perplexity",
+    displayName: "Perplexity Sonar (Legacy)",
     tokens: {
-      inputTokensPerMillion: 1000,  // $1.00 per 1M input tokens
-      outputTokensPerMillion: 1000, // $1.00 per 1M output tokens
+      inputTokensPerMillion: 1.0, // $1.00 per 1M input tokens
+      outputTokensPerMillion: 1.0, // $1.00 per 1M output tokens
     },
     webSearch: {
       enabled: true,
-      costPer1000Searches: 0,       // Included in model pricing
-      includesTokens: true,         // Search included in model
+      costPer1000Searches: 0, // Included in model pricing
+      includesTokens: true, // Search included in model
     },
     rateLimits: {
       requestsPerMinute: 500,
       tokensPerMinute: 200000,
-      searchesPerMinute: 100
-    }
+      searchesPerMinute: 100,
+    },
   },
 
-  'sonar': {
-    modelId: 'sonar',
-    provider: 'perplexity',
-    displayName: 'Perplexity Sonar',
+  sonar: {
+    modelId: "sonar",
+    provider: "perplexity",
+    displayName: "Perplexity Sonar",
     tokens: {
-      inputTokensPerMillion: 1000,  // $1.00 per 1M input tokens
-      outputTokensPerMillion: 1000, // $1.00 per 1M output tokens
+      inputTokensPerMillion: 1.0, // $1.00 per 1M input tokens
+      outputTokensPerMillion: 1.0, // $1.00 per 1M output tokens
     },
     webSearch: {
       enabled: true,
-      costPer1000Searches: 0,       // Included in model pricing
-      includesTokens: true,         // Search included in model
+      costPer1000Searches: 0, // Included in model pricing
+      includesTokens: true, // Search included in model
     },
     rateLimits: {
       requestsPerMinute: 500,
       tokensPerMinute: 200000,
-      searchesPerMinute: 100
-    }
+      searchesPerMinute: 100,
+    },
   },
 
-  'sonar-pro': {
-    modelId: 'sonar-pro',
-    provider: 'perplexity',
-    displayName: 'Perplexity Sonar Pro',
+  "sonar-pro": {
+    modelId: "sonar-pro",
+    provider: "perplexity",
+    displayName: "Perplexity Sonar Pro",
     tokens: {
-      inputTokensPerMillion: 3000,  // $3.00 per 1M input tokens
-      outputTokensPerMillion: 15000, // $15.00 per 1M output tokens
+      inputTokensPerMillion: 3.0, // $3.00 per 1M input tokens
+      outputTokensPerMillion: 15.0, // $15.00 per 1M output tokens
     },
     webSearch: {
       enabled: true,
-      costPer1000Searches: 0,       // Included in model pricing
-      includesTokens: true,         // Search included in model
+      costPer1000Searches: 0, // Included in model pricing
+      includesTokens: true, // Search included in model
     },
     rateLimits: {
       requestsPerMinute: 500,
       tokensPerMinute: 200000,
-      searchesPerMinute: 100
-    }
+      searchesPerMinute: 100,
+    },
   },
 
-  'sonar-reasoning': {
-    modelId: 'sonar-reasoning',
-    provider: 'perplexity',
-    displayName: 'Perplexity Sonar Reasoning',
+  "sonar-reasoning": {
+    modelId: "sonar-reasoning",
+    provider: "perplexity",
+    displayName: "Perplexity Sonar Reasoning",
     tokens: {
-      inputTokensPerMillion: 1000,  // $1.00 per 1M input tokens
-      outputTokensPerMillion: 5000, // $5.00 per 1M output tokens
+      inputTokensPerMillion: 1.0, // $1.00 per 1M input tokens
+      outputTokensPerMillion: 5.0, // $5.00 per 1M output tokens
     },
     webSearch: {
       enabled: true,
-      costPer1000Searches: 0,       // Included in model pricing
-      includesTokens: true,         // Search included in model
+      costPer1000Searches: 0, // Included in model pricing
+      includesTokens: true, // Search included in model
     },
     rateLimits: {
       requestsPerMinute: 500,
       tokensPerMinute: 200000,
-      searchesPerMinute: 100
-    }
-  }
+      searchesPerMinute: 100,
+    },
+  },
 };
 
 /**
@@ -277,7 +277,7 @@ export class CostCalculator {
     modelId: string,
     inputTokens: number,
     outputTokens: number,
-    cachedTokens?: number
+    cachedTokens?: number,
   ): number {
     const pricing = LLM_PRICING[modelId];
     if (!pricing) {
@@ -290,11 +290,13 @@ export class CostCalculator {
     totalCost += (inputTokens / 1000000) * pricing.tokens.inputTokensPerMillion;
 
     // Output tokens
-    totalCost += (outputTokens / 1000000) * pricing.tokens.outputTokensPerMillion;
+    totalCost +=
+      (outputTokens / 1000000) * pricing.tokens.outputTokensPerMillion;
 
     // Cached tokens (if applicable)
     if (cachedTokens && pricing.tokens.contextCachingPerMillion) {
-      totalCost += (cachedTokens / 1000000) * pricing.tokens.contextCachingPerMillion;
+      totalCost +=
+        (cachedTokens / 1000000) * pricing.tokens.contextCachingPerMillion;
     }
 
     return totalCost;
@@ -320,19 +322,24 @@ export class CostCalculator {
     inputTokens: number,
     outputTokens: number,
     searchCount: number = 0,
-    cachedTokens?: number
+    cachedTokens?: number,
   ): {
     tokenCost: number;
     searchCost: number;
     totalCost: number;
   } {
-    const tokenCost = this.calculateTokenCost(modelId, inputTokens, outputTokens, cachedTokens);
+    const tokenCost = this.calculateTokenCost(
+      modelId,
+      inputTokens,
+      outputTokens,
+      cachedTokens,
+    );
     const searchCost = this.calculateWebSearchCost(modelId, searchCount);
 
     return {
       tokenCost,
       searchCost,
-      totalCost: tokenCost + searchCost
+      totalCost: tokenCost + searchCost,
     };
   }
 
@@ -344,32 +351,34 @@ export class CostCalculator {
     inputTokens: number,
     outputTokens: number,
     searchCount: number = 0,
-    modelIds?: string[]
+    modelIds?: string[],
   ): Array<{
     modelId: string;
     cost: number;
     provider: string;
     displayName: string;
   }> {
-    const modelsToCheck = modelIds 
-      ? Object.values(LLM_PRICING).filter(p => modelIds.includes(p.modelId))
+    const modelsToCheck = modelIds
+      ? Object.values(LLM_PRICING).filter((p) => modelIds.includes(p.modelId))
       : Object.values(LLM_PRICING);
 
-    return modelsToCheck.map(model => {
-      const { totalCost } = this.calculateTotalCost(
-        model.modelId,
-        inputTokens,
-        outputTokens,
-        searchCount
-      );
+    return modelsToCheck
+      .map((model) => {
+        const { totalCost } = this.calculateTotalCost(
+          model.modelId,
+          inputTokens,
+          outputTokens,
+          searchCount,
+        );
 
-      return {
-        modelId: model.modelId,
-        cost: totalCost,
-        provider: model.provider,
-        displayName: model.displayName
-      };
-    }).sort((a, b) => a.cost - b.cost);
+        return {
+          modelId: model.modelId,
+          cost: totalCost,
+          provider: model.provider,
+          displayName: model.displayName,
+        };
+      })
+      .sort((a, b) => a.cost - b.cost);
   }
 
   /**
@@ -383,7 +392,7 @@ export class CostCalculator {
    * Get all models that support web search
    */
   static getWebSearchEnabledModels(): ModelPricing[] {
-    return Object.values(LLM_PRICING).filter(p => p.webSearch?.enabled);
+    return Object.values(LLM_PRICING).filter((p) => p.webSearch?.enabled);
   }
 
   /**
@@ -392,7 +401,7 @@ export class CostCalculator {
   static estimateSentimentAnalysisCost(
     modelId: string,
     companyName: string,
-    enableWebSearch: boolean = false
+    enableWebSearch: boolean = false,
   ): {
     estimatedTokenCost: number;
     estimatedSearchCost: number;
@@ -402,7 +411,8 @@ export class CostCalculator {
     const basePromptTokens = 500; // Base system prompt
     const companyContextTokens = companyName.length * 1.5; // Company context
     const webSearchPromptTokens = enableWebSearch ? 200 : 0; // Web search instructions
-    const estimatedInputTokens = basePromptTokens + companyContextTokens + webSearchPromptTokens;
+    const estimatedInputTokens =
+      basePromptTokens + companyContextTokens + webSearchPromptTokens;
 
     // Estimate output tokens (structured sentiment response)
     const estimatedOutputTokens = 150; // Structured JSON response
@@ -411,9 +421,21 @@ export class CostCalculator {
     const estimatedSearchCount = enableWebSearch ? 8 : 0; // 8 searches for sentiment analysis
 
     return {
-      estimatedTokenCost: this.calculateTokenCost(modelId, estimatedInputTokens, estimatedOutputTokens),
-      estimatedSearchCost: this.calculateWebSearchCost(modelId, estimatedSearchCount),
-      estimatedTotalCost: this.calculateTotalCost(modelId, estimatedInputTokens, estimatedOutputTokens, estimatedSearchCount).totalCost
+      estimatedTokenCost: this.calculateTokenCost(
+        modelId,
+        estimatedInputTokens,
+        estimatedOutputTokens,
+      ),
+      estimatedSearchCost: this.calculateWebSearchCost(
+        modelId,
+        estimatedSearchCount,
+      ),
+      estimatedTotalCost: this.calculateTotalCost(
+        modelId,
+        estimatedInputTokens,
+        estimatedOutputTokens,
+        estimatedSearchCount,
+      ).totalCost,
     };
   }
 }
@@ -436,24 +458,26 @@ export class CostReporter {
     reasoning: string;
   }> {
     const webSearchModels = CostCalculator.getWebSearchEnabledModels();
-    
-    return webSearchModels.map(model => {
-      const cost = CostCalculator.estimateSentimentAnalysisCost(
-        model.modelId,
-        companyName,
-        true
-      );
 
-      return {
-        modelId: model.modelId,
-        provider: model.provider,
-        displayName: model.displayName,
-        estimatedCost: cost.estimatedTotalCost,
-        tokenCost: cost.estimatedTokenCost,
-        searchCost: cost.estimatedSearchCost,
-        reasoning: `${model.displayName}: Token cost $${cost.estimatedTokenCost.toFixed(4)} + Search cost $${cost.estimatedSearchCost.toFixed(4)} = $${cost.estimatedTotalCost.toFixed(4)}`
-      };
-    }).sort((a, b) => a.estimatedCost - b.estimatedCost);
+    return webSearchModels
+      .map((model) => {
+        const cost = CostCalculator.estimateSentimentAnalysisCost(
+          model.modelId,
+          companyName,
+          true,
+        );
+
+        return {
+          modelId: model.modelId,
+          provider: model.provider,
+          displayName: model.displayName,
+          estimatedCost: cost.estimatedTotalCost,
+          tokenCost: cost.estimatedTokenCost,
+          searchCost: cost.estimatedSearchCost,
+          reasoning: `${model.displayName}: Token cost $${cost.estimatedTokenCost.toFixed(4)} + Search cost $${cost.estimatedSearchCost.toFixed(4)} = $${cost.estimatedTotalCost.toFixed(4)}`,
+        };
+      })
+      .sort((a, b) => a.estimatedCost - b.estimatedCost);
   }
 
   /**
@@ -462,7 +486,7 @@ export class CostReporter {
   static getCostReportForConfiguredModels(
     modelIds: string[],
     companyName: string,
-    enableWebSearch: boolean = false
+    enableWebSearch: boolean = false,
   ): Array<{
     modelId: string;
     provider: string;
@@ -472,36 +496,38 @@ export class CostReporter {
     searchCost: number;
     available: boolean;
   }> {
-    return modelIds.map(modelId => {
-      const pricing = LLM_PRICING[modelId];
-      if (!pricing) {
+    return modelIds
+      .map((modelId) => {
+        const pricing = LLM_PRICING[modelId];
+        if (!pricing) {
+          return {
+            modelId,
+            provider: "unknown",
+            displayName: "Unknown Model",
+            estimatedCost: 0,
+            tokenCost: 0,
+            searchCost: 0,
+            available: false,
+          };
+        }
+
+        const cost = CostCalculator.estimateSentimentAnalysisCost(
+          modelId,
+          companyName,
+          enableWebSearch,
+        );
+
         return {
           modelId,
-          provider: 'unknown',
-          displayName: 'Unknown Model',
-          estimatedCost: 0,
-          tokenCost: 0,
-          searchCost: 0,
-          available: false
+          provider: pricing.provider,
+          displayName: pricing.displayName,
+          estimatedCost: cost.estimatedTotalCost,
+          tokenCost: cost.estimatedTokenCost,
+          searchCost: cost.estimatedSearchCost,
+          available: true,
         };
-      }
-
-      const cost = CostCalculator.estimateSentimentAnalysisCost(
-        modelId,
-        companyName,
-        enableWebSearch
-      );
-
-      return {
-        modelId,
-        provider: pricing.provider,
-        displayName: pricing.displayName,
-        estimatedCost: cost.estimatedTotalCost,
-        tokenCost: cost.estimatedTokenCost,
-        searchCost: cost.estimatedSearchCost,
-        available: true
-      };
-    }).sort((a, b) => a.estimatedCost - b.estimatedCost);
+      })
+      .sort((a, b) => a.estimatedCost - b.estimatedCost);
   }
 
   /**
@@ -510,7 +536,7 @@ export class CostReporter {
   static compareCostsAcrossProviders(
     inputTokens: number,
     outputTokens: number,
-    searchCount: number = 0
+    searchCount: number = 0,
   ): Array<{
     modelId: string;
     provider: string;
@@ -519,23 +545,25 @@ export class CostReporter {
     searchCost: number;
     totalCost: number;
   }> {
-    return Object.values(LLM_PRICING).map(model => {
-      const costs = CostCalculator.calculateTotalCost(
-        model.modelId,
-        inputTokens,
-        outputTokens,
-        searchCount
-      );
+    return Object.values(LLM_PRICING)
+      .map((model) => {
+        const costs = CostCalculator.calculateTotalCost(
+          model.modelId,
+          inputTokens,
+          outputTokens,
+          searchCount,
+        );
 
-      return {
-        modelId: model.modelId,
-        provider: model.provider,
-        displayName: model.displayName,
-        tokenCost: costs.tokenCost,
-        searchCost: costs.searchCost,
-        totalCost: costs.totalCost
-      };
-    }).sort((a, b) => a.totalCost - b.totalCost);
+        return {
+          modelId: model.modelId,
+          provider: model.provider,
+          displayName: model.displayName,
+          tokenCost: costs.tokenCost,
+          searchCost: costs.searchCost,
+          totalCost: costs.totalCost,
+        };
+      })
+      .sort((a, b) => a.totalCost - b.totalCost);
   }
 
   /**
@@ -545,7 +573,7 @@ export class CostReporter {
     modelIds: string[],
     inputTokens: number,
     outputTokens: number,
-    searchCount: number = 0
+    searchCount: number = 0,
   ): Array<{
     modelId: string;
     provider: string;
@@ -555,37 +583,39 @@ export class CostReporter {
     totalCost: number;
     available: boolean;
   }> {
-    return modelIds.map(modelId => {
-      const pricing = LLM_PRICING[modelId];
-      if (!pricing) {
+    return modelIds
+      .map((modelId) => {
+        const pricing = LLM_PRICING[modelId];
+        if (!pricing) {
+          return {
+            modelId,
+            provider: "unknown",
+            displayName: "Unknown Model",
+            tokenCost: 0,
+            searchCost: 0,
+            totalCost: 0,
+            available: false,
+          };
+        }
+
+        const costs = CostCalculator.calculateTotalCost(
+          modelId,
+          inputTokens,
+          outputTokens,
+          searchCount,
+        );
+
         return {
           modelId,
-          provider: 'unknown',
-          displayName: 'Unknown Model',
-          tokenCost: 0,
-          searchCost: 0,
-          totalCost: 0,
-          available: false
+          provider: pricing.provider,
+          displayName: pricing.displayName,
+          tokenCost: costs.tokenCost,
+          searchCost: costs.searchCost,
+          totalCost: costs.totalCost,
+          available: true,
         };
-      }
-
-      const costs = CostCalculator.calculateTotalCost(
-        modelId,
-        inputTokens,
-        outputTokens,
-        searchCount
-      );
-
-      return {
-        modelId,
-        provider: pricing.provider,
-        displayName: pricing.displayName,
-        tokenCost: costs.tokenCost,
-        searchCost: costs.searchCost,
-        totalCost: costs.totalCost,
-        available: true
-      };
-    }).sort((a, b) => a.totalCost - b.totalCost);
+      })
+      .sort((a, b) => a.totalCost - b.totalCost);
   }
 }
 

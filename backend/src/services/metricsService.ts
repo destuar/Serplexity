@@ -14,31 +14,43 @@
  * - computeAndPersistMetrics: Computes and persists all relevant metrics for a given report.
  * - getFullReportMetrics: Retrieves all pre-computed metrics for dashboard display.
  */
-import { getDbClient, getReadDbClient } from '../config/database';
-import { Prisma, ReportMetric } from '@prisma/client';
-import { calculateTopQuestions, calculateCompetitorRankings, calculateCitationRankings, saveSentimentOverTimePoint, saveShareOfVoiceHistoryPoint, calculateTopResponses } from './dashboardService';
+import { getDbClient, getReadDbClient } from "../config/database";
+import { Prisma, ReportMetric } from "@prisma/client";
+import {
+  calculateTopQuestions,
+  calculateCompetitorRankings,
+  calculateCitationRankings,
+  saveSentimentOverTimePoint,
+  saveShareOfVoiceHistoryPoint,
+  calculateTopResponses,
+} from "./dashboardService";
 
 // ===== UTILITY HELPERS FOR NEW FAN-OUT MODEL =====
 
 // Count distinct models used in a report
 async function getModelsUsedInReport(runId: string): Promise<string[]> {
   const prismaReadReplica = await getReadDbClient();
-  const models = await prismaReadReplica.fanoutResponse.findMany({
+  const models = await prismaReadReplica.response.findMany({
     where: { runId },
     select: { model: true },
-    distinct: ['model'],
+    distinct: ["model"],
   });
-  return models.map(m => m.model);
+  return models.map((m) => m.model);
 }
 
 // Count mentions for a specific entity (company or competitor)
-async function getMentions(runId: string, filters?: { aiModel?: string; companyId?: string; competitorId?: string }): Promise<any[]> {
+async function getMentions(
+  runId: string,
+  filters?: { aiModel?: string; companyId?: string; competitorId?: string },
+): Promise<any[]> {
   const prismaReadReplica = await getReadDbClient();
-  return await prismaReadReplica.fanoutMention.findMany({
+  return await prismaReadReplica.mention.findMany({
     where: {
-      fanoutResponse: {
+      response: {
         runId,
-        ...(filters?.aiModel && filters.aiModel !== 'all' ? { model: filters.aiModel } : {}),
+        ...(filters?.aiModel && filters.aiModel !== "all"
+          ? { model: filters.aiModel }
+          : {}),
       },
       ...(filters?.companyId ? { companyId: filters.companyId } : {}),
       ...(filters?.competitorId ? { competitorId: filters.competitorId } : {}),
@@ -48,15 +60,19 @@ async function getMentions(runId: string, filters?: { aiModel?: string; companyI
 }
 
 // Helper to fetch previous report metric for change calculations
-async function getPreviousReportMetric(companyId: string, currentRunId: string, aiModel: string): Promise<ReportMetric | null> {
+async function getPreviousReportMetric(
+  companyId: string,
+  currentRunId: string,
+  aiModel: string,
+): Promise<ReportMetric | null> {
   const prismaReadReplica = await getReadDbClient();
   return await prismaReadReplica.reportMetric.findFirst({
     where: {
       companyId,
       reportId: { not: currentRunId },
-          aiModel,
-        },
-    orderBy: { createdAt: 'desc' },
+      aiModel,
+    },
+    orderBy: { createdAt: "desc" },
   });
 }
 
@@ -69,7 +85,7 @@ export interface DashboardMetrics {
   averageInclusionChange: number | null;
   averagePosition: number;
   averagePositionChange: number | null;
-  sentimentScore: number | null;
+  sentimentScore: any | null;
   sentimentChange: number | null;
   topRankingsCount: number | null;
   rankingsChange: number | null;
@@ -98,16 +114,24 @@ export interface DashboardMetrics {
 async function calculateBrandShareOfVoice(
   runId: string,
   companyId: string,
-  filters?: { aiModel?: string }
+  filters?: { aiModel?: string },
 ): Promise<{ shareOfVoice: number; change: number | null }> {
   const mentions = await getMentions(runId, filters);
   const total = mentions.length;
-  const companyMentions = mentions.filter(m => m.companyId === companyId).length;
+  const companyMentions = mentions.filter(
+    (m) => m.companyId === companyId,
+  ).length;
   const shareOfVoice = total === 0 ? 0 : (companyMentions / total) * 100;
 
-  const aiModel = filters?.aiModel ?? 'all';
-  const previousMetric = await getPreviousReportMetric(companyId, runId, aiModel);
-  const change = previousMetric ? shareOfVoice - previousMetric.shareOfVoice : null;
+  const aiModel = filters?.aiModel ?? "all";
+  const previousMetric = await getPreviousReportMetric(
+    companyId,
+    runId,
+    aiModel,
+  );
+  const change = previousMetric
+    ? shareOfVoice - previousMetric.shareOfVoice
+    : null;
 
   return { shareOfVoice, change };
 }
@@ -116,13 +140,15 @@ async function calculateBrandShareOfVoice(
 async function calculateAverageInclusionRate(
   runId: string,
   companyId: string,
-  filters?: { aiModel?: string }
+  filters?: { aiModel?: string },
 ): Promise<{ rate: number; change: number | null }> {
   const prismaReadReplica = await getReadDbClient();
-  const responses = await prismaReadReplica.fanoutResponse.findMany({
+  const responses = await prismaReadReplica.response.findMany({
     where: {
       runId,
-      ...(filters?.aiModel && filters.aiModel !== 'all' ? { model: filters.aiModel } : {}),
+      ...(filters?.aiModel && filters.aiModel !== "all"
+        ? { model: filters.aiModel }
+        : {}),
     },
     include: {
       mentions: {
@@ -132,12 +158,20 @@ async function calculateAverageInclusionRate(
   });
 
   const total = responses.length;
-  const responsesWithMentions = responses.filter(r => r.mentions.length > 0).length;
+  const responsesWithMentions = responses.filter(
+    (r) => r.mentions.length > 0,
+  ).length;
   const rate = total === 0 ? 0 : (responsesWithMentions / total) * 100;
 
-  const aiModel = filters?.aiModel ?? 'all';
-  const previousMetric = await getPreviousReportMetric(companyId, runId, aiModel);
-  const change = previousMetric ? rate - previousMetric.averageInclusionRate : null;
+  const aiModel = filters?.aiModel ?? "all";
+  const previousMetric = await getPreviousReportMetric(
+    companyId,
+    runId,
+    aiModel,
+  );
+  const change = previousMetric
+    ? rate - previousMetric.averageInclusionRate
+    : null;
 
   return { rate, change };
 }
@@ -146,15 +180,24 @@ async function calculateAverageInclusionRate(
 async function calculateAveragePosition(
   runId: string,
   companyId: string,
-  filters?: { aiModel?: string }
+  filters?: { aiModel?: string },
 ): Promise<{ position: number; change: number | null }> {
   const mentions = await getMentions(runId, { ...filters, companyId });
-  const positions = mentions.map(m => m.position).filter(p => p != null);
-  const position = positions.length === 0 ? 0 : positions.reduce((a, b) => a + b, 0) / positions.length;
+  const positions = mentions.map((m) => m.position).filter((p) => p != null);
+  const position =
+    positions.length === 0
+      ? 0
+      : positions.reduce((a, b) => a + b, 0) / positions.length;
 
-  const aiModel = filters?.aiModel ?? 'all';
-  const previousMetric = await getPreviousReportMetric(companyId, runId, aiModel);
-  const change = previousMetric ? position - previousMetric.averagePosition : null;
+  const aiModel = filters?.aiModel ?? "all";
+  const previousMetric = await getPreviousReportMetric(
+    companyId,
+    runId,
+    aiModel,
+  );
+  const change = previousMetric
+    ? position - previousMetric.averagePosition
+    : null;
 
   return { position, change };
 }
@@ -163,20 +206,31 @@ async function calculateAveragePosition(
 async function calculateTopRankings(
   runId: string,
   companyId: string,
-  filters?: { aiModel?: string }
+  filters?: { aiModel?: string },
 ): Promise<{ count: number; change: number | null }> {
   const mentions = await getMentions(runId, { ...filters, companyId });
-  const count = mentions.filter(m => m.position === 1).length;
+  const count = mentions.filter((m) => m.position === 1).length;
 
-  const aiModel = filters?.aiModel ?? 'all';
-  const previousMetric = await getPreviousReportMetric(companyId, runId, aiModel);
-  const change = previousMetric ? count - (previousMetric.topRankingsCount ?? 0) : null;
+  const aiModel = filters?.aiModel ?? "all";
+  const previousMetric = await getPreviousReportMetric(
+    companyId,
+    runId,
+    aiModel,
+  );
+  const change = previousMetric
+    ? count - (previousMetric.topRankingsCount ?? 0)
+    : null;
 
   return { count, change };
 }
 
 function getAverage(sentimentRating: any): number | null {
-  if (!sentimentRating || !sentimentRating.ratings || !Array.isArray(sentimentRating.ratings) || sentimentRating.ratings.length === 0) {
+  if (
+    !sentimentRating ||
+    !sentimentRating.ratings ||
+    !Array.isArray(sentimentRating.ratings) ||
+    sentimentRating.ratings.length === 0
+  ) {
     return null;
   }
 
@@ -188,39 +242,52 @@ function getAverage(sentimentRating: any): number | null {
     rating.priceValue,
     rating.brandReputation,
     rating.brandTrust,
-    rating.customerService
-  ].filter(v => typeof v === 'number' && !isNaN(v));
+    rating.customerService,
+  ].filter((v) => typeof v === "number" && !isNaN(v));
 
-  return values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : null;
+  return values.length > 0
+    ? values.reduce((a, b) => a + b, 0) / values.length
+    : null;
 }
 
-export async function computeAndPersistMetrics(reportId: string, companyId: string): Promise<void> {
-    const prisma = await getDbClient();
-    const prismaReadReplica = await getReadDbClient();
-  
+export async function computeAndPersistMetrics(
+  reportId: string,
+  companyId: string,
+): Promise<void> {
+  const prisma = await getDbClient();
+  const prismaReadReplica = await getReadDbClient();
+
   try {
-    console.log(`[METRICS] Starting computation for report ${reportId}, company ${companyId}`);
+    console.log(
+      `[METRICS] Starting computation for report ${reportId}, company ${companyId}`,
+    );
 
     // ====== Get all models used in this report ======
     const models = await getModelsUsedInReport(reportId);
-    console.log(`[METRICS] Found models: ${models.join(', ')}`);
+    console.log(`[METRICS] Found models: ${models.join(", ")}`);
 
     // ====== Fetch previous metrics for change calculations ======
-    const previousOverallMetric = await getPreviousReportMetric(companyId, reportId, 'all');
-    
-    console.log(`[METRICS] Previous overall metric: ${previousOverallMetric ? 'found' : 'not found'}`);
+    const previousOverallMetric = await getPreviousReportMetric(
+      companyId,
+      reportId,
+      "all",
+    );
+
+    console.log(
+      `[METRICS] Previous overall metric: ${previousOverallMetric ? "found" : "not found"}`,
+    );
 
     // ====== Retrieve sentiment scores for overall sentiment calculation ======
     const rawSentiments = await prismaReadReplica.sentimentScore.findMany({
-      where: { 
+      where: {
         runId: reportId,
-        name: 'Detailed Sentiment Scores'
+        name: "Detailed Sentiment Scores",
       },
       select: {
         engine: true,
         value: true,
-        name: true
-      }
+        name: true,
+      },
     });
 
     console.log(`[METRICS] Found ${rawSentiments.length} sentiment scores`);
@@ -235,71 +302,104 @@ export async function computeAndPersistMetrics(reportId: string, companyId: stri
       { position: allAvgPos, change: allAvgPosChange },
       { count: allTopRankings, change: allRankingsChange },
     ] = await Promise.all([
-      calculateBrandShareOfVoice(reportId, companyId, { aiModel: 'all' }),
-      calculateAverageInclusionRate(reportId, companyId, { aiModel: 'all' }),
-      calculateAveragePosition(reportId, companyId, { aiModel: 'all' }),
-      calculateTopRankings(reportId, companyId, { aiModel: 'all' }),
+      calculateBrandShareOfVoice(reportId, companyId, { aiModel: "all" }),
+      calculateAverageInclusionRate(reportId, companyId, { aiModel: "all" }),
+      calculateAveragePosition(reportId, companyId, { aiModel: "all" }),
+      calculateTopRankings(reportId, companyId, { aiModel: "all" }),
     ]);
-    
+
     // ====== Compute and Enrich Competitor Rankings ======
-    console.log('[METRICS] Computing and enriching competitor rankings...');
-    const competitorRankings = await calculateCompetitorRankings(reportId, companyId, { aiModel: 'all' });
-    
+    console.log("[METRICS] Computing and enriching competitor rankings...");
+    const competitorRankings = await calculateCompetitorRankings(
+      reportId,
+      companyId,
+      { aiModel: "all" },
+    );
+
     // Enrich with change metric
-    if (previousOverallMetric?.competitorRankings && (previousOverallMetric.competitorRankings as any).chartCompetitors) {
-      const previousCompetitors = (previousOverallMetric.competitorRankings as any).chartCompetitors;
-      
+    if (
+      previousOverallMetric?.competitorRankings &&
+      (previousOverallMetric.competitorRankings as any).chartCompetitors
+    ) {
+      const previousCompetitors = (
+        previousOverallMetric.competitorRankings as any
+      ).chartCompetitors;
+
       for (const competitor of competitorRankings.chartCompetitors) {
-        const prevCompData = previousCompetitors.find((pc: any) => pc.id === competitor.id);
+        const prevCompData = previousCompetitors.find(
+          (pc: any) => pc.id === competitor.id,
+        );
         if (prevCompData) {
-          competitor.change = competitor.shareOfVoice - prevCompData.shareOfVoice;
-          competitor.changeType = competitor.change > 0 ? 'increase' : (competitor.change < 0 ? 'decrease' : 'stable');
+          competitor.change =
+            competitor.shareOfVoice - prevCompData.shareOfVoice;
+          competitor.changeType =
+            competitor.change > 0
+              ? "increase"
+              : competitor.change < 0
+                ? "decrease"
+                : "stable";
         } else {
           competitor.change = 0; // Or null if you prefer to show no change for new competitors
-          competitor.changeType = 'stable';
+          competitor.changeType = "stable";
         }
       }
     }
 
     // ====== Compute Citation Rankings ======
-    console.log('[METRICS] Computing citation rankings...');
-    const citationRankings = await calculateCitationRankings(reportId, companyId, { aiModel: 'all' });
-    
+    console.log("[METRICS] Computing citation rankings...");
+    const citationRankings = await calculateCitationRankings(
+      reportId,
+      companyId,
+      { aiModel: "all" },
+    );
+
     // Add citation rankings to competitor rankings object for storage
     const enhancedCompetitorRankings = {
       ...competitorRankings,
-      citationRankings
+      citationRankings,
     };
 
     // ====== Compute Top Questions for "all" models ======
-    const topQuestions = await calculateTopQuestions(reportId, companyId, { aiModel: 'all' });
+    const topQuestions = await calculateTopQuestions(reportId, companyId, {
+      aiModel: "all",
+    });
 
     // Compute overall sentimentScore using the summary engine if available, otherwise first entry
-    let overallSentimentScore: number | null = null;
+    let overallSentimentScore: any | null = null;
     let overallSentimentChange: number | null = null;
 
     // Look for summary engine first
-    const summaryEngineData = rawSentiments.find(s => s.engine === 'summary');
+    const summaryEngineData = rawSentiments.find(
+      (s) => s.engine === "serplexity-summary",
+    );
     if (summaryEngineData) {
-      overallSentimentScore = getAverage(summaryEngineData.value);
+      overallSentimentScore = summaryEngineData.value as any;
     } else if (rawSentiments.length > 0) {
       // Fallback to first available engine
-      overallSentimentScore = getAverage(rawSentiments[0].value);
+      overallSentimentScore = rawSentiments[0].value as any;
     }
 
-    if (overallSentimentScore !== null && previousOverallMetric?.sentimentScore) {
-      overallSentimentChange = overallSentimentScore - previousOverallMetric.sentimentScore;
+    // Calculate sentiment change based on average values for comparison
+    if (
+      overallSentimentScore !== null &&
+      previousOverallMetric?.sentimentScore
+    ) {
+      const currentAvg = getAverage(overallSentimentScore);
+      const previousAvg = getAverage(previousOverallMetric.sentimentScore);
+      if (currentAvg !== null && previousAvg !== null) {
+        overallSentimentChange = currentAvg - previousAvg;
+      }
     }
 
     // Transform sentiment details for storage
-    const sentimentDetails = rawSentiments.map(s => ({
+    const sentimentDetails = rawSentiments.map((s) => ({
       name: s.name,
-      engine: s.engine || '',
+      engine: s.engine || "",
       value: s.value,
     }));
 
     await prisma.reportMetric.upsert({
-      where: { reportId_aiModel: { reportId, aiModel: 'all' } },
+      where: { reportId_aiModel: { reportId, aiModel: "all" } },
       update: {
         shareOfVoice: allSoV,
         shareOfVoiceChange: allSoVChange,
@@ -318,7 +418,7 @@ export async function computeAndPersistMetrics(reportId: string, companyId: stri
       create: {
         reportId,
         companyId,
-        aiModel: 'all',
+        aiModel: "all",
         shareOfVoice: allSoV,
         shareOfVoiceChange: allSoVChange,
         averageInclusionRate: allInclusionRate,
@@ -335,13 +435,28 @@ export async function computeAndPersistMetrics(reportId: string, companyId: stri
       },
     });
 
-    // Save sentiment over time point for overall if we have a score
+    // Save sentiment over time point for overall if we have a score (use average for historical tracking)
     if (overallSentimentScore !== null) {
-      await saveSentimentOverTimePoint(companyId, new Date(), 'all', overallSentimentScore, reportId);
+      const avgSentiment = getAverage(overallSentimentScore);
+      if (avgSentiment !== null) {
+        await saveSentimentOverTimePoint(
+          companyId,
+          new Date(),
+          "all",
+          avgSentiment,
+          reportId,
+        );
+      }
     }
 
     // Save share of voice history point for overall
-    await saveShareOfVoiceHistoryPoint(companyId, new Date(), 'all', allSoV, reportId);
+    await saveShareOfVoiceHistoryPoint(
+      companyId,
+      new Date(),
+      "all",
+      allSoV,
+      reportId,
+    );
 
     /******************************
      * Per-model metrics
@@ -361,45 +476,86 @@ export async function computeAndPersistMetrics(reportId: string, companyId: stri
         calculateTopRankings(reportId, companyId, { aiModel: model }),
       ]);
 
-      const modelSentiment = getAverage(rawSentiments.find(s => s.engine === model)?.value);
-      const previousModelMetric = await getPreviousReportMetric(companyId, reportId, model);
-      const modelSentimentChange = previousModelMetric?.sentimentScore && modelSentiment !== null ? modelSentiment - previousModelMetric.sentimentScore : null;
+      const modelSentimentData = rawSentiments.find(
+        (s) => s.engine === model,
+      )?.value;
+      const modelSentiment = modelSentimentData || null;
+      const previousModelMetric = await getPreviousReportMetric(
+        companyId,
+        reportId,
+        model,
+      );
+
+      // Calculate sentiment change based on average values for comparison
+      let modelSentimentChange: number | null = null;
+      if (modelSentiment && previousModelMetric?.sentimentScore) {
+        const currentAvg = getAverage(modelSentiment);
+        const previousAvg = getAverage(previousModelMetric.sentimentScore);
+        if (currentAvg !== null && previousAvg !== null) {
+          modelSentimentChange = currentAvg - previousAvg;
+        }
+      }
 
       // Build model-specific sentiment details
       const modelSentimentDetails = rawSentiments
-        .filter(s => s.engine === model)
-        .map(s => ({
+        .filter((s) => s.engine === model)
+        .map((s) => ({
           name: s.name,
-          engine: s.engine || '',
+          engine: s.engine || "",
           value: s.value,
         }));
 
       // Also compute and enrich competitor rankings for the specific model
-      const compRankModel = await calculateCompetitorRankings(reportId, companyId, { aiModel: model });
-      if (previousModelMetric?.competitorRankings && (previousModelMetric.competitorRankings as any).chartCompetitors) {
-          const previousCompetitors = (previousModelMetric.competitorRankings as any).chartCompetitors;
-          for (const competitor of compRankModel.chartCompetitors) {
-              const prevCompData = previousCompetitors.find((pc: any) => pc.id === competitor.id);
-              if (prevCompData) {
-                  competitor.change = competitor.shareOfVoice - prevCompData.shareOfVoice;
-                  competitor.changeType = competitor.change > 0 ? 'increase' : (competitor.change < 0 ? 'decrease' : 'stable');
-              } else {
-                  competitor.change = 0;
-                  competitor.changeType = 'stable';
-              }
+      const compRankModel = await calculateCompetitorRankings(
+        reportId,
+        companyId,
+        { aiModel: model },
+      );
+      if (
+        previousModelMetric?.competitorRankings &&
+        (previousModelMetric.competitorRankings as any).chartCompetitors
+      ) {
+        const previousCompetitors = (
+          previousModelMetric.competitorRankings as any
+        ).chartCompetitors;
+        for (const competitor of compRankModel.chartCompetitors) {
+          const prevCompData = previousCompetitors.find(
+            (pc: any) => pc.id === competitor.id,
+          );
+          if (prevCompData) {
+            competitor.change =
+              competitor.shareOfVoice - prevCompData.shareOfVoice;
+            competitor.changeType =
+              competitor.change > 0
+                ? "increase"
+                : competitor.change < 0
+                  ? "decrease"
+                  : "stable";
+          } else {
+            competitor.change = 0;
+            competitor.changeType = "stable";
           }
+        }
       }
 
       // Compute citation rankings for the specific model
-      const citationRankingsModel = await calculateCitationRankings(reportId, companyId, { aiModel: model });
-      
+      const citationRankingsModel = await calculateCitationRankings(
+        reportId,
+        companyId,
+        { aiModel: model },
+      );
+
       // Add citation rankings to competitor rankings object for storage
       const enhancedCompRankModel = {
         ...compRankModel,
-        citationRankings: citationRankingsModel
+        citationRankings: citationRankingsModel,
       };
-      
-      const topQuestionsModel = await calculateTopQuestions(reportId, companyId, { aiModel: model });
+
+      const topQuestionsModel = await calculateTopQuestions(
+        reportId,
+        companyId,
+        { aiModel: model },
+      );
 
       await prisma.reportMetric.upsert({
         where: { reportId_aiModel: { reportId, aiModel: model } },
@@ -412,7 +568,7 @@ export async function computeAndPersistMetrics(reportId: string, companyId: stri
           averagePositionChange: avgPosChange,
           topRankingsCount: count,
           rankingsChange,
-          sentimentScore: modelSentiment,
+          sentimentScore: modelSentiment ?? undefined,
           sentimentChange: modelSentimentChange,
           competitorRankings: enhancedCompRankModel,
           topQuestions: topQuestionsModel.questions,
@@ -430,7 +586,7 @@ export async function computeAndPersistMetrics(reportId: string, companyId: stri
           averagePositionChange: avgPosChange,
           topRankingsCount: count,
           rankingsChange,
-          sentimentScore: modelSentiment,
+          sentimentScore: modelSentiment ?? undefined,
           sentimentChange: modelSentimentChange,
           competitorRankings: enhancedCompRankModel,
           topQuestions: topQuestionsModel.questions,
@@ -439,14 +595,32 @@ export async function computeAndPersistMetrics(reportId: string, companyId: stri
       });
 
       if (modelSentiment !== null) {
-        await saveSentimentOverTimePoint(companyId, new Date(), model, modelSentiment, reportId);
+        const avgModelSentiment = getAverage(modelSentiment);
+        if (avgModelSentiment !== null) {
+          await saveSentimentOverTimePoint(
+            companyId,
+            new Date(),
+            model,
+            avgModelSentiment,
+            reportId,
+          );
+        }
       }
 
       // Save share of voice history point for this model
-      await saveShareOfVoiceHistoryPoint(companyId, new Date(), model, shareOfVoice, reportId);
+      await saveShareOfVoiceHistoryPoint(
+        companyId,
+        new Date(),
+        model,
+        shareOfVoice,
+        reportId,
+      );
     }
   } catch (error) {
-    console.error(`[METRICS] Failed to compute and persist metrics for report ${reportId}:`, error);
+    console.error(
+      `[METRICS] Failed to compute and persist metrics for report ${reportId}:`,
+      error,
+    );
     // Optionally re-throw or handle as needed, for now just logging
     // Re-throwing would cause the worker to see the error immediately
     throw error;
@@ -457,7 +631,10 @@ export async function computeAndPersistMetrics(reportId: string, companyId: stri
  * Retrieves all pre-computed metrics for a report run for display on dashboard.
  * Returns null if no metrics found.
  */
-export async function getFullReportMetrics(reportId: string, aiModel: string = 'all'): Promise<DashboardMetrics | null> {
+export async function getFullReportMetrics(
+  reportId: string,
+  aiModel: string = "all",
+): Promise<DashboardMetrics | null> {
   const prismaReadReplica = await getReadDbClient();
   const metric = await prismaReadReplica.reportMetric.findFirst({
     where: { reportId, aiModel },
@@ -465,9 +642,11 @@ export async function getFullReportMetrics(reportId: string, aiModel: string = '
 
   if (!metric) return null;
 
-  const citationRankings = metric.competitorRankings && (metric.competitorRankings as any).citationRankings 
-    ? (metric.competitorRankings as any).citationRankings 
-    : null;
+  const citationRankings =
+    metric.competitorRankings &&
+    (metric.competitorRankings as any).citationRankings
+      ? (metric.competitorRankings as any).citationRankings
+      : null;
 
   return {
     shareOfVoice: metric.shareOfVoice,
@@ -487,4 +666,4 @@ export async function getFullReportMetrics(reportId: string, aiModel: string = '
     shareOfVoiceHistory: null, // Historical data fetched separately
     sentimentDetails: metric.sentimentDetails as any,
   };
-} 
+}

@@ -15,9 +15,9 @@
  * - getRawEvents: Function to retrieve raw events from Redis.
  * - getRawPageViews: Function to retrieve raw page views from Redis.
  */
-import { redis } from '../config/redis';
-import logger from '../utils/logger';
-import { z } from 'zod';
+import { redis } from "../config/redis";
+import logger from "../utils/logger";
+import { z } from "zod";
 
 export interface UserEvent {
   userId?: string;
@@ -46,19 +46,18 @@ export class AnalyticsService {
     try {
       const key = `analytics:events:${this.getDateKey()}`;
       const eventData = JSON.stringify(event);
-      
+
       await redis.lpush(key, eventData);
       await redis.expire(key, this.TTL);
-      
+
       // Also track by user if available
       if (event.userId) {
         const userKey = `analytics:user:${event.userId}:events`;
         await redis.lpush(userKey, eventData);
         await redis.expire(userKey, this.TTL);
       }
-      
     } catch (error) {
-      logger.error('Error tracking event:', error);
+      logger.error("Error tracking event:", error);
     }
   }
 
@@ -67,7 +66,7 @@ export class AnalyticsService {
     try {
       const key = `analytics:pageviews:${this.getDateKey()}`;
       const pageViewData = JSON.stringify(pageView);
-      
+
       await redis.lpush(key, pageViewData);
       await redis.expire(key, this.TTL);
 
@@ -82,13 +81,12 @@ export class AnalyticsService {
         await redis.hset(sessionKey, {
           userId: pageView.userId,
           lastSeen: pageView.timestamp,
-          currentPage: pageView.page
+          currentPage: pageView.page,
         });
         await redis.expire(sessionKey, 24 * 60 * 60); // 24 hours
       }
-
     } catch (error) {
-      logger.error('Error tracking page view:', error);
+      logger.error("Error tracking page view:", error);
     }
   }
 
@@ -96,11 +94,11 @@ export class AnalyticsService {
   async getDailyAnalytics(date?: string): Promise<any> {
     try {
       const dateKey = date || this.getDateKey();
-      
+
       const [events, pageViews, uniquePages] = await Promise.all([
         this.getEventsByDate(dateKey),
         this.getPageViewsByDate(dateKey),
-        this.getUniquePagesByDate(dateKey)
+        this.getUniquePagesByDate(dateKey),
       ]);
 
       return {
@@ -109,11 +107,10 @@ export class AnalyticsService {
         totalPageViews: pageViews.length,
         uniquePages: Object.keys(uniquePages).length,
         popularPages: this.getTopPages(uniquePages),
-        eventBreakdown: this.getEventBreakdown(events)
+        eventBreakdown: this.getEventBreakdown(events),
       };
-
     } catch (error) {
-      logger.error('Error getting daily analytics:', error);
+      logger.error("Error getting daily analytics:", error);
       return null;
     }
   }
@@ -123,23 +120,27 @@ export class AnalyticsService {
     try {
       const journey = [];
       const userKey = `analytics:user:${userId}:events`;
-      
+
       const events = await redis.lrange(userKey, 0, -1);
       if (!events || events.length === 0) {
         return [];
       }
-  
-      const parsedEvents = events.map((event: string) => JSON.parse(event))
+
+      const parsedEvents = events
+        .map((event: string) => JSON.parse(event))
         .filter((event: UserEvent): event is UserEvent => {
           // Basic validation, can be enhanced with Zod
-          return event && typeof event.timestamp === 'number' && typeof event.event === 'string';
+          return (
+            event &&
+            typeof event.timestamp === "number" &&
+            typeof event.event === "string"
+          );
         })
         .sort((a: UserEvent, b: UserEvent) => a.timestamp - b.timestamp);
-  
-      return parsedEvents;
 
+      return parsedEvents;
     } catch (error) {
-      logger.error('Error getting user journey:', error);
+      logger.error("Error getting user journey:", error);
       return [];
     }
   }
@@ -147,7 +148,7 @@ export class AnalyticsService {
   // Helper methods
   private getDateKey(timestamp?: number): string {
     const date = timestamp ? new Date(timestamp) : new Date();
-    return date.toISOString().split('T')[0]; // YYYY-MM-DD
+    return date.toISOString().split("T")[0]; // YYYY-MM-DD
   }
 
   private async getEventsByDate(dateKey: string): Promise<any[]> {
@@ -162,20 +163,24 @@ export class AnalyticsService {
     return pageViews.map((pv: string) => JSON.parse(pv));
   }
 
-  private async getUniquePagesByDate(dateKey: string): Promise<Record<string, number>> {
+  private async getUniquePagesByDate(
+    dateKey: string,
+  ): Promise<Record<string, number>> {
     const keys = await redis.keys(`analytics:pages:*:${dateKey}`);
     const pages: Record<string, number> = {};
-    
+
     for (const key of keys) {
-      const pageName = key.split(':')[2];
+      const pageName = key.split(":")[2];
       const count = await redis.get(key);
-      pages[pageName] = parseInt(count || '0', 10);
+      pages[pageName] = parseInt(count || "0", 10);
     }
-    
+
     return pages;
   }
 
-  private getTopPages(pages: Record<string, number>): Array<{page: string, views: number}> {
+  private getTopPages(
+    pages: Record<string, number>,
+  ): Array<{ page: string; views: number }> {
     return Object.entries(pages)
       .map(([page, views]) => ({ page, views }))
       .sort((a, b) => b.views - a.views)
@@ -184,7 +189,7 @@ export class AnalyticsService {
 
   private getEventBreakdown(events: UserEvent[]): Record<string, number> {
     const breakdown: Record<string, number> = {};
-    events.forEach(event => {
+    events.forEach((event) => {
       breakdown[event.event] = (breakdown[event.event] || 0) + 1;
     });
     return breakdown;
@@ -196,23 +201,23 @@ export default new AnalyticsService();
 // Serplexity-specific event tracking constants
 export const ANALYTICS_EVENTS = {
   // Auth events
-  USER_LOGIN: 'user_login',
-  USER_LOGOUT: 'user_logout',
-  USER_REGISTER: 'user_register',
-  
+  USER_LOGIN: "user_login",
+  USER_LOGOUT: "user_logout",
+  USER_REGISTER: "user_register",
+
   // Business events
-  REPORT_GENERATED: 'report_generated',
-  REPORT_VIEWED: 'report_viewed',
-  DASHBOARD_VIEWED: 'dashboard_viewed',
-  
+  REPORT_GENERATED: "report_generated",
+  REPORT_VIEWED: "report_viewed",
+  DASHBOARD_VIEWED: "dashboard_viewed",
+
   // Feature usage
-  COMPETITOR_ADDED: 'competitor_added',
-  OPTIMIZATION_VIEWED: 'optimization_viewed',
-  SETTINGS_UPDATED: 'settings_updated',
-  
+  COMPETITOR_ADDED: "competitor_added",
+  OPTIMIZATION_VIEWED: "optimization_viewed",
+  SETTINGS_UPDATED: "settings_updated",
+
   // Subscription events
-  SUBSCRIPTION_STARTED: 'subscription_started',
-  PAYMENT_COMPLETED: 'payment_completed',
+  SUBSCRIPTION_STARTED: "subscription_started",
+  PAYMENT_COMPLETED: "payment_completed",
 } as const;
 
 export async function getRawEvents(companyId: string): Promise<any[]> {
@@ -222,7 +227,7 @@ export async function getRawEvents(companyId: string): Promise<any[]> {
     if (!events) return [];
     return events.map((event: string) => JSON.parse(event));
   } catch (error) {
-    logger.error('Error fetching raw events from Redis:', error);
+    logger.error("Error fetching raw events from Redis:", error);
     return [];
   }
 }
@@ -234,7 +239,7 @@ export async function getRawPageViews(companyId: string): Promise<any[]> {
     if (!pageViews) return [];
     return pageViews.map((pv: string) => JSON.parse(pv));
   } catch (error) {
-    logger.error('Error fetching raw page views from Redis:', error);
+    logger.error("Error fetching raw page views from Redis:", error);
     return [];
   }
 }

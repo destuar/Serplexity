@@ -18,31 +18,35 @@
  * - updateBlogPost: Controller for updating an existing blog post.
  * - deleteBlogPost: Controller for deleting a blog post.
  */
-import { Request, Response } from 'express';
-import { Role } from '@prisma/client';
-import { getDbClient } from '../config/database';
-import { z } from 'zod';
+import { Request, Response } from "express";
+import { Role } from "@prisma/client";
+import { getDbClient } from "../config/database";
+import { z } from "zod";
 
 const createBlogPostSchema = z.object({
   title: z.string().min(1).max(200),
   content: z.string().min(1),
   excerpt: z.string().optional(),
-  coverImage: z.string()
-    .refine((val) => {
-      // Allow uploaded images (relative paths starting with /api/blog/uploads/)
-      if (val.startsWith('/api/blog/uploads/')) {
-        return true;
-      }
-      // For external images, validate as URL
-      try {
-        new URL(val);
-        return true;
-      } catch {
-        return false;
-      }
-    }, {
-      message: "Must be a valid URL or uploaded image path"
-    })
+  coverImage: z
+    .string()
+    .refine(
+      (val) => {
+        // Allow uploaded images (relative paths starting with /api/blog/uploads/)
+        if (val.startsWith("/api/blog/uploads/")) {
+          return true;
+        }
+        // For external images, validate as URL
+        try {
+          new URL(val);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      {
+        message: "Must be a valid URL or uploaded image path",
+      },
+    )
     .optional(),
   metaTitle: z.string().max(60).optional(),
   metaDescription: z.string().max(160).optional(),
@@ -55,27 +59,30 @@ const updateBlogPostSchema = createBlogPostSchema.partial();
 const generateSlug = (title: string): string => {
   return title
     .toLowerCase()
-    .replace(/[^a-z0-9 -]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
+    .replace(/[^a-z0-9 -]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
     .trim();
 };
 
-const ensureUniqueSlug = async (baseSlug: string, excludeId?: string): Promise<string> => {
+const ensureUniqueSlug = async (
+  baseSlug: string,
+  excludeId?: string,
+): Promise<string> => {
   const prisma = await getDbClient();
   let slug = baseSlug;
   let counter = 1;
-  
+
   while (true) {
     const existing = await prisma.blogPost.findUnique({
       where: { slug },
-      select: { id: true }
+      select: { id: true },
     });
-    
+
     if (!existing || (excludeId && existing.id === excludeId)) {
       return slug;
     }
-    
+
     slug = `${baseSlug}-${counter}`;
     counter++;
   }
@@ -84,8 +91,8 @@ const ensureUniqueSlug = async (baseSlug: string, excludeId?: string): Promise<s
 // Calculate reading time based on content
 const calculateReadingTime = (content: string): number => {
   // Strip HTML tags and count words
-  const text = content.replace(/<[^>]*>/g, '');
-  const wordCount = text.split(/\s+/).filter(word => word.length > 0).length;
+  const text = content.replace(/<[^>]*>/g, "");
+  const wordCount = text.split(/\s+/).filter((word) => word.length > 0).length;
   // Average reading speed is 200 words per minute
   return Math.ceil(wordCount / 200);
 };
@@ -95,33 +102,36 @@ export const getAllBlogPosts = async (req: Request, res: Response) => {
   try {
     const { published } = req.query;
     const isAdmin = req.user?.role === Role.ADMIN;
-    
-    const where = published !== undefined 
-      ? { published: published === 'true' }
-      : isAdmin ? {} : { published: true };
+
+    const where =
+      published !== undefined
+        ? { published: published === "true" }
+        : isAdmin
+          ? {}
+          : { published: true };
 
     const posts = await prisma.blogPost.findMany({
       where,
       include: {
         author: {
-          select: { id: true, name: true, email: true }
+          select: { id: true, name: true, email: true },
         },
         media: true,
         _count: {
-          select: { media: true }
-        }
+          select: { media: true },
+        },
       },
       orderBy: [
-        { published: 'desc' },
-        { publishedAt: 'desc' },
-        { createdAt: 'desc' }
-      ]
+        { published: "desc" },
+        { publishedAt: "desc" },
+        { createdAt: "desc" },
+      ],
     });
 
     res.json(posts);
   } catch (error) {
-    console.error('Error fetching blog posts:', error);
-    res.status(500).json({ error: 'Failed to fetch blog posts' });
+    console.error("Error fetching blog posts:", error);
+    res.status(500).json({ error: "Failed to fetch blog posts" });
   }
 };
 
@@ -135,24 +145,24 @@ export const getBlogPostBySlug = async (req: Request, res: Response) => {
       where: { slug },
       include: {
         author: {
-          select: { id: true, name: true, email: true }
+          select: { id: true, name: true, email: true },
         },
-        media: true
-      }
+        media: true,
+      },
     });
 
     if (!post) {
-      return res.status(404).json({ error: 'Blog post not found' });
+      return res.status(404).json({ error: "Blog post not found" });
     }
 
     if (!post.published && !isAdmin) {
-      return res.status(404).json({ error: 'Blog post not found' });
+      return res.status(404).json({ error: "Blog post not found" });
     }
 
     res.json(post);
   } catch (error) {
-    console.error('Error fetching blog post:', error);
-    res.status(500).json({ error: 'Failed to fetch blog post' });
+    console.error("Error fetching blog post:", error);
+    res.status(500).json({ error: "Failed to fetch blog post" });
   }
 };
 
@@ -163,27 +173,27 @@ export const getBlogPostById = async (req: Request, res: Response) => {
     const isAdmin = req.user?.role === Role.ADMIN;
 
     if (!isAdmin) {
-      return res.status(403).json({ error: 'Access denied' });
+      return res.status(403).json({ error: "Access denied" });
     }
 
     const post = await prisma.blogPost.findUnique({
       where: { id },
       include: {
         author: {
-          select: { id: true, name: true, email: true }
+          select: { id: true, name: true, email: true },
         },
-        media: true
-      }
+        media: true,
+      },
     });
 
     if (!post) {
-      return res.status(404).json({ error: 'Blog post not found' });
+      return res.status(404).json({ error: "Blog post not found" });
     }
 
     res.json(post);
   } catch (error) {
-    console.error('Error fetching blog post by ID:', error);
-    res.status(500).json({ error: 'Failed to fetch blog post' });
+    console.error("Error fetching blog post by ID:", error);
+    res.status(500).json({ error: "Failed to fetch blog post" });
   }
 };
 
@@ -203,23 +213,25 @@ export const createBlogPost = async (req: Request, res: Response) => {
         slug,
         authorId: userId,
         estimatedReadTime,
-        publishedAt: validatedData.published ? new Date() : null
+        publishedAt: validatedData.published ? new Date() : null,
       },
       include: {
         author: {
-          select: { id: true, name: true, email: true }
+          select: { id: true, name: true, email: true },
         },
-        media: true
-      }
+        media: true,
+      },
     });
 
     res.status(201).json(post);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation failed', details: error.errors });
+      return res
+        .status(400)
+        .json({ error: "Validation failed", details: error.errors });
     }
-    console.error('Error creating blog post:', error);
-    res.status(500).json({ error: 'Failed to create blog post' });
+    console.error("Error creating blog post:", error);
+    res.status(500).json({ error: "Failed to create blog post" });
   }
 };
 
@@ -231,11 +243,11 @@ export const updateBlogPost = async (req: Request, res: Response) => {
 
     const existingPost = await prisma.blogPost.findUnique({
       where: { id },
-      select: { id: true, slug: true, published: true, title: true }
+      select: { id: true, slug: true, published: true, title: true },
     });
 
     if (!existingPost) {
-      return res.status(404).json({ error: 'Blog post not found' });
+      return res.status(404).json({ error: "Blog post not found" });
     }
 
     let slug = existingPost.slug;
@@ -246,9 +258,11 @@ export const updateBlogPost = async (req: Request, res: Response) => {
 
     const wasUnpublished = !existingPost.published;
     const willBePublished = validatedData.published === true;
-    
+
     // Recalculate reading time if content changed
-    const estimatedReadTime = validatedData.content ? calculateReadingTime(validatedData.content) : undefined;
+    const estimatedReadTime = validatedData.content
+      ? calculateReadingTime(validatedData.content)
+      : undefined;
 
     const post = await prisma.blogPost.update({
       where: { id },
@@ -256,23 +270,25 @@ export const updateBlogPost = async (req: Request, res: Response) => {
         ...validatedData,
         slug,
         estimatedReadTime,
-        publishedAt: wasUnpublished && willBePublished ? new Date() : undefined
+        publishedAt: wasUnpublished && willBePublished ? new Date() : undefined,
       },
       include: {
         author: {
-          select: { id: true, name: true, email: true }
+          select: { id: true, name: true, email: true },
         },
-        media: true
-      }
+        media: true,
+      },
     });
 
     res.json(post);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation failed', details: error.errors });
+      return res
+        .status(400)
+        .json({ error: "Validation failed", details: error.errors });
     }
-    console.error('Error updating blog post:', error);
-    res.status(500).json({ error: 'Failed to update blog post' });
+    console.error("Error updating blog post:", error);
+    res.status(500).json({ error: "Failed to update blog post" });
   }
 };
 
@@ -283,20 +299,20 @@ export const deleteBlogPost = async (req: Request, res: Response) => {
 
     const existingPost = await prisma.blogPost.findUnique({
       where: { id },
-      select: { id: true }
+      select: { id: true },
     });
 
     if (!existingPost) {
-      return res.status(404).json({ error: 'Blog post not found' });
+      return res.status(404).json({ error: "Blog post not found" });
     }
 
     await prisma.blogPost.delete({
-      where: { id }
+      where: { id },
     });
 
     res.status(204).send();
   } catch (error) {
-    console.error('Error deleting blog post:', error);
-    res.status(500).json({ error: 'Failed to delete blog post' });
+    console.error("Error deleting blog post:", error);
+    res.status(500).json({ error: "Failed to delete blog post" });
   }
 };

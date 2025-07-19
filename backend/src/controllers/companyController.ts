@@ -28,14 +28,13 @@
  * - updateCompany: Controller for updating a company.
  * - deleteCompany: Controller for deleting a company.
  */
-import { Request, Response } from 'express';
-import { z } from 'zod';
-import { getDbClient, getReadDbClient } from '../config/database';
-import { getFullReportMetrics } from '../services/metricsService';
-import { calculateTopQuestions } from '../services/dashboardService';
+import { Request, Response } from "express";
+import { z } from "zod";
+import { getDbClient, getReadDbClient } from "../config/database";
+import { getFullReportMetrics } from "../services/metricsService";
+import { calculateTopQuestions } from "../services/dashboardService";
 
-import env from '../config/env';
-
+import env from "../config/env";
 
 // Type for sentiment score values
 interface SentimentScoreValue {
@@ -49,27 +48,20 @@ interface SentimentScoreValue {
   }>;
 }
 
-
-
-
 // Validation schemas
 const createCompanySchema = z.object({
-  name: z.string().min(1, 'Company name is required'),
-  website: z.string().url('Invalid website URL'),
-  industry: z.string().min(1, 'Industry is required'),
+  name: z.string().min(1, "Company name is required"),
+  website: z.string().url("Invalid website URL"),
+  industry: z.string().min(1, "Industry is required"),
   // Removed required competitors and benchmarking questions - these will be auto-generated or added later
 });
 
 const updateCompanySchema = z.object({
-  name: z.string().min(1, 'Company name is required').optional(),
-  website: z.string().url('Invalid website URL').optional(),
-  industry: z.string().min(1, 'Industry is required').optional(),
+  name: z.string().min(1, "Company name is required").optional(),
+  website: z.string().url("Invalid website URL").optional(),
+  industry: z.string().min(1, "Industry is required").optional(),
   // Competitors and benchmarking questions can be updated separately if needed
 });
-
-
-
-
 
 /**
  * Create a new company profile with competitors
@@ -79,7 +71,7 @@ export const createCompany = async (req: Request, res: Response) => {
     const prisma = await getDbClient();
     const userId = req.user?.id;
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      return res.status(401).json({ error: "User not authenticated" });
     }
 
     // Check if user already has 3 companies (maximum limit)
@@ -88,9 +80,10 @@ export const createCompany = async (req: Request, res: Response) => {
     });
 
     if (existingCompaniesCount >= 3) {
-      return res.status(400).json({ 
-        error: 'Maximum company limit reached',
-        message: 'You can only create up to 3 company profiles. Please delete an existing company to create a new one.'
+      return res.status(400).json({
+        error: "Maximum company limit reached",
+        message:
+          "You can only create up to 3 company profiles. Please delete an existing company to create a new one.",
       });
     }
 
@@ -106,30 +99,33 @@ export const createCompany = async (req: Request, res: Response) => {
       },
       include: {
         competitors: true,
-        benchmarkingQuestions: true,
       },
     });
 
     res.status(201).json({ company });
   } catch (error) {
-    console.error('[CREATE COMPANY ERROR]', error);
+    console.error("[CREATE COMPANY ERROR]", error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors });
     }
-    
+
     // Handle Prisma unique constraint violations
-    if (error && typeof error === 'object' && 'code' in error) {
-      if (error.code === 'P2002' && 'meta' in error && error.meta) {
+    if (error && typeof error === "object" && "code" in error) {
+      if (error.code === "P2002" && "meta" in error && error.meta) {
         const meta = error.meta as { target?: string[] };
-        if (meta.target?.includes('website') && meta.target?.includes('companyId')) {
-          return res.status(400).json({ 
-            error: 'A competitor with this website already exists for your company. Please use a different website or update the existing competitor.' 
+        if (
+          meta.target?.includes("website") &&
+          meta.target?.includes("companyId")
+        ) {
+          return res.status(400).json({
+            error:
+              "A competitor with this website already exists for your company. Please use a different website or update the existing competitor.",
           });
         }
       }
     }
-    
-    res.status(500).json({ error: 'Internal server error' });
+
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -141,25 +137,24 @@ export const getCompanies = async (req: Request, res: Response) => {
     const prismaReadReplica = await getReadDbClient();
     const userId = req.user?.id;
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      return res.status(401).json({ error: "User not authenticated" });
     }
 
     const companies = await prismaReadReplica.company.findMany({
       where: { userId },
       include: {
         competitors: { where: { isGenerated: false } },
-        benchmarkingQuestions: true,
         // no products
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
 
     res.json({ companies });
   } catch (error) {
-    console.error('[GET COMPANIES ERROR]', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("[GET COMPANIES ERROR]", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -173,7 +168,7 @@ export const getCompany = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      return res.status(401).json({ error: "User not authenticated" });
     }
 
     // First check if company exists at all
@@ -182,12 +177,12 @@ export const getCompany = async (req: Request, res: Response) => {
     });
 
     if (!companyExists) {
-      return res.status(404).json({ error: 'Company not found' });
+      return res.status(404).json({ error: "Company not found" });
     }
 
     // Then check if user owns this company
     if (companyExists.userId !== userId) {
-      return res.status(403).json({ error: 'Access denied' });
+      return res.status(403).json({ error: "Access denied" });
     }
 
     // Get company with relations
@@ -195,15 +190,14 @@ export const getCompany = async (req: Request, res: Response) => {
       where: { id },
       include: {
         competitors: { where: { isGenerated: false } },
-        benchmarkingQuestions: true,
         // no products
       },
     });
 
     res.json({ company });
   } catch (error) {
-    console.error('[GET COMPANY ERROR]', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("[GET COMPANY ERROR]", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -211,14 +205,14 @@ export const getCompany = async (req: Request, res: Response) => {
 const findLatestRuns = async (companyId: string) => {
   const prismaReadReplica = await getReadDbClient();
   const latestRun = await prismaReadReplica.reportRun.findFirst({
-    where: { companyId, status: 'COMPLETED' },
-    orderBy: { createdAt: 'desc' },
+    where: { companyId, status: "COMPLETED" },
+    orderBy: { createdAt: "desc" },
   });
   if (!latestRun) return { latestRun: null, previousRun: null };
 
   const previousRun = await prismaReadReplica.reportRun.findFirst({
-    where: { companyId, status: 'COMPLETED', id: { not: latestRun.id } },
-    orderBy: { createdAt: 'desc' },
+    where: { companyId, status: "COMPLETED", id: { not: latestRun.id } },
+    orderBy: { createdAt: "desc" },
   });
   return { latestRun, previousRun };
 };
@@ -232,13 +226,17 @@ export const getAverageInclusionRate = async (req: Request, res: Response) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      return res.status(401).json({ error: "User not authenticated" });
     }
 
     // Verify ownership
-    const company = await prismaReadReplica.company.findFirst({ where: { id: companyId, userId } });
+    const company = await prismaReadReplica.company.findFirst({
+      where: { id: companyId, userId },
+    });
     if (!company) {
-      return res.status(404).json({ error: 'Company not found or unauthorized' });
+      return res
+        .status(404)
+        .json({ error: "Company not found or unauthorized" });
     }
 
     const { latestRun, previousRun } = await findLatestRuns(companyId);
@@ -246,17 +244,23 @@ export const getAverageInclusionRate = async (req: Request, res: Response) => {
       return res.json({ averageInclusionRate: null, change: null });
     }
 
-    const latestMetrics = await getFullReportMetrics(latestRun.id, (aiModel as string) || 'all');
-    const previousMetrics = previousRun ? await getFullReportMetrics(previousRun.id, (aiModel as string) || 'all') : null;
+    const latestMetrics = await getFullReportMetrics(
+      latestRun.id,
+      (aiModel as string) || "all",
+    );
+    const previousMetrics = previousRun
+      ? await getFullReportMetrics(previousRun.id, (aiModel as string) || "all")
+      : null;
 
     const latestRate = latestMetrics?.averageInclusionRate ?? null;
     const prevRate = previousMetrics?.averageInclusionRate ?? null;
-    const change = latestRate !== null && prevRate !== null ? latestRate - prevRate : null;
+    const change =
+      latestRate !== null && prevRate !== null ? latestRate - prevRate : null;
 
     return res.json({ averageInclusionRate: latestRate, change });
   } catch (error) {
-    console.error('[GET AIR ERROR]', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error("[GET AIR ERROR]", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
@@ -268,25 +272,37 @@ export const getAveragePosition = async (req: Request, res: Response) => {
     const { aiModel } = req.query;
     const userId = req.user?.id;
 
-    if (!userId) return res.status(401).json({ error: 'User not authenticated' });
+    if (!userId)
+      return res.status(401).json({ error: "User not authenticated" });
 
-    const company = await prismaReadReplica.company.findFirst({ where: { id: companyId, userId } });
-    if (!company) return res.status(404).json({ error: 'Company not found or unauthorized' });
+    const company = await prismaReadReplica.company.findFirst({
+      where: { id: companyId, userId },
+    });
+    if (!company)
+      return res
+        .status(404)
+        .json({ error: "Company not found or unauthorized" });
 
     const { latestRun, previousRun } = await findLatestRuns(companyId);
     if (!latestRun) return res.json({ averagePosition: null, change: null });
 
-    const latestMetrics = await getFullReportMetrics(latestRun.id, (aiModel as string) || 'all');
-    const previousMetrics = previousRun ? await getFullReportMetrics(previousRun.id, (aiModel as string) || 'all') : null;
+    const latestMetrics = await getFullReportMetrics(
+      latestRun.id,
+      (aiModel as string) || "all",
+    );
+    const previousMetrics = previousRun
+      ? await getFullReportMetrics(previousRun.id, (aiModel as string) || "all")
+      : null;
 
     const latestPos = latestMetrics?.averagePosition ?? null;
     const prevPos = previousMetrics?.averagePosition ?? null;
-    const change = latestPos !== null && prevPos !== null ? prevPos - latestPos : null; // lower position is better
+    const change =
+      latestPos !== null && prevPos !== null ? prevPos - latestPos : null; // lower position is better
 
     return res.json({ averagePosition: latestPos, change });
   } catch (error) {
-    console.error('[GET AVERAGE POSITION ERROR]', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error("[GET AVERAGE POSITION ERROR]", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
@@ -298,25 +314,37 @@ export const getShareOfVoice = async (req: Request, res: Response) => {
     const { aiModel } = req.query;
     const userId = req.user?.id;
 
-    if (!userId) return res.status(401).json({ error: 'User not authenticated' });
+    if (!userId)
+      return res.status(401).json({ error: "User not authenticated" });
 
-    const company = await prismaReadReplica.company.findFirst({ where: { id: companyId, userId } });
-    if (!company) return res.status(404).json({ error: 'Company not found or unauthorized' });
+    const company = await prismaReadReplica.company.findFirst({
+      where: { id: companyId, userId },
+    });
+    if (!company)
+      return res
+        .status(404)
+        .json({ error: "Company not found or unauthorized" });
 
     const { latestRun, previousRun } = await findLatestRuns(companyId);
     if (!latestRun) return res.json({ shareOfVoice: null, change: null });
 
-    const latestMetrics = await getFullReportMetrics(latestRun.id, (aiModel as string) || 'all');
-    const previousMetrics = previousRun ? await getFullReportMetrics(previousRun.id, (aiModel as string) || 'all') : null;
+    const latestMetrics = await getFullReportMetrics(
+      latestRun.id,
+      (aiModel as string) || "all",
+    );
+    const previousMetrics = previousRun
+      ? await getFullReportMetrics(previousRun.id, (aiModel as string) || "all")
+      : null;
 
     const latestSov = latestMetrics?.shareOfVoice ?? null;
     const prevSov = previousMetrics?.shareOfVoice ?? null;
-    const change = latestSov !== null && prevSov !== null ? latestSov - prevSov : null;
+    const change =
+      latestSov !== null && prevSov !== null ? latestSov - prevSov : null;
 
     return res.json({ shareOfVoice: latestSov, change });
   } catch (error) {
-    console.error('[GET SHARE OF VOICE ERROR]', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error("[GET SHARE OF VOICE ERROR]", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
@@ -328,24 +356,44 @@ export const getCompetitorRankings = async (req: Request, res: Response) => {
     const { aiModel } = req.query;
     const userId = req.user?.id;
 
-    if (!userId) return res.status(401).json({ error: 'User not authenticated' });
+    if (!userId)
+      return res.status(401).json({ error: "User not authenticated" });
 
-    const company = await prismaReadReplica.company.findFirst({ where: { id: companyId, userId } });
-    if (!company) return res.status(404).json({ error: 'Company not found or unauthorized' });
+    const company = await prismaReadReplica.company.findFirst({
+      where: { id: companyId, userId },
+    });
+    if (!company)
+      return res
+        .status(404)
+        .json({ error: "Company not found or unauthorized" });
 
     const { latestRun } = await findLatestRuns(companyId);
-    if (!latestRun) return res.json({ competitors: [], chartCompetitors: [], industryRanking: null, userCompany: null });
+    if (!latestRun)
+      return res.json({
+        competitors: [],
+        chartCompetitors: [],
+        industryRanking: null,
+        userCompany: null,
+      });
 
-    const metrics = await getFullReportMetrics(latestRun.id, (aiModel as string) || 'all');
+    const metrics = await getFullReportMetrics(
+      latestRun.id,
+      (aiModel as string) || "all",
+    );
     if (metrics?.competitorRankings) {
       return res.json(metrics.competitorRankings);
     }
 
     // Fallback empty
-    return res.json({ competitors: [], chartCompetitors: [], industryRanking: null, userCompany: null });
+    return res.json({
+      competitors: [],
+      chartCompetitors: [],
+      industryRanking: null,
+      userCompany: null,
+    });
   } catch (error) {
-    console.error('[GET COMPETITOR RANKINGS ERROR]', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error("[GET COMPETITOR RANKINGS ERROR]", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
@@ -361,51 +409,89 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
     const { aiModel, limit, questionType } = req.query;
     const userId = req.user?.id;
 
-    console.log('[GET_TOP_RANKING_QUESTIONS] Request for company:', companyId, 'aiModel:', aiModel, 'limit:', limit, 'questionType:', questionType);
+    console.log(
+      "[GET_TOP_RANKING_QUESTIONS] Request for company:",
+      companyId,
+      "aiModel:",
+      aiModel,
+      "limit:",
+      limit,
+      "questionType:",
+      questionType,
+    );
 
-    if (!userId) return res.status(401).json({ error: 'User not authenticated' });
+    if (!userId)
+      return res.status(401).json({ error: "User not authenticated" });
 
-    const company = await prismaReadReplica.company.findFirst({ where: { id: companyId, userId } });
-    if (!company) return res.status(404).json({ error: 'Company not found or unauthorized' });
+    const company = await prismaReadReplica.company.findFirst({
+      where: { id: companyId, userId },
+    });
+    if (!company)
+      return res
+        .status(404)
+        .json({ error: "Company not found or unauthorized" });
 
     const { latestRun } = await findLatestRuns(companyId);
     if (!latestRun) {
-      console.log('[GET_TOP_RANKING_QUESTIONS] No latest run found for company:', companyId);
-      return res.json({ questions: [], totalCount: 0, runId: null, runDate: null });
+      console.log(
+        "[GET_TOP_RANKING_QUESTIONS] No latest run found for company:",
+        companyId,
+      );
+      return res.json({
+        questions: [],
+        totalCount: 0,
+        runId: null,
+        runDate: null,
+      });
     }
 
     // Parse limit properly: if 'all' or undefined, fetch everything (use large number)
     // Otherwise parse as integer
     let parsedLimit = 1000; // Default to large number for 'all'
-    if (limit && limit !== 'all') {
+    if (limit && limit !== "all") {
       const limitNum = parseInt(limit as string, 10);
       if (!isNaN(limitNum) && limitNum > 0) {
         parsedLimit = limitNum;
       }
     }
 
-    console.log('[GET_TOP_RANKING_QUESTIONS] Using limit:', parsedLimit, '(original:', limit, ')');
+    console.log(
+      "[GET_TOP_RANKING_QUESTIONS] Using limit:",
+      parsedLimit,
+      "(original:",
+      limit,
+      ")",
+    );
 
     // 10x APPROACH: Use response-level granularity for proper display
-    console.log('[GET_TOP_RANKING_QUESTIONS] Using response-level calculation for accurate counts');
-    const { calculateTopResponses } = await import('../services/dashboardService');
-    const calculationResult = await calculateTopResponses(
-      latestRun.id, 
-      companyId, 
-      { 
-        aiModel: aiModel as string,
-        questionType: questionType as string 
-      }, 
-      parsedLimit, 
-      0
+    console.log(
+      "[GET_TOP_RANKING_QUESTIONS] Using response-level calculation for accurate counts",
     );
-    
+    const { calculateTopResponses } = await import(
+      "../services/dashboardService"
+    );
+    const calculationResult = await calculateTopResponses(
+      latestRun.id,
+      companyId,
+      {
+        aiModel: aiModel as string,
+        questionType: questionType as string,
+      },
+      parsedLimit,
+      0,
+    );
+
     // Transform response format to match frontend expectations
     const responses = calculationResult?.responses || [];
     const totalCount = calculationResult?.totalCount || 0;
-    
-    console.log('[GET_TOP_RANKING_QUESTIONS] Response-level calculation returned:', responses.length, 'responses, totalCount:', totalCount);
-    
+
+    console.log(
+      "[GET_TOP_RANKING_QUESTIONS] Response-level calculation returned:",
+      responses.length,
+      "responses, totalCount:",
+      totalCount,
+    );
+
     // Transform to expected frontend format (backwards compatibility)
     const questions = responses.map((r: any) => ({
       id: r.id,
@@ -416,12 +502,14 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
       averagePosition: r.position,
       bestResponse: r.response,
       bestResponseModel: r.model,
-      responses: [{
-        model: r.model,
-        response: r.response,
-        position: r.position,
-        createdAt: r.createdAt
-      }]
+      responses: [
+        {
+          model: r.model,
+          response: r.response,
+          position: r.position,
+          createdAt: r.createdAt,
+        },
+      ],
     }));
 
     res.json({
@@ -431,8 +519,8 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
       runDate: latestRun.createdAt.toISOString(),
     });
   } catch (error) {
-    console.error('[GET_TOP_RANKING_QUESTIONS] Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("[GET_TOP_RANKING_QUESTIONS] Error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -447,19 +535,29 @@ export const getShareOfVoiceHistory = async (req: Request, res: Response) => {
     const { aiModel } = req.query;
     const userId = req.user?.id;
 
-    if (!userId) return res.status(401).json({ error: 'User not authenticated' });
+    if (!userId)
+      return res.status(401).json({ error: "User not authenticated" });
 
-    const company = await prismaReadReplica.company.findFirst({ where: { id: companyId, userId } });
-    if (!company) return res.status(404).json({ error: 'Company not found or unauthorized' });
+    const company = await prismaReadReplica.company.findFirst({
+      where: { id: companyId, userId },
+    });
+    if (!company)
+      return res
+        .status(404)
+        .json({ error: "Company not found or unauthorized" });
 
     // Use the dashboard service function to get the share of voice history
-    const { calculateShareOfVoiceHistory } = await import('../services/dashboardService');
-    const history = await calculateShareOfVoiceHistory('', companyId, { aiModel: aiModel as string });
-    
+    const { calculateShareOfVoiceHistory } = await import(
+      "../services/dashboardService"
+    );
+    const history = await calculateShareOfVoiceHistory("", companyId, {
+      aiModel: aiModel as string,
+    });
+
     return res.json(history);
   } catch (error) {
-    console.error('[GET SHARE OF VOICE HISTORY ERROR]', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error("[GET SHARE OF VOICE HISTORY ERROR]", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
@@ -473,7 +571,7 @@ export const updateCompany = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      return res.status(401).json({ error: "User not authenticated" });
     }
 
     const updateData = updateCompanySchema.parse(req.body);
@@ -484,12 +582,12 @@ export const updateCompany = async (req: Request, res: Response) => {
     });
 
     if (!existingCompany) {
-      return res.status(404).json({ error: 'Company not found' });
+      return res.status(404).json({ error: "Company not found" });
     }
 
     // Then check if user owns this company
     if (existingCompany.userId !== userId) {
-      return res.status(403).json({ error: 'Access denied' });
+      return res.status(403).json({ error: "Access denied" });
     }
 
     // Update company with simplified fields only
@@ -502,30 +600,33 @@ export const updateCompany = async (req: Request, res: Response) => {
       },
       include: {
         competitors: true,
-        benchmarkingQuestions: true,
       },
     });
 
     res.json({ company });
   } catch (error) {
-    console.error('[UPDATE COMPANY ERROR]', error);
+    console.error("[UPDATE COMPANY ERROR]", error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors });
     }
-    
+
     // Handle Prisma unique constraint violations
-    if (error && typeof error === 'object' && 'code' in error) {
-      if (error.code === 'P2002' && 'meta' in error && error.meta) {
+    if (error && typeof error === "object" && "code" in error) {
+      if (error.code === "P2002" && "meta" in error && error.meta) {
         const meta = error.meta as { target?: string[] };
-        if (meta.target?.includes('website') && meta.target?.includes('companyId')) {
-          return res.status(400).json({ 
-            error: 'A competitor with this website already exists for your company. Please use a different website or update the existing competitor.' 
+        if (
+          meta.target?.includes("website") &&
+          meta.target?.includes("companyId")
+        ) {
+          return res.status(400).json({
+            error:
+              "A competitor with this website already exists for your company. Please use a different website or update the existing competitor.",
           });
         }
       }
     }
-    
-    res.status(500).json({ error: 'Internal server error' });
+
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -539,7 +640,7 @@ export const deleteCompany = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      return res.status(401).json({ error: "User not authenticated" });
     }
 
     // First check if company exists at all
@@ -548,12 +649,12 @@ export const deleteCompany = async (req: Request, res: Response) => {
     });
 
     if (!existingCompany) {
-      return res.status(404).json({ error: 'Company not found' });
+      return res.status(404).json({ error: "Company not found" });
     }
 
     // Then check if user owns this company
     if (existingCompany.userId !== userId) {
-      return res.status(403).json({ error: 'Access denied' });
+      return res.status(403).json({ error: "Access denied" });
     }
 
     // Delete company (competitors will be deleted due to cascade)
@@ -561,9 +662,9 @@ export const deleteCompany = async (req: Request, res: Response) => {
       where: { id },
     });
 
-    res.json({ message: 'Company deleted successfully' });
+    res.json({ message: "Company deleted successfully" });
   } catch (error) {
-    console.error('[DELETE COMPANY ERROR]', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("[DELETE COMPANY ERROR]", error);
+    res.status(500).json({ error: "Internal server error" });
   }
-}; 
+};

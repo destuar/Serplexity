@@ -17,109 +17,121 @@
  * - updateUserProfile: Controller for updating a user's profile.
  * - changePassword: Controller for changing a user's password.
  */
-import { Request, Response } from 'express';
-import { z } from 'zod';
-import bcrypt from 'bcrypt';
-import { getDbClient } from '../config/database';
+import { Request, Response } from "express";
+import { z } from "zod";
+import bcrypt from "bcrypt";
+import { getDbClient } from "../config/database";
 
 // Validation schemas
 const updateProfileSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(100, 'Name too long').optional(),
-  email: z.string().email('Invalid email address').optional(),
+  name: z
+    .string()
+    .min(1, "Name is required")
+    .max(100, "Name too long")
+    .optional(),
+  email: z.string().email("Invalid email address").optional(),
 });
 
 const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: z.string().min(8, "New password must be at least 8 characters"),
 });
 
 export const exportUserData = async (req: Request, res: Response) => {
   const prisma = await getDbClient();
-    const userId = req.user?.id;
-    if (!userId) {
-        return res.status(401).json({ error: 'Not authenticated' });
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+
+  try {
+    const userData = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        provider: true,
+        tokenVersion: true,
+        stripeCustomerId: true,
+        subscriptionStatus: true,
+        createdAt: true,
+        updatedAt: true,
+        companies: {
+          include: {
+            competitors: true,
+            runs: {
+              include: {
+                sentimentScores: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!userData) {
+      return res.status(404).json({ error: "User not found" });
     }
 
-    try {
-        const userData = await prisma.user.findUnique({
-            where: { id: userId },
-            select: {
-                id: true,
-                email: true,
-                name: true,
-                role: true,
-                provider: true,
-                tokenVersion: true,
-                stripeCustomerId: true,
-                subscriptionStatus: true,
-                createdAt: true,
-                updatedAt: true,
-                companies: {
-                    include: {
-                        competitors: true,
-                        benchmarkingQuestions: true,
-                        runs: {
-                include: {
-                    sentimentScores: true
-                }
-            }
-                    }
-                }
-            }
-        });
-
-        if (!userData) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-
-        res.setHeader('Content-disposition', 'attachment; filename=user-data.json');
-        res.setHeader('Content-type', 'application/json');
-        res.status(200).json(userData);
-
-    } catch (error) {
-        console.error(`[EXPORT USER DATA ERROR] for userId: ${userId}`, error);
-        res.status(500).json({ error: 'Failed to export user data' });
-    }
+    res.setHeader("Content-disposition", "attachment; filename=user-data.json");
+    res.setHeader("Content-type", "application/json");
+    res.status(200).json(userData);
+  } catch (error) {
+    console.error(`[EXPORT USER DATA ERROR] for userId: ${userId}`, error);
+    res.status(500).json({ error: "Failed to export user data" });
+  }
 };
 
 export const deleteUserData = async (req: Request, res: Response) => {
   const prisma = await getDbClient();
-    const userId = req.user?.id;
-    if (!userId) {
-        return res.status(401).json({ error: 'Not authenticated' });
-    }
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
 
-    try {
-        await prisma.$transaction(async (tx) => {
-            const userCompanies = await tx.company.findMany({
-                where: { userId: userId },
-                select: { id: true }
-            });
-            const companyIds = userCompanies.map(c => c.id);
+  try {
+    await prisma.$transaction(async (tx) => {
+      const userCompanies = await tx.company.findMany({
+        where: { userId: userId },
+        select: { id: true },
+      });
+      const companyIds = userCompanies.map((c) => c.id);
 
-            // Explicitly delete all data related to the user in the correct order
-            await tx.sentimentScore.deleteMany({ where: { reportRun: { companyId: { in: companyIds } } } });
-            await tx.reportRun.deleteMany({ where: { companyId: { in: companyIds } } });
-            await tx.competitor.deleteMany({ where: { companyId: { in: companyIds } } });
-            await tx.benchmarkingQuestion.deleteMany({ where: { companyId: { in: companyIds } } });
-            // Removed product deletion as Product model deprecated
-            await tx.company.deleteMany({ where: { userId: userId } });
-            
-            // Finally, delete the user
-            await tx.user.delete({
-                where: { id: userId }
-            });
-        });
+      // Explicitly delete all data related to the user in the correct order
+      await tx.sentimentScore.deleteMany({
+        where: { reportRun: { companyId: { in: companyIds } } },
+      });
+      await tx.reportRun.deleteMany({
+        where: { companyId: { in: companyIds } },
+      });
+      await tx.competitor.deleteMany({
+        where: { companyId: { in: companyIds } },
+      });
+      await tx.question.deleteMany({
+        where: { companyId: { in: companyIds } },
+      });
+      // Removed product deletion as Product model deprecated
+      await tx.company.deleteMany({ where: { userId: userId } });
 
-        // Placeholder for async S3 cleanup job
-        console.log(`User ${userId} deleted. A real implementation would trigger an async cleanup for any related assets in S3.`);
-        // await s3CleanupQueue.add('cleanup-user-assets', { userId });
+      // Finally, delete the user
+      await tx.user.delete({
+        where: { id: userId },
+      });
+    });
 
-        res.status(200).json({ message: 'User data has been deleted.' });
-    } catch (error) {
-        console.error(`[DELETE USER DATA ERROR] for userId: ${userId}`, error);
-        res.status(500).json({ error: 'Failed to delete user data' });
-    }
+    // Placeholder for async S3 cleanup job
+    console.log(
+      `User ${userId} deleted. A real implementation would trigger an async cleanup for any related assets in S3.`,
+    );
+    // await s3CleanupQueue.add('cleanup-user-assets', { userId });
+
+    res.status(200).json({ message: "User data has been deleted." });
+  } catch (error) {
+    console.error(`[DELETE USER DATA ERROR] for userId: ${userId}`, error);
+    res.status(500).json({ error: "Failed to delete user data" });
+  }
 };
 
 export const getUserProfile = async (req: Request, res: Response) => {
@@ -127,7 +139,7 @@ export const getUserProfile = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
-      return res.status(401).json({ error: 'Not authenticated' });
+      return res.status(401).json({ error: "Not authenticated" });
     }
 
     const user = await prisma.user.findUnique({
@@ -144,13 +156,13 @@ export const getUserProfile = async (req: Request, res: Response) => {
     });
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: "User not found" });
     }
 
     res.status(200).json({ user });
   } catch (error) {
-    console.error('[GET USER PROFILE ERROR]', error);
-    res.status(500).json({ error: 'Failed to get user profile' });
+    console.error("[GET USER PROFILE ERROR]", error);
+    res.status(500).json({ error: "Failed to get user profile" });
   }
 };
 
@@ -159,7 +171,7 @@ export const updateUserProfile = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
-      return res.status(401).json({ error: 'Not authenticated' });
+      return res.status(401).json({ error: "Not authenticated" });
     }
 
     const { name, email } = updateProfileSchema.parse(req.body);
@@ -169,12 +181,12 @@ export const updateUserProfile = async (req: Request, res: Response) => {
       const existingUser = await prisma.user.findFirst({
         where: {
           email,
-          id: { not: userId }
-        }
+          id: { not: userId },
+        },
       });
 
       if (existingUser) {
-        return res.status(400).json({ error: 'Email already in use' });
+        return res.status(400).json({ error: "Email already in use" });
       }
     }
 
@@ -194,17 +206,17 @@ export const updateUserProfile = async (req: Request, res: Response) => {
         provider: true,
         subscriptionStatus: true,
         stripeCustomerId: true,
-        companies: { include: { competitors: true, benchmarkingQuestions: true } },
+        companies: { include: { competitors: true } },
       },
     });
 
     res.status(200).json({ user: updatedUser });
   } catch (error) {
-    console.error('[UPDATE USER PROFILE ERROR]', error);
+    console.error("[UPDATE USER PROFILE ERROR]", error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors });
     }
-    res.status(500).json({ error: 'Failed to update user profile' });
+    res.status(500).json({ error: "Failed to update user profile" });
   }
 };
 
@@ -213,10 +225,12 @@ export const changePassword = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
-      return res.status(401).json({ error: 'Not authenticated' });
+      return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const { currentPassword, newPassword } = changePasswordSchema.parse(req.body);
+    const { currentPassword, newPassword } = changePasswordSchema.parse(
+      req.body,
+    );
 
     // Get user with password
     const user = await prisma.user.findUnique({
@@ -225,20 +239,23 @@ export const changePassword = async (req: Request, res: Response) => {
     });
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: "User not found" });
     }
 
     // Check if user signed up with OAuth (no password)
-    if (user.provider !== 'credentials' || !user.password) {
-      return res.status(400).json({ 
-        error: 'Cannot change password for OAuth accounts' 
+    if (user.provider !== "credentials" || !user.password) {
+      return res.status(400).json({
+        error: "Cannot change password for OAuth accounts",
       });
     }
 
     // Verify current password
-    const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+    const isValidPassword = await bcrypt.compare(
+      currentPassword,
+      user.password,
+    );
     if (!isValidPassword) {
-      return res.status(400).json({ error: 'Current password is incorrect' });
+      return res.status(400).json({ error: "Current password is incorrect" });
     }
 
     // Hash new password
@@ -253,13 +270,13 @@ export const changePassword = async (req: Request, res: Response) => {
       },
     });
 
-    res.status(200).json({ message: 'Password changed successfully' });
+    res.status(200).json({ message: "Password changed successfully" });
   } catch (error) {
-    console.error('[CHANGE PASSWORD ERROR]', error);
+    console.error("[CHANGE PASSWORD ERROR]", error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors });
     }
-    res.status(500).json({ error: 'Failed to change password' });
+    res.status(500).json({ error: "Failed to change password" });
   }
 };
 
@@ -273,7 +290,7 @@ export const getModelPreferences = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
-      return res.status(401).json({ error: 'Not authenticated' });
+      return res.status(401).json({ error: "Not authenticated" });
     }
 
     const user = await prisma.user.findUnique({
@@ -282,21 +299,21 @@ export const getModelPreferences = async (req: Request, res: Response) => {
     });
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: "User not found" });
     }
 
     // Return default preferences if none are set
-    const preferences = user.modelPreferences as Record<string, boolean> || {
-      'gpt-4.1-mini': true,
-      'claude-3-5-haiku-20241022': true,
-      'gemini-2.5-flash': true,
-      'sonar': true
+    const preferences = (user.modelPreferences as Record<string, boolean>) || {
+      "gpt-4.1-mini": true,
+      "claude-3-5-haiku-20241022": true,
+      "gemini-2.5-flash": true,
+      sonar: true,
     };
 
     res.status(200).json({ modelPreferences: preferences });
   } catch (error) {
-    console.error('[GET MODEL PREFERENCES ERROR]', error);
-    res.status(500).json({ error: 'Failed to get model preferences' });
+    console.error("[GET MODEL PREFERENCES ERROR]", error);
+    res.status(500).json({ error: "Failed to get model preferences" });
   }
 };
 
@@ -305,7 +322,7 @@ export const updateModelPreferences = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
-      return res.status(401).json({ error: 'Not authenticated' });
+      return res.status(401).json({ error: "Not authenticated" });
     }
 
     const { modelPreferences } = modelPreferencesSchema.parse(req.body);
@@ -315,15 +332,15 @@ export const updateModelPreferences = async (req: Request, res: Response) => {
       data: { modelPreferences },
     });
 
-    res.status(200).json({ 
-      message: 'Model preferences updated successfully',
-      modelPreferences 
+    res.status(200).json({
+      message: "Model preferences updated successfully",
+      modelPreferences,
     });
   } catch (error) {
-    console.error('[UPDATE MODEL PREFERENCES ERROR]', error);
+    console.error("[UPDATE MODEL PREFERENCES ERROR]", error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors });
     }
-    res.status(500).json({ error: 'Failed to update model preferences' });
+    res.status(500).json({ error: "Failed to update model preferences" });
   }
-}; 
+};

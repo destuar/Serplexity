@@ -1,7 +1,7 @@
 /**
  * @file secretsProvider.ts
  * @description Cloud-agnostic secrets management abstraction
- * 
+ *
  * This abstraction enables easy switching between cloud providers:
  * - AWS Secrets Manager
  * - Azure Key Vault
@@ -11,7 +11,7 @@
  * - Local development secrets
  */
 
-import logger from '../utils/logger';
+import logger from "../utils/logger";
 
 export interface DatabaseSecret {
   host: string;
@@ -54,23 +54,28 @@ export abstract class SecretsProvider {
     // Check cache first
     const cached = this.cache.get(secretName);
     if (cached && Date.now() < cached.expiry) {
-      logger.info(`[SecretsProvider:${this.providerName}] Cache hit for secret: ${secretName}`);
+      logger.info(
+        `[SecretsProvider:${this.providerName}] Cache hit for secret: ${secretName}`,
+      );
       return cached.result;
     }
 
     // Fetch from provider
     const result = await this.fetchSecret(secretName);
-    
+
     // Cache the result
     this.cache.set(secretName, {
       result,
-      expiry: Date.now() + this.cacheTtl
+      expiry: Date.now() + this.cacheTtl,
     });
 
-    logger.info(`[SecretsProvider:${this.providerName}] Secret retrieved: ${secretName}`, {
-      provider: this.providerName,
-      host: result.secret.host
-    });
+    logger.info(
+      `[SecretsProvider:${this.providerName}] Secret retrieved: ${secretName}`,
+      {
+        provider: this.providerName,
+        host: result.secret.host,
+      },
+    );
 
     return result;
   }
@@ -111,74 +116,82 @@ export class AwsSecretsProvider extends SecretsProvider {
   private client: any = null; // Lazy-loaded AWS client
 
   constructor() {
-    super('AWS_SECRETS_MANAGER');
+    super("AWS_SECRETS_MANAGER");
   }
 
   async testConnection(): Promise<boolean> {
     try {
       await this.initializeClient();
       // Try to list secrets to test connection
-      const { SecretsManagerClient, ListSecretsCommand } = await import('@aws-sdk/client-secrets-manager');
+      const { SecretsManagerClient, ListSecretsCommand } = await import(
+        "@aws-sdk/client-secrets-manager"
+      );
       await this.client.send(new ListSecretsCommand({ MaxResults: 1 }));
       return true;
     } catch (error) {
-      logger.error('[AWS SecretsProvider] Connection test failed', { error });
+      logger.error("[AWS SecretsProvider] Connection test failed", { error });
       return false;
     }
   }
 
   protected async fetchSecret(secretName: string): Promise<SecretResult> {
     await this.initializeClient();
-    
-    const { GetSecretValueCommand } = await import('@aws-sdk/client-secrets-manager');
-    
+
+    const { GetSecretValueCommand } = await import(
+      "@aws-sdk/client-secrets-manager"
+    );
+
     const response = await this.client.send(
       new GetSecretValueCommand({
         SecretId: secretName,
-        VersionStage: 'AWSCURRENT'
-      })
+        VersionStage: "AWSCURRENT",
+      }),
     );
 
     if (!response.SecretString) {
-      throw new Error(`[AWS SecretsProvider] Secret ${secretName} has no value`);
+      throw new Error(
+        `[AWS SecretsProvider] Secret ${secretName} has no value`,
+      );
     }
 
     const awsSecret = JSON.parse(response.SecretString);
-    
+
     return {
       secret: {
         host: awsSecret.host,
         port: Number(awsSecret.port),
         username: awsSecret.username,
         password: awsSecret.password,
-        database: awsSecret.dbname || awsSecret.database || 'postgres'
+        database: awsSecret.dbname || awsSecret.database || "postgres",
       },
       metadata: {
         provider: this.providerName,
         secretName,
         version: response.VersionId,
-        lastUpdated: response.CreatedDate
-      }
+        lastUpdated: response.CreatedDate,
+      },
     };
   }
 
   private async initializeClient(): Promise<void> {
     if (this.client) return;
 
-    const { SecretsManagerClient } = await import('@aws-sdk/client-secrets-manager');
-    
+    const { SecretsManagerClient } = await import(
+      "@aws-sdk/client-secrets-manager"
+    );
+
     // Import environment configuration
-    const env = (await import('../config/env')).default;
-    
+    const env = (await import("../config/env")).default;
+
     const config: any = {
-      region: env.AWS_REGION
+      region: env.AWS_REGION,
     };
 
     // Use IAM role if running on AWS, otherwise use access keys
     if (env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY) {
       config.credentials = {
         accessKeyId: env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: env.AWS_SECRET_ACCESS_KEY
+        secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
       };
     }
 
@@ -191,18 +204,18 @@ export class AwsSecretsProvider extends SecretsProvider {
  */
 export class AzureKeyVaultProvider extends SecretsProvider {
   constructor() {
-    super('AZURE_KEY_VAULT');
+    super("AZURE_KEY_VAULT");
   }
 
   async testConnection(): Promise<boolean> {
     // TODO: Implement Azure Key Vault connection test
-    throw new Error('[Azure KeyVault] Not implemented yet');
+    throw new Error("[Azure KeyVault] Not implemented yet");
   }
 
   protected async fetchSecret(secretName: string): Promise<SecretResult> {
     // TODO: Implement Azure Key Vault secret retrieval
     // const { SecretClient } = await import('@azure/keyvault-secrets');
-    throw new Error('[Azure KeyVault] Not implemented yet');
+    throw new Error("[Azure KeyVault] Not implemented yet");
   }
 }
 
@@ -211,18 +224,18 @@ export class AzureKeyVaultProvider extends SecretsProvider {
  */
 export class GcpSecretManagerProvider extends SecretsProvider {
   constructor() {
-    super('GCP_SECRET_MANAGER');
+    super("GCP_SECRET_MANAGER");
   }
 
   async testConnection(): Promise<boolean> {
     // TODO: Implement GCP Secret Manager connection test
-    throw new Error('[GCP SecretManager] Not implemented yet');
+    throw new Error("[GCP SecretManager] Not implemented yet");
   }
 
   protected async fetchSecret(secretName: string): Promise<SecretResult> {
     // TODO: Implement GCP Secret Manager secret retrieval
     // const { SecretManagerServiceClient } = await import('@google-cloud/secret-manager');
-    throw new Error('[GCP SecretManager] Not implemented yet');
+    throw new Error("[GCP SecretManager] Not implemented yet");
   }
 }
 
@@ -231,7 +244,7 @@ export class GcpSecretManagerProvider extends SecretsProvider {
  */
 export class EnvironmentSecretsProvider extends SecretsProvider {
   constructor() {
-    super('ENVIRONMENT_VARIABLES');
+    super("ENVIRONMENT_VARIABLES");
   }
 
   async testConnection(): Promise<boolean> {
@@ -241,33 +254,37 @@ export class EnvironmentSecretsProvider extends SecretsProvider {
 
   protected async fetchSecret(secretName: string): Promise<SecretResult> {
     // Import environment configuration
-    const env = (await import('../config/env')).default;
-    
+    const env = (await import("../config/env")).default;
+
     let connectionUrl: string;
-    
-    if (secretName === 'database-primary') {
+
+    if (secretName === "database-primary") {
       if (!env.DATABASE_URL) {
-        throw new Error('[Environment SecretsProvider] DATABASE_URL not set');
+        throw new Error("[Environment SecretsProvider] DATABASE_URL not set");
       }
       connectionUrl = env.DATABASE_URL;
-    } else if (secretName === 'database-replica') {
+    } else if (secretName === "database-replica") {
       if (!env.READ_REPLICA_URL) {
-        throw new Error('[Environment SecretsProvider] READ_REPLICA_URL not set');
+        throw new Error(
+          "[Environment SecretsProvider] READ_REPLICA_URL not set",
+        );
       }
       connectionUrl = env.READ_REPLICA_URL;
     } else {
-      throw new Error(`[Environment SecretsProvider] Unknown secret: ${secretName}`);
+      throw new Error(
+        `[Environment SecretsProvider] Unknown secret: ${secretName}`,
+      );
     }
 
     const secret = this.parseConnectionUrl(connectionUrl);
-    
+
     return {
       secret,
       metadata: {
         provider: this.providerName,
         secretName,
-        lastUpdated: new Date()
-      }
+        lastUpdated: new Date(),
+      },
     };
   }
 
@@ -278,7 +295,7 @@ export class EnvironmentSecretsProvider extends SecretsProvider {
       port: parseInt(parsed.port) || 5432,
       username: decodeURIComponent(parsed.username),
       password: decodeURIComponent(parsed.password),
-      database: parsed.pathname.slice(1) || 'postgres'
+      database: parsed.pathname.slice(1) || "postgres",
     };
   }
 }
@@ -286,12 +303,12 @@ export class EnvironmentSecretsProvider extends SecretsProvider {
 /**
  * Provider types for configuration
  */
-export type SecretsProviderType = 
-  | 'aws' 
-  | 'azure' 
-  | 'gcp' 
-  | 'environment'
-  | 'vault'; // HashiCorp Vault (future)
+export type SecretsProviderType =
+  | "aws"
+  | "azure"
+  | "gcp"
+  | "environment"
+  | "vault"; // HashiCorp Vault (future)
 
 /**
  * Factory for creating secrets providers
@@ -299,16 +316,18 @@ export type SecretsProviderType =
 export class SecretsProviderFactory {
   static createProvider(type: SecretsProviderType): SecretsProvider {
     switch (type) {
-      case 'aws':
+      case "aws":
         return new AwsSecretsProvider();
-      case 'azure':
+      case "azure":
         return new AzureKeyVaultProvider();
-      case 'gcp':
+      case "gcp":
         return new GcpSecretManagerProvider();
-      case 'environment':
+      case "environment":
         return new EnvironmentSecretsProvider();
       default:
-        throw new Error(`[SecretsProviderFactory] Unsupported provider type: ${type}`);
+        throw new Error(
+          `[SecretsProviderFactory] Unsupported provider type: ${type}`,
+        );
     }
   }
 
@@ -316,12 +335,12 @@ export class SecretsProviderFactory {
    * Auto-detect provider based on environment configuration
    */
   static async createFromEnvironment(): Promise<SecretsProvider> {
-    const env = (await import('../config/env')).default;
-    
+    const env = (await import("../config/env")).default;
+
     if (env.USE_AWS_SECRETS) {
-      return this.createProvider('aws');
+      return this.createProvider("aws");
     } else {
-      return this.createProvider('environment');
+      return this.createProvider("environment");
     }
   }
-} 
+}

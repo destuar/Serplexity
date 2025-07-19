@@ -1,7 +1,7 @@
 /**
  * @file reportFlowIntegration.test.ts
  * @description End-to-end integration tests for complete report generation flow
- * 
+ *
  * This test suite validates:
  * - Complete report generation pipeline
  * - Database persistence and integrity
@@ -10,12 +10,20 @@
  * - Data quality metrics validation
  */
 
-import { describe, beforeAll, afterAll, beforeEach, it, expect, jest } from '@jest/globals';
-import { pydanticLlmService } from '../../services/pydanticLlmService';
+import {
+  describe,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  it,
+  expect,
+  jest,
+} from "@jest/globals";
+import { pydanticLlmService } from "../../services/pydanticLlmService";
 
 // Mock environment for testing
-process.env.NODE_ENV = 'test';
-process.env.DISABLE_LOGFIRE = '1';
+process.env.NODE_ENV = "test";
+process.env.DISABLE_LOGFIRE = "1";
 
 // Mock database operations - we'll validate data structures without actual DB writes
 const mockPrisma = {
@@ -23,63 +31,71 @@ const mockPrisma = {
     create: jest.fn(),
     findFirst: jest.fn(),
     update: jest.fn(),
-    delete: jest.fn()
+    delete: jest.fn(),
   },
   company: {
     create: jest.fn(),
-    delete: jest.fn()
+    delete: jest.fn(),
   },
   reportMetric: {
-    create: jest.fn().mockImplementation((data) => ({ ...data.data, id: 'mock-id' })),
+    create: jest
+      .fn()
+      .mockImplementation((data) => ({ ...data.data, id: "mock-id" })),
     deleteMany: jest.fn(),
     findUnique: jest.fn(),
     findMany: jest.fn(),
-    count: jest.fn()
+    count: jest.fn(),
   },
   fanout: {
-    create: jest.fn().mockImplementation((data) => ({ ...data.data, id: 'mock-fanout-id' })),
+    create: jest
+      .fn()
+      .mockImplementation((data) => ({ ...data.data, id: "mock-fanout-id" })),
     deleteMany: jest.fn(),
-    count: jest.fn().mockReturnValue(1)
+    count: jest.fn().mockReturnValue(1),
   },
   visibilityQuestion: {
-    create: jest.fn().mockImplementation((data) => ({ ...data.data, id: 'mock-question-id' })),
-    deleteMany: jest.fn()
+    create: jest
+      .fn()
+      .mockImplementation((data) => ({ ...data.data, id: "mock-question-id" })),
+    deleteMany: jest.fn(),
   },
   visibilityResponse: {
-    create: jest.fn().mockImplementation((data) => ({ ...data.data, id: 'mock-response-id' })),
+    create: jest
+      .fn()
+      .mockImplementation((data) => ({ ...data.data, id: "mock-response-id" })),
     deleteMany: jest.fn(),
-    count: jest.fn().mockReturnValue(1)
-  }
+    count: jest.fn().mockReturnValue(1),
+  },
 };
 
 // Mock the prisma import
-jest.mock('../setup', () => ({
-  prisma: mockPrisma
+jest.mock("../setup", () => ({
+  prisma: mockPrisma,
 }));
 
-describe('Report Generation Integration Tests', () => {
+describe("Report Generation Integration Tests", () => {
   let testUserId: string;
   let testCompanyId: string;
 
   beforeAll(async () => {
     // Set up mock data IDs for testing
-    testUserId = 'test-user-id';
-    testCompanyId = 'test-company-id';
-    
+    testUserId = "test-user-id";
+    testCompanyId = "test-company-id";
+
     // Configure mock responses
     mockPrisma.user.create.mockResolvedValue({
       id: testUserId,
-      email: 'integration-test@example.com',
-      name: 'Integration Test User',
-      subscriptionStatus: 'active'
+      email: "integration-test@example.com",
+      name: "Integration Test User",
+      subscriptionStatus: "active",
     });
-    
+
     mockPrisma.company.create.mockResolvedValue({
       id: testCompanyId,
-      name: 'Integration Test Corp',
-      website: 'https://integrationtest.com',
-      industry: 'Technology',
-      userId: testUserId
+      name: "Integration Test Corp",
+      website: "https://integrationtest.com",
+      industry: "Technology",
+      userId: testUserId,
     });
   });
 
@@ -89,8 +105,8 @@ describe('Report Generation Integration Tests', () => {
     await pydanticLlmService.cleanup();
   });
 
-  describe('Complete Report Generation Flow', () => {
-    it('should process a complete report with all components', async () => {
+  describe("Complete Report Generation Flow", () => {
+    it("should process a complete report with all components", async () => {
       // Mock PydanticAI responses for comprehensive testing
       const mockSentimentResponse = {
         data: {
@@ -99,7 +115,7 @@ describe('Report Generation Integration Tests', () => {
           sentimentAnalysis: {
             overall_sentiment: "positive",
             sentiment_score: 0.75,
-            confidence: 0.85
+            confidence: 0.85,
           },
           results: [
             {
@@ -110,10 +126,10 @@ describe('Report Generation Integration Tests', () => {
               sentiment: "positive",
               sentiment_score: 0.8,
               relevance_score: 0.9,
-              mentions_count: 2
-            }
+              mentions_count: 2,
+            },
           ],
-          generationTimestamp: new Date().toISOString()
+          generationTimestamp: new Date().toISOString(),
         },
         metadata: {
           modelUsed: "gpt-4.1-mini",
@@ -122,8 +138,8 @@ describe('Report Generation Integration Tests', () => {
           providerId: "openai",
           success: true,
           attemptCount: 1,
-          fallbackUsed: false
-        }
+          fallbackUsed: false,
+        },
       };
 
       const mockFanoutResponse = {
@@ -136,18 +152,18 @@ describe('Report Generation Integration Tests', () => {
               type: "comparison",
               priority: 1,
               targetAudience: "managers",
-              expectedMentions: ["Integration Test Corp", "vs", "competitor"]
+              expectedMentions: ["Integration Test Corp", "vs", "competitor"],
             },
             {
               query: "best practices Integration Test Corp",
               type: "best_for",
               priority: 2,
               targetAudience: "developers",
-              expectedMentions: ["Integration Test Corp", "best", "practices"]
-            }
+              expectedMentions: ["Integration Test Corp", "best", "practices"],
+            },
           ],
           totalQueries: 15,
-          generationTimestamp: new Date().toISOString()
+          generationTimestamp: new Date().toISOString(),
         },
         metadata: {
           modelUsed: "gpt-4.1-mini",
@@ -156,25 +172,27 @@ describe('Report Generation Integration Tests', () => {
           providerId: "openai",
           success: true,
           attemptCount: 1,
-          fallbackUsed: false
-        }
+          fallbackUsed: false,
+        },
       };
 
       const mockQuestionResponse = {
         data: {
           question: "What are the key market trends in cloud computing?",
-          answer: "Key trends include serverless computing, edge computing, and AI/ML integration.",
+          answer:
+            "Key trends include serverless computing, edge computing, and AI/ML integration.",
           confidence: 0.9,
           sources: [
             {
               url: "https://example.com/trends",
               title: "Cloud Computing Trends 2024",
               snippet: "Comprehensive analysis of emerging trends",
-              relevance: 0.95
-            }
+              relevance: 0.95,
+            },
           ],
-          reasoning: "Based on analysis of industry reports and expert opinions",
-          generationTimestamp: new Date().toISOString()
+          reasoning:
+            "Based on analysis of industry reports and expert opinions",
+          generationTimestamp: new Date().toISOString(),
         },
         metadata: {
           modelUsed: "gpt-4.1-mini",
@@ -183,8 +201,8 @@ describe('Report Generation Integration Tests', () => {
           providerId: "openai",
           success: true,
           attemptCount: 1,
-          fallbackUsed: false
-        }
+          fallbackUsed: false,
+        },
       };
 
       const mockOptimizationResponse = {
@@ -194,7 +212,8 @@ describe('Report Generation Integration Tests', () => {
           tasks: [
             {
               title: "Enhance SEO strategy",
-              description: "Improve search engine optimization for better visibility",
+              description:
+                "Improve search engine optimization for better visibility",
               category: "content",
               priority: 1,
               estimatedEffort: 40,
@@ -202,12 +221,12 @@ describe('Report Generation Integration Tests', () => {
               actionItems: [
                 "Conduct keyword research",
                 "Optimize content structure",
-                "Build quality backlinks"
-              ]
-            }
+                "Build quality backlinks",
+              ],
+            },
           ],
           totalTasks: 5,
-          generationTimestamp: new Date().toISOString()
+          generationTimestamp: new Date().toISOString(),
         },
         metadata: {
           modelUsed: "gpt-4.1-mini",
@@ -216,33 +235,32 @@ describe('Report Generation Integration Tests', () => {
           providerId: "openai",
           success: true,
           attemptCount: 1,
-          fallbackUsed: false
-        }
+          fallbackUsed: false,
+        },
       };
 
       // Mock all agent executions
-      const mockExecuteAgent = jest.spyOn(pydanticLlmService, 'executeAgent');
-      
+      const mockExecuteAgent = jest.spyOn(pydanticLlmService, "executeAgent");
+
       // Set up different responses based on agent type
-      mockExecuteAgent
-        .mockImplementation(async (agentScript: string) => {
-          switch (agentScript) {
-            case 'web_search_sentiment_agent.py':
-              return mockSentimentResponse;
-            case 'fanout_agent.py':
-              return mockFanoutResponse;
-            case 'question_agent.py':
-              return mockQuestionResponse;
-            // DISABLED: case 'optimization_agent.py':
-            //   return mockOptimizationResponse;
-            default:
-              throw new Error(`Unknown agent: ${agentScript}`);
-          }
-        });
+      mockExecuteAgent.mockImplementation(async (agentScript: string) => {
+        switch (agentScript) {
+          case "web_search_sentiment_agent.py":
+            return mockSentimentResponse;
+          case "fanout_agent.py":
+            return mockFanoutResponse;
+          case "question_agent.py":
+            return mockQuestionResponse;
+          // DISABLED: case 'optimization_agent.py':
+          //   return mockOptimizationResponse;
+          default:
+            throw new Error(`Unknown agent: ${agentScript}`);
+        }
+      });
 
       // Simulate report generation process
       const runId = `integration-test-${Date.now()}`;
-      
+
       // Test report metrics data structure
       const reportMetricData = {
         companyId: testCompanyId,
@@ -263,8 +281,8 @@ describe('Report Generation Integration Tests', () => {
             totalTokens: 15000,
             totalCost: 0.45,
             avgResponseTime: 3.2,
-            successRate: 0.98
-          }
+            successRate: 0.98,
+          },
         },
         sentimentDetails: {
           overall_sentiment: "positive",
@@ -273,13 +291,15 @@ describe('Report Generation Integration Tests', () => {
           sentiment_distribution: {
             positive: 0.72,
             neutral: 0.16,
-            negative: 0.12
-          }
-        }
+            negative: 0.12,
+          },
+        },
       };
-      
+
       // Simulate database creation and validate structure
-      const reportMetric = mockPrisma.reportMetric.create({ data: reportMetricData });
+      const reportMetric = mockPrisma.reportMetric.create({
+        data: reportMetricData,
+      });
 
       expect(reportMetric).toBeDefined();
       expect(reportMetric.runId).toBe(runId);
@@ -299,22 +319,22 @@ describe('Report Generation Integration Tests', () => {
                 modelEngine: "openai",
                 fanoutQueries: {
                   comparison: ["Integration Test Corp vs competitors"],
-                  best_for: ["best practices Integration Test Corp"]
+                  best_for: ["best practices Integration Test Corp"],
                 },
                 tokenUsage: {
                   promptTokens: 560,
                   completionTokens: 240,
-                  totalTokens: 800
-                }
-              }
-            ]
+                  totalTokens: 800,
+                },
+              },
+            ],
           },
-          generatedAt: new Date()
-        }
+          generatedAt: new Date(),
+        },
       });
 
       expect(fanout).toBeDefined();
-      expect(fanout.data).toHaveProperty('modelGenerations');
+      expect(fanout.data).toHaveProperty("modelGenerations");
 
       // Test visibility question and response creation
       const visibilityQuestion = await prisma.visibilityQuestion.create({
@@ -322,8 +342,8 @@ describe('Report Generation Integration Tests', () => {
           companyId: testCompanyId,
           text: "What are the key market trends in cloud computing?",
           runId: runId,
-          generatedAt: new Date()
-        }
+          generatedAt: new Date(),
+        },
       });
 
       const visibilityResponse = await prisma.visibilityResponse.create({
@@ -333,25 +353,26 @@ describe('Report Generation Integration Tests', () => {
           runId: runId,
           data: {
             question: visibilityQuestion.text,
-            answer: "Key trends include serverless computing and AI integration",
+            answer:
+              "Key trends include serverless computing and AI integration",
             confidence: 0.9,
             sources: mockQuestionResponse.data.sources,
             metadata: {
               modelUsed: "gpt-4.1-mini",
               tokensUsed: 1200,
-              executionTime: 4000
-            }
+              executionTime: 4000,
+            },
           },
-          generatedAt: new Date()
-        }
+          generatedAt: new Date(),
+        },
       });
 
       expect(visibilityResponse).toBeDefined();
-      expect(visibilityResponse.data).toHaveProperty('answer');
+      expect(visibilityResponse.data).toHaveProperty("answer");
 
       // Verify data quality metrics
       const finalMetrics = await prisma.reportMetric.findUnique({
-        where: { id: reportMetric.id }
+        where: { id: reportMetric.id },
       });
 
       expect(finalMetrics).toBeDefined();
@@ -362,11 +383,11 @@ describe('Report Generation Integration Tests', () => {
 
       // Verify all components were created successfully
       const fanoutCount = await prisma.fanout.count({
-        where: { companyId: testCompanyId, runId: runId }
+        where: { companyId: testCompanyId, runId: runId },
       });
-      
+
       const responseCount = await prisma.visibilityResponse.count({
-        where: { companyId: testCompanyId, runId: runId }
+        where: { companyId: testCompanyId, runId: runId },
       });
 
       expect(fanoutCount).toBeGreaterThan(0);
@@ -375,26 +396,26 @@ describe('Report Generation Integration Tests', () => {
       mockExecuteAgent.mockRestore();
     }, 30000);
 
-    it('should handle partial failures gracefully', async () => {
+    it("should handle partial failures gracefully", async () => {
       const runId = `partial-fail-test-${Date.now()}`;
-      
+
       // Mock agent execution with some failures
-      const mockExecuteAgent = jest.spyOn(pydanticLlmService, 'executeAgent');
-      
+      const mockExecuteAgent = jest.spyOn(pydanticLlmService, "executeAgent");
+
       let callCount = 0;
       mockExecuteAgent.mockImplementation(async (agentScript: string) => {
         callCount++;
-        
+
         // Fail every 3rd call to simulate partial failures
         if (callCount % 3 === 0) {
-          throw new Error('Simulated agent failure');
+          throw new Error("Simulated agent failure");
         }
 
         return {
           data: {
             companyName: "Integration Test Corp",
             success: true,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
           },
           metadata: {
             modelUsed: "gpt-4.1-mini",
@@ -403,17 +424,17 @@ describe('Report Generation Integration Tests', () => {
             providerId: "openai",
             success: true,
             attemptCount: 1,
-            fallbackUsed: false
-          }
+            fallbackUsed: false,
+          },
         };
       });
 
       // Test that system handles partial failures
       try {
         await pydanticLlmService.executeAgent(
-          'web_search_sentiment_agent.py',
+          "web_search_sentiment_agent.py",
           { company_name: "Integration Test Corp" },
-          null
+          null,
         );
         expect(true).toBe(true); // Should succeed
       } catch (error) {
@@ -423,7 +444,7 @@ describe('Report Generation Integration Tests', () => {
 
       // Verify database state remains consistent even with failures
       const metrics = await prisma.reportMetric.findMany({
-        where: { companyId: testCompanyId }
+        where: { companyId: testCompanyId },
       });
 
       // Database should remain in consistent state
@@ -433,10 +454,10 @@ describe('Report Generation Integration Tests', () => {
     });
   });
 
-  describe('Data Quality Validation', () => {
-    it('should ensure all required fields are populated', async () => {
+  describe("Data Quality Validation", () => {
+    it("should ensure all required fields are populated", async () => {
       const runId = `quality-test-${Date.now()}`;
-      
+
       // Create test data with all required fields
       const reportMetric = await prisma.reportMetric.create({
         data: {
@@ -449,7 +470,7 @@ describe('Report Generation Integration Tests', () => {
           averagePosition: 3.5,
           visibilityScore: 72.0,
           shareOfVoice: 15.5,
-          inclusionRate: 0.80,
+          inclusionRate: 0.8,
           sentimentScore: 0.65,
           brandStrength: 7.8,
           generatedAt: new Date(),
@@ -458,10 +479,10 @@ describe('Report Generation Integration Tests', () => {
               totalTokens: 12000,
               totalCost: 0.36,
               avgResponseTime: 2.8,
-              successRate: 0.95
-            }
-          }
-        }
+              successRate: 0.95,
+            },
+          },
+        },
       });
 
       // Validate all critical fields are present and valid
@@ -475,9 +496,9 @@ describe('Report Generation Integration Tests', () => {
       expect(reportMetric.brandStrength).toBeGreaterThan(0);
     });
 
-    it('should validate sentiment score ranges', async () => {
+    it("should validate sentiment score ranges", async () => {
       const runId = `sentiment-validation-${Date.now()}`;
-      
+
       const reportMetric = await prisma.reportMetric.create({
         data: {
           companyId: testCompanyId,
@@ -496,10 +517,10 @@ describe('Report Generation Integration Tests', () => {
           modelStats: {
             "gpt-4.1-mini": {
               totalTokens: 10000,
-              totalCost: 0.30,
+              totalCost: 0.3,
               avgResponseTime: 3.1,
-              successRate: 0.96
-            }
+              successRate: 0.96,
+            },
           },
           sentimentDetails: {
             overall_sentiment: "positive",
@@ -507,22 +528,22 @@ describe('Report Generation Integration Tests', () => {
             confidence: 0.88,
             sentiment_distribution: {
               positive: 0.67,
-              neutral: 0.20,
-              negative: 0.13
-            }
-          }
-        }
+              neutral: 0.2,
+              negative: 0.13,
+            },
+          },
+        },
       });
 
       // Validate sentiment details structure and ranges
       expect(reportMetric.sentimentDetails).toBeDefined();
       const sentimentDetails = reportMetric.sentimentDetails as any;
-      
+
       expect(sentimentDetails.sentiment_score).toBeGreaterThanOrEqual(0);
       expect(sentimentDetails.sentiment_score).toBeLessThanOrEqual(1);
       expect(sentimentDetails.confidence).toBeGreaterThanOrEqual(0);
       expect(sentimentDetails.confidence).toBeLessThanOrEqual(1);
-      
+
       if (sentimentDetails.sentiment_distribution) {
         const dist = sentimentDetails.sentiment_distribution;
         expect(dist.positive + dist.neutral + dist.negative).toBeCloseTo(1, 2);
@@ -530,13 +551,14 @@ describe('Report Generation Integration Tests', () => {
     });
   });
 
-  describe('Performance Validation', () => {
-    it('should track execution times and token usage', async () => {
-      const mockExecuteAgent = jest.spyOn(pydanticLlmService, 'executeAgent')
+  describe("Performance Validation", () => {
+    it("should track execution times and token usage", async () => {
+      const mockExecuteAgent = jest
+        .spyOn(pydanticLlmService, "executeAgent")
         .mockResolvedValueOnce({
           data: {
             companyName: "Integration Test Corp",
-            results: ["test result"]
+            results: ["test result"],
           },
           metadata: {
             modelUsed: "gpt-4.1-mini",
@@ -545,14 +567,14 @@ describe('Report Generation Integration Tests', () => {
             providerId: "openai",
             success: true,
             attemptCount: 1,
-            fallbackUsed: false
-          }
+            fallbackUsed: false,
+          },
         });
 
       const result = await pydanticLlmService.executeAgent(
-        'web_search_sentiment_agent.py',
+        "web_search_sentiment_agent.py",
         { company_name: "Integration Test Corp" },
-        null
+        null,
       );
 
       // Validate performance metrics

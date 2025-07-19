@@ -15,11 +15,13 @@
  */
 import { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ArrowRight } from 'lucide-react';
 import Card from '../ui/Card';
 import { useDashboard } from '../../hooks/useDashboard';
 
 interface VisibilityOverTimeCardProps {
   selectedModel?: string;
+  onSeeMore?: () => void;
 }
 
 interface ChartDataPoint {
@@ -33,7 +35,7 @@ interface ShareOfVoiceHistoryItem {
   shareOfVoice: number;
 }
 
-const VisibilityOverTimeCard: React.FC<VisibilityOverTimeCardProps> = ({ selectedModel = 'all' }) => {
+const VisibilityOverTimeCard: React.FC<VisibilityOverTimeCardProps> = ({ selectedModel = 'all', onSeeMore }) => {
   const { data, loading, error, filters } = useDashboard();
   
   /**
@@ -305,9 +307,15 @@ const VisibilityOverTimeCard: React.FC<VisibilityOverTimeCardProps> = ({ selecte
     <Card className="h-full">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold text-gray-800">Visibility Over Time</h3>
-        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-          {getModelDisplayName(selectedModel)}
-        </span>
+        {onSeeMore && (
+          <button
+            onClick={onSeeMore}
+            className="flex items-center gap-1 text-sm text-[#7762ff] hover:text-[#6650e6] transition-colors"
+          >
+            See More
+            <ArrowRight size={14} />
+          </button>
+        )}
       </div>
       {renderContent()}
     </Card>

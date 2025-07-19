@@ -1,4 +1,4 @@
-import { getDbClient } from '../config/database';
+import { getDbClient } from "../config/database";
 
 // Mock instances tracking for test cleanup
 const activeBullMQInstances = new Set<any>();
@@ -22,6 +22,6 @@ export default async function teardown() {
   }
 
   await prisma.$disconnect();
-  console.log('✅ All test connections closed.');
+  console.log("✅ All test connections closed.");
   process.exit(0);
 }

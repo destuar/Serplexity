@@ -598,17 +598,8 @@ export const useReportGeneration = (selectedCompany: Company | null) => {
       setGenerationStatus('Initializing report generation pipeline...');
       
       
-      // Validate prerequisites
-      const hasCompetitors = selectedCompany.competitors && selectedCompany.competitors.length > 0;
-      if (!hasCompetitors) {
-        setGenerationStatus('Error: Add at least one competitor to enable report generation.');
-        setIsGenerating(false);
-        setProgress(0);
-        progressRef.current = 0;
-        setGenerationState(GenerationState.FAILED);
-        releaseGenerationLock(selectedCompany.id);
-        return;
-      }
+      // Company research flow doesn't require pre-existing competitors
+      // Competitors will be discovered during the research phase
 
       // Make the API request
       const { runId: newRunId } = await triggerReportGeneration(selectedCompany.id);
@@ -659,7 +650,7 @@ export const useReportGeneration = (selectedCompany: Company | null) => {
   // Enhanced button state logic
   const isButtonDisabled = useCallback(() => {
     if (!selectedCompany) return true;
-    if (!selectedCompany.competitors?.length) return true;
+    // Removed competitor requirement - company research flow discovers competitors automatically
     if (generationState !== GenerationState.IDLE) return true;
     if (crossTabLock) return true;
     

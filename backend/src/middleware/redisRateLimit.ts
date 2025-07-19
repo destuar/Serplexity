@@ -16,9 +16,9 @@
  * - apiLimiter: A pre-configured rate limiter for general API routes.
  * - reportLimiter: A pre-configured rate limiter for report generation routes.
  */
-import { Request, Response, NextFunction } from 'express';
-import { redis } from '../config/redis';
-import logger from '../utils/logger';
+import { Request, Response, NextFunction } from "express";
+import { redis } from "../config/redis";
+import logger from "../utils/logger";
 
 export interface RateLimitOptions {
   windowMs: number;
@@ -34,7 +34,7 @@ export function createRedisRateLimit(options: RateLimitOptions) {
     max,
     keyGenerator = (req) => req.ip,
     skipSuccessfulRequests = false,
-    message = 'Too many requests from this IP, please try again later.'
+    message = "Too many requests from this IP, please try again later.",
   } = options;
 
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -49,15 +49,15 @@ export function createRedisRateLimit(options: RateLimitOptions) {
 
       // Check if limit exceeded
       if (count >= max) {
-        return res.status(429).json({ 
+        return res.status(429).json({
           error: message,
-          retryAfter: Math.ceil(windowMs / 1000)
+          retryAfter: Math.ceil(windowMs / 1000),
         });
       }
 
       // Increment counter
       const newCount = await redis.incr(redisKey);
-      
+
       // Set expiration on first increment
       if (newCount === 1) {
         await redis.expire(redisKey, Math.ceil(windowMs / 1000));
@@ -65,19 +65,19 @@ export function createRedisRateLimit(options: RateLimitOptions) {
 
       // Add rate limit headers
       res.set({
-        'X-RateLimit-Limit': max.toString(),
-        'X-RateLimit-Remaining': Math.max(0, max - newCount).toString(),
-        'X-RateLimit-Reset': new Date(Date.now() + windowMs).toISOString()
+        "X-RateLimit-Limit": max.toString(),
+        "X-RateLimit-Remaining": Math.max(0, max - newCount).toString(),
+        "X-RateLimit-Reset": new Date(Date.now() + windowMs).toISOString(),
       });
 
       // Handle skip successful requests
       if (skipSuccessfulRequests) {
-        res.on('finish', async () => {
+        res.on("finish", async () => {
           if (res.statusCode < 400) {
             try {
               await redis.decr(redisKey);
             } catch (error) {
-              logger.error('Error decrementing rate limit counter:', error);
+              logger.error("Error decrementing rate limit counter:", error);
             }
           }
         });
@@ -85,7 +85,7 @@ export function createRedisRateLimit(options: RateLimitOptions) {
 
       next();
     } catch (error) {
-      logger.error('Redis rate limit error:', error);
+      logger.error("Redis rate limit error:", error);
       // Fallback to allowing the request if Redis fails
       next();
     }
@@ -97,18 +97,19 @@ export const authLimiter = createRedisRateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // 100 requests per window (industry standard)
   skipSuccessfulRequests: true,
-  message: 'Too many authentication attempts, please try again later.'
+  message: "Too many authentication attempts, please try again later.",
 });
 
 export const apiLimiter = createRedisRateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 1000, // 1000 requests per window
-  message: 'Too many API requests, please try again later.'
+  message: "Too many API requests, please try again later.",
 });
 
 export const reportLimiter = createRedisRateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 3, // 3 report requests per minute
-  keyGenerator: (req) => `${req.ip}:${req.user?.id || 'anonymous'}`,
-  message: 'Too many report generation requests, please wait before trying again.'
+  keyGenerator: (req) => `${req.ip}:${req.user?.id || "anonymous"}`,
+  message:
+    "Too many report generation requests, please wait before trying again.",
 });

@@ -1,6 +1,6 @@
 /**
  * @file server.ts
- * @description This is the main entry point for the backend server. It initializes the database connection, 
+ * @description This is the main entry point for the backend server. It initializes the database connection,
  * starts the HTTP server, and handles graceful shutdown.
  *
  * @dependencies
@@ -16,17 +16,17 @@
  * - ./queues/masterScheduler: Schedules the daily report trigger.
  * - ./queues/backupScheduler: Schedules the backup daily report trigger.
  */
-import './config/tracing'; // IMPORTANT: Must be the first import to ensure all modules are instrumented
-import app from './app';
-import http from 'http';
-import env from './config/env';
-import { testDbConnection } from './config/database';
-import './queues/reportWorker'; // This initializes and starts the worker process
-import './queues/archiveWorker'; // This initializes and starts the archive worker process
-import './queues/masterSchedulerWorker'; // This initializes the daily report scheduler worker
-import './queues/backupSchedulerWorker'; // This initializes the backup scheduler worker
-import { scheduleDailyReportTrigger } from './queues/masterScheduler';
-import { scheduleBackupDailyReportTrigger } from './queues/backupScheduler';
+import "./config/tracing"; // IMPORTANT: Must be the first import to ensure all modules are instrumented
+import app from "./app";
+import http from "http";
+import env from "./config/env";
+import { testDbConnection } from "./config/database";
+import "./queues/reportWorker"; // This initializes and starts the worker process
+import "./queues/archiveWorker"; // This initializes and starts the archive worker process
+import "./queues/masterSchedulerWorker"; // This initializes the daily report scheduler worker
+import "./queues/backupSchedulerWorker"; // This initializes the backup scheduler worker
+import { scheduleDailyReportTrigger } from "./queues/masterScheduler";
+import { scheduleBackupDailyReportTrigger } from "./queues/backupScheduler";
 
 const PORT = env.PORT;
 
@@ -34,69 +34,71 @@ const server = http.createServer(app);
 
 const startServer = async () => {
   try {
-    console.log('🔗 Initializing database connection...');
-    
+    console.log("🔗 Initializing database connection...");
+
     const isConnected = await testDbConnection();
     if (!isConnected) {
-      throw new Error('Failed to connect to database');
+      throw new Error("Failed to connect to database");
     }
-    
-    console.log('✅ Database connection successful.');
+
+    console.log("✅ Database connection successful.");
 
     // Initialize daily report scheduler
     await scheduleDailyReportTrigger();
-    console.log('Daily report scheduler initialized.');
+    console.log("Daily report scheduler initialized.");
 
     // Initialize backup scheduler
     await scheduleBackupDailyReportTrigger();
-    console.log('Backup report scheduler initialized.');
+    console.log("Backup report scheduler initialized.");
 
     server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
-      console.log('🚀 Automated daily reporting system is active!');
+      console.log("🚀 Automated daily reporting system is active!");
     });
   } catch (error) {
-    console.error('❌ Error starting server:', error);
+    console.error("❌ Error starting server:", error);
     process.exit(1);
   }
 };
 
 // Graceful shutdown handling
 const gracefulShutdown = async (signal: string) => {
-  console.log(`\n[${signal}] Received shutdown signal, starting graceful shutdown...`);
-  
+  console.log(
+    `\n[${signal}] Received shutdown signal, starting graceful shutdown...`,
+  );
+
   try {
     // Stop accepting new connections
     if (server) {
       server.close(() => {
-        console.log('HTTP server closed');
+        console.log("HTTP server closed");
       });
     }
-    
+
     // Give existing connections time to finish
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    
-    console.log('Graceful shutdown completed');
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+
+    console.log("Graceful shutdown completed");
     process.exit(0);
   } catch (error) {
-    console.error('Error during graceful shutdown:', error);
+    console.error("Error during graceful shutdown:", error);
     process.exit(1);
   }
 };
 
 // Register shutdown handlers
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
 // Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-  gracefulShutdown('UNCAUGHT_EXCEPTION');
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught Exception:", error);
+  gracefulShutdown("UNCAUGHT_EXCEPTION");
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  gracefulShutdown('UNHANDLED_REJECTION');
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+  gracefulShutdown("UNHANDLED_REJECTION");
 });
 
-startServer(); 
+startServer();

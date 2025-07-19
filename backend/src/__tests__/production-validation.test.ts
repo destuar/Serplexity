@@ -1,12 +1,12 @@
 /**
  * @file production-validation.test.ts
  * @description COMPREHENSIVE production validation for ALL report generation components
- * 
+ *
  * This test suite validates EVERY critical component that could break paying client reports:
- * 
+ *
  * 🔥 CRITICAL COMPONENTS TESTED:
  * 1. Sentiment Analysis (web_search_sentiment_agent.py)
- * 2. Fanout Generation (fanout_agent.py)  
+ * 2. Fanout Generation (fanout_agent.py)
  * 3. Question Answering (question_agent.py)
  * 4. Optimization Task Generation (preset hardcoded tasks)
  * 5. Sentiment Summary (sentiment_summary_agent.py)
@@ -16,67 +16,73 @@
  * 9. Brand Mention Extraction
  * 10. Visibility Task Generation
  * 11. Complete End-to-End Pipeline
- * 
+ *
  * 💰 CLIENT SAFETY: Any failure here means potential client report failures
  * 🧪 REAL PROVIDER CALLS: Uses actual APIs with .env credentials
  * 📊 NO DATABASE WRITES: Validates logic without persistence complexity
  */
 
-import { describe, beforeAll, afterAll, it, expect, jest } from '@jest/globals';
-import { config } from 'dotenv';
-import { resolve } from 'path';
-import { pydanticLlmService } from '../services/pydanticLlmService';
+import { describe, beforeAll, afterAll, it, expect, jest } from "@jest/globals";
+import { config } from "dotenv";
+import { resolve } from "path";
+import { pydanticLlmService } from "../services/pydanticLlmService";
 
 // Load real environment variables
-config({ path: resolve(__dirname, '../../../.env') });
+config({ path: resolve(__dirname, "../../../.env") });
 
 // Ensure test environment
-process.env.NODE_ENV = 'test';
-process.env.DISABLE_LOGFIRE = '1';
+process.env.NODE_ENV = "test";
+process.env.DISABLE_LOGFIRE = "1";
 
-describe('🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS', () => {
+describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
   beforeAll(async () => {
-    console.log('\n🚨 PRODUCTION VALIDATION STARTING...');
-    console.log('This test validates ALL components that could break paying client reports');
-    
+    console.log("\n🚨 PRODUCTION VALIDATION STARTING...");
+    console.log(
+      "This test validates ALL components that could break paying client reports",
+    );
+
     // Verify critical environment variables
-    const requiredVars = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'PERPLEXITY_API_KEY'];
-    const missingVars = requiredVars.filter(varName => !process.env[varName]);
-    
+    const requiredVars = [
+      "OPENAI_API_KEY",
+      "ANTHROPIC_API_KEY",
+      "PERPLEXITY_API_KEY",
+    ];
+    const missingVars = requiredVars.filter((varName) => !process.env[varName]);
+
     if (missingVars.length > 0) {
-      console.warn(`⚠️  Missing API keys: ${missingVars.join(', ')}`);
-      console.warn('Some critical tests may fail');
+      console.warn(`⚠️  Missing API keys: ${missingVars.join(", ")}`);
+      console.warn("Some critical tests may fail");
     } else {
-      console.log('✅ All required API keys present');
+      console.log("✅ All required API keys present");
     }
   });
 
   afterAll(async () => {
     await pydanticLlmService.cleanup();
-    console.log('\n🎯 PRODUCTION VALIDATION COMPLETE');
+    console.log("\n🎯 PRODUCTION VALIDATION COMPLETE");
   });
 
-  describe('🔥 CRITICAL AGENT VALIDATION', () => {
-    it('should validate Sentiment Analysis Agent (web_search_sentiment_agent.py)', async () => {
-      console.log('\n📊 Testing Sentiment Analysis Agent...');
-      
+  describe("🔥 CRITICAL AGENT VALIDATION", () => {
+    it("should validate Sentiment Analysis Agent (web_search_sentiment_agent.py)", async () => {
+      console.log("\n📊 Testing Sentiment Analysis Agent...");
+
       const sentimentInput = {
         company_name: "Slack",
         search_queries: [
           "Slack customer reviews 2025",
           "Slack vs Microsoft Teams",
-          "Slack pricing complaints"
+          "Slack pricing complaints",
         ],
         max_results_per_query: 3,
-        context: "Production sentiment analysis validation"
+        context: "Production sentiment analysis validation",
       };
 
       try {
         const result = await pydanticLlmService.executeAgent(
-          'web_search_sentiment_agent.py',
+          "web_search_sentiment_agent.py",
           sentimentInput,
           null,
-          { timeout: 45000 }
+          { timeout: 45000 },
         );
 
         // CRITICAL VALIDATIONS for client reports
@@ -88,92 +94,96 @@ describe('🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS', () => {
         // Validate sentiment data structure (critical for client metrics)
         if (result.data.ratings && result.data.ratings.length > 0) {
           const rating = result.data.ratings[0];
-          expect(rating).toHaveProperty('quality');
-          expect(rating).toHaveProperty('brandReputation');
-          expect(rating).toHaveProperty('summaryDescription');
+          expect(rating).toHaveProperty("quality");
+          expect(rating).toHaveProperty("brandReputation");
+          expect(rating).toHaveProperty("summaryDescription");
           expect(rating.quality).toBeGreaterThanOrEqual(1);
           expect(rating.quality).toBeLessThanOrEqual(10);
         }
 
-        console.log(`✅ Sentiment Analysis: ${result.metadata.executionTime}ms, Model: ${result.metadata.modelUsed}`);
-
+        console.log(
+          `✅ Sentiment Analysis: ${result.metadata.executionTime}ms, Model: ${result.metadata.modelUsed}`,
+        );
       } catch (error) {
-        if (error instanceof Error && error.message.includes('API key')) {
-          console.warn('⚠️  Skipping due to missing API keys');
+        if (error instanceof Error && error.message.includes("API key")) {
+          console.warn("⚠️  Skipping due to missing API keys");
           return;
         }
         throw new Error(`🚨 CRITICAL: Sentiment Analysis failed - ${error}`);
       }
     }, 60000);
 
-    it('should validate Fanout Generation Agent (fanout_agent.py)', async () => {
-      console.log('\n🔀 Testing Fanout Generation Agent...');
-      
+    it("should validate Fanout Generation Agent (fanout_agent.py)", async () => {
+      console.log("\n🔀 Testing Fanout Generation Agent...");
+
       const fanoutInput = {
         company_name: "Slack",
         industry: "Communication Software",
-        base_question: "What are the best team collaboration tools for remote work?",
+        base_question:
+          "What are the best team collaboration tools for remote work?",
         context: "Production fanout validation for client reports",
-        competitors: ["Microsoft Teams", "Discord", "Zoom Chat"]
+        competitors: ["Microsoft Teams", "Discord", "Zoom Chat"],
       };
 
       try {
         const result = await pydanticLlmService.executeAgent(
-          'fanout_agent.py',
+          "fanout_agent.py",
           fanoutInput,
           null,
-          { timeout: 60000 }
+          { timeout: 60000 },
         );
 
-        // CRITICAL VALIDATIONS 
+        // CRITICAL VALIDATIONS
         expect(result).toBeDefined();
         expect(result.data).toBeDefined();
         expect(result.data.queries).toBeDefined();
         expect(Array.isArray(result.data.queries)).toBe(true);
         expect(result.data.queries.length).toBeGreaterThan(0);
-        
+
         // Validate query structure (critical for visibility analysis)
         result.data.queries.forEach((query: any) => {
-          expect(query).toHaveProperty('query');
-          expect(query).toHaveProperty('type');
+          expect(query).toHaveProperty("query");
+          expect(query).toHaveProperty("type");
           expect(query.query).toBeTruthy();
-          expect(typeof query.query).toBe('string');
+          expect(typeof query.query).toBe("string");
         });
 
-        console.log(`✅ Fanout Generation: ${result.data.queries.length} queries, ${result.metadata.executionTime}ms`);
-
+        console.log(
+          `✅ Fanout Generation: ${result.data.queries.length} queries, ${result.metadata.executionTime}ms`,
+        );
       } catch (error) {
-        if (error instanceof Error && error.message.includes('API key')) {
-          console.warn('⚠️  Skipping due to missing API keys');
+        if (error instanceof Error && error.message.includes("API key")) {
+          console.warn("⚠️  Skipping due to missing API keys");
           return;
         }
         throw new Error(`🚨 CRITICAL: Fanout Generation failed - ${error}`);
       }
     }, 90000);
 
-    it('should validate Question Answering Agent (question_agent.py)', async () => {
-      console.log('\n❓ Testing Question Answering Agent...');
-      
+    it("should validate Question Answering Agent (question_agent.py)", async () => {
+      console.log("\n❓ Testing Question Answering Agent...");
+
       const questionInput = {
         company_name: "Slack",
-        question: "What are the main competitive advantages of Slack over Microsoft Teams for enterprise teams?",
+        question:
+          "What are the main competitive advantages of Slack over Microsoft Teams for enterprise teams?",
         context: "Production question answering validation",
-        max_search_results: 5
+        max_search_results: 5,
       };
 
       try {
         const result = await pydanticLlmService.executeAgent(
-          'question_agent.py',
+          "question_agent.py",
           questionInput,
           null,
-          { timeout: 50000 }
+          { timeout: 50000 },
         );
 
         // CRITICAL VALIDATIONS for client Q&A
         expect(result).toBeDefined();
         expect(result.data).toBeDefined();
         expect(result.data.answer).toBeDefined();
-        expect(typeof result.data.answer).toBe('string');
+        expect(typeof result.data.answer).toBe("string");
         expect(result.data.answer.length).toBeGreaterThan(20);
 
         // Validate confidence and sources (critical for client trust)
@@ -182,11 +192,12 @@ describe('🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS', () => {
           expect(result.data.confidence).toBeLessThanOrEqual(1);
         }
 
-        console.log(`✅ Question Answering: ${result.data.answer.length} chars, ${result.metadata.executionTime}ms`);
-
+        console.log(
+          `✅ Question Answering: ${result.data.answer.length} chars, ${result.metadata.executionTime}ms`,
+        );
       } catch (error) {
-        if (error instanceof Error && error.message.includes('API key')) {
-          console.warn('⚠️  Skipping due to missing API keys');
+        if (error instanceof Error && error.message.includes("API key")) {
+          console.warn("⚠️  Skipping due to missing API keys");
           return;
         }
         throw new Error(`🚨 CRITICAL: Question Answering failed - ${error}`);
@@ -196,7 +207,7 @@ describe('🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS', () => {
     // DISABLED: Optimization agent has been removed in favor of hardcoded preset tasks
     // it('should validate Optimization Task Generation Agent (optimization_agent.py)', async () => {
     //   console.log('\n🎯 Testing Optimization Task Generation Agent...');
-      
+
     //   const optimizationInput = {
     //     company_name: "Slack",
     //     industry: "Communication Software",
@@ -241,24 +252,32 @@ describe('🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS', () => {
     //   }
     // }, 70000);
 
-    it('should validate Sentiment Summary Agent (sentiment_summary_agent.py)', async () => {
-      console.log('\n📈 Testing Sentiment Summary Agent...');
-      
+    it("should validate Sentiment Summary Agent (sentiment_summary_agent.py)", async () => {
+      console.log("\n📈 Testing Sentiment Summary Agent...");
+
       const sentimentSummaryInput = {
         company_name: "Slack",
         sentiment_data: [
-          { quality: 8, brandReputation: 9, summaryDescription: "Great collaboration platform" },
-          { quality: 7, brandReputation: 8, summaryDescription: "Solid enterprise solution" }
+          {
+            quality: 8,
+            brandReputation: 9,
+            summaryDescription: "Great collaboration platform",
+          },
+          {
+            quality: 7,
+            brandReputation: 8,
+            summaryDescription: "Solid enterprise solution",
+          },
         ],
-        context: "Production sentiment summary validation"
+        context: "Production sentiment summary validation",
       };
 
       try {
         const result = await pydanticLlmService.executeAgent(
-          'sentiment_summary_agent.py',
+          "sentiment_summary_agent.py",
           sentimentSummaryInput,
           null,
-          { timeout: 30000 }
+          { timeout: 30000 },
         );
 
         // CRITICAL VALIDATIONS for client sentiment summaries
@@ -270,37 +289,38 @@ describe('🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS', () => {
         // Validate sentiment summary data structure (critical for client insights)
         if (result.data.ratings && result.data.ratings.length > 0) {
           const rating = result.data.ratings[0];
-          expect(rating).toHaveProperty('summaryDescription');
+          expect(rating).toHaveProperty("summaryDescription");
           expect(rating.summaryDescription).toBeTruthy();
-          expect(typeof rating.summaryDescription).toBe('string');
+          expect(typeof rating.summaryDescription).toBe("string");
         }
 
-        console.log(`✅ Sentiment Summary: ${result.metadata.executionTime}ms, Model: ${result.metadata.modelUsed}`);
-
+        console.log(
+          `✅ Sentiment Summary: ${result.metadata.executionTime}ms, Model: ${result.metadata.modelUsed}`,
+        );
       } catch (error) {
-        if (error instanceof Error && error.message.includes('API key')) {
-          console.warn('⚠️  Skipping due to missing API keys');
+        if (error instanceof Error && error.message.includes("API key")) {
+          console.warn("⚠️  Skipping due to missing API keys");
           return;
         }
         throw new Error(`🚨 CRITICAL: Sentiment Summary failed - ${error}`);
       }
     }, 45000);
 
-    it('should validate Website Enrichment Agent (website_enrichment_agent.py)', async () => {
-      console.log('\n🌐 Testing Website Enrichment Agent...');
-      
+    it("should validate Website Enrichment Agent (website_enrichment_agent.py)", async () => {
+      console.log("\n🌐 Testing Website Enrichment Agent...");
+
       const websiteEnrichmentInput = {
         company_name: "Slack",
         website_url: "https://slack.com",
-        context: "Production website enrichment validation"
+        context: "Production website enrichment validation",
       };
 
       try {
         const result = await pydanticLlmService.executeAgent(
-          'website_enrichment_agent.py',
+          "website_enrichment_agent.py",
           websiteEnrichmentInput,
           null,
-          { timeout: 30000 }
+          { timeout: 30000 },
         );
 
         // CRITICAL VALIDATIONS for client competitor analysis
@@ -310,14 +330,15 @@ describe('🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS', () => {
         expect(result.metadata.executionTime).toBeGreaterThan(0);
 
         // Validate website enrichment data structure (critical for competitor analysis)
-        expect(result.data).toHaveProperty('competitors');
+        expect(result.data).toHaveProperty("competitors");
         expect(Array.isArray(result.data.competitors)).toBe(true);
 
-        console.log(`✅ Website Enrichment: ${result.metadata.executionTime}ms, Model: ${result.metadata.modelUsed}`);
-
+        console.log(
+          `✅ Website Enrichment: ${result.metadata.executionTime}ms, Model: ${result.metadata.modelUsed}`,
+        );
       } catch (error) {
-        if (error instanceof Error && error.message.includes('API key')) {
-          console.warn('⚠️  Skipping due to missing API keys');
+        if (error instanceof Error && error.message.includes("API key")) {
+          console.warn("⚠️  Skipping due to missing API keys");
           return;
         }
         throw new Error(`🚨 CRITICAL: Website Enrichment failed - ${error}`);
@@ -325,43 +346,52 @@ describe('🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS', () => {
     }, 45000);
   });
 
-  describe('📊 PROCESSING PIPELINE VALIDATION', () => {
-    it('should validate Sentiment Summary Processing', async () => {
-      console.log('\n📈 Testing Sentiment Summary Processing...');
-      
+  describe("📊 PROCESSING PIPELINE VALIDATION", () => {
+    it("should validate Sentiment Summary Processing", async () => {
+      console.log("\n📈 Testing Sentiment Summary Processing...");
+
       // Simulate multiple sentiment results (like production)
       const mockSentiments = [
         {
           companyName: "Slack",
           industry: "Communication Software",
-          ratings: [{
-            quality: 8,
-            priceValue: 7,
-            brandReputation: 9,
-            brandTrust: 8,
-            customerService: 7,
-            summaryDescription: "Strong enterprise communication platform"
-          }]
+          ratings: [
+            {
+              quality: 8,
+              priceValue: 7,
+              brandReputation: 9,
+              brandTrust: 8,
+              customerService: 7,
+              summaryDescription: "Strong enterprise communication platform",
+            },
+          ],
         },
         {
-          companyName: "Slack", 
+          companyName: "Slack",
           industry: "Communication Software",
-          ratings: [{
-            quality: 7,
-            priceValue: 6,
-            brandReputation: 8,
-            brandTrust: 7,
-            customerService: 8,
-            summaryDescription: "Reliable team collaboration tool"
-          }]
-        }
+          ratings: [
+            {
+              quality: 7,
+              priceValue: 6,
+              brandReputation: 8,
+              brandTrust: 7,
+              customerService: 8,
+              summaryDescription: "Reliable team collaboration tool",
+            },
+          ],
+        },
       ];
 
       try {
         // Test the sentiment summary generation (as used in production)
-        const { generateOverallSentimentSummary } = await import('../services/llmService');
-        
-        const summaryResult = await generateOverallSentimentSummary("Slack", mockSentiments);
+        const { generateOverallSentimentSummary } = await import(
+          "../services/llmService"
+        );
+
+        const summaryResult = await generateOverallSentimentSummary(
+          "Slack",
+          mockSentiments,
+        );
 
         // CRITICAL VALIDATIONS for client sentiment summaries
         expect(summaryResult).toBeDefined();
@@ -369,28 +399,33 @@ describe('🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS', () => {
         expect(summaryResult.usage).toBeDefined();
         expect(summaryResult.usage.totalTokens).toBeGreaterThan(0);
 
-        console.log(`✅ Sentiment Summary: ${summaryResult.usage.totalTokens} tokens`);
-
+        console.log(
+          `✅ Sentiment Summary: ${summaryResult.usage.totalTokens} tokens`,
+        );
       } catch (error) {
-        if (error instanceof Error && error.message.includes('API key')) {
-          console.warn('⚠️  Skipping due to missing API keys');
+        if (error instanceof Error && error.message.includes("API key")) {
+          console.warn("⚠️  Skipping due to missing API keys");
           return;
         }
-        throw new Error(`🚨 CRITICAL: Sentiment Summary Processing failed - ${error}`);
+        throw new Error(
+          `🚨 CRITICAL: Sentiment Summary Processing failed - ${error}`,
+        );
       }
     }, 45000);
 
-    it('should validate Metric Calculations Service', async () => {
-      console.log('\n📊 Testing Metric Calculations...');
-      
+    it("should validate Metric Calculations Service", async () => {
+      console.log("\n📊 Testing Metric Calculations...");
+
       try {
         // Import metrics service (no DB writes, just structure validation)
-        const { computeAndPersistMetrics } = await import('../services/metricsService');
-        
+        const { computeAndPersistMetrics } = await import(
+          "../services/metricsService"
+        );
+
         // Validate the function exists and is callable
-        expect(typeof computeAndPersistMetrics).toBe('function');
-        
-        console.log('✅ Metric Calculations: Service available and callable');
+        expect(typeof computeAndPersistMetrics).toBe("function");
+
+        console.log("✅ Metric Calculations: Service available and callable");
 
         // Test metric calculation logic without DB writes
         const mockMetricData = {
@@ -399,33 +434,36 @@ describe('🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS', () => {
           negativeMentions: 3,
           neutralMentions: 4,
           averagePosition: 3.2,
-          sentimentScore: 0.75
+          sentimentScore: 0.75,
         };
 
         // Validate metric calculation logic
-        const totalCalculated = mockMetricData.positiveMentions + mockMetricData.negativeMentions + mockMetricData.neutralMentions;
+        const totalCalculated =
+          mockMetricData.positiveMentions +
+          mockMetricData.negativeMentions +
+          mockMetricData.neutralMentions;
         expect(totalCalculated).toBe(mockMetricData.totalMentions);
         expect(mockMetricData.sentimentScore).toBeGreaterThanOrEqual(0);
         expect(mockMetricData.sentimentScore).toBeLessThanOrEqual(1);
 
-        console.log('✅ Metric Calculations: Logic validation passed');
-
+        console.log("✅ Metric Calculations: Logic validation passed");
       } catch (error) {
         throw new Error(`🚨 CRITICAL: Metric Calculations failed - ${error}`);
       }
     }, 15000);
 
-    it('should validate Brand Mention Extraction Logic', async () => {
-      console.log('\n🏷️  Testing Brand Mention Extraction...');
-      
+    it("should validate Brand Mention Extraction Logic", async () => {
+      console.log("\n🏷️  Testing Brand Mention Extraction...");
+
       try {
         // Test brand mention extraction (as used in reportWorker.ts)
-        const testAnswer = "Both <brand>Slack</brand> and <brand>Microsoft Teams</brand> offer excellent collaboration features. However, <brand>Slack</brand> provides better integration options.";
-        
+        const testAnswer =
+          "Both <brand>Slack</brand> and <brand>Microsoft Teams</brand> offer excellent collaboration features. However, <brand>Slack</brand> provides better integration options.";
+
         const brandRegex = /<brand>(.*?)<\/brand>/gi;
         const extractedBrands = [];
         let match;
-        
+
         while ((match = brandRegex.exec(testAnswer)) !== null) {
           const brandName = match[1].trim();
           if (brandName) {
@@ -435,22 +473,25 @@ describe('🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS', () => {
 
         // CRITICAL VALIDATIONS for client brand tracking
         expect(extractedBrands.length).toBeGreaterThan(0);
-        expect(extractedBrands).toContain('Slack');
-        expect(extractedBrands).toContain('Microsoft Teams');
-        expect(extractedBrands.filter(b => b === 'Slack').length).toBe(2); // Should find 2 Slack mentions
+        expect(extractedBrands).toContain("Slack");
+        expect(extractedBrands).toContain("Microsoft Teams");
+        expect(extractedBrands.filter((b) => b === "Slack").length).toBe(2); // Should find 2 Slack mentions
 
-        console.log(`✅ Brand Mention Extraction: ${extractedBrands.length} brands extracted`);
-
+        console.log(
+          `✅ Brand Mention Extraction: ${extractedBrands.length} brands extracted`,
+        );
       } catch (error) {
-        throw new Error(`🚨 CRITICAL: Brand Mention Extraction failed - ${error}`);
+        throw new Error(
+          `🚨 CRITICAL: Brand Mention Extraction failed - ${error}`,
+        );
       }
     }, 10000);
   });
 
-  describe('🔄 END-TO-END PIPELINE VALIDATION', () => {
-    it('should validate COMPLETE report generation pipeline', async () => {
-      console.log('\n🔄 Testing COMPLETE End-to-End Pipeline...');
-      
+  describe("🔄 END-TO-END PIPELINE VALIDATION", () => {
+    it("should validate COMPLETE report generation pipeline", async () => {
+      console.log("\n🔄 Testing COMPLETE End-to-End Pipeline...");
+
       const companyName = "Slack";
       const pipeline = {
         sentiment: null as any,
@@ -458,90 +499,107 @@ describe('🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS', () => {
         questions: [] as any[],
         optimization: null as any,
         summary: null as any,
-        metrics: null as any
+        metrics: null as any,
       };
 
       try {
         // Step 1: Sentiment Analysis (CRITICAL for client metrics)
-        console.log('   📊 Step 1: Sentiment Analysis...');
+        console.log("   📊 Step 1: Sentiment Analysis...");
         pipeline.sentiment = await pydanticLlmService.executeAgent(
-          'web_search_sentiment_agent.py',
+          "web_search_sentiment_agent.py",
           {
             company_name: companyName,
-            search_queries: [`${companyName} reviews`, `${companyName} vs competitors`],
+            search_queries: [
+              `${companyName} reviews`,
+              `${companyName} vs competitors`,
+            ],
             max_results_per_query: 2,
-            context: `End-to-end sentiment analysis for ${companyName}`
+            context: `End-to-end sentiment analysis for ${companyName}`,
           },
           null,
-          { timeout: 35000 }
+          { timeout: 35000 },
         );
-        
+
         expect(pipeline.sentiment.data).toBeDefined();
-        console.log(`   ✅ Sentiment: ${pipeline.sentiment.metadata.executionTime}ms`);
+        console.log(
+          `   ✅ Sentiment: ${pipeline.sentiment.metadata.executionTime}ms`,
+        );
 
         // Step 2: Fanout Generation (CRITICAL for question diversity)
-        console.log('   🔀 Step 2: Fanout Generation...');
+        console.log("   🔀 Step 2: Fanout Generation...");
         pipeline.fanout = await pydanticLlmService.executeAgent(
-          'fanout_agent.py',
+          "fanout_agent.py",
           {
             company_name: companyName,
             industry: "Communication Software",
             base_question: "What are the best team communication tools?",
             context: `End-to-end fanout for ${companyName}`,
-            competitors: ["Microsoft Teams"]
+            competitors: ["Microsoft Teams"],
           },
           null,
-          { timeout: 40000 }
+          { timeout: 40000 },
         );
-        
+
         expect(pipeline.fanout.data).toBeDefined();
         expect(pipeline.fanout.data.queries.length).toBeGreaterThan(0);
-        console.log(`   ✅ Fanout: ${pipeline.fanout.data.queries.length} queries`);
+        console.log(
+          `   ✅ Fanout: ${pipeline.fanout.data.queries.length} queries`,
+        );
 
         // Step 3: Question Answering (CRITICAL for client insights)
-        console.log('   ❓ Step 3: Question Answering...');
+        console.log("   ❓ Step 3: Question Answering...");
         const questionResult = await pydanticLlmService.executeAgent(
-          'question_agent.py',
+          "question_agent.py",
           {
             company_name: companyName,
-            question: "What makes Slack different from other communication tools?",
-            context: "End-to-end question answering"
+            question:
+              "What makes Slack different from other communication tools?",
+            context: "End-to-end question answering",
           },
           null,
-          { timeout: 35000 }
+          { timeout: 35000 },
         );
-        
+
         pipeline.questions.push(questionResult);
         expect(questionResult.data.answer).toBeTruthy();
-        console.log(`   ✅ Question: ${questionResult.data.answer.length} chars`);
+        console.log(
+          `   ✅ Question: ${questionResult.data.answer.length} chars`,
+        );
 
         // Step 4: Optimization Tasks (DISABLED - using hardcoded preset tasks)
-        console.log('   🎯 Step 4: Optimization Tasks (using preset tasks)...');
+        console.log("   🎯 Step 4: Optimization Tasks (using preset tasks)...");
         pipeline.optimization = {
           data: {
             tasks: [
               { title: "Verify robots.txt & llms.txt", category: "technical" },
               { title: "Implement Schema Markup", category: "technical" },
-              { title: "Create Brand-Specific Landing Pages", category: "content" }
-            ]
+              {
+                title: "Create Brand-Specific Landing Pages",
+                category: "content",
+              },
+            ],
           },
-          metadata: { executionTime: 0, modelUsed: "preset", success: true }
+          metadata: { executionTime: 0, modelUsed: "preset", success: true },
         };
-        
+
         expect(pipeline.optimization.data.tasks).toBeDefined();
         expect(pipeline.optimization.data.tasks.length).toBeGreaterThan(0);
-        console.log(`   ✅ Optimization: ${pipeline.optimization.data.tasks.length} tasks`);
+        console.log(
+          `   ✅ Optimization: ${pipeline.optimization.data.tasks.length} tasks`,
+        );
 
         // Step 5: Validate Complete Pipeline Metrics
-        const totalTokens = pipeline.sentiment.metadata.tokensUsed + 
-                           pipeline.fanout.metadata.tokensUsed + 
-                           questionResult.metadata.tokensUsed +
-                           pipeline.optimization.metadata.tokensUsed;
-        
-        const totalTime = pipeline.sentiment.metadata.executionTime + 
-                         pipeline.fanout.metadata.executionTime + 
-                         questionResult.metadata.executionTime +
-                         pipeline.optimization.metadata.executionTime;
+        const totalTokens =
+          pipeline.sentiment.metadata.tokensUsed +
+          pipeline.fanout.metadata.tokensUsed +
+          questionResult.metadata.tokensUsed +
+          pipeline.optimization.metadata.tokensUsed;
+
+        const totalTime =
+          pipeline.sentiment.metadata.executionTime +
+          pipeline.fanout.metadata.executionTime +
+          questionResult.metadata.executionTime +
+          pipeline.optimization.metadata.executionTime;
 
         // CRITICAL SUCCESS CRITERIA
         expect(totalTokens).toBeGreaterThanOrEqual(0); // Should have token tracking
@@ -555,15 +613,20 @@ describe('🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS', () => {
         console.log(`   - Total execution time: ${totalTime}ms`);
         console.log(`   - Total tokens used: ${totalTokens}`);
         console.log(`   - Sentiment analysis: ✅`);
-        console.log(`   - Fanout generation: ✅ (${pipeline.fanout.data.queries.length} queries)`);
-        console.log(`   - Question answering: ✅ (${pipeline.questions.length} responses)`);
-        console.log(`   - Optimization tasks: ✅ (${pipeline.optimization.data.tasks.length} tasks)`);
+        console.log(
+          `   - Fanout generation: ✅ (${pipeline.fanout.data.queries.length} queries)`,
+        );
+        console.log(
+          `   - Question answering: ✅ (${pipeline.questions.length} responses)`,
+        );
+        console.log(
+          `   - Optimization tasks: ✅ (${pipeline.optimization.data.tasks.length} tasks)`,
+        );
         console.log(`   - All critical components: ✅`);
-
       } catch (error) {
-        console.error('🚨 PIPELINE FAILURE DETAILS:', error);
-        if (error instanceof Error && error.message.includes('API key')) {
-          console.warn('⚠️  Skipping due to missing API keys');
+        console.error("🚨 PIPELINE FAILURE DETAILS:", error);
+        if (error instanceof Error && error.message.includes("API key")) {
+          console.warn("⚠️  Skipping due to missing API keys");
           return;
         }
         throw new Error(`🚨 CRITICAL: Complete pipeline failed - ${error}`);
@@ -571,10 +634,10 @@ describe('🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS', () => {
     }, 180000); // 3 minutes for complete pipeline
   });
 
-  describe('🛡️ PRODUCTION CONFIDENCE VALIDATION', () => {
-    it('should provide PRODUCTION CONFIDENCE SCORE', async () => {
-      console.log('\n🛡️  Calculating Production Confidence Score...');
-      
+  describe("🛡️ PRODUCTION CONFIDENCE VALIDATION", () => {
+    it("should provide PRODUCTION CONFIDENCE SCORE", async () => {
+      console.log("\n🛡️  Calculating Production Confidence Score...");
+
       let score = 0;
       let maxScore = 100;
       const components = [];
@@ -582,9 +645,16 @@ describe('🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS', () => {
 
       // Test each critical component quickly
       try {
-        await pydanticLlmService.executeAgent('web_search_sentiment_agent.py', {
-          company_name: "Test", search_queries: ["test"], max_results_per_query: 1
-        }, null, { timeout: 15000 });
+        await pydanticLlmService.executeAgent(
+          "web_search_sentiment_agent.py",
+          {
+            company_name: "Test",
+            search_queries: ["test"],
+            max_results_per_query: 1,
+          },
+          null,
+          { timeout: 15000 },
+        );
         score += agentWeight;
         components.push("✅ Sentiment Analysis");
       } catch (e) {
@@ -592,9 +662,17 @@ describe('🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS', () => {
       }
 
       try {
-        await pydanticLlmService.executeAgent('fanout_agent.py', {
-          company_name: "Test", industry: "Test", base_question: "test", context: "test"
-        }, null, { timeout: 20000 });
+        await pydanticLlmService.executeAgent(
+          "fanout_agent.py",
+          {
+            company_name: "Test",
+            industry: "Test",
+            base_question: "test",
+            context: "test",
+          },
+          null,
+          { timeout: 20000 },
+        );
         score += agentWeight;
         components.push("✅ Fanout Generation");
       } catch (e) {
@@ -602,9 +680,16 @@ describe('🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS', () => {
       }
 
       try {
-        await pydanticLlmService.executeAgent('question_agent.py', {
-          company_name: "Test", question: "test", context: "test"
-        }, null, { timeout: 60000 });  // Increased timeout for question answering
+        await pydanticLlmService.executeAgent(
+          "question_agent.py",
+          {
+            company_name: "Test",
+            question: "test",
+            context: "test",
+          },
+          null,
+          { timeout: 60000 },
+        ); // Increased timeout for question answering
         score += agentWeight;
         components.push("✅ Question Answering");
       } catch (e) {
@@ -626,9 +711,16 @@ describe('🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS', () => {
       components.push("✅ Optimization Tasks (preset)");
 
       try {
-        await pydanticLlmService.executeAgent('sentiment_summary_agent.py', {
-          company_name: "Test", sentiment_data: [{ quality: 5, brandReputation: 5 }], context: "test"
-        }, null, { timeout: 20000 });
+        await pydanticLlmService.executeAgent(
+          "sentiment_summary_agent.py",
+          {
+            company_name: "Test",
+            sentiment_data: [{ quality: 5, brandReputation: 5 }],
+            context: "test",
+          },
+          null,
+          { timeout: 20000 },
+        );
         score += agentWeight;
         components.push("✅ Sentiment Summary");
       } catch (e) {
@@ -636,9 +728,16 @@ describe('🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS', () => {
       }
 
       try {
-        await pydanticLlmService.executeAgent('website_enrichment_agent.py', {
-          company_name: "Test", website_url: "https://test.com", context: "test"
-        }, null, { timeout: 20000 });
+        await pydanticLlmService.executeAgent(
+          "website_enrichment_agent.py",
+          {
+            company_name: "Test",
+            website_url: "https://test.com",
+            context: "test",
+          },
+          null,
+          { timeout: 20000 },
+        );
         score += agentWeight;
         components.push("✅ Website Enrichment");
       } catch (e) {
@@ -648,22 +747,29 @@ describe('🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS', () => {
       const confidenceScore = (score / maxScore) * 100;
 
       console.log(`\n🎯 PRODUCTION CONFIDENCE SCORE: ${confidenceScore}%`);
-      console.log('\n📊 Component Status:');
-      components.forEach(component => console.log(`   ${component}`));
+      console.log("\n📊 Component Status:");
+      components.forEach((component) => console.log(`   ${component}`));
 
       if (confidenceScore >= 90) {
-        console.log('\n🚀 HIGH CONFIDENCE: All 6 agents working - Safe to deploy to production');
+        console.log(
+          "\n🚀 HIGH CONFIDENCE: All 6 agents working - Safe to deploy to production",
+        );
       } else if (confidenceScore >= 75) {
-        console.log('\n⚠️  MEDIUM CONFIDENCE: Some agents failing - investigate before deploy');
+        console.log(
+          "\n⚠️  MEDIUM CONFIDENCE: Some agents failing - investigate before deploy",
+        );
       } else {
-        console.log('\n🚨 LOW CONFIDENCE: Multiple critical agent failures - DO NOT DEPLOY');
+        console.log(
+          "\n🚨 LOW CONFIDENCE: Multiple critical agent failures - DO NOT DEPLOY",
+        );
       }
 
-      console.log(`\n📊 Agent Coverage: ${components.filter(c => c.startsWith('✅')).length}/6 agents working`);
+      console.log(
+        `\n📊 Agent Coverage: ${components.filter((c) => c.startsWith("✅")).length}/6 agents working`,
+      );
 
       // For paying clients, we need at least 75% confidence (at least 5/6 agents working)
       expect(confidenceScore).toBeGreaterThanOrEqual(75);
-
     }, 150000); // Increased timeout to 2.5 minutes for comprehensive validation
   });
 });

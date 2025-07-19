@@ -136,14 +136,6 @@ const VisibilityTasksPage: React.FC = () => {
       ) : (
         <>
           <div className="flex-shrink-0 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-2">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Visibility Tasks</h1>
-              {lastUpdated && (
-                <p className="text-sm text-gray-500 mt-1">
-                  Last updated: {new Date(lastUpdated).toLocaleString()}
-                </p>
-              )}
-            </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={handleRefresh}
@@ -162,6 +154,13 @@ const VisibilityTasksPage: React.FC = () => {
                   </>
                 )}
               </button>
+            </div>
+            <div>
+              {lastUpdated && (
+                <p className="text-sm text-gray-500">
+                  Last updated: {new Date(lastUpdated).toLocaleString()}
+                </p>
+              )}
             </div>
           </div>
 

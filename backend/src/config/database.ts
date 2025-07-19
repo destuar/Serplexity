@@ -1,7 +1,7 @@
 /**
  * @file database.ts
  * @description Production-grade database configuration with multi-cloud secrets support
- * 
+ *
  * Features:
  * - Cloud-agnostic secrets management (AWS, Azure, GCP, etc.)
  * - Unified client creation with automatic failover
@@ -11,10 +11,14 @@
  * - Enhanced observability
  */
 
-import { PrismaClient } from '@prisma/client';
-import { SecretsProviderFactory, SecretsProvider, type SecretsProviderType } from '../services/secretsProvider';
-import env from './env';
-import logger from '../utils/logger';
+import { PrismaClient } from "@prisma/client";
+import {
+  SecretsProviderFactory,
+  SecretsProvider,
+  type SecretsProviderType,
+} from "../services/secretsProvider";
+import env from "./env";
+import logger from "../utils/logger";
 
 interface DatabaseConfig {
   host: string;
@@ -32,15 +36,19 @@ interface DatabaseClients {
 interface CircuitBreakerState {
   failures: number;
   lastFailure: number;
-  state: 'closed' | 'open' | 'half-open';
+  state: "closed" | "open" | "half-open";
 }
 
 class DatabaseService {
   private static instance: DatabaseService;
   private clients: DatabaseClients | null = null;
   private secretsProvider: SecretsProvider | null = null;
-  private circuitBreaker: CircuitBreakerState = { failures: 0, lastFailure: 0, state: 'closed' };
-  
+  private circuitBreaker: CircuitBreakerState = {
+    failures: 0,
+    lastFailure: 0,
+    state: "closed",
+  };
+
   private readonly MAX_RETRIES = 3;
   private readonly CIRCUIT_BREAKER_THRESHOLD = 5;
   private readonly CIRCUIT_BREAKER_TIMEOUT = 30 * 1000; // 30 seconds
@@ -67,11 +75,11 @@ class DatabaseService {
 
     const config = await this.getDatabaseConfig();
     this.clients = await this.createClients(config);
-    
-    logger.info('[Database] Clients initialized successfully', {
+
+    logger.info("[Database] Clients initialized successfully", {
       primaryHost: config.primary.host,
       replicaHost: config.replica.host,
-      provider: this.secretsProvider?.getProviderName() || 'ENVIRONMENT'
+      provider: this.secretsProvider?.getProviderName() || "ENVIRONMENT",
     });
 
     return this.clients;
@@ -100,10 +108,10 @@ class DatabaseService {
     try {
       const client = await this.getPrimaryClient();
       await client.$queryRaw`SELECT 1`;
-      logger.info('[Database] Connection test successful');
+      logger.info("[Database] Connection test successful");
       return true;
     } catch (error) {
-      logger.error('[Database] Connection test failed', { error });
+      logger.error("[Database] Connection test failed", { error });
       return false;
     }
   }
@@ -115,17 +123,20 @@ class DatabaseService {
     if (this.clients) {
       await Promise.all([
         this.clients.primary.$disconnect(),
-        this.clients.replica.$disconnect()
+        this.clients.replica.$disconnect(),
       ]);
       this.clients = null;
-      logger.info('[Database] Connections closed');
+      logger.info("[Database] Connections closed");
     }
   }
 
   /**
    * Get database configuration from appropriate secrets provider
    */
-  private async getDatabaseConfig(): Promise<{ primary: DatabaseConfig; replica: DatabaseConfig }> {
+  private async getDatabaseConfig(): Promise<{
+    primary: DatabaseConfig;
+    replica: DatabaseConfig;
+  }> {
     if (!this.secretsProvider) {
       await this.initializeSecretsProvider();
     }
@@ -133,43 +144,54 @@ class DatabaseService {
     const secretsProvider = this.secretsProvider!;
     const providerType = env.COMPUTED_SECRETS_PROVIDER as SecretsProviderType;
 
-    if (providerType === 'environment') {
+    if (providerType === "environment") {
       // Use standardized secret names for environment provider
-      const primaryResult = await secretsProvider.getSecret('database-primary');
-      
+      const primaryResult = await secretsProvider.getSecret("database-primary");
+
       let replicaConfig = primaryResult.secret;
       if (env.READ_REPLICA_URL) {
-        const replicaResult = await secretsProvider.getSecret('database-replica');
+        const replicaResult =
+          await secretsProvider.getSecret("database-replica");
         replicaConfig = replicaResult.secret;
-        logger.info('[Database] Using separate read replica configuration');
+        logger.info("[Database] Using separate read replica configuration");
       } else {
-        logger.info('[Database] Using RDS cluster endpoint for both read/write operations (automatic routing)');
+        logger.info(
+          "[Database] Using RDS cluster endpoint for both read/write operations (automatic routing)",
+        );
       }
 
-      return { 
-        primary: primaryResult.secret, 
-        replica: replicaConfig 
+      return {
+        primary: primaryResult.secret,
+        replica: replicaConfig,
       };
     } else {
       // Use cloud secrets provider with configured secret names
       if (!env.DATABASE_SECRET_NAME) {
-        throw new Error('[Database] DATABASE_SECRET_NAME is required for cloud secrets providers');
+        throw new Error(
+          "[Database] DATABASE_SECRET_NAME is required for cloud secrets providers",
+        );
       }
 
-      const primaryResult = await secretsProvider.getSecret(env.DATABASE_SECRET_NAME);
-      
+      const primaryResult = await secretsProvider.getSecret(
+        env.DATABASE_SECRET_NAME,
+      );
+
       let replicaConfig = primaryResult.secret;
       if (env.READ_REPLICA_SECRET_NAME) {
-        const replicaResult = await secretsProvider.getSecret(env.READ_REPLICA_SECRET_NAME);
+        const replicaResult = await secretsProvider.getSecret(
+          env.READ_REPLICA_SECRET_NAME,
+        );
         replicaConfig = replicaResult.secret;
-        logger.info('[Database] Using separate cloud secret for read replica');
+        logger.info("[Database] Using separate cloud secret for read replica");
       } else {
-        logger.info('[Database] Using single cloud secret for both read/write operations');
+        logger.info(
+          "[Database] Using single cloud secret for both read/write operations",
+        );
       }
 
-      return { 
-        primary: primaryResult.secret, 
-        replica: replicaConfig 
+      return {
+        primary: primaryResult.secret,
+        replica: replicaConfig,
       };
     }
   }
@@ -179,19 +201,27 @@ class DatabaseService {
    */
   private async initializeSecretsProvider(): Promise<void> {
     const providerType = env.COMPUTED_SECRETS_PROVIDER as SecretsProviderType;
-    
+
     try {
-      this.secretsProvider = SecretsProviderFactory.createProvider(providerType);
-      
+      this.secretsProvider =
+        SecretsProviderFactory.createProvider(providerType);
+
       // Test provider connection
       const isConnected = await this.secretsProvider.testConnection();
       if (!isConnected) {
-        throw new Error(`Failed to connect to ${providerType} secrets provider`);
+        throw new Error(
+          `Failed to connect to ${providerType} secrets provider`,
+        );
       }
-      
-      logger.info(`[Database] Secrets provider initialized: ${providerType.toUpperCase()}`);
+
+      logger.info(
+        `[Database] Secrets provider initialized: ${providerType.toUpperCase()}`,
+      );
     } catch (error) {
-      logger.error(`[Database] Failed to initialize secrets provider: ${providerType}`, { error });
+      logger.error(
+        `[Database] Failed to initialize secrets provider: ${providerType}`,
+        { error },
+      );
       throw error;
     }
   }
@@ -199,18 +229,21 @@ class DatabaseService {
   /**
    * Create Prisma clients with given configuration
    */
-  private async createClients(config: { primary: DatabaseConfig; replica: DatabaseConfig }): Promise<DatabaseClients> {
+  private async createClients(config: {
+    primary: DatabaseConfig;
+    replica: DatabaseConfig;
+  }): Promise<DatabaseClients> {
     const primaryUrl = this.buildConnectionUrl(config.primary);
     const replicaUrl = this.buildConnectionUrl(config.replica);
 
     const primary = new PrismaClient({
       datasources: { db: { url: primaryUrl } },
-      log: env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error']
+      log: env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
     });
 
     const replica = new PrismaClient({
       datasources: { db: { url: replicaUrl } },
-      log: env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error']
+      log: env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
     });
 
     return { primary, replica };
@@ -233,4 +266,4 @@ export const databaseService = DatabaseService.getInstance();
 // Convenience functions for backward compatibility
 export const getDbClient = () => databaseService.getPrimaryClient();
 export const getReadDbClient = () => databaseService.getReplicaClient();
-export const testDbConnection = () => databaseService.testConnection(); 
+export const testDbConnection = () => databaseService.testConnection();

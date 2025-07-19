@@ -17,11 +17,11 @@
  * - processArchiveJob: The function that processes archive jobs.
  * - archiveWorker: The BullMQ worker instance for archive jobs.
  */
-import { Worker, Job, Queue } from 'bullmq';
-import env from '../config/env';
-import { getBullMQConnection } from '../config/bullmq';
-import { getDbClient } from '../config/database';
-import { GlacierClient, UploadArchiveCommand } from '@aws-sdk/client-glacier';
+import { Worker, Job, Queue } from "bullmq";
+import env from "../config/env";
+import { getBullMQConnection } from "../config/bullmq";
+import { getDbClient } from "../config/database";
+import { GlacierClient, UploadArchiveCommand } from "@aws-sdk/client-glacier";
 
 const connection = getBullMQConnection();
 
@@ -35,20 +35,25 @@ const glacierClient = new GlacierClient({
 });
 
 // --- Queue for scheduling ---
-export const archiveQueue = new Queue('archive-jobs', { 
+export const archiveQueue = new Queue("archive-jobs", {
   connection,
-  prefix: env.BULLMQ_QUEUE_PREFIX 
+  prefix: env.BULLMQ_QUEUE_PREFIX,
 });
 
 // Helper function to export responses to Glacier
-async function exportResponsesToGlacier(runIds: string[], companyId: string): Promise<string> {
+async function exportResponsesToGlacier(
+  runIds: string[],
+  companyId: string,
+): Promise<string> {
   const prisma = await getDbClient();
-  console.log(`[ARCHIVE] Exporting ${runIds.length} runs for company ${companyId} to Glacier`);
-  
+  console.log(
+    `[ARCHIVE] Exporting ${runIds.length} runs for company ${companyId} to Glacier`,
+  );
+
   // Fetch all responses for these runs
-  const fanoutResponses = await prisma.fanoutResponse.findMany({
+  const responses = await prisma.response.findMany({
     where: { runId: { in: runIds } },
-    include: { mentions: true }
+    include: { mentions: true },
   });
 
   // Create archive payload
@@ -57,7 +62,7 @@ async function exportResponsesToGlacier(runIds: string[], companyId: string): Pr
     runIds,
     archivedAt: new Date().toISOString(),
     data: {
-      fanoutResponses,
+      responses,
     },
   };
 
@@ -73,67 +78,79 @@ async function exportResponsesToGlacier(runIds: string[], companyId: string): Pr
   });
 
   const result = await glacierClient.send(uploadCommand);
-  console.log(`[ARCHIVE] Successfully uploaded to Glacier. Archive ID: ${result.archiveId}`);
-  
+  console.log(
+    `[ARCHIVE] Successfully uploaded to Glacier. Archive ID: ${result.archiveId}`,
+  );
+
   return result.archiveId!;
 }
 
 // --- Worker Implementation ---
 export const processArchiveJob = async (job: Job) => {
   const prisma = await getDbClient();
-  if (job.name === 'archive-old-responses') {
+  if (job.name === "archive-old-responses") {
     const { companyId } = job.data;
-    console.log(`[ARCHIVE WORKER] Starting archive job for company ${companyId}...`);
-    
+    console.log(
+      `[ARCHIVE WORKER] Starting archive job for company ${companyId}...`,
+    );
+
     // Find reports older than the latest 3 for this company
     const allRuns = await prisma.reportRun.findMany({
-      where: { 
+      where: {
         companyId,
-        status: 'COMPLETED'
+        status: "COMPLETED",
       },
-      orderBy: { createdAt: 'desc' },
-      select: { id: true, createdAt: true }
+      orderBy: { createdAt: "desc" },
+      select: { id: true, createdAt: true },
     });
 
     if (allRuns.length <= 3) {
-      console.log(`[ARCHIVE WORKER] Company ${companyId} has ${allRuns.length} completed runs. Nothing to archive.`);
+      console.log(
+        `[ARCHIVE WORKER] Company ${companyId} has ${allRuns.length} completed runs. Nothing to archive.`,
+      );
       return;
     }
 
     // Keep latest 3, archive the rest
     const runsToArchive = allRuns.slice(3);
-    const runIds = runsToArchive.map(r => r.id);
-    
-    console.log(`[ARCHIVE WORKER] Found ${runIds.length} runs to archive for company ${companyId}`);
-    
+    const runIds = runsToArchive.map((r) => r.id);
+
+    console.log(
+      `[ARCHIVE WORKER] Found ${runIds.length} runs to archive for company ${companyId}`,
+    );
+
     try {
       // 1. Archive to Glacier
       const archiveId = await exportResponsesToGlacier(runIds, companyId);
-      
+
       // 2. Delete from RDS in a transaction (mentions cascade delete automatically)
-      await prisma.fanoutResponse.deleteMany({ where: { runId: { in: runIds } } });
-      
-      console.log(`[ARCHIVE WORKER] Successfully archived and deleted ${runIds.length} runs for company ${companyId}. Archive ID: ${archiveId}`);
-      
+      await prisma.response.deleteMany({ where: { runId: { in: runIds } } });
+
+      console.log(
+        `[ARCHIVE WORKER] Successfully archived and deleted ${runIds.length} runs for company ${companyId}. Archive ID: ${archiveId}`,
+      );
     } catch (error) {
-      console.error(`[ARCHIVE WORKER] Failed to archive responses for company ${companyId}:`, error);
+      console.error(
+        `[ARCHIVE WORKER] Failed to archive responses for company ${companyId}:`,
+        error,
+      );
       throw error; // Re-throw to mark job as failed
     }
   }
 };
 
-const archiveWorker = new Worker('archive-jobs', processArchiveJob, { 
+const archiveWorker = new Worker("archive-jobs", processArchiveJob, {
   connection,
   prefix: env.BULLMQ_QUEUE_PREFIX,
   lockDuration: 1000 * 60 * 5, // 5 minutes
 });
 
-archiveWorker.on('completed', (job: Job) => {
+archiveWorker.on("completed", (job: Job) => {
   console.log(`Archive job ${job.id} has completed.`);
 });
 
-archiveWorker.on('failed', (job: Job | undefined, error: Error) => {
+archiveWorker.on("failed", (job: Job | undefined, error: Error) => {
   console.error(`Archive job ${job?.id} failed:`, error);
 });
 
-export default archiveWorker; 
+export default archiveWorker;

@@ -28,6 +28,15 @@ import BlankLoadingState from "../components/ui/BlankLoadingState";
 import { getModelFilterOptions } from "../types/dashboard";
 import { useReportGeneration } from "../hooks/useReportGeneration";
 import { useMediaQuery } from "../hooks/useMediaQuery";
+import { useEmbeddedPage } from "../hooks/useEmbeddedPage";
+import { useNavigation } from "../hooks/useNavigation";
+import { useEffect } from "react";
+
+// Import sentiment page components
+import SentimentOverTimeCard from "../components/dashboard/SentimentOverTimeCard";
+import SentimentDetailsCard from "../components/dashboard/SentimentDetailsCard";
+import ModelComparisonPage from "./ModelComparisonPage";
+import SentimentAnalysisPage from "./SentimentAnalysisPage";
 
 const OverviewPage = () => {
   const { selectedCompany } = useCompany();
@@ -43,6 +52,15 @@ const OverviewPage = () => {
      
   } = useReportGeneration(selectedCompany);
   const isTallerScreen = useMediaQuery('(min-height: 1080px)');
+  const { embeddedPage, openEmbeddedPage, isEmbedded } = useEmbeddedPage('Dashboard');
+  const { setBreadcrumbs } = useNavigation();
+
+  // Set initial breadcrumb
+  useEffect(() => {
+    if (!isEmbedded) {
+      setBreadcrumbs([{ label: 'Dashboard' }]);
+    }
+  }, [isEmbedded, setBreadcrumbs]);
   
   const handleFilterChange = (filterUpdates: { [key: string]: string | string[] }) => {
     updateFilters(filterUpdates);
@@ -52,6 +70,15 @@ const OverviewPage = () => {
     refreshData();
   };
 
+  const handleSentimentSeeMore = () => {
+    openEmbeddedPage('sentiment', 'Sentiment');
+  };
+
+  const handleModelComparisonSeeMore = () => {
+    openEmbeddedPage('model-comparison', 'Model Comparison');
+  };
+
+  // Define options before using them
   const dateRangeOptions = [
     { value: '7d', label: 'Last 7 days' },
     { value: '30d', label: 'Last 30 days' },
@@ -60,6 +87,16 @@ const OverviewPage = () => {
   ];
 
   const aiModelOptions = getModelFilterOptions();
+
+  // Render embedded sentiment page
+  if (embeddedPage === 'sentiment') {
+    return <SentimentAnalysisPage />;
+  }
+
+  // Render embedded model comparison page
+  if (embeddedPage === 'model-comparison') {
+    return <ModelComparisonPage />;
+  }
 
   const cardKey = `overview-${filters.aiModel}-${filters.dateRange}-${refreshTrigger}`;
 
@@ -80,14 +117,6 @@ const OverviewPage = () => {
       ) : (
         <>
           <div className="flex-shrink-0 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-2">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Overview</h1>
-              {lastUpdated && data && (
-                <p className="text-sm text-gray-500 mt-1">
-                  Last updated: {new Date(lastUpdated).toLocaleString()}
-                </p>
-              )}
-            </div>
             <div className="grid grid-cols-2 lg:flex items-center gap-2 w-full lg:w-auto">
               <FilterDropdown
                 label="Date Range"
@@ -125,6 +154,13 @@ const OverviewPage = () => {
                 )}
               </button>
             </div>
+            <div>
+              {lastUpdated && data && (
+                <p className="text-sm text-gray-500">
+                  Last updated: {new Date(lastUpdated).toLocaleString()}
+                </p>
+              )}
+            </div>
           </div>
       
           {!data || Object.keys(data).length === 0 ? (
@@ -135,14 +171,14 @@ const OverviewPage = () => {
                 <div className="lg:hidden h-full overflow-y-auto space-y-4">
                   <div className="grid grid-cols-2 gap-4 min-h-[200px]">
                     <BrandShareOfVoiceCard key={`${cardKey}-sov`} />
-                    <VisibilityOverTimeCard key={`${cardKey}-vot`} selectedModel={filters.aiModel} />
+                    <VisibilityOverTimeCard key={`${cardKey}-vot`} selectedModel={filters.aiModel} onSeeMore={handleModelComparisonSeeMore} />
                   </div>
                   <div className="grid grid-cols-2 gap-4 min-h-[200px]">
                     <AverageInclusionRateCard key={`${cardKey}-air`} />
                     <AveragePositionCard key={`${cardKey}-ap`} />
                   </div>
                   <div className="min-h-[300px]">
-                    <SentimentScoreDisplayCard key={`${cardKey}-ss`} selectedModel={filters.aiModel} />
+                    <SentimentScoreDisplayCard key={`${cardKey}-ss`} selectedModel={filters.aiModel} onSeeMore={handleSentimentSeeMore} />
                   </div>
                   <div className="min-h-[00px]">
                     <TopRankingQuestionsCard key={`${cardKey}-trq`} />
@@ -188,10 +224,10 @@ const OverviewPage = () => {
                   `
                 }}>
                   <div style={{ gridArea: 'm1' }}><BrandShareOfVoiceCard key={`${cardKey}-sov-desk`} /></div>
-                  <div style={{ gridArea: 'm2' }}><VisibilityOverTimeCard key={`${cardKey}-vot-desk`} selectedModel={filters.aiModel} /></div>
+                  <div style={{ gridArea: 'm2' }}><VisibilityOverTimeCard key={`${cardKey}-vot-desk`} selectedModel={filters.aiModel} onSeeMore={handleModelComparisonSeeMore} /></div>
                   <div style={{ gridArea: 'm3' }}><AverageInclusionRateCard key={`${cardKey}-air-desk`} /></div>
                   <div style={{ gridArea: 'm4' }}><AveragePositionCard key={`${cardKey}-ap-desk`} /></div>
-                  <div style={{ gridArea: 's1' }}><SentimentScoreDisplayCard key={`${cardKey}-ss-desk`} selectedModel={filters.aiModel} /></div>
+                  <div style={{ gridArea: 's1' }}><SentimentScoreDisplayCard key={`${cardKey}-ss-desk`} selectedModel={filters.aiModel} onSeeMore={handleSentimentSeeMore} /></div>
                   <div style={{ gridArea: 'q1' }}><TopRankingQuestionsCard key={`${cardKey}-trq-desk`} /></div>
                   <div style={{ gridArea: 'r1' }}><RankingsCard key={`${cardKey}-rank-desk`} /></div>
                 </div>

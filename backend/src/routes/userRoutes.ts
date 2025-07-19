@@ -12,23 +12,31 @@
  * @exports
  * - router: The Express router instance for user routes.
  */
-import { Router } from 'express';
-import { exportUserData, deleteUserData, getUserProfile, updateUserProfile, changePassword, getModelPreferences, updateModelPreferences } from '../controllers/userController';
-import { authenticate } from '../middleware/authMiddleware';
+import { Router } from "express";
+import {
+  exportUserData,
+  deleteUserData,
+  getUserProfile,
+  updateUserProfile,
+  changePassword,
+  getModelPreferences,
+  updateModelPreferences,
+} from "../controllers/userController";
+import { authenticate } from "../middleware/authMiddleware";
 
 const router = Router();
 
 // Profile routes
-router.get('/me/profile', authenticate, getUserProfile);
-router.put('/me/profile', authenticate, updateUserProfile);
-router.put('/me/password', authenticate, changePassword);
+router.get("/me/profile", authenticate, getUserProfile);
+router.put("/me/profile", authenticate, updateUserProfile);
+router.put("/me/password", authenticate, changePassword);
 
 // Model preferences routes
-router.get('/me/model-preferences', authenticate, getModelPreferences);
-router.put('/me/model-preferences', authenticate, updateModelPreferences);
+router.get("/me/model-preferences", authenticate, getModelPreferences);
+router.put("/me/model-preferences", authenticate, updateModelPreferences);
 
 // Data management routes
-router.get('/me/export', authenticate, exportUserData);
-router.delete('/me/delete', authenticate, deleteUserData);
+router.get("/me/export", authenticate, exportUserData);
+router.delete("/me/delete", authenticate, deleteUserData);
 
-export default router; 
+export default router;

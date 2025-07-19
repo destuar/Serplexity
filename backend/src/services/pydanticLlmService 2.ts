@@ -1,25 +1,25 @@
 /**
  * @file pydanticLlmService.ts
  * @description PydanticAI integration service for Serplexity
- * 
+ *
  * This service provides a TypeScript interface to Python-based PydanticAI agents,
  * maintaining type safety while leveraging PydanticAI's superior structured output
  * and multi-provider capabilities. It replaces the complex manual LLM handling
  * with a streamlined, production-ready solution.
- * 
+ *
  * @architecture
  * - Agent lifecycle management with connection pooling
  * - Type-safe Python/TypeScript bridge
  * - Comprehensive error handling with detailed logging
  * - Performance monitoring and metrics collection
  * - Automatic provider failover and retry logic
- * 
+ *
  * @dependencies
  * - pydanticProviders: Provider configuration and management
  * - logger: Centralized logging system
  * - child_process: Node.js process spawning for Python execution
  * - zod: Runtime type validation
- * 
+ *
  * @exports
  * - PydanticLlmService: Main service class
  * - PydanticAgentOptions: Configuration interface
@@ -27,37 +27,39 @@
  * - AgentExecutionContext: Context interface for agent execution
  */
 
-import { spawn, ChildProcess } from 'child_process';
-import { z } from 'zod';
-import logger from '../utils/logger';
-import { 
-  PydanticProviderConfig, 
-  providerManager, 
-  getDefaultModelString 
-} from '../config/pydanticProviders';
-import path from 'path';
-import fs from 'fs/promises';
-import { 
-  trackLLMUsage, 
-  trackPerformance, 
-  trackError, 
+import { spawn, ChildProcess } from "child_process";
+import { z } from "zod";
+import logger from "../utils/logger";
+import {
+  PydanticProviderConfig,
+  providerManager,
+  getDefaultModelString,
+} from "../config/pydanticProviders";
+import path from "path";
+import fs from "fs/promises";
+import {
+  trackLLMUsage,
+  trackPerformance,
+  trackError,
   createSpan,
-  initializeLogfire
-} from '../config/logfire';
+  initializeLogfire,
+} from "../config/logfire";
 
 // Initialize Logfire for the PydanticAI service
 (async () => {
   try {
     await initializeLogfire({
-      serviceName: 'pydantic-llm-service',
+      serviceName: "pydantic-llm-service",
       enableAutoInstrumentation: false, // We use custom spans
     });
-    logger.info('Logfire initialized for Pydantic LLM Service');
+    logger.info("Logfire initialized for Pydantic LLM Service");
   } catch (error) {
-    logger.error('Failed to initialize Logfire for Pydantic LLM Service', error);
+    logger.error(
+      "Failed to initialize Logfire for Pydantic LLM Service",
+      error,
+    );
   }
 })();
-
 
 /**
  * Configuration options for PydanticAI agent creation
@@ -125,13 +127,14 @@ export class PydanticLlmService {
   private readonly pythonPath: string;
   private readonly scriptsPath: string;
   private readonly processPool: Map<string, ChildProcess> = new Map();
-  private readonly activeExecutions: Map<string, AgentExecutionContext> = new Map();
+  private readonly activeExecutions: Map<string, AgentExecutionContext> =
+    new Map();
 
   private constructor() {
-    this.pythonPath = process.env.PYTHON_PATH || 'python3';
+    this.pythonPath = process.env.PYTHON_PATH || "python3";
     // Always point to source directory for Python scripts
     // This works both in development and production since Python files don't get compiled
-    this.scriptsPath = path.resolve(__dirname, '../../src/pydantic_agents');
+    this.scriptsPath = path.resolve(__dirname, "../../src/pydantic_agents");
     this.initializePythonEnvironment();
   }
 
@@ -149,23 +152,23 @@ export class PydanticLlmService {
     try {
       // Ensure scripts directory exists
       await fs.mkdir(this.scriptsPath, { recursive: true });
-      
+
       // Skip Python validation during tests
-      if (process.env.NODE_ENV === 'test') {
-        logger.info('PydanticAI service initialized (test mode)');
+      if (process.env.NODE_ENV === "test") {
+        logger.info("PydanticAI service initialized (test mode)");
         return;
       }
-      
+
       // Validate Python and PydanticAI availability
       await this.validatePythonEnvironment();
-      
-      logger.info('PydanticAI service initialized successfully', {
+
+      logger.info("PydanticAI service initialized successfully", {
         pythonPath: this.pythonPath,
-        scriptsPath: this.scriptsPath
+        scriptsPath: this.scriptsPath,
       });
     } catch (error) {
-      logger.error('Failed to initialize PydanticAI service', { error });
-      throw new Error('PydanticAI service initialization failed');
+      logger.error("Failed to initialize PydanticAI service", { error });
+      throw new Error("PydanticAI service initialization failed");
     }
   }
 
@@ -174,25 +177,28 @@ export class PydanticLlmService {
    */
   private async validatePythonEnvironment(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const validation = spawn(this.pythonPath, ['-c', 'import pydantic_ai; print("OK")']);
-      
-      validation.stdout?.on('data', (data) => {
+      const validation = spawn(this.pythonPath, [
+        "-c",
+        'import pydantic_ai; print("OK")',
+      ]);
+
+      validation.stdout?.on("data", (data) => {
         // Validation output received
       });
-      
-      validation.stderr?.on('data', (data) => {
+
+      validation.stderr?.on("data", (data) => {
         // Validation error output
       });
-      
-      validation.on('close', (code) => {
+
+      validation.on("close", (code) => {
         if (code === 0) {
           resolve();
         } else {
-          reject(new Error('PydanticAI not installed or not accessible'));
+          reject(new Error("PydanticAI not installed or not accessible"));
         }
       });
-      
-      validation.on('error', (error) => {
+
+      validation.on("error", (error) => {
         reject(new Error(`Python validation failed: ${error.message}`));
       });
     });
@@ -205,71 +211,78 @@ export class PydanticLlmService {
     agentScript: string,
     inputData: any,
     outputSchema: z.ZodType<T> | null,
-    options: PydanticAgentOptions = {}
+    options: PydanticAgentOptions = {},
   ): Promise<PydanticResponse<T>> {
     const sessionId = this.generateSessionId();
-    
+
     return createSpan(
       `PydanticAI Agent: ${agentScript}`,
       async (span) => {
         const startTime = Date.now();
-        
+
         const context: AgentExecutionContext = {
           agentId: agentScript,
           sessionId,
           timestamp: new Date(),
           options,
           inputData,
-          outputSchema
+          outputSchema,
         };
 
         this.activeExecutions.set(sessionId, context);
 
         try {
-          logger.info('Starting PydanticAI agent execution', {
+          logger.info("Starting PydanticAI agent execution", {
             sessionId,
             agentScript,
-            options: this.sanitizeOptions(options)
+            options: this.sanitizeOptions(options),
           });
 
-          const result = await this.executeAgentInternal(agentScript, inputData, options);
-          
+          const result = await this.executeAgentInternal(
+            agentScript,
+            inputData,
+            options,
+          );
+
           if (!result.success) {
-            throw new Error(result.error || 'Agent execution failed');
+            throw new Error(result.error || "Agent execution failed");
           }
 
           // Trust PydanticAI structured output - handle empty data gracefully
           let resultData = result.data;
           if (!resultData) {
-            logger.warn(`PydanticAI agent ${agentScript} returned empty data, using default structure`);
+            logger.warn(
+              `PydanticAI agent ${agentScript} returned empty data, using default structure`,
+            );
             // Provide default structure to prevent downstream errors
             resultData = {
               error: "Agent returned empty data",
-              success: false
+              success: false,
             };
           }
 
           // Get provider ID for metadata
-          const providerIdForMetadata = result.providerId || 
-            (options.modelId?.split(':')[0]) || 'unknown';
+          const providerIdForMetadata =
+            result.providerId || options.modelId?.split(":")[0] || "unknown";
 
           const response: PydanticResponse<T> = {
             data: resultData,
             metadata: {
-              modelUsed: result.modelUsed || options.modelId || providerIdForMetadata,
+              modelUsed:
+                result.modelUsed || options.modelId || providerIdForMetadata,
               tokensUsed: result.tokensUsed || 0,
               executionTime: result.executionTime || 0,
               providerId: providerIdForMetadata,
               success: true,
               attemptCount: result.attemptCount || 1,
-              fallbackUsed: result.fallbackUsed || false
-            }
+              fallbackUsed: result.fallbackUsed || false,
+            },
           };
 
           // Track successful execution with Logfire
           trackLLMUsage(
-            result.providerId || 'unknown',
-            result.modelUsed || 'unknown',
+            result.providerId || "unknown",
+            result.modelUsed || "unknown",
             agentScript,
             result.tokensUsed || 0,
             undefined, // cost estimate
@@ -279,8 +292,8 @@ export class PydanticLlmService {
               sessionId,
               agentScript,
               attemptCount: result.attemptCount,
-              fallbackUsed: result.fallbackUsed
-            }
+              fallbackUsed: result.fallbackUsed,
+            },
           );
 
           trackPerformance(
@@ -291,23 +304,22 @@ export class PydanticLlmService {
               sessionId,
               modelUsed: result.modelUsed,
               tokensUsed: result.tokensUsed,
-              fallbackUsed: result.fallbackUsed
-            }
+              fallbackUsed: result.fallbackUsed,
+            },
           );
 
-          logger.info('PydanticAI agent execution completed successfully', {
+          logger.info("PydanticAI agent execution completed successfully", {
             sessionId,
             executionTime: result.executionTime,
             modelUsed: result.modelUsed,
             tokensUsed: result.tokensUsed,
-            fallbackUsed: result.fallbackUsed
+            fallbackUsed: result.fallbackUsed,
           });
 
           return response;
-
         } catch (error) {
           const executionTime = Date.now() - startTime;
-          
+
           // Track failed execution with Logfire
           trackError(
             error instanceof Error ? error : new Error(String(error)),
@@ -318,25 +330,20 @@ export class PydanticLlmService {
               sessionId,
               agentScript,
               executionTime,
-              inputData: this.sanitizeInputData(inputData)
-            }
+              inputData: this.sanitizeInputData(inputData),
+            },
           );
 
-          trackPerformance(
-            `agent.${agentScript}`,
-            executionTime,
-            false,
-            {
-              sessionId,
-              error: error instanceof Error ? error.message : String(error)
-            }
-          );
-          
-          logger.error('PydanticAI agent execution failed', {
+          trackPerformance(`agent.${agentScript}`, executionTime, false, {
+            sessionId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+
+          logger.error("PydanticAI agent execution failed", {
             sessionId,
             agentScript,
             executionTime,
-            error: error instanceof Error ? error.message : String(error)
+            error: error instanceof Error ? error.message : String(error),
           });
 
           throw error;
@@ -345,10 +352,10 @@ export class PydanticLlmService {
         }
       },
       {
-        'agent.script': agentScript,
-        'agent.session_id': sessionId,
-        'agent.input_size': JSON.stringify(inputData).length
-      }
+        "agent.script": agentScript,
+        "agent.session_id": sessionId,
+        "agent.input_size": JSON.stringify(inputData).length,
+      },
     );
   }
 
@@ -358,9 +365,9 @@ export class PydanticLlmService {
   private async executeAgentInternal(
     agentScript: string,
     inputData: any,
-    options: PydanticAgentOptions
+    options: PydanticAgentOptions,
   ): Promise<AgentExecutionResult> {
-    const scriptPath = path.join(this.scriptsPath, 'agents', agentScript);
+    const scriptPath = path.join(this.scriptsPath, "agents", agentScript);
     const maxRetries = options.retryAttempts || 3;
     let lastError: Error | null = null;
 
@@ -368,13 +375,13 @@ export class PydanticLlmService {
       try {
         const providers = providerManager.getAvailableProviders();
         const providerId = this.selectProvider(providers, options);
-        
+
         const result = await this.spawnPythonProcess(
           scriptPath,
           inputData,
           providerId,
           options,
-          attempt
+          attempt,
         );
 
         if (result.success) {
@@ -382,34 +389,33 @@ export class PydanticLlmService {
         }
 
         lastError = new Error(result.error);
-        
+
         // Update provider health on failure
         if (result.providerId) {
           providerManager.updateProviderHealth(
             result.providerId,
             false,
             result.executionTime,
-            result.error
+            result.error,
           );
         }
-
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         logger.warn(`Agent execution attempt ${attempt} failed`, {
           agentScript,
           attempt,
-          error: lastError.message
+          error: lastError.message,
         });
       }
 
       // Exponential backoff between retries
       if (attempt < maxRetries) {
         const delay = Math.pow(2, attempt) * 1000;
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
 
-    throw lastError || new Error('Agent execution failed after all retries');
+    throw lastError || new Error("Agent execution failed after all retries");
   }
 
   /**
@@ -420,18 +426,20 @@ export class PydanticLlmService {
     inputData: any,
     providerId: string,
     options: PydanticAgentOptions,
-    attempt: number
+    attempt: number,
   ): Promise<AgentExecutionResult> {
     const startTime = Date.now();
-    
+
     return new Promise((resolve) => {
       // Add the parent directory of pydantic_agents to PYTHONPATH for absolute imports
-      const pythonPackageDir = path.resolve(__dirname, '../../src');
-      const existingPythonPath = process.env.PYTHONPATH || '';
-      const pythonPath = existingPythonPath ? `${pythonPackageDir}:${existingPythonPath}` : pythonPackageDir;
+      const pythonPackageDir = path.resolve(__dirname, "../../src");
+      const existingPythonPath = process.env.PYTHONPATH || "";
+      const pythonPath = existingPythonPath
+        ? `${pythonPackageDir}:${existingPythonPath}`
+        : pythonPackageDir;
 
       const pythonProcess = spawn(this.pythonPath, [scriptPath], {
-        stdio: ['pipe', 'pipe', 'pipe'],
+        stdio: ["pipe", "pipe", "pipe"],
         env: {
           ...process.env,
           PYTHONPATH: pythonPath,
@@ -440,59 +448,63 @@ export class PydanticLlmService {
           PYDANTIC_TEMPERATURE: options.temperature?.toString(),
           PYDANTIC_MAX_TOKENS: options.maxTokens?.toString(),
           PYDANTIC_SYSTEM_PROMPT: options.systemPrompt,
-          PYDANTIC_TIMEOUT: options.timeout?.toString()
-        }
+          PYDANTIC_TIMEOUT: options.timeout?.toString(),
+        },
       });
 
       // Send input data
       pythonProcess.stdin?.write(JSON.stringify(inputData));
       pythonProcess.stdin?.end();
 
-      let stdout = '';
-      let stderr = '';
+      let stdout = "";
+      let stderr = "";
 
-      pythonProcess.stdout?.on('data', (data) => {
+      pythonProcess.stdout?.on("data", (data) => {
         stdout += data.toString();
       });
 
-      pythonProcess.stderr?.on('data', (data) => {
+      pythonProcess.stderr?.on("data", (data) => {
         stderr += data.toString();
       });
 
-      pythonProcess.on('close', (code) => {
+      pythonProcess.on("close", (code) => {
         const executionTime = Date.now() - startTime;
 
         if (code === 0) {
           try {
             const result = JSON.parse(stdout);
-            
+
             // Update provider health on success
             providerManager.updateProviderHealth(
               providerId,
               true,
-              executionTime
+              executionTime,
             );
 
             resolve({
               success: true,
               data: result.result || result.data, // Support both 'result' and 'data' properties
               executionTime,
-              modelUsed: result.model_used || result.modelUsed || options.modelId || providerId,
+              modelUsed:
+                result.model_used ||
+                result.modelUsed ||
+                options.modelId ||
+                providerId,
               tokensUsed: result.tokens_used || 0,
               providerId,
               attemptCount: attempt,
-              fallbackUsed: attempt > 1
+              fallbackUsed: attempt > 1,
             });
           } catch (parseError) {
             resolve({
               success: false,
               error: `Failed to parse agent output: ${parseError}`,
               executionTime,
-              modelUsed: 'unknown',
+              modelUsed: "unknown",
               tokensUsed: 0,
               providerId,
               attemptCount: attempt,
-              fallbackUsed: attempt > 1
+              fallbackUsed: attempt > 1,
             });
           }
         } else {
@@ -500,32 +512,32 @@ export class PydanticLlmService {
             success: false,
             error: stderr || `Process exited with code ${code}`,
             executionTime,
-            modelUsed: 'unknown',
+            modelUsed: "unknown",
             tokensUsed: 0,
             providerId,
             attemptCount: attempt,
-            fallbackUsed: attempt > 1
+            fallbackUsed: attempt > 1,
           });
         }
       });
 
-      pythonProcess.on('error', (error) => {
+      pythonProcess.on("error", (error) => {
         resolve({
           success: false,
           error: `Process spawn error: ${error.message}`,
           executionTime: Date.now() - startTime,
-          modelUsed: 'unknown',
+          modelUsed: "unknown",
           tokensUsed: 0,
           providerId,
           attemptCount: attempt,
-          fallbackUsed: attempt > 1
+          fallbackUsed: attempt > 1,
         });
       });
 
       // Handle timeout
       if (options.timeout) {
         setTimeout(() => {
-          pythonProcess.kill('SIGTERM');
+          pythonProcess.kill("SIGTERM");
         }, options.timeout);
       }
     });
@@ -536,18 +548,18 @@ export class PydanticLlmService {
    */
   private selectProvider(
     providers: ReadonlyArray<PydanticProviderConfig>,
-    options: PydanticAgentOptions
+    options: PydanticAgentOptions,
   ): string {
     if (options.modelId) {
-      const [providerId] = options.modelId.split(':');
-      const provider = providers.find(p => p.id === providerId);
+      const [providerId] = options.modelId.split(":");
+      const provider = providers.find((p) => p.id === providerId);
       if (provider) {
         return providerId;
       }
     }
 
     // Return highest priority available provider
-    return providers[0]?.id || 'openai';
+    return providers[0]?.id || "openai";
   }
 
   /**
@@ -569,47 +581,49 @@ export class PydanticLlmService {
    * Sanitize input data for logging (remove sensitive data)
    */
   private sanitizeInputData(inputData: any): any {
-    if (typeof inputData === 'string') {
-      return inputData.length > 100 ? `${inputData.substring(0, 100)}...` : inputData;
+    if (typeof inputData === "string") {
+      return inputData.length > 100
+        ? `${inputData.substring(0, 100)}...`
+        : inputData;
     }
-    if (typeof inputData === 'object' && inputData !== null) {
+    if (typeof inputData === "object" && inputData !== null) {
       const sanitized = { ...inputData };
       // Remove sensitive data from objects
       if (sanitized.apiKey) {
-        sanitized.apiKey = '***';
+        sanitized.apiKey = "***";
       }
       if (sanitized.secret) {
-        sanitized.secret = '***';
+        sanitized.secret = "***";
       }
       if (sanitized.token) {
-        sanitized.token = '***';
+        sanitized.token = "***";
       }
       if (sanitized.password) {
-        sanitized.password = '***';
+        sanitized.password = "***";
       }
       if (sanitized.credentials) {
-        sanitized.credentials = '***';
+        sanitized.credentials = "***";
       }
       if (sanitized.auth) {
-        sanitized.auth = '***';
+        sanitized.auth = "***";
       }
       if (sanitized.api_key) {
-        sanitized.api_key = '***';
+        sanitized.api_key = "***";
       }
       if (sanitized.api_secret) {
-        sanitized.api_secret = '***';
+        sanitized.api_secret = "***";
       }
       if (sanitized.api_token) {
-        sanitized.api_token = '***';
+        sanitized.api_token = "***";
       }
       if (sanitized.api_password) {
-        sanitized.api_password = '***';
+        sanitized.api_password = "***";
       }
       if (sanitized.api_credentials) {
-        sanitized.api_credentials = '***';
+        sanitized.api_credentials = "***";
       }
       if (sanitized.api_auth) {
-        sanitized.api_auth = '***';
+        sanitized.api_auth = "***";
       }
       return sanitized;
     }
@@ -627,7 +641,7 @@ export class PydanticLlmService {
     return {
       activeExecutions: this.activeExecutions.size,
       poolSize: this.processPool.size,
-      providerHealth: [...providerManager.getHealthReport()]
+      providerHealth: [...providerManager.getHealthReport()],
     };
   }
 
@@ -637,13 +651,13 @@ export class PydanticLlmService {
   async cleanup(): Promise<void> {
     // Kill all active processes
     for (const [sessionId, process] of this.processPool) {
-      process.kill('SIGTERM');
+      process.kill("SIGTERM");
     }
-    
+
     this.processPool.clear();
     this.activeExecutions.clear();
-    
-    logger.info('PydanticLlmService cleaned up successfully');
+
+    logger.info("PydanticLlmService cleaned up successfully");
   }
 }
 

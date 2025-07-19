@@ -10,9 +10,9 @@
  * @exports
  * - Extends Express `Request` interface.
  */
-import { Role } from '@prisma/client';
+import { Role } from "@prisma/client";
 
-declare module 'express-serve-static-core' {
+declare module "express-serve-static-core" {
   interface Request {
     user?: {
       id: string;
@@ -27,4 +27,4 @@ declare module 'express-serve-static-core' {
 }
 
 // This is needed to make this file a module.
-export {}; 
+export {};
