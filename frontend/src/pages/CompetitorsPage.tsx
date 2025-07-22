@@ -370,7 +370,6 @@ const CompetitorsPage = () => {
   
   const [competitors, setCompetitors] = useState<CompetitorItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [, setIsRefreshing] = useState(false);
   const [newCompetitorName, setNewCompetitorName] = useState('');
   const [newCompetitorWebsite, setNewCompetitorWebsite] = useState('');
   const [isAddingCompetitor, setIsAddingCompetitor] = useState(false);
