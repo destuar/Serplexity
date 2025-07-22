@@ -182,16 +182,6 @@ const VisibilityOverTimeCard: React.FC<VisibilityOverTimeCardProps> = ({ selecte
     return { yAxisMax: finalMax, ticks: tickValues, xAxisInterval: interval };
   }, [chartData]);
 
-  const _getModelDisplayName = (model: string): string => {
-    if (model === 'all') return 'All Models';
-    const modelMap: Record<string, string> = {
-      'gpt-4.1-mini': 'GPT-4o Mini',
-      'claude-3.5-haiku-20241022': 'Claude 3.5 Haiku',
-      'gemini-2.5-flash': 'Gemini 2.5 Flash',
-      'sonar': 'Perplexity Sonar'
-    };
-    return modelMap[model] || model;
-  };
 
   const renderContent = () => {
     if (loading) {

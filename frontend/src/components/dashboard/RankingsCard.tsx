@@ -289,7 +289,6 @@ const RankingsCard = () => {
       <div className="flex-1 space-y-2">
         {displayCompetitors.map((competitor: Competitor | { name: string; shareOfVoice: number; change: number; changeType: 'stable'; isUserCompany: boolean; website?: string }, index: number) => {
           const logoResult = competitor.website ? getCompanyLogo(competitor.website) : null;
-          const _isUserCompany = competitor.isUserCompany;
           const isOthers = competitor.name.includes('others');
           
           return (

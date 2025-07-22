@@ -123,22 +123,6 @@ const getCompetitorLogos = (brands: string[], acceptedCompetitors: unknown, maxD
   ];
 };
 
-// Utility function to format relative time
-const _formatRelativeTime = (dateString: string | undefined): string => {
-  if (!dateString) return 'Unknown';
-  
-  const now = new Date();
-  const date = new Date(dateString);
-  const diffInMs = now.getTime() - date.getTime();
-  const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
-  const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
-  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-  
-  if (diffInMinutes < 1) return 'Just now';
-  if (diffInMinutes < 60) return `${diffInMinutes} min${diffInMinutes === 1 ? '' : 's'} ago`;
-  if (diffInHours < 24) return `${diffInHours} hr${diffInHours === 1 ? '' : 's'} ago`;
-  return `${diffInDays} day${diffInDays === 1 ? '' : 's'} ago`;
-};
 
 interface ResponseItemData {
   id: string;

@@ -441,11 +441,6 @@ const CompetitorsPage = () => {
     loadCompetitors();
   }, [loadCompetitors]);
 
-  const _handleRefresh = async () => {
-    setIsRefreshing(true);
-    await loadCompetitors();
-    setIsRefreshing(false);
-  };
 
   const handleAcceptCompetitor = async (competitorId: string) => {
     if (!selectedCompany?.id) return;
@@ -510,7 +505,7 @@ const CompetitorsPage = () => {
     
     setIsUpdatingCompetitor(true);
     try {
-      const _updatedCompetitor = await updateCompetitor(selectedCompany.id, competitorId, {
+      await updateCompetitor(selectedCompany.id, competitorId, {
         name: name.trim(),
         website: website.trim(),
       });
