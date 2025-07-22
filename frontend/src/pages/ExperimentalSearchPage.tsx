@@ -21,7 +21,7 @@ const ExperimentalSearchPage: React.FC = () => {
   const [query, setQuery] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState('');
 
-  // Local model selection state (default to ChatGPT 4.1)
+  // Local model selection state (default to ChatGPT)
   const [selectedModel, setSelectedModel] = useState<string>('gpt-4.1-mini');
 
   const handleSubmit = () => {

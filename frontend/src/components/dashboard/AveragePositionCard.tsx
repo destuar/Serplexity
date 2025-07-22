@@ -13,7 +13,7 @@
  * @exports
  * - AveragePositionCard: React functional component for displaying the average position.
  */
-import Card from '../ui/Card';
+import LiquidGlassCard from '../ui/LiquidGlassCard';
 import { useDashboard } from '../../hooks/useDashboard';
 import { FiArrowUp, FiArrowDown } from 'react-icons/fi';
 
@@ -61,12 +61,10 @@ const AveragePositionCard = () => {
   };
 
   return (
-    <Card>
+    <LiquidGlassCard>
       <h3 className="text-lg font-semibold text-gray-800 mb-2">Average Position</h3>
       <div className="flex-1 flex items-center justify-center">
-        {loading ? (
-          <p className="text-gray-400">Loading...</p>
-        ) : error ? (
+        {error ? (
           <p className="text-red-500">{error}</p>
         ) : hasData ? (
           <div className="text-center">
@@ -83,7 +81,7 @@ const AveragePositionCard = () => {
           </div>
         )}
       </div>
-    </Card>
+    </LiquidGlassCard>
   );
 };
 

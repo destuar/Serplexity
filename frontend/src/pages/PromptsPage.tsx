@@ -16,7 +16,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { RefreshCw, MessageSquare, ListFilter, Plus, Search, Edit2, Trash2, Check, X } from 'lucide-react';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';
-import { getPromptsWithResponses, PromptQuestion, getAcceptedCompetitors, CompetitorData } from '../services/companyService';
+import { getPromptsWithResponses, PromptQuestion, getAcceptedCompetitors, CompetitorData, updateQuestionStatus } from '../services/companyService';
 import { getCompanyLogo } from '../lib/logoService';
 import FilterDropdown from '../components/dashboard/FilterDropdown';
 import WelcomePrompt from '../components/ui/WelcomePrompt';
@@ -131,7 +131,7 @@ const PromptListItem: React.FC<{
   const companyLogos = promptQuestion ? getPromptCompanyLogos(promptQuestion, acceptedCompetitors || []) : [];
 
   return (
-    <div className="bg-white shadow-sm border border-gray-200 rounded-lg hover:shadow-md transition-shadow cursor-pointer mb-3" onClick={() => onClick?.(prompt)}>
+    <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 transition-all cursor-pointer mb-3" onClick={() => onClick?.(prompt)}>
       <div className="px-4 py-3">
         <div className="flex items-center">
           <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -297,7 +297,7 @@ const AddPromptModal: React.FC<{
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 w-full max-w-md mx-4">
+      <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md w-full max-w-md mx-4">
         <div className="p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Add New Prompt</h2>
           
@@ -310,7 +310,7 @@ const AddPromptModal: React.FC<{
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 placeholder="Enter your question or prompt..."
-                className="w-full px-3 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#7762ff] focus:border-transparent resize-none"
+                className="w-full px-3 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent resize-none"
                 rows={3}
               />
             </div>
@@ -322,7 +322,7 @@ const AddPromptModal: React.FC<{
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#7762ff] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
               >
                 <option value="research">Research</option>
                 <option value="comparison">Comparison</option>
@@ -342,7 +342,7 @@ const AddPromptModal: React.FC<{
             <button
               onClick={handleSave}
               disabled={!question.trim()}
-              className="px-4 py-2 bg-[#7762ff] text-white rounded-md shadow-sm border border-[#7762ff] hover:bg-[#6650e6] hover:border-[#6650e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-black transition-colors"
             >
               Add Prompt
             </button>
@@ -447,11 +447,17 @@ const PromptsPage: React.FC = () => {
       if (overrideStatus) {
         status = overrideStatus;
       } else {
-        // Default status logic
-        if (index < 5) {
-          status = q.responses.length > 0 ? 'active' : 'inactive';
+        // Use database isActive field as the source of truth
+        if (q.isActive) {
+          status = 'active';
         } else {
           status = 'suggested';
+        }
+        
+        // If a question is marked active but has no responses, it indicates a processing issue
+        // Log this for debugging but don't change the status
+        if (q.isActive && q.responses.length === 0) {
+          console.warn(`Question "${q.question}" is marked active but has no responses - possible processing issue`);
         }
       }
 
@@ -531,18 +537,39 @@ const PromptsPage: React.FC = () => {
     }
   };
 
-  const handleStatusChange = (prompt: PromptItem, newStatus: 'active' | 'inactive' | 'suggested') => {
-    if (prompt.isCustom) {
-      // Update custom prompts
-      setCustomPrompts(prev => 
-        prev.map(p => p.id === prompt.id ? { ...p, status: newStatus } : p)
-      );
-    } else {
-      // For generated prompts, store the status override
-      setPromptStatusOverrides(prev => ({
-        ...prev,
-        [prompt.id]: newStatus
-      }));
+  const handleStatusChange = async (prompt: PromptItem, newStatus: 'active' | 'inactive' | 'suggested') => {
+    if (!selectedCompany) return;
+    
+    try {
+      // Convert status to isActive boolean
+      const isActive = newStatus === 'active';
+      
+      // Call API to persist the change
+      await updateQuestionStatus(selectedCompany.id, prompt.id, isActive);
+      
+      if (prompt.isCustom) {
+        // Update custom prompts
+        setCustomPrompts(prev => 
+          prev.map(p => p.id === prompt.id ? { ...p, status: newStatus } : p)
+        );
+      } else {
+        // For generated prompts, store the status override
+        setPromptStatusOverrides(prev => ({
+          ...prev,
+          [prompt.id]: newStatus
+        }));
+      }
+      
+      // Refresh the prompts data to reflect the change
+      if (selectedCompany?.id) {
+        const data = await getPromptsWithResponses(selectedCompany.id);
+        setPromptQuestions(data.questions);
+      }
+      
+    } catch (error) {
+      console.error('Failed to update question status:', error);
+      // Could add a toast notification here
+      alert('Failed to update question status. Please try again.');
     }
   };
 
@@ -558,7 +585,7 @@ const PromptsPage: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="h-full flex flex-col">
       {dashboardLoading || hasReport === null ? (
         <BlankLoadingState message="Loading dashboard data..." />
       ) : hasReport === false ? (
@@ -588,18 +615,18 @@ const PromptsPage: React.FC = () => {
               disabled={dashboardLoading || isLoading}
             />
             <div className="relative">
-              <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 z-10" />
               <input
                 type="text"
                 placeholder="Search prompts..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-80 pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                className="w-80 pl-10 pr-4 py-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md text-sm focus:outline-none focus:ring-2 focus:ring-black transition-colors"
               />
             </div>
             <button
               onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-[#7762ff] text-white rounded-lg shadow-sm border border-[#7762ff] hover:bg-[#6650e6] hover:border-[#6650e6] transition-colors text-sm font-medium"
+              className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-black transition-colors text-sm font-medium"
             >
               <Plus size={16} />
               Add Prompt
@@ -618,7 +645,7 @@ const PromptsPage: React.FC = () => {
                     setPromptQuestions([]);
                     handleRefresh();
                   }}
-                  className="mt-4 px-4 py-2 bg-[#7762ff] text-white rounded-md shadow-sm border border-[#7762ff] hover:bg-[#6a55e3] hover:border-[#6a55e3] transition-colors flex items-center gap-2 mx-auto"
+                  className="mt-4 px-4 py-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-black transition-colors flex items-center gap-2 mx-auto"
                 >
                   <RefreshCw size={16} />
                   Try Again

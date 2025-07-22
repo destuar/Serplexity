@@ -25,7 +25,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { X, Loader } from 'lucide-react';
+import { X } from 'lucide-react';
+import { InlineSpinner } from '../ui/InlineSpinner';
+import { buttonClasses } from '../../utils/colorClasses';
 import { useCompany, CompanyFormData, Company } from '../../contexts/CompanyContext';
 import { flexibleUrlSchema } from '../../utils/urlNormalizer';
 
@@ -369,7 +371,7 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
                 Website URL *
               </label>
               <input
-                type="url"
+                type="text"
                 {...register('website')}
                 className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:hover]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:hover]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:focus]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:focus]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:active]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:active]:[-webkit-text-fill-color:rgb(17_24_39)!important]"
                 placeholder="https://example.com"
@@ -410,9 +412,9 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
             <button
               type="submit"
               disabled={submitting}
-              className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-[#7762ff] to-[#9e52ff] text-white rounded-lg hover:from-[#6650e6] hover:to-[#8a47e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${buttonClasses.primary}`}
             >
-              {submitting && <Loader className="w-4 h-4 animate-spin" />}
+              {submitting && <InlineSpinner size={16} />}
               {submitting ? 'Saving...' : mode === 'create' ? 'Create Company' : 'Save Changes'}
             </button>
           </div>

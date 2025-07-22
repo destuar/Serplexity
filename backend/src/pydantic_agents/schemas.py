@@ -649,7 +649,6 @@ class QuestionResponse(BaseModel):
     )
     citations: List[CitationSource] = Field(
         default_factory=list,
-        max_items=5,
         description="List of web sources used to generate the answer"
     )
     brand_mentions_count: int = Field(

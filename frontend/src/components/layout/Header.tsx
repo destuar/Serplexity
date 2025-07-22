@@ -26,8 +26,8 @@ const Header: React.FC<HeaderProps> = ({ toggleMobileSidebar }) => {
 
   return (
     <>
-      {/* Header height (py-2.5) must match sidebar logo section height for visual alignment */}
-      <header className="flex items-center justify-between px-4 py-2.5 bg-white lg:justify-between">
+      {/* Header height (py-3) for improved visual balance */}
+      <header className="flex items-center justify-between px-4 py-3 bg-white lg:justify-between">
         <div className="flex items-center">
           <button 
             onClick={toggleMobileSidebar}
@@ -40,18 +40,18 @@ const Header: React.FC<HeaderProps> = ({ toggleMobileSidebar }) => {
         <div className="flex items-center">
           <button 
             onClick={() => setShowSettingsModal(true)}
-            className="p-2 rounded-lg hover:bg-gray-100"
+            className="p-1.5 rounded-lg hover:bg-gray-100"
           >
-            <Settings />
+            <Settings size={18} />
           </button>
-          <button className="p-2 ml-4 rounded-lg hover:bg-gray-100">
-            <Bell />
+          <button className="p-1.5 ml-3 rounded-lg hover:bg-gray-100">
+            <Bell size={18} />
           </button>
           <button 
             onClick={() => setShowProfileModal(true)}
-            className="ml-4 w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center hover:bg-gray-300 transition-colors"
+            className="ml-3 w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center hover:bg-gray-300 transition-colors"
           >
-            <User size={20} className="text-gray-600" />
+            <User size={16} className="text-gray-600" />
           </button>
         </div>
       </header>

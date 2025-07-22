@@ -82,7 +82,7 @@ const SentimentScoresSchema = z.object({
 
 const CompetitorSchema = z.object({
   name: z.string().min(1),
-  website: z.string().url().min(1),
+  website: z.string().min(1), // Keep simple validation here since this handles LLM responses
 });
 
 const QuestionResponseSchema = z.object({
@@ -324,10 +324,7 @@ export async function generateQuestionResponse(
       model: model.id,
     });
 
-    // Context for PydanticAI agent (embedded system prompt)
-    const context = `Answer the following question professionally: ${question.text}`;
-
-    // Execute PydanticAI agent
+    // Execute PydanticAI agent with natural question
     const result = await pydanticLlmService.executeAgent<{
       question: string;
       answer: string;
@@ -345,7 +342,6 @@ export async function generateQuestionResponse(
       {
         question: question.text,
         system_prompt: question.systemPrompt,
-        context,
         question_id: question.id,
       },
       QuestionResponseSchema,

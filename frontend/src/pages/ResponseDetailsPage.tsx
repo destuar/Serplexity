@@ -74,7 +74,7 @@ const ResponseItem: React.FC<{ item: FlattenedResponse; autoExpand?: boolean }> 
     const hasIndividualPosition = item.position !== null && item.position !== item.bestPosition;
 
     return (
-        <div id={`question-${item.questionId}`} className="bg-white rounded-lg shadow-md border border-gray-100 overflow-hidden hover:shadow-lg transition-all duration-200">
+                 <div id={`question-${item.questionId}`} className="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border border-white/20 overflow-hidden hover:bg-white/85 transition-all duration-200">
             {/* Clickable Question Header */}
             <div 
                 className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
@@ -309,7 +309,7 @@ const ResponseDetailsPage: React.FC = () => {
                             <button 
                                 onClick={handleRefresh}
                                 disabled={dashboardLoading || refreshing || isLoading}
-                                className="flex items-center justify-center w-full md:w-auto gap-2 px-4 py-2 bg-[#7762ff] text-white rounded-lg hover:bg-[#6650e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2 sm:col-span-1"
+                                className="flex items-center justify-center w-full md:w-auto gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-black transition-colors text-sm font-medium col-span-2 sm:col-span-1"
                             >
                                 {refreshing || isLoading ? (
                                     <>
@@ -345,7 +345,7 @@ const ResponseDetailsPage: React.FC = () => {
                                         setQuestionsRaw([]); // Clear current data to force re-fetch
                                         refreshData();
                                     }}
-                                    className="mt-4 px-4 py-2 bg-[#7762ff] text-white rounded-md hover:bg-[#6a55e3] transition-colors flex items-center gap-2 mx-auto"
+                                    className="mt-4 px-4 py-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-black transition-colors flex items-center gap-2 mx-auto"
                                 >
                                     <RefreshCw size={16} />
                                     Try Again

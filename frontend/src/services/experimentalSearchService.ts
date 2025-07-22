@@ -11,25 +11,70 @@
  */
 import apiClient from '../lib/apiClient';
 
+export interface Citation {
+  url: string;
+  title: string;
+  domain: string;
+}
+
 export interface ModelAnswer {
   engine: string;
   answer: string;
   latencyMs: number;
+  // Enhanced search agent properties
+  citations?: Citation[];
+  hasWebSearch?: boolean;
+  tokensUsed?: number;
+  requestId?: string;
+}
+
+interface SearchSettings {
+  webSearchEnabled?: boolean;
+  temperature?: number;
+  persona?: string;
 }
 
 // Hit backend endpoint to get answer from specified model
-export const searchModels = async (question: string, modelId: string): Promise<ModelAnswer[]> => {
+export const searchModels = async (question: string, modelId: string, settings?: SearchSettings): Promise<ModelAnswer[]> => {
   const start = Date.now();
-  const { data } = await apiClient.post('/search', { query: question, modelId });
+  
+  try {
+    // Use new search agent endpoint for better results
+    const { data } = await apiClient.post('/search/agent', { 
+      query: question, 
+      modelId,
+      enableWebSearch: settings?.webSearchEnabled ?? true,
+      temperature: settings?.temperature ?? 0.7,
+    });
 
-  const latencyMs = Date.now() - start;
+    const latencyMs = Date.now() - start;
 
-  // Fallback in case backend does not return latency
-  const answer: ModelAnswer = {
-    engine: data.engine ?? modelId,
-    answer: data.answer ?? '',
-    latencyMs: data.latencyMs ?? latencyMs,
-  };
+    // Transform response to match expected format with enhanced search agent data
+    const answer: ModelAnswer = {
+      engine: data.engine ?? modelId,
+      answer: data.answer ?? '',
+      latencyMs: data.latencyMs ?? latencyMs,
+      // Enhanced search agent properties
+      citations: data.citations || [],
+      hasWebSearch: data.hasWebSearch ?? false,
+      tokensUsed: data.tokensUsed,
+      requestId: data.requestId,
+    };
 
-  return [answer];
+    return [answer];
+  } catch (error) {
+    // Fallback to legacy endpoint if search agent fails
+    console.warn('Search agent failed, falling back to legacy search:', error);
+    
+    const { data } = await apiClient.post('/search', { query: question, modelId });
+    const latencyMs = Date.now() - start;
+
+    const answer: ModelAnswer = {
+      engine: data.engine ?? modelId,
+      answer: data.answer ?? '',
+      latencyMs: data.latencyMs ?? latencyMs,
+    };
+
+    return [answer];
+  }
 }; 

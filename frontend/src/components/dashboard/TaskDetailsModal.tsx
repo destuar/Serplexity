@@ -49,8 +49,8 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
     [TaskStatus.IN_PROGRESS]: {
       label: 'In Progress',
       icon: Clock,
-      color: 'text-[#7762ff]',
-      bgColor: 'bg-[#7762ff]/10'
+      color: 'text-gray-600',
+      bgColor: 'bg-gray-100'
     },
     [TaskStatus.COMPLETED]: {
       label: 'Completed',

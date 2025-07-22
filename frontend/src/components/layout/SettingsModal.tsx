@@ -14,6 +14,7 @@
  */
 import React, { useState } from 'react';
 import { X, Building, HelpCircle, Trash2, Edit, Mail, ArrowLeft, AlertTriangle } from 'lucide-react';
+import { buttonClasses, formClasses, textClasses } from '../../utils/colorClasses';
 import { useCompany } from '../../contexts/CompanyContext';
 import { Button } from '../ui/Button';
 import CompanyProfileForm from '../company/CompanyProfileForm';
@@ -102,7 +103,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                     onClick={() => setActiveTab(tab.id)}
                     className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
                       activeTab === tab.id
-                        ? 'bg-[#7762ff] text-white'
+                        ? 'bg-black text-white'
                         : 'text-gray-700 hover:bg-gray-100'
                     }`}
                   >
@@ -231,7 +232,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                         value={feedbackText}
                         onChange={(e) => setFeedbackText(e.target.value)}
                         placeholder="Tell us what you think about Serplexity, report a bug, or suggest a feature..."
-                        className="w-full h-32 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#7762ff] focus:border-[#7762ff] resize-none"
+                        className="w-full h-32 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 resize-none"
                       />
                       <Button
                         onClick={handleSubmitFeedback}
@@ -250,13 +251,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                   <div className="space-y-2">
                     <a
                       href="/privacy"
-                      className="block text-[#7762ff] hover:text-[#6650e6] text-sm"
+                      className="block text-blue-600 hover:text-blue-700 text-sm"
                     >
                       Privacy Policy
                     </a>
                     <a
                       href="/terms"
-                      className="block text-[#7762ff] hover:text-[#6650e6] text-sm"
+                      className="block text-blue-600 hover:text-blue-700 text-sm"
                     >
                       Terms of Service
                     </a>
@@ -332,7 +333,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                 </Button>
                 <Button
                   onClick={handleSaveConfirmation}
-                  className="bg-gradient-to-r from-[#7762ff] to-[#9e52ff] text-white hover:from-[#6650e6] hover:to-[#8a47e6]"
+                  className="bg-black text-white hover:bg-gray-800"
                 >
                   Got It
                 </Button>

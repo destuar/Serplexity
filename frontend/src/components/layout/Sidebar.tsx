@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { textClasses } from "../../utils/colorClasses";
 import { useCompany } from "../../hooks/useCompany";
 import { useNavigation } from "../../hooks/useNavigation";
 import CompanyLogo from "../company/CompanyLogo";
@@ -159,7 +160,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
     <div className={sidebarClasses} onClick={handleSidebarClick}>
-      <div className={`flex items-center py-3 border-b border-gray-200/50 px-3 ${isDesktopCollapsed ? 'justify-center' : ''}`}>
+      <div className={`flex items-center py-2 border-b border-gray-200/50 px-3 ${isDesktopCollapsed ? 'justify-center' : ''}`}>
         {selectedCompany && !isDesktopCollapsed ? (
           <div className="relative w-full" ref={companyDropdownRef}>
             <button
@@ -215,7 +216,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         </div>
                       </div>
                       {selectedCompany?.id === company.id && (
-                        <Check size={14} className="text-[#7762ff] flex-shrink-0" />
+                        <Check size={14} className="text-black flex-shrink-0" />
                       )}
                     </button>
                   ))}
@@ -230,21 +231,21 @@ const Sidebar: React.FC<SidebarProps> = ({
                   disabled={!canCreateMore}
                   className={`w-full px-3 py-2 text-left transition-colors flex items-center gap-2 group ${
                     canCreateMore 
-                      ? 'hover:bg-[#7762ff]/10 cursor-pointer' 
+                      ? 'hover:bg-black/10 cursor-pointer' 
                       : 'cursor-not-allowed opacity-50'
                   }`}
                 >
                   <div className={`flex items-center justify-center w-4 h-4 rounded ${
                     canCreateMore 
-                      ? 'bg-[#7762ff]/20' 
+                      ? 'bg-black/20' 
                       : 'bg-gray-100'
                   }`}>
-                    <Plus size={10} className={canCreateMore ? 'text-[#7762ff]' : 'text-gray-400'} />
+                    <Plus size={10} className={canCreateMore ? 'text-black' : 'text-gray-400'} />
                   </div>
                   <div className="flex flex-col min-w-0">
                     <span className={`text-sm font-medium ${
                       canCreateMore 
-                        ? 'text-[#7762ff] group-hover:text-[#6650e6]' 
+                        ? 'text-black group-hover:text-gray-800' 
                         : 'text-gray-400'
                     }`}>
                       {canCreateMore ? 'Create New +' : 'Create New'}

@@ -260,18 +260,39 @@ class RedisConnectionManager {
       const failedKeys = await connection.keys(`${queuePrefix}:*:failed`);
       
       let cleanedJobs = 0;
+      let skippedKeys = 0;
       
       // Clean completed jobs older than cutoff
       for (const key of [...queueKeys, ...failedKeys]) {
-        const jobs = await connection.zrangebyscore(key, 0, cutoffTime);
-        if (jobs.length > 0) {
-          await connection.zremrangebyscore(key, 0, cutoffTime);
-          cleanedJobs += jobs.length;
+        try {
+          // Filter out non-standard queue keys (must follow pattern: prefix:queue:status)
+          const keyParts = key.split(':');
+          if (keyParts.length !== 3 || !keyParts[1] || !['completed', 'failed'].includes(keyParts[2])) {
+            skippedKeys++;
+            continue;
+          }
+
+          // Validate key type before zrangebyscore operation
+          const keyType = await connection.type(key);
+          if (keyType !== 'zset') {
+            logger.debug(`[Redis] Skipping key ${key} - expected zset, got ${keyType}`);
+            skippedKeys++;
+            continue;
+          }
+
+          const jobs = await connection.zrangebyscore(key, 0, cutoffTime);
+          if (jobs.length > 0) {
+            await connection.zremrangebyscore(key, 0, cutoffTime);
+            cleanedJobs += jobs.length;
+          }
+        } catch (keyError) {
+          logger.warn(`[Redis] Failed to cleanup key ${key}:`, keyError);
+          skippedKeys++;
         }
       }
       
-      if (cleanedJobs > 0) {
-        logger.info(`[Redis] Cleaned up ${cleanedJobs} old queue jobs`);
+      if (cleanedJobs > 0 || skippedKeys > 0) {
+        logger.info(`[Redis] Cleaned up ${cleanedJobs} old queue jobs, skipped ${skippedKeys} invalid keys`);
       }
     } catch (error) {
       logger.warn("[Redis] Failed to cleanup old jobs:", error);

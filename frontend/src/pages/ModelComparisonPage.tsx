@@ -14,12 +14,13 @@
  */
 import { useState, useMemo } from 'react';
 import { Loader, Calendar, RefreshCw, ArrowUpDown, ChevronUp, ChevronDown, Sparkles } from 'lucide-react';
+import { dashboardClasses, chartColorArrays } from '../utils/colorClasses';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';
 import { useModelComparison } from '../hooks/useModelComparison';
 import WelcomePrompt from '../components/ui/WelcomePrompt';
 import BlankLoadingState from '../components/ui/BlankLoadingState';
-import Card from '../components/ui/Card';
+import LiquidGlassCard from '../components/ui/LiquidGlassCard';
 import MultiSelectDropdown from '../components/ui/MultiSelectDropdown';
 import {
   LineChart,
@@ -40,17 +41,8 @@ interface TimeSeriesDataPoint {
   [modelId: string]: number | string;
 }
 
-// Colors for chart lines (cycled)
-const modelColors = [
-  '#7762ff', // brand primary
-  '#6650e6', // darker
-  '#927fff', // lighter
-  '#5b4ac8', // deeper
-  '#a99aff', // very light
-  '#4b39b0', // deep
-  '#c1b7ff', // pale
-  '#3e2e97', // darkest
-];
+// Colors for chart lines (cycled) - using centralized chart colors
+const modelColors = chartColorArrays.multiColor;
 
 interface ModelMetricRow {
   modelId: string;
@@ -81,9 +73,9 @@ const getChangeDisplay = (change: number | null) => {
   
   const isPositive = change > 0;
   return (
-    <div className={`flex items-center text-xs ml-2 ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+    <div className={`flex items-center text-xs ml-1.5 ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
       {isPositive ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-      <span className="ml-1">{Math.abs(change).toFixed(1)}%</span>
+      <span className="ml-0.5">{Math.abs(change).toFixed(1)}%</span>
     </div>
   );
 };
@@ -143,9 +135,9 @@ const ModelShareOfVoiceChart: React.FC<{ data: TimeSeriesDataPoint[]; modelIds: 
 
   if (!data || data.length === 0) {
     return (
-      <Card className="h-full flex items-center justify-center">
+      <LiquidGlassCard className="h-full flex items-center justify-center">
         <p className="text-gray-500">No time-series data available.</p>
-      </Card>
+      </LiquidGlassCard>
     );
   }
 
@@ -155,7 +147,7 @@ const ModelShareOfVoiceChart: React.FC<{ data: TimeSeriesDataPoint[]; modelIds: 
     const sorted = [...payload].sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
 
     return (
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-2 text-xs">
+              <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md p-2 text-xs">
         <p className="font-semibold text-gray-800 mb-1">{label}</p>
         {sorted.map((entry) => (
           <div key={entry.dataKey} className="flex items-center gap-2" style={{ color: entry.stroke }}>
@@ -168,9 +160,9 @@ const ModelShareOfVoiceChart: React.FC<{ data: TimeSeriesDataPoint[]; modelIds: 
   };
 
   return (
-    <Card className="h-full flex flex-col relative">
+    <LiquidGlassCard className="h-full flex flex-col relative">
       <div className="flex flex-col flex-1">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Visibility Over Time</h3>
+        <h3 className="text-base font-semibold text-gray-800 mb-3">Visibility Over Time</h3>
         <div className="flex-1">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart 
@@ -229,7 +221,7 @@ const ModelShareOfVoiceChart: React.FC<{ data: TimeSeriesDataPoint[]; modelIds: 
           </ResponsiveContainer>
         </div>
       </div>
-      <div className="absolute top-4 right-4 bg-white/60 backdrop-blur-md border border-gray-200/50 rounded-lg shadow-sm p-2 space-y-1 text-xs" style={{ pointerEvents: 'none' }}>
+                             <div className="absolute top-4 right-4 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md p-2 space-y-1 text-xs" style={{ pointerEvents: 'none' }}>
         {modelIds.map((modelId, idx) => (
           <div key={`legend-${modelId}`} className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full" style={{ backgroundColor: modelColors[idx % modelColors.length] }}></span>
@@ -239,7 +231,7 @@ const ModelShareOfVoiceChart: React.FC<{ data: TimeSeriesDataPoint[]; modelIds: 
           </div>
         ))}
       </div>
-    </Card>
+    </LiquidGlassCard>
   );
 };
 
@@ -287,14 +279,14 @@ const ModelMetricsTable: React.FC<{
 
   if (rows.length === 0) {
     return (
-      <Card className="h-full flex items-center justify-center">
+      <LiquidGlassCard className="h-full flex items-center justify-center">
         <p className="text-gray-500">No summary metrics available.</p>
-      </Card>
+      </LiquidGlassCard>
     );
   }
 
   return (
-    <Card className="h-full flex flex-col overflow-hidden">
+    <LiquidGlassCard className="h-full flex flex-col overflow-hidden">
       <div className="px-4 pb-4 pt-0 flex flex-col h-full">
         <div className="flex-1 overflow-auto">
           <table className="min-w-full divide-y divide-gray-300">
@@ -308,7 +300,7 @@ const ModelMetricsTable: React.FC<{
                 ] as { field: SortField; label: string }[]).map(({ field, label }) => (
                   <th
                     key={field}
-                    className="px-3 py-3 text-left text-sm font-semibold text-gray-900 cursor-pointer select-none"
+                    className="px-2 py-2 text-left text-sm font-semibold text-gray-900 cursor-pointer select-none"
                     onClick={() => handleSort(field)}
                   >
                     <span className="inline-flex items-center gap-1">
@@ -325,28 +317,28 @@ const ModelMetricsTable: React.FC<{
             </thead>
             <tbody className="divide-y divide-gray-200">
               {sortedRows.map((row) => (
-                <tr key={row.modelId} className="bg-white">
-                  <td className="whitespace-nowrap py-4 pr-3 text-sm">
+                <tr key={row.modelId} className="bg-white/20 hover:bg-white/30">
+                  <td className="whitespace-nowrap py-2 pr-2 text-sm">
                     <div className="flex items-center gap-2">
                       {row.logoUrl && (
-                        <img src={row.logoUrl} alt={row.displayName} className="h-6 w-6 rounded-full object-contain" />
+                        <img src={row.logoUrl} alt={row.displayName} className="h-5 w-5 rounded-full object-contain" />
                       )}
                       <span className="font-medium text-gray-900">{row.displayName}</span>
                     </div>
                   </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-700">
+                  <td className="whitespace-nowrap px-2 py-2 text-sm text-gray-700">
                     <div className="flex items-center">
                       <span>{row.shareOfVoice !== null ? `${row.shareOfVoice.toFixed(1)}%` : '—'}</span>
                       {getChangeDisplay(row.shareOfVoiceChange)}
                     </div>
                   </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-700">
+                  <td className="whitespace-nowrap px-2 py-2 text-sm text-gray-700">
                     <div className="flex items-center">
                       <span>{row.averagePosition !== null ? row.averagePosition.toFixed(1) : '—'}</span>
                       {getChangeDisplay(row.averagePositionChange)}
                     </div>
                   </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-700">
+                  <td className="whitespace-nowrap px-2 py-2 text-sm text-gray-700">
                     <div className="flex items-center">
                       <span>{row.inclusionRate !== null ? `${row.inclusionRate.toFixed(1)}%` : '—'}</span>
                       {getChangeDisplay(row.inclusionRateChange)}
@@ -358,7 +350,7 @@ const ModelMetricsTable: React.FC<{
           </table>
         </div>
       </div>
-    </Card>
+    </LiquidGlassCard>
   );
 };
 
@@ -536,7 +528,7 @@ const ModelComparisonPage: React.FC = () => {
               <button
                 onClick={refreshData}
                 disabled={loading || refreshing}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-[#7762ff] text-white rounded-lg shadow-sm border border-[#7762ff] hover:bg-[#6650e6] hover:border-[#6650e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2 sm:col-span-3"
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-black transition-colors text-sm font-medium col-span-2 sm:col-span-3"
               >
                 {refreshing || loading ? (
                   <><Loader size={16} className="animate-spin" /><span>Refreshing...</span></>
@@ -559,7 +551,7 @@ const ModelComparisonPage: React.FC = () => {
             <BlankLoadingState message="Processing model comparison data..." />
           ) : (
             <div className="flex-1 min-h-0 p-1 flex flex-col gap-4">
-              <div className="h-[350px] flex-shrink-0">
+              <div className="h-[400px] flex-shrink-0">
                 <ModelShareOfVoiceChart data={historyData} modelIds={modelIds} />
               </div>
               <div className="flex-1 min-h-0">

@@ -4,7 +4,8 @@
  * Displays companies in a list format with logos, allows accepting/declining suggested competitors.
  */
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Check, X, Plus, ExternalLink, Users, Loader, Edit2 } from 'lucide-react';
+import { Check, X, Plus, ExternalLink, Users, Edit2, Loader } from 'lucide-react';
+import { InlineSpinner } from '../components/ui/InlineSpinner';
 import { useCompany } from '../contexts/CompanyContext';
 import { useNavigation } from '../hooks/useNavigation';
 import { useDashboard } from '../hooks/useDashboard';
@@ -53,7 +54,7 @@ const CompetitorListItem: React.FC<{
   }, [competitor.name, competitor.website, isEditing]);
 
   return (
-    <div className="bg-white shadow-sm border border-gray-200 rounded-lg hover:shadow-md transition-shadow mb-3">
+    <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 transition-all mb-3">
       <div className="p-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -161,7 +162,7 @@ const CompetitorListItem: React.FC<{
                   className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Save changes"
                 >
-                  {isUpdating ? <Loader size={16} className="animate-spin" /> : <Check size={16} />}
+                  {isUpdating ? <InlineSpinner size={16} /> : <Check size={16} />}
                 </button>
               </>
             ) : (
@@ -238,7 +239,7 @@ const CompetitorCard: React.FC<{
   }, [competitor.name, competitor.website, isEditing]);
 
   return (
-    <div className="bg-white shadow-sm border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow w-full">
+                                                   <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 transition-all p-3 w-full">
       {/* Company Info with Logo */}
       <div className="flex items-start gap-3 mb-1">
         {/* Company Logo */}
@@ -335,9 +336,9 @@ const CompetitorCard: React.FC<{
             <button
               onClick={() => onSaveEdit?.(competitor.id, editName.trim(), editWebsite.trim())}
               disabled={!editName.trim() || !editWebsite.trim() || isUpdating}
-              className="flex-1 px-3 py-1.5 text-xs text-[#7762ff] hover:text-[#6650e6] hover:bg-[#7762ff]/5 hover:shadow-sm transition-all rounded flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-3 py-1.5 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-600/5 hover:shadow-sm transition-all rounded flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isUpdating ? <Loader size={12} className="animate-spin" /> : 'Save'}
+              {isUpdating ? <InlineSpinner size={12} /> : 'Save'}
             </button>
           </>
         ) : (
@@ -351,7 +352,7 @@ const CompetitorCard: React.FC<{
             </button>
             <button
               onClick={() => onAccept?.(competitor.id)}
-              className="flex-1 px-3 py-1.5 text-xs text-[#7762ff] hover:text-[#6650e6] hover:bg-[#7762ff]/5 hover:shadow-sm transition-all rounded flex items-center justify-center gap-1"
+              className="flex-1 px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:shadow-sm transition-all rounded flex items-center justify-center gap-1"
             >
               <Check size={12} />
               Accept
@@ -587,7 +588,7 @@ const CompetitorsPage = () => {
               <div className="h-full w-full flex flex-col">
                 {/* Suggested Competitors Section - At top */}
                 {displayedSuggested.length > 0 && (
-                  <div className="flex-shrink-0 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden w-full mb-6">
+                                                                           <div className="flex-shrink-0 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md overflow-hidden w-full mb-6">
                     <div className="px-4 py-2">
                       <h2 className="text-sm font-medium text-gray-900">
                         Suggested
@@ -619,7 +620,7 @@ const CompetitorsPage = () => {
 
                 {/* Your Competitors Section - Scrollable */}
                 <div className="flex-1 min-h-0">
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden h-full flex flex-col">
+                                                                           <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md overflow-hidden h-full flex flex-col">
                     <div className="px-4 py-2 flex-shrink-0 flex items-center justify-between">
                       <h2 className="text-sm font-medium text-gray-900">
                         Your Competitors
@@ -647,7 +648,7 @@ const CompetitorsPage = () => {
                               value={newCompetitorName}
                               onChange={(e) => setNewCompetitorName(e.target.value)}
                               placeholder="Enter company name"
-                              className="w-full px-2 py-1.5 border border-gray-200 rounded shadow-sm focus:ring-1 focus:ring-[#7762ff] focus:border-transparent text-xs"
+                              className="w-full px-2 py-1.5 border border-gray-200 rounded shadow-sm focus:ring-1 focus:ring-blue-600 focus:border-transparent text-xs"
                             />
                           </div>
                           <div>
@@ -657,7 +658,7 @@ const CompetitorsPage = () => {
                               value={newCompetitorWebsite}
                               onChange={(e) => setNewCompetitorWebsite(e.target.value)}
                               placeholder="company.com"
-                              className="w-full px-2 py-1.5 border border-gray-200 rounded shadow-sm focus:ring-1 focus:ring-[#7762ff] focus:border-transparent text-xs"
+                              className="w-full px-2 py-1.5 border border-gray-200 rounded shadow-sm focus:ring-1 focus:ring-blue-600 focus:border-transparent text-xs"
                             />
                           </div>
                         </div>
@@ -665,7 +666,7 @@ const CompetitorsPage = () => {
                           <button
                             onClick={handleAddCompetitor}
                             disabled={!newCompetitorName.trim() || !newCompetitorWebsite.trim() || isAddingCompetitor}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-[#7762ff] text-white rounded shadow-sm border border-[#7762ff] hover:bg-[#6650e6] hover:border-[#6650e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs"
+                            className="flex items-center gap-1 px-3 py-1.5 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-black transition-colors text-xs"
                           >
                             {isAddingCompetitor ? (
                               <>

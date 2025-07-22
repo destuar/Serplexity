@@ -27,7 +27,7 @@ const { getDbClient } = require('./dist/config/database');
             content: true,
             model: true 
           },
-          take: 1
+          take: 3  // Get more responses to check
         }
       }
     });
@@ -40,29 +40,32 @@ const { getDbClient } = require('./dist/config/database');
       console.log(`  Responses: ${run.responses.length}`);
       
       if (run.responses.length > 0) {
-        const response = run.responses[0];
-        console.log(`  Sample response length: ${response.content?.length || 0} chars`);
-        console.log(`  Model: ${response.model}`);
-        
-        // Check for brand tags in response
-        const brandMatches = (response.content || '').match(/<brand>(.*?)<\/brand>/gi);
-        console.log(`  Brand tags found: ${brandMatches?.length || 0}`);
-        if (brandMatches && brandMatches.length > 0) {
-          console.log(`  Brands: ${brandMatches.slice(0, 3).join(', ')}`);
-        }
-        
-        // Show actual response content to debug
-        console.log(`  Response content preview:`);
-        console.log(`    "${(response.content || '').substring(0, 500)}..."`);
-        
-        // Look for any mentions of company names that should have been tagged
-        const companyPatterns = ['Apple', 'Microsoft', 'Google', 'Amazon', 'Meta', 'Tesla', 'Adobe', 'Salesforce'];
-        const foundCompanies = companyPatterns.filter(company => 
-          (response.content || '').toLowerCase().includes(company.toLowerCase())
-        );
-        if (foundCompanies.length > 0) {
-          console.log(`  Untagged companies found: ${foundCompanies.join(', ')}`);
-        }
+        run.responses.forEach((response, index) => {
+          console.log(`\n  Response ${index + 1}:`);
+          console.log(`    Length: ${response.content?.length || 0} chars`);
+          console.log(`    Model: ${response.model}`);
+          
+          // Check for brand tags in response
+          const brandMatches = (response.content || '').match(/<brand>(.*?)<\/brand>/gi);
+          console.log(`    Brand tags found: ${brandMatches?.length || 0}`);
+          if (brandMatches && brandMatches.length > 0) {
+            console.log(`    Tagged brands: ${brandMatches.slice(0, 5).join(', ')}`);
+          }
+          
+          // Look for any mentions of company names that should have been tagged
+          const companyPatterns = ['Apple', 'Microsoft', 'Google', 'Amazon', 'Meta', 'Tesla', 'Adobe', 'Salesforce', 'Netflix', 'Uber', 'Airbnb', 'Spotify'];
+          const foundCompanies = companyPatterns.filter(company => 
+            (response.content || '').toLowerCase().includes(company.toLowerCase())
+          );
+          if (foundCompanies.length > 0) {
+            console.log(`    Untagged companies detected: ${foundCompanies.join(', ')}`);
+          }
+          
+          // Show response preview if it contains untagged companies or is very short
+          if (response.content && (foundCompanies.length > 0 || response.content.length < 800)) {
+            console.log(`    Content preview: "${response.content.substring(0, 600)}..."`);
+          }
+        });
       }
     }
     

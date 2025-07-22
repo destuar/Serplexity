@@ -15,7 +15,7 @@
  * - SentimentScoreDisplayCard: React functional component for displaying sentiment scores in a radar chart.
  */
 import { useDashboard } from '../../hooks/useDashboard';
-import Card from '../ui/Card';
+import LiquidGlassCard from '../ui/LiquidGlassCard';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { Metric, SentimentScoreValue } from '../../types/dashboard';
 import { ArrowRight } from 'lucide-react';
@@ -64,13 +64,13 @@ const SentimentScoreDisplayCard: React.FC<SentimentScoreDisplayCardProps> = ({ s
     : [];
 
     return (
-        <Card className="h-full">
+        <LiquidGlassCard className="h-full">
             <div className="flex items-center justify-between mb-2">
                 <h3 className="text-lg font-semibold text-gray-800">Sentiment Score</h3>
                 {onSeeMore && (
                     <button
                         onClick={onSeeMore}
-                        className="flex items-center gap-1 text-sm text-[#7762ff] hover:text-[#6650e6] transition-colors"
+                        className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition-colors"
                     >
                         See More
                         <ArrowRight size={14} />
@@ -86,12 +86,12 @@ const SentimentScoreDisplayCard: React.FC<SentimentScoreDisplayCardProps> = ({ s
                         <PolarGrid stroke="#e2e8f0" />
                         <PolarAngleAxis dataKey="category" tick={{ fontSize: 12, fill: '#64748b' }} />
                         <PolarRadiusAxis angle={90} domain={[0, 10]} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                        <Radar name="Score" dataKey="value" stroke="#7762ff" fill="#7762ff" fillOpacity={0.1} />
+                        <Radar name="Score" dataKey="value" stroke="#2563eb" fill="#2563eb" fillOpacity={0.1} />
                         <Tooltip />
                     </RadarChart>
                 </ResponsiveContainer>
             </div>
-        </Card>
+        </LiquidGlassCard>
     );
 };
 

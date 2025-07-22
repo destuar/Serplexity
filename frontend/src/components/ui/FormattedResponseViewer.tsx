@@ -15,7 +15,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { formatResponseText, stripBrandTags, detectResponseFormat } from '../../lib/responseFormatter';
+import { formatResponseText, stripBrandTags } from '../../lib/responseFormatter';
 import { useCompany } from '../../contexts/CompanyContext';
 
 interface FormattedResponseViewerProps {
@@ -76,10 +76,8 @@ const FormattedResponseViewer: React.FC<FormattedResponseViewerProps> = ({
     );
   };
 
-  const format = detectResponseFormat(text);
-  
   return (
-    <div className={`bg-white rounded-lg p-4 border-l-4 border-green-500 border border-gray-200 ${className}`}>
+    <div className={`bg-white rounded-lg px-2 py-3 ${className}`}>
       <div className={`prose prose-sm max-w-none ${compact ? 'prose-p:mb-2' : 'prose-p:mb-4'} prose-headings:text-gray-900 prose-p:text-gray-800 prose-p:leading-relaxed prose-strong:text-gray-900 prose-strong:font-semibold prose-code:text-gray-800 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-100 prose-pre:text-gray-800 prose-pre:border prose-pre:border-gray-200 prose-ul:my-4 prose-ol:my-4 prose-li:my-1 prose-li:text-gray-800`}>
         <ReactMarkdown 
           remarkPlugins={[remarkGfm]}
@@ -160,6 +158,45 @@ const FormattedResponseViewer: React.FC<FormattedResponseViewerProps> = ({
               </ol>
             ),
             
+            // Enhanced table styling for proper display
+            table: ({ children }) => (
+              <div className="overflow-x-auto my-6">
+                <table className="min-w-full divide-y divide-gray-300 border border-gray-200 rounded-lg">
+                  {children}
+                </table>
+              </div>
+            ),
+            
+            thead: ({ children }) => (
+              <thead className="bg-gray-50">
+                {children}
+              </thead>
+            ),
+            
+            tbody: ({ children }) => (
+              <tbody className="bg-white divide-y divide-gray-200">
+                {children}
+              </tbody>
+            ),
+            
+            tr: ({ children }) => (
+              <tr className="hover:bg-gray-50 transition-colors">
+                {children}
+              </tr>
+            ),
+            
+            th: ({ children }) => (
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 border-b border-gray-200">
+                {typeof children === 'string' ? highlightBrandName(children) : children}
+              </th>
+            ),
+            
+            td: ({ children }) => (
+              <td className="px-4 py-3 text-sm text-gray-800 border-b border-gray-100">
+                {typeof children === 'string' ? highlightBrandName(children) : children}
+              </td>
+            ),
+
             // Enhanced heading styling
             h1: ({ children }) => (
               <h1 className="text-xl font-bold text-gray-900 mb-4 mt-6">
@@ -181,13 +218,6 @@ const FormattedResponseViewer: React.FC<FormattedResponseViewerProps> = ({
           {processedText}
         </ReactMarkdown>
       </div>
-      
-      {/* Optional format indicator for debugging */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="mt-2 text-xs text-gray-400">
-          Format: {format}
-        </div>
-      )}
     </div>
   );
 };

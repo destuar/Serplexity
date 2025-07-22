@@ -16,7 +16,7 @@
 import { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ArrowRight } from 'lucide-react';
-import Card from '../ui/Card';
+import LiquidGlassCard from '../ui/LiquidGlassCard';
 import { useDashboard } from '../../hooks/useDashboard';
 
 interface VisibilityOverTimeCardProps {
@@ -184,14 +184,6 @@ const VisibilityOverTimeCard: React.FC<VisibilityOverTimeCardProps> = ({ selecte
 
 
   const renderContent = () => {
-    if (loading) {
-      return (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="animate-pulse text-gray-400">Loading...</div>
-        </div>
-      );
-    }
-
     if (error) {
       return (
         <div className="flex-1 flex items-center justify-center">
@@ -276,17 +268,17 @@ const VisibilityOverTimeCard: React.FC<VisibilityOverTimeCardProps> = ({ selecte
             <Line
               type="monotone"
               dataKey="shareOfVoice"
-              stroke="#7762ff"
+              stroke="#2563eb"
               strokeWidth={chartData.length > 1 ? 2 : 0}
               dot={{ 
-                fill: '#7762ff', 
+                fill: '#2563eb', 
                 strokeWidth: chartData.length === 1 ? 2 : 0,
-                stroke: chartData.length === 1 ? '#ffffff' : '#7762ff',
+                stroke: chartData.length === 1 ? '#ffffff' : '#2563eb',
                 r: chartData.length === 1 ? 6 : 4,
               }}
               activeDot={{ 
                 r: 8, 
-                fill: '#7762ff',
+                fill: '#2563eb',
                 strokeWidth: 2,
                 stroke: '#ffffff',
               }}
@@ -298,13 +290,13 @@ const VisibilityOverTimeCard: React.FC<VisibilityOverTimeCardProps> = ({ selecte
   };
 
   return (
-    <Card className="h-full">
+    <LiquidGlassCard className="h-full">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold text-gray-800">Visibility Over Time</h3>
         {onSeeMore && (
           <button
             onClick={onSeeMore}
-            className="flex items-center gap-1 text-sm text-[#7762ff] hover:text-[#6650e6] transition-colors"
+            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition-colors"
           >
             See More
             <ArrowRight size={14} />
@@ -312,7 +304,7 @@ const VisibilityOverTimeCard: React.FC<VisibilityOverTimeCardProps> = ({ selecte
         )}
       </div>
       {renderContent()}
-    </Card>
+    </LiquidGlassCard>
   );
 };
 

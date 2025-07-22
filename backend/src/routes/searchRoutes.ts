@@ -13,11 +13,18 @@
  */
 import { Router } from "express";
 import { askModel } from "../controllers/searchController";
+import { searchWithAgent, searchAgentHealth } from "../controllers/searchAgentController";
 import { authenticate } from "../middleware/authMiddleware";
 
 const router = Router();
 
-// POST /api/search – generate answer for a single model
+// POST /api/search – generate answer for a single model (legacy)
 router.post("/", authenticate, askModel);
+
+// POST /api/search/agent – generate search response with optimized agent
+router.post("/agent", authenticate, searchWithAgent);
+
+// GET /api/search/agent/health – health check for search agent
+router.get("/agent/health", searchAgentHealth);
 
 export default router;

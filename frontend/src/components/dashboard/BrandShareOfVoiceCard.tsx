@@ -15,11 +15,12 @@
  * - BrandShareOfVoiceCard: React functional component for displaying brand share of voice.
  */
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import Card from '../ui/Card';
+import LiquidGlassCard from '../ui/LiquidGlassCard';
 import { useCompany } from '../../contexts/CompanyContext';
 import { useDashboard } from '../../contexts/DashboardContext';
+import { chartColorArrays } from '../../utils/colorClasses';
 
-const COLORS = ['#7762ff', '#e5e7eb']; // primary purple, gray-200
+const COLORS = chartColorArrays.primary; // Centralized chart colors
 
 const BrandShareOfVoiceCard = () => {
   const { selectedCompany } = useCompany();
@@ -33,41 +34,30 @@ const BrandShareOfVoiceCard = () => {
     { name: 'Others', value: Math.max(0, 100 - shareOfVoice) },
   ];
 
-  if (loading) {
-    return (
-      <Card>
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Share of Voice</h3>
-        <div className="flex items-center justify-center h-24">
-          <div className="animate-pulse text-gray-400">Loading...</div>
-        </div>
-      </Card>
-    );
-  }
-
   if (error) {
     return (
-      <Card>
+      <LiquidGlassCard>
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Share of Voice</h3>
         <div className="flex items-center justify-center h-24">
           <p className="text-red-500 text-sm">{error}</p>
         </div>
-      </Card>
+      </LiquidGlassCard>
     );
   }
 
   if (!hasData) {
     return (
-      <Card>
+      <LiquidGlassCard>
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Share of Voice</h3>
         <div className="flex items-center justify-center h-24">
           <p className="text-gray-400 text-sm">No data available</p>
         </div>
-      </Card>
+      </LiquidGlassCard>
     );
   }
 
   return (
-    <Card className="h-full flex flex-col">
+    <LiquidGlassCard className="h-full flex flex-col">
       <h3 className="text-lg font-semibold text-gray-800 mb-3">Share of Voice</h3>
       <div className="flex-1 flex items-start justify-center pt-2">
         <div className="flex items-center gap-4">
@@ -102,7 +92,7 @@ const BrandShareOfVoiceCard = () => {
                   formatter={(value: number, name: string) => {
                     const displayName = name === 'Your Company' ? (selectedCompany?.name || 'Your Company') : 'Others';
                     return [
-                      <span style={{ color: '#7762ff' }}>{displayName}: {value.toFixed(1)}%</span>,
+                      <span style={{ color: '#2563eb' }}>{displayName}: {value.toFixed(1)}%</span>,
                       <span style={{ fontWeight: '600' }}>Share</span>
                     ];
                   }}
@@ -112,7 +102,7 @@ const BrandShareOfVoiceCard = () => {
           </div>
                      <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#7762ff' }}></div>
+              <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#2563eb' }}></div>
               <span className="text-sm text-gray-600 truncate">{selectedCompany?.name || 'Your Company'}</span>
               <span className="text-sm font-semibold text-gray-800">{shareOfVoice.toFixed(1)}%</span>
             </div>
@@ -124,7 +114,7 @@ const BrandShareOfVoiceCard = () => {
           </div>
         </div>
       </div>
-    </Card>
+    </LiquidGlassCard>
   );
 };
 

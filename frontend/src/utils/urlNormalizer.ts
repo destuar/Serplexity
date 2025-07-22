@@ -17,13 +17,25 @@ export const normalizeUrl = (input: string): string => {
   
   let url = input.trim();
   
+  // Handle empty or whitespace-only input
+  if (!url) return url;
+  
   // Remove any existing protocol
   url = url.replace(/^https?:\/\//, '');
+  
+  // Remove trailing slashes
+  url = url.replace(/\/+$/, '');
   
   // Remove www. if present to normalize
   const hasWww = url.startsWith('www.');
   if (hasWww) {
     url = url.replace(/^www\./, '');
+  }
+  
+  // Basic validation - ensure we have at least a domain structure
+  if (!url || url.length < 3 || !url.includes('.')) {
+    // Return original input for validation to catch
+    return input;
   }
   
   // Add back www. and https://

@@ -6,6 +6,7 @@
 import React from 'react';
 import { ChevronRight } from 'lucide-react';
 import { useNavigation } from '../../hooks/useNavigation';
+import { textClasses } from '../../utils/colorClasses';
 
 const Breadcrumb: React.FC = () => {
   const { breadcrumbs } = useNavigation();
@@ -24,7 +25,7 @@ const Breadcrumb: React.FC = () => {
           {crumb.onClick || crumb.path ? (
             <button
               onClick={crumb.onClick}
-              className="hover:text-[#7762ff] transition-colors font-medium"
+              className="hover:text-black transition-colors font-medium"
             >
               {crumb.label}
             </button>

@@ -60,39 +60,64 @@ class MentionAgent(BaseAgent):
 
     def _build_system_prompt(self) -> str:
         """Build comprehensive system prompt for brand mention detection"""
-        return """You are an expert brand intelligence analyst. Your job is to identify ALL companies and products/services mentioned in text, then classify them correctly.
+        return """You are an expert brand intelligence analyst. Your job is to identify companies and products/services mentioned in text using PRECISE CONTEXT-AWARE analysis.
+
+CORE PRINCIPLE: Only tag words when they CLEARLY refer to specific companies/products based on surrounding context.
 
 DETECTION RULES:
-🏢 BRANDS (Companies/Organizations): Apple, Microsoft, Tesla, Acme Corp, Meta, Salesforce, etc.
-📦 PRODUCTS (Products/Services/Tools): iPhone, Slack, Photoshop, ChatGPT, Netflix, Uber, AWS, etc.
+🏢 BRANDS: Specific companies, organizations, institutions (Target, Apple, Shell Oil)
+📦 PRODUCTS: Named products, services, software, platforms (iPhone, Slack, AWS)
 
-CLASSIFICATION GUIDE:
-- BRAND = The company/organization that makes it: "Apple", "Meta", "Microsoft", "Adobe"
-- PRODUCT = The actual product/service/tool: "iPhone", "Instagram", "Excel", "Photoshop"
+STRICT CONTEXT ANALYSIS:
+✅ TAG when word is used as PROPER NOUN referring to specific entity:
+- Company actions: "Target announced", "Apple released", "Shell reported"
+- Possessive references: "Apple's iPhone", "Microsoft's Office", "Google's platform" 
+- Service contexts: "using Slack", "through Zoom", "via PayPal"
+- Institutional references: "Mayo Clinic offers", "JP Morgan provides"
+- Clear brand/product context: "Stripe processes payments", "Netflix streams content"
 
-Examples:
-- "Apple released the iPhone" → Apple=BRAND, iPhone=PRODUCT  
-- "Microsoft's Excel" → Microsoft=BRAND, Excel=PRODUCT
-- "I use Slack for team communication" → Slack=PRODUCT (made by Slack Technologies)
-- "Notion is great for docs" → Notion=PRODUCT (made by Notion Labs)
-- "Tesla Model 3" → Tesla=BRAND, Model 3=PRODUCT
+❌ DO NOT TAG when word is used generically:
+- Descriptive usage: "customers target deals", "apple harvest", "shell scripts"
+- Action verbs: "we seek solutions", "they discover opportunities", "users scale operations"
+- Adjectives: "advanced features", "smart solutions", "progressive policies"
+- Generic references: "the company aims", "universal healthcare", "general guidelines"
 
-DETECTION CRITERIA:
-✅ All companies: Big tech, startups, local businesses, B2B tools
-✅ All products: Software, apps, services, physical products, platforms
-✅ Include lesser-known brands and niche products
-✅ Confidence: 0.9+ for well-known, 0.7+ for clear ones, 0.5+ for possible
+AMBIGUITY RESOLUTION:
+For words that can be both brands AND generic terms (Target/target, Apple/apple, Scale/scale):
+- ONLY tag if context clearly indicates the SPECIFIC COMPANY/PRODUCT
+- Example: "Target stores" ✅ vs "target audience" ❌
+- Example: "Apple iPhone" ✅ vs "apple juice" ❌
+- Example: "Slack messaging" ✅ vs "work can slack" ❌
 
-OUTPUT FORMAT (JSON only, no markdown):
+HIGH-PRECISION INDICATORS:
+- Corporate suffixes: "Inc", "Corp", "LLC", "Ltd"
+- Proper capitalization in business context
+- Brand-specific products/services mentioned together
+- Industry-specific usage patterns
+- Clear subject-verb-object relationships with entities
+
+CONFIDENCE SCORING:
+- 0.95+: Unambiguous brand/product references with clear context
+- 0.85+: Clear entity usage with supporting context
+- 0.75+: Likely entity with reasonable context
+- <0.75: Don't include (ambiguous or generic)
+
+CRITICAL EDGE CASES:
+- Multi-word brands: "American Express", "Goldman Sachs", "JP Morgan"
+- Action verbs as brands: Only tag "Zoom" if clearly the video platform, not the action
+- Geographic terms: Only tag if clearly referring to the specific company
+- Common words: Be extremely cautious with words like "target", "discover", "chase"
+
+OUTPUT FORMAT (JSON only):
 {
   "mentions": [
     {
-      "name": "exact name",
+      "name": "exact name as it appears",
       "type": "brand|product", 
       "confidence": 0.95,
-      "context": "surrounding 10-20 words",
-      "position": 0,
-      "category": "tech|retail|saas|consumer|etc"
+      "context": "precise context showing proper noun usage",
+      "position": character_position,
+      "category": "industry"
     }
   ],
   "total_count": 0,
@@ -100,7 +125,7 @@ OUTPUT FORMAT (JSON only, no markdown):
   "unique_products": 0
 }
 
-Be comprehensive - better to include questionable mentions at 0.6 confidence than miss real ones."""
+FINAL RULE: When in doubt between generic word vs. brand name, ALWAYS choose generic (don't tag). Precision over recall."""
     
     def get_output_type(self):
         return BrandMentions
@@ -242,20 +267,16 @@ Be comprehensive - better to include questionable mentions at 0.6 confidence tha
         )
     
     async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute brand mention detection with LLM + fallback"""
+        """Execute brand mention detection with intelligent LLM only"""
         import time
         start_time = time.time()
         
         try:
-            # Try LLM-based detection first
+            # Use LLM-based detection only
             result = await super().execute(input_data)
             
-            # Validate result has mentions
-            if ('result' in result and 
-                hasattr(result['result'], 'mentions') and 
-                len(result['result'].mentions) > 0):
-                
-                # LLM detection successful - fix the counts
+            # Process result regardless of mention count (LLM may correctly find zero mentions)
+            if 'result' in result and hasattr(result['result'], 'mentions'):
                 execution_time = (time.time() - start_time) * 1000
                 
                 # Count unique brands and products from LLM result
@@ -271,67 +292,62 @@ Be comprehensive - better to include questionable mentions at 0.6 confidence tha
                 logger.info(f"✅ LLM detected {len(mentions)} mentions ({unique_brands} brands, {unique_products} products)")
                 return result
             else:
-                logger.warning("⚠️ LLM returned no mentions, falling back to regex")
-                raise Exception("LLM returned no brand mentions")
+                logger.error("❌ LLM returned invalid result format")
+                raise Exception("LLM returned invalid result format")
                 
         except Exception as e:
-            logger.warning(f"⚠️ LLM brand detection failed: {str(e)}, using fallback")
-            
-            # Fallback to regex-based detection
             execution_time = (time.time() - start_time) * 1000
+            logger.error(f"❌ LLM brand detection failed: {str(e)}")
             
-            fallback_result = self._fallback_regex_detection(
-                input_data.get('text', ''),
-                input_data.get('company_name'),
-                input_data.get('competitors', [])
-            )
-            
-            logger.info(f"🔄 Fallback detected {len(fallback_result.mentions)} brand mentions")
-            
+            # Return error instead of fallback
             return {
-                "result": fallback_result,
+                "error": f"Brand detection failed: {str(e)}",
                 "execution_time": execution_time,
                 "attempt_count": 1,
                 "agent_id": self.agent_id,
-                "model_used": "fallback-regex",
+                "model_used": None,
                 "tokens_used": 0,
-                "fallback_used": True
+                "fallback_used": False
             }
     
     def tag_brands_in_text(self, text: str, mentions: List[BrandMention], min_confidence: float = 0.5) -> str:
-        """Tag detected brands/products in text with appropriate tags"""
-        
-        # Sort mentions by position (reverse order to avoid position shifting)
-        sorted_mentions = sorted(mentions, key=lambda x: x.position, reverse=True)
+        """Tag detected brands/products in text with appropriate tags using robust name-based matching"""
+        import re
         
         tagged_text = text
         tagged_entities = set()  # Avoid duplicate tagging
         
+        # Sort mentions by length (longer first) to avoid partial matches
+        sorted_mentions = sorted(mentions, key=lambda x: len(x.name), reverse=True)
+        
         for mention in sorted_mentions:
             if mention.confidence >= min_confidence and mention.name not in tagged_entities:
-                # Find the exact entity text at the position
-                start_pos = mention.position
-                end_pos = start_pos + len(mention.name)
+                # Choose tag type based on mention type
+                if mention.type == 'brand':
+                    tag_start = '<brand>'
+                    tag_end = '</brand>'
+                else:  # product
+                    tag_start = '<product>'
+                    tag_end = '</product>'
                 
-                # Verify the text matches (case-insensitive)
-                if (start_pos < len(tagged_text) and 
-                    end_pos <= len(tagged_text) and
-                    tagged_text[start_pos:end_pos].lower() == mention.name.lower()):
-                    
-                    # Choose tag type based on mention type
-                    original_name = tagged_text[start_pos:end_pos]  # Preserve original case
-                    if mention.type == 'brand':
-                        tag_start = '<brand>'
-                        tag_end = '</brand>'
-                    else:  # product
-                        tag_start = '<product>'
-                        tag_end = '</product>'
-                    
-                    # Tag the entity
-                    tagged_text = (tagged_text[:start_pos] + 
-                                 f'{tag_start}{original_name}{tag_end}' + 
-                                 tagged_text[end_pos:])
-                    
+                # Use regex to find and replace all instances of the brand name
+                # Word boundaries ensure we don't match partial words
+                # Case-insensitive matching with preserved original case
+                def replace_match(match):
+                    original_text = match.group(0)
+                    return f'{tag_start}{original_text}{tag_end}'
+                
+                # Create regex pattern with word boundaries for exact matching
+                # Escape special regex characters in brand name
+                escaped_name = re.escape(mention.name)
+                pattern = r'\b' + escaped_name + r'\b'
+                
+                # Replace all instances (case-insensitive)
+                new_tagged_text = re.sub(pattern, replace_match, tagged_text, flags=re.IGNORECASE)
+                
+                # Only mark as tagged if we actually made replacements
+                if new_tagged_text != tagged_text:
+                    tagged_text = new_tagged_text
                     tagged_entities.add(mention.name)
         
         return tagged_text

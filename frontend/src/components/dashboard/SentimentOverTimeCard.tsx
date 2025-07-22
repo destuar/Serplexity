@@ -80,14 +80,6 @@ const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedM
   };
 
   const renderContent = () => {
-    if (loading) {
-      return (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="animate-pulse text-gray-400">Loading...</div>
-        </div>
-      );
-    }
-
     if (!chartData || chartData.length === 0) {
       return (
         <div className="flex-1 flex items-center justify-center">
@@ -161,22 +153,22 @@ const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedM
             <Line
               type="monotone"
               dataKey="score"
-              stroke="#7762ff"
+              stroke="#2563eb"
               strokeWidth={chartData.length > 1 ? 3 : 0}
               dot={{ 
-                fill: '#7762ff', 
+                fill: '#2563eb', 
                 strokeWidth: 2, 
                 r: 5,
                 stroke: '#ffffff'
               }}
               activeDot={{ 
                 r: 7, 
-                stroke: '#7762ff',
+                stroke: '#2563eb',
                 strokeWidth: 2,
                 fill: '#ffffff'
               }}
             />
-            {chartData.length === 1 && <Scatter dataKey="score" fill="#7762ff" />}
+            {chartData.length === 1 && <Scatter dataKey="score" fill="#2563eb" />}
           </LineChart>
         </ResponsiveContainer>
       </div>

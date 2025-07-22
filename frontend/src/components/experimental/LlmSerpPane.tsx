@@ -18,10 +18,11 @@
  * - LlmSerpPane: React functional component for displaying LLM-generated search results.
  */
 import React, { useEffect, useState, useRef } from 'react';
+import { Globe, Clock, Zap, ExternalLink, Settings, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Card from '../ui/Card';
  
-import { searchModels } from '../../services/experimentalSearchService.ts';
+import { searchModels, type Citation } from '../../services/experimentalSearchService.ts';
 import { MODEL_CONFIGS } from '../../types/dashboard';
 import FilterDropdown from '../dashboard/FilterDropdown';
 import { getModelFilterOptions } from '../../types/dashboard';
@@ -38,6 +39,11 @@ interface ChatItem {
   engine: string;
   answer: string;
   latencyMs: number;
+  // Enhanced search agent properties
+  citations?: Citation[];
+  hasWebSearch?: boolean;
+  tokensUsed?: number;
+  requestId?: string;
 }
 
 interface ApiError {
@@ -51,41 +57,130 @@ interface ApiError {
 
 
 
+// Citation component for displaying search sources
+const CitationBadge: React.FC<{ citation: Citation; index: number }> = ({ citation, index }) => (
+  <a 
+    href={citation.url}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md transition-colors border border-blue-200"
+    title={citation.title}
+  >
+    <ExternalLink className="w-3 h-3" />
+    <span className="font-medium">{index + 1}</span>
+    <span className="truncate max-w-[80px]">{citation.domain}</span>
+  </a>
+);
+
+// Response metadata component
+const ResponseMetadata: React.FC<{ 
+  item: ChatItem; 
+  modelDisplayName: string; 
+}> = ({ item, modelDisplayName }) => (
+  <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
+    <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1">
+        <Clock className="w-3 h-3" />
+        <span>{item.latencyMs}ms</span>
+      </div>
+      {item.hasWebSearch && (
+        <div className="flex items-center gap-1 text-green-600">
+          <Globe className="w-3 h-3" />
+          <span>Web search</span>
+        </div>
+      )}
+      {item.tokensUsed && (
+        <div className="flex items-center gap-1">
+          <Zap className="w-3 h-3" />
+          <span>{item.tokensUsed} tokens</span>
+        </div>
+      )}
+    </div>
+    <span>— {modelDisplayName}</span>
+  </div>
+);
+
+// Settings interface
+interface ChatSettings {
+  webSearchEnabled: boolean;
+  temperature: number;
+  persona: string;
+}
+
 const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
   const [loading, setLoading] = useState(false);
   const [answers, setAnswers] = useState<ChatItem[]>([]);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settings, setSettings] = useState<ChatSettings>({
+    webSearchEnabled: true,
+    temperature: 0.7,
+    persona: ''
+  });
+  const [lastSearchSettings, setLastSearchSettings] = useState<ChatSettings>({
+    webSearchEnabled: true,
+    temperature: 0.7,
+    persona: ''
+  });
 
   const aiModelOptions = getModelFilterOptions().filter((o) => o.value !== 'all');
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    if (!query) return;
+  // Check if settings have changed since last search
+  const settingsChanged = () => {
+    return (
+      settings.webSearchEnabled !== lastSearchSettings.webSearchEnabled ||
+      settings.temperature !== lastSearchSettings.temperature ||
+      settings.persona !== lastSearchSettings.persona
+    );
+  };
+
+  // Function to execute search with current settings
+  const executeSearch = async (searchQuery: string, searchModelId: string) => {
+    if (!searchQuery.trim()) return;
+    
     setLoading(true);
     setAnswers([]);
-    (async () => {
-      try {
-        const res = await searchModels(query, modelId);
-        const formatted = res.map((item) => ({
-          ...item,
-          answer: formatResponseText(item.answer),
-        }));
+    
+    try {
+      // Construct query with persona if provided
+      const finalQuery = settings.persona 
+        ? `${settings.persona}\n\n${searchQuery}` 
+        : searchQuery;
+      
+      const res = await searchModels(finalQuery, searchModelId, settings);
+      const formatted = res.map((item) => ({
+        ...item,
+        answer: formatResponseText(item.answer),
+      }));
 
-        if (formatted.length === 0 || formatted[0].answer.trim() === '') {
-          setAnswers([{ engine: modelId, answer: '**No answer returned.**', latencyMs: 0 }]);
-        } else {
-          setAnswers(formatted);
-        }
-      } catch (err: unknown) {
-        console.error('Failed to fetch model answer:', err);
-        const msg = (err as ApiError)?.response?.data?.error || (err as ApiError)?.message || 'Unknown error';
-        // Show the error as a pseudo-answer so it appears in the chat stream
-        setAnswers([{ engine: modelId, answer: `**Error:** ${msg}` , latencyMs: 0 }]);
-      } finally {
-        setLoading(false);
+      if (formatted.length === 0 || formatted[0].answer.trim() === '') {
+        setAnswers([{ engine: searchModelId, answer: '**No answer returned.**', latencyMs: 0 }]);
+      } else {
+        setAnswers(formatted);
       }
-    })();
-  }, [query, modelId]);
+      
+      // Update last search settings
+      setLastSearchSettings({ ...settings });
+    } catch (err: unknown) {
+      console.error('Failed to fetch model answer:', err);
+      const msg = (err as ApiError)?.response?.data?.error || (err as ApiError)?.message || 'Unknown error';
+      // Show the error as a pseudo-answer so it appears in the chat stream
+      setAnswers([{ engine: searchModelId, answer: `**Error:** ${msg}` , latencyMs: 0 }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Only run search when query or modelId changes (NOT when settings change)
+  useEffect(() => {
+    if (!query) {
+      setAnswers([]); // Clear answers when no query
+      return;
+    }
+    
+    executeSearch(query, modelId);
+  }, [query, modelId]); // Removed settings from dependency array
 
   // Auto-scroll to bottom when a new answer arrives
   useEffect(() => {
@@ -96,8 +191,8 @@ const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
 
   return (
     <Card className="h-full flex flex-col overflow-hidden p-4">
-      {/* Header with model dropdown */}
-      <div className="flex items-center gap-2 mb-3 sticky top-0 bg-white/80 backdrop-blur z-10 py-1">
+      {/* Header with model dropdown and settings */}
+      <div className="flex items-center justify-between gap-2 mb-3 sticky top-0 bg-white/80 backdrop-blur z-10 py-1">
         <FilterDropdown
           label="Model"
           value={modelId}
@@ -108,7 +203,101 @@ const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
           noShadow
           autoWidth
         />
+        
+        {/* Settings button */}
+        <button
+          onClick={() => setShowSettings(!showSettings)}
+          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors relative"
+          title="Chat Settings"
+        >
+          <Settings className="w-4 h-4" />
+        </button>
       </div>
+
+      {/* Settings panel */}
+      {showSettings && (
+        <div className="mb-3 bg-gray-50 rounded-lg p-4 border">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-700">Chat Settings</h3>
+            <button
+              onClick={() => setShowSettings(false)}
+              className="p-1 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          
+          <div className="space-y-4">
+            {/* Web Search Toggle */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Globe className="w-4 h-4 text-gray-500" />
+                <label className="text-sm text-gray-700">Web Search</label>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.webSearchEnabled}
+                  onChange={(e) => setSettings(prev => ({ ...prev, webSearchEnabled: e.target.checked }))}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+
+            {/* Temperature Slider */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-gray-500" />
+                  <label className="text-sm text-gray-700">Temperature</label>
+                </div>
+                <span className="text-sm text-gray-500">{settings.temperature}</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="2"
+                step="0.1"
+                value={settings.temperature}
+                onChange={(e) => setSettings(prev => ({ ...prev, temperature: parseFloat(e.target.value) }))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+              />
+              <div className="flex justify-between text-xs text-gray-400">
+                <span>Focused</span>
+                <span>Balanced</span>
+                <span>Creative</span>
+              </div>
+            </div>
+
+            {/* Persona Input */}
+            <div className="space-y-2">
+              <label className="text-sm text-gray-700 font-medium">System Persona (optional)</label>
+              <textarea
+                placeholder="e.g., You are a helpful expert in technology..."
+                value={settings.persona}
+                onChange={(e) => setSettings(prev => ({ ...prev, persona: e.target.value }))}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                rows={2}
+              />
+              <p className="text-xs text-gray-500">Add a custom persona to influence the model's responses</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Re-run button when settings changed */}
+      {query && answers.length > 0 && settingsChanged() && !loading && (
+        <div className="mb-3 flex justify-center">
+          <button
+            onClick={() => executeSearch(query, modelId)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+          >
+            <Zap className="w-4 h-4" />
+            Re-run with updated settings
+          </button>
+        </div>
+      )}
 
       {/* loading indicator intentionally removed */}
 
@@ -141,56 +330,109 @@ const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
           </div>
         )}
 
-        {/* Typing indicator while loading */}
+        {/* Enhanced typing indicator */}
         {loading && query && (
           <div className="flex justify-start">
-            <div className="max-w-[75%] rounded-2xl bg-white/20 backdrop-blur-lg border border-white/30 px-4 py-2 shadow ring-1 ring-white/20 flex items-center space-x-1 animate-pulse">
-              <span className="block w-1.5 h-1.5 bg-gray-500 rounded-full" />
-              <span className="block w-1.5 h-1.5 bg-gray-500 rounded-full" />
-              <span className="block w-1.5 h-1.5 bg-gray-500 rounded-full" />
+            <div className="max-w-[85%] rounded-2xl bg-white/20 backdrop-blur-lg border border-white/30 px-4 py-3 shadow-lg ring-1 ring-white/20">
+              <div className="flex items-center space-x-1">
+                <span className="block w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                <span className="block w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                <span className="block w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+              </div>
             </div>
           </div>
         )}
 
         {/* Model answer(s) */}
-        {answers.map((a) => (
-          <div key={a.engine} className="flex justify-start">
-            <div className="max-w-[75%] rounded-2xl bg-white/40 dark:bg-white/5 backdrop-blur-lg border border-white/30 px-4 py-2 text-sm text-gray-900 shadow ring-1 ring-white/20">
-              {/* By controlling the paragraph margins directly, we get consistent spacing without conflicts */}
-              <div className="text-sm text-gray-900 [&_p]:mb-3">
-                <ReactMarkdown 
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    // Customize code blocks
-                    code: ({ className, children, ...props }) => {
-                      const match = /language-(\w+)/.exec(className || '');
-                      return match ? (
-                        <pre className="bg-gray-100 rounded p-2 overflow-x-auto">
-                          <code className={className} {...props}>
+        {answers.map((a) => {
+          const modelDisplayName = MODEL_CONFIGS[a.engine]?.displayName || a.engine;
+          
+          return (
+            <div key={a.engine} className="flex justify-start">
+              <div className="max-w-[85%] rounded-2xl bg-white/40 dark:bg-white/5 backdrop-blur-lg border border-white/30 px-4 py-3 text-sm text-gray-900 shadow-lg ring-1 ring-white/20">
+                {/* Main response content */}
+                <div className="text-sm text-gray-900 [&_p]:mb-3 [&_p:last-child]:mb-0 leading-relaxed">
+                  <ReactMarkdown 
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      // Enhanced code blocks with syntax highlighting styling
+                      code: ({ className, children, ...props }) => {
+                        const match = /language-(\w+)/.exec(className || '');
+                        return match ? (
+                          <pre className="bg-gray-50 rounded-lg p-3 overflow-x-auto my-3 border">
+                            <code className={className} {...props}>
+                              {children}
+                            </code>
+                          </pre>
+                        ) : (
+                          <code className="bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
                             {children}
                           </code>
-                        </pre>
-                      ) : (
-                        <code className="bg-gray-100 px-1 py-0.5 rounded text-sm" {...props}>
+                        );
+                      },
+                      // Enhanced links
+                      a: ({ href, children, ...props }) => (
+                        <a 
+                          href={href} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="text-blue-600 hover:text-blue-800 underline decoration-blue-300 hover:decoration-blue-500 transition-colors"
+                          {...props}
+                        >
                           {children}
-                        </code>
-                      );
-                    },
-                    // Ensure links open in new tab
-                    a: ({ href, children, ...props }) => (
-                      <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline" {...props}>
-                        {children}
-                      </a>
-                    ),
-                  }}
-                >
-                  {a.answer}
-                </ReactMarkdown>
+                        </a>
+                      ),
+                      // Enhanced headings
+                      h1: ({ children, ...props }) => (
+                        <h1 className="text-lg font-semibold text-gray-800 mt-4 mb-2" {...props}>
+                          {children}
+                        </h1>
+                      ),
+                      h2: ({ children, ...props }) => (
+                        <h2 className="text-base font-semibold text-gray-800 mt-3 mb-2" {...props}>
+                          {children}
+                        </h2>
+                      ),
+                      // Enhanced lists
+                      ul: ({ children, ...props }) => (
+                        <ul className="list-disc pl-4 space-y-1" {...props}>
+                          {children}
+                        </ul>
+                      ),
+                      ol: ({ children, ...props }) => (
+                        <ol className="list-decimal pl-4 space-y-1" {...props}>
+                          {children}
+                        </ol>
+                      ),
+                    }}
+                  >
+                    {a.answer}
+                  </ReactMarkdown>
+                </div>
+
+                {/* Citations */}
+                {a.citations && a.citations.length > 0 && (
+                  <div className="mt-4 pt-3 border-t border-gray-200/50">
+                    <div className="text-xs font-medium text-gray-600 mb-2">Sources:</div>
+                    <div className="flex flex-wrap gap-1">
+                      {a.citations.slice(0, 6).map((citation, index) => (
+                        <CitationBadge key={citation.url} citation={citation} index={index} />
+                      ))}
+                      {a.citations.length > 6 && (
+                        <span className="text-xs text-gray-500 px-2 py-1">
+                          +{a.citations.length - 6} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Response metadata */}
+                <ResponseMetadata item={a} modelDisplayName={modelDisplayName} />
               </div>
-              <div className="mt-2 text-xs text-gray-500">— {MODEL_CONFIGS[a.engine]?.displayName || a.engine} • {a.latencyMs} ms</div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </Card>
   );

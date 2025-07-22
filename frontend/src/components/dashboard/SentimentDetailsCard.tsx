@@ -75,7 +75,7 @@ const renderBrandText = (text: string | undefined, brandName: string | undefined
                     key={key++}
                     className={
                         isUserBrand
-                            ? "text-[#7762ff] font-semibold transition-colors duration-200 hover:bg-purple-100 rounded px-1 -mx-1"
+                            ? "text-blue-600 font-semibold transition-colors duration-200 hover:bg-blue-100 rounded px-1 -mx-1"
                             : "" // No special styling for competitors
                     }
                 >

@@ -57,8 +57,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   const columns = useMemo(() => [
     { id: TaskStatus.NOT_STARTED, title: 'Not Started', color: 'bg-gray-100' },
-    { id: TaskStatus.IN_PROGRESS, title: 'In Progress', color: 'bg-[#7762ff]/10' },
-    { id: TaskStatus.COMPLETED, title: 'Completed', color: 'bg-[#7762ff]/20' }
+    { id: TaskStatus.IN_PROGRESS, title: 'In Progress', color: 'bg-blue-600/10' },
+    { id: TaskStatus.COMPLETED, title: 'Completed', color: 'bg-blue-600/20' }
   ], []);
 
   const tasksByStatus = useMemo(() => {

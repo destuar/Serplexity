@@ -25,28 +25,28 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   'gpt-4.1-mini': {
     id: 'gpt-4.1-mini',
     engine: 'openai',
-    displayName: 'ChatGPT 4.1',
+    displayName: 'ChatGPT',
     company: 'OpenAI',
     logoUrl: 'https://openai.com/favicon.ico'
   },
   'claude-3-5-haiku-20241022': {
     id: 'claude-3-5-haiku-20241022',
     engine: 'anthropic',
-    displayName: 'Claude 3.5 Haiku',
+    displayName: 'Claude',
     company: 'Anthropic',
     logoUrl: 'https://claude.ai/favicon.ico'
   },
   'gemini-2.5-flash': {
     id: 'gemini-2.5-flash',
     engine: 'google',
-    displayName: 'Gemini 2.5 Flash',
+    displayName: 'Gemini',
     company: 'Google',
     logoUrl: 'https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg'
   },
   'sonar': {
     id: 'sonar',
     engine: 'perplexity',
-    displayName: 'Perplexity Sonar',
+    displayName: 'Perplexity',
     company: 'Perplexity',
     logoUrl: 'https://www.perplexity.ai/favicon.svg'
   }
@@ -55,9 +55,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
 // Engine mapping for backward compatibility and display purposes
 export const ENGINE_DISPLAY_NAMES: Record<string, string> = {
   'openai': 'ChatGPT',
-  'anthropic': 'Anthropic',
-  'google': 'Google Gemini', 
-  'gemini': 'Google Gemini',
+  'anthropic': 'Claude',
+  'google': 'Gemini', 
+  'gemini': 'Gemini',
   'perplexity': 'Perplexity',
   'serplexity-summary': 'Overall Summary'
 };

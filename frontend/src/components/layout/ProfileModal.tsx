@@ -17,6 +17,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { X, User, Mail, Lock, Eye, EyeOff, AlertCircle, LogOut, CreditCard, Cpu } from 'lucide-react';
+import { buttonClasses, formClasses, textClasses } from '../../utils/colorClasses';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
 import { useNavigate } from 'react-router-dom';
@@ -274,7 +275,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                     disabled={tab.disabled}
                     className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
                       activeTab === tab.id
-                        ? 'bg-[#7762ff] text-white'
+                        ? 'bg-black text-white'
                         : tab.disabled
                         ? 'text-gray-400 cursor-not-allowed'
                         : 'text-gray-700 hover:bg-gray-100'
@@ -312,7 +313,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                       id="name"
                       type="text"
                       {...registerProfile('name')}
-                      className="flex h-11 w-full rounded-lg bg-gray-50 border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#7762ff] focus:border-[#7762ff] disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
+                      className="flex h-11 w-full rounded-lg bg-gray-50 border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
                       placeholder="Enter your full name"
                     />
                     {profileErrors.name && (
@@ -329,7 +330,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                       id="email"
                       type="email"
                       {...registerProfile('email')}
-                      className="flex h-11 w-full rounded-lg bg-gray-50 border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#7762ff] focus:border-[#7762ff] disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
+                      className="flex h-11 w-full rounded-lg bg-gray-50 border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
                       placeholder="Enter your email address"
                     />
                     {profileErrors.email && (
@@ -399,14 +400,14 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                 </div>
 
                 <div className="space-y-4">
-                  {/* GPT-4.1 Mini */}
+                  {/* ChatGPT */}
                   <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-gradient-to-r from-green-400 to-blue-500 rounded-lg flex items-center justify-center">
                         <span className="text-white font-semibold text-sm">GPT</span>
                       </div>
                       <div>
-                        <h4 className="font-medium text-gray-900">GPT-4.1 Mini</h4>
+                        <h4 className="font-medium text-gray-900">ChatGPT</h4>
                         <p className="text-sm text-gray-600">OpenAI • Fast and reliable</p>
                       </div>
                     </div>
@@ -417,18 +418,18 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                         onChange={() => handleModelToggle('gpt-4.1-mini')}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#7762ff]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#7762ff]"></div>
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-600/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </div>
 
-                  {/* Claude 3.5 Haiku */}
+                  {/* Claude */}
                   <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-gradient-to-r from-orange-400 to-red-500 rounded-lg flex items-center justify-center">
                         <span className="text-white font-semibold text-sm">C</span>
                       </div>
                       <div>
-                        <h4 className="font-medium text-gray-900">Claude 3.5 Haiku</h4>
+                        <h4 className="font-medium text-gray-900">Claude</h4>
                         <p className="text-sm text-gray-600">Anthropic • Balanced performance</p>
                       </div>
                     </div>
@@ -439,18 +440,18 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                         onChange={() => handleModelToggle('claude-3-5-haiku-20241022')}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#7762ff]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#7762ff]"></div>
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-600/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </div>
 
-                  {/* Gemini 2.5 Flash */}
+                  {/* Gemini */}
                   <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-gradient-to-r from-blue-400 to-purple-500 rounded-lg flex items-center justify-center">
                         <span className="text-white font-semibold text-sm">G</span>
                       </div>
                       <div>
-                        <h4 className="font-medium text-gray-900">Gemini 2.5 Flash</h4>
+                        <h4 className="font-medium text-gray-900">Gemini</h4>
                         <p className="text-sm text-gray-600">Google • Web search enhanced</p>
                       </div>
                     </div>
@@ -461,18 +462,18 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                         onChange={() => handleModelToggle('gemini-2.5-flash')}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#7762ff]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#7762ff]"></div>
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-600/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </div>
 
-                  {/* Perplexity Sonar */}
+                  {/* Perplexity */}
                   <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-gradient-to-r from-purple-400 to-pink-500 rounded-lg flex items-center justify-center">
                         <span className="text-white font-semibold text-sm">P</span>
                       </div>
                       <div>
-                        <h4 className="font-medium text-gray-900">Perplexity Sonar</h4>
+                        <h4 className="font-medium text-gray-900">Perplexity</h4>
                         <p className="text-sm text-gray-600">Perplexity • Real-time search</p>
                       </div>
                     </div>
@@ -483,7 +484,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                         onChange={() => handleModelToggle('sonar')}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#7762ff]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#7762ff]"></div>
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-600/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </div>
                 </div>
@@ -593,7 +594,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                         id="currentPassword"
                         type={showCurrentPassword ? 'text' : 'password'}
                         {...registerPassword('currentPassword')}
-                        className="flex h-11 w-full rounded-lg bg-gray-50 border border-gray-300 px-4 py-3 pr-10 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#7762ff] focus:border-[#7762ff] disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
+                        className="flex h-11 w-full rounded-lg bg-gray-50 border border-gray-300 px-4 py-3 pr-10 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
                         placeholder="Enter your current password"
                       />
                       <button
@@ -619,7 +620,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                         id="newPassword"
                         type={showNewPassword ? 'text' : 'password'}
                         {...registerPassword('newPassword')}
-                        className="flex h-11 w-full rounded-lg bg-gray-50 border border-gray-300 px-4 py-3 pr-10 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#7762ff] focus:border-[#7762ff] disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
+                        className="flex h-11 w-full rounded-lg bg-gray-50 border border-gray-300 px-4 py-3 pr-10 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
                         placeholder="Enter your new password"
                       />
                       <button
@@ -645,7 +646,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                         id="confirmPassword"
                         type={showConfirmPassword ? 'text' : 'password'}
                         {...registerPassword('confirmPassword')}
-                        className="flex h-11 w-full rounded-lg bg-gray-50 border border-gray-300 px-4 py-3 pr-10 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#7762ff] focus:border-[#7762ff] disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
+                        className="flex h-11 w-full rounded-lg bg-gray-50 border border-gray-300 px-4 py-3 pr-10 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
                         placeholder="Confirm your new password"
                       />
                       <button

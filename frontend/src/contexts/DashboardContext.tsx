@@ -19,7 +19,7 @@ import { getDashboardData } from '../services/dashboardService';
 import { useCompany } from '../hooks/useCompany';
 import { DashboardContext } from '../hooks/useDashboard';
 import { useLocation } from 'react-router-dom';
-import { getShareOfVoiceHistory, getTopRankingQuestions, TopRankingQuestion } from '../services/companyService';
+import { getShareOfVoiceHistory, getTopRankingQuestions, TopRankingQuestion, CompetitorData, getAcceptedCompetitors } from '../services/companyService';
 
 interface ApiError {
   message: string;
@@ -63,6 +63,8 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
   const [data, setData] = useState<DashboardData | null>(null);
   // Store detailed question responses for tooltips
   const [detailedQuestions, setDetailedQuestions] = useState<TopRankingQuestion[]>([]);
+  // Store accepted competitors data
+  const [acceptedCompetitors, setAcceptedCompetitors] = useState<CompetitorData[]>([]);
   // Start in a loading state so pages can show a proper spinner until the
   // first data-fetch attempt completes. This prevents the WelcomePrompt from
   // flashing while data is still on the way.
@@ -79,7 +81,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
   const prevCompanyIdRef = useRef<string | null>(null);
 
   // Simple in-memory cache for dashboard responses keyed by company & filters
-  const cacheRef = useRef<Record<string, { data: DashboardData | null; detailedQuestions: TopRankingQuestion[] }>>({});
+  const cacheRef = useRef<Record<string, { data: DashboardData | null; detailedQuestions: TopRankingQuestion[]; acceptedCompetitors: CompetitorData[] }>>({});
 
   // Fetch dashboard data and detailed questions in parallel
   const fetchData = useCallback(async (isRefresh: boolean = false) => {
@@ -112,6 +114,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
         const cached = cacheRef.current[cacheKey];
         setData(cached.data);
         setDetailedQuestions(cached.detailedQuestions);
+        setAcceptedCompetitors(cached.acceptedCompetitors);
         if (cached.data?.lastUpdated) {
           setLastUpdated(cached.data.lastUpdated);
         }
@@ -143,12 +146,14 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
         console.log('[DashboardContext] No dashboard data found, setting hasReport to false');
         setData(null);
         setDetailedQuestions([]);
+        setAcceptedCompetitors([]);
         setHasReport(false);
         
         // Clear cache
         cacheRef.current[cacheKey] = {
           data: null,
-          detailedQuestions: []
+          detailedQuestions: [],
+          acceptedCompetitors: []
         };
         
         setLoading(false);
@@ -157,7 +162,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
       }
 
       // If we have dashboard data, fetch additional data
-      const [sovHistory, detailedQuestionsData] = await Promise.all([
+      const [sovHistory, detailedQuestionsData, acceptedCompetitorsData] = await Promise.all([
         getShareOfVoiceHistory(selectedCompany.id, currentFilters).catch(err => {
           console.warn('[DashboardContext] Failed to fetch share of voice history:', err);
           return []; // Return empty array on error
@@ -167,6 +172,12 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
           .catch(err => {
             console.warn('[DashboardContext] Failed to fetch detailed questions:', err);
             return []; // Don't fail the whole request if detailed questions fail
+          }),
+        getAcceptedCompetitors(selectedCompany.id)
+          .then(result => result.competitors || [])
+          .catch(err => {
+            console.warn('[DashboardContext] Failed to fetch accepted competitors:', err);
+            return []; // Don't fail the whole request if competitors fail
           })
       ]);
 
@@ -180,9 +191,11 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
 
       console.log('[DashboardContext] Data received from service:', mergedData);
       console.log('[DashboardContext] Detailed questions received:', detailedQuestionsData);
+      console.log('[DashboardContext] Accepted competitors received:', acceptedCompetitorsData);
 
       setData(mergedData);
       setDetailedQuestions(detailedQuestionsData);
+      setAcceptedCompetitors(acceptedCompetitorsData);
       setHasReport(true);
       
       if (dashboardData?.lastUpdated) {
@@ -192,7 +205,8 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
       // Persist to cache
       cacheRef.current[cacheKey] = {
         data: mergedData,
-        detailedQuestions: detailedQuestionsData
+        detailedQuestions: detailedQuestionsData,
+        acceptedCompetitors: acceptedCompetitorsData
       };
     } catch (err) {
       const apiErr = err as ApiError;
@@ -313,6 +327,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
   const value = useMemo(() => ({
     data,
     detailedQuestions,
+    acceptedCompetitors,
     filters,
     loading,
     error,
@@ -325,6 +340,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
   }), [
     data,
     detailedQuestions,
+    acceptedCompetitors,
     filters,
     loading,
     error,

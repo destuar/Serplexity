@@ -560,7 +560,7 @@ class QuestionAnsweringAgent(BaseAgent):
             question=question,
             answer=processed_answer,
             confidence=0.9 if has_web_search else 0.8,
-            citations=citations[:5],  # Limit to 5 citations
+            citations=citations,  # No citation limit
             has_web_search=has_web_search,
             brand_mentions_count=brand_mentions_count
         )
@@ -568,8 +568,11 @@ class QuestionAnsweringAgent(BaseAgent):
     async def _detect_and_tag_brands(self, text: str, company_name: str = None, competitors: List[str] = None) -> str:
         """Use intelligent mention agent to detect and tag ALL brands in text"""
         try:
-            # Import mention agent
-            from ..services.pydanticLlmService import pydanticLlmService
+            # Import mention agent directly
+            from .mention_agent import MentionAgent, BrandMention
+            
+            # Create mention agent instance
+            mention_agent = MentionAgent()
             
             # Prepare input for mention agent
             mention_input = {
@@ -580,33 +583,24 @@ class QuestionAnsweringAgent(BaseAgent):
             
             # Call mention agent to detect brands
             logger.info("🔍 Running brand detection...")
-            result = await pydanticLlmService.executeAgent(
-                "mention_agent.py",
-                mention_input,
-                null=None,
-                options={
-                    'temperature': 0.1,
-                    'maxTokens': 1000,
-                    'timeout': 30000
-                }
-            )
+            result = await mention_agent.execute(mention_input)
             
-            if result.get('data'):
-                raw = result['data']
-                if hasattr(raw, 'model_dump'):
-                    raw = raw.model_dump()  # Convert Pydantic object to dict
-                if isinstance(raw, dict):
-                    mentions = raw.get('mentions', [])
+            if result.get('result'):
+                mentions_result = result['result']
                 
-                # Create MentionAgent instance to use its tagging method
-                from .mention_agent import MentionAgent, BrandMention
-                mention_agent = MentionAgent()
-                
-                # Convert dict mentions to BrandMention objects
-                brand_mentions = []
-                for mention_data in mentions:
-                    if isinstance(mention_data, dict):
-                        brand_mentions.append(BrandMention(**mention_data))
+                # Get mentions from the result
+                if hasattr(mentions_result, 'mentions'):
+                    brand_mentions = mentions_result.mentions
+                elif isinstance(mentions_result, dict) and 'mentions' in mentions_result:
+                    # Convert dict mentions to BrandMention objects
+                    brand_mentions = []
+                    for mention_data in mentions_result['mentions']:
+                        if isinstance(mention_data, dict):
+                            brand_mentions.append(BrandMention(**mention_data))
+                        else:
+                            brand_mentions.append(mention_data)
+                else:
+                    brand_mentions = []
                 
                 # Use mention agent's tagging method
                 tagged_text = mention_agent.tag_brands_in_text(text, brand_mentions, min_confidence=0.5)
@@ -615,11 +609,12 @@ class QuestionAnsweringAgent(BaseAgent):
                 return tagged_text
             
             else:
-                logger.warning("⚠️ Mention agent returned no data; returning original text without tagging")
+                logger.warning("⚠️ Mention agent returned no result; returning original text without tagging")
                 return text
                 
         except Exception as e:
             logger.error(f"❌ Brand detection failed: {str(e)}; returning original text without tagging")
+            logger.error(f"🔍 Exception details: {type(e).__name__}: {str(e)}")
             return text
     
     def _parse_citations(self, text: str, raw_citations: List[Dict]) -> List[CitationSource]:
@@ -668,7 +663,7 @@ class QuestionAnsweringAgent(BaseAgent):
                 seen_urls.add(citation.url)
                 unique_citations.append(citation)
         
-        return unique_citations[:5]  # Limit to 5 citations
+        return unique_citations  # No citation limit
     
     def _extract_brand_mentions(self, text: str) -> List[str]:
         """Extract brand mentions from text (brands wrapped in <brand> tags)"""

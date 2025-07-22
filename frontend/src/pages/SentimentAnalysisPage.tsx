@@ -13,6 +13,7 @@
  * - SentimentAnalysisPage: The main sentiment analysis page component.
  */
 import { Sparkles, Calendar, RefreshCw, Loader } from 'lucide-react';
+import { dashboardClasses } from '../utils/colorClasses';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';
 import { useReportGeneration } from '../hooks/useReportGeneration';
@@ -88,7 +89,7 @@ const SentimentAnalysisPage: React.FC = () => {
               <button 
                 onClick={handleRefresh}
                 disabled={loading || refreshing || isGenerating}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-[#7762ff] text-white rounded-lg shadow-sm border border-[#7762ff] hover:bg-[#6650e6] hover:border-[#6650e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                className={`flex items-center justify-center gap-2 px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium ${dashboardClasses.refresh}`}
               >
                 {refreshing ? (
                   <>

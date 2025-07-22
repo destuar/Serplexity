@@ -718,11 +718,29 @@ async function processReport(runId: string, company: any): Promise<void> {
     // Create question-model combinations and process them
     const questionLimit = pLimit(LLM_CONFIG.QUESTION_ANSWERING_CONCURRENCY);
     const questionPromises = [];
+    const questionTracker = new Map(); // Track processing status per question
+
+    // Initialize tracker for all questions
+    for (const question of activeQuestions) {
+      questionTracker.set(question.id, {
+        question: question.query,
+        attempted: 0,
+        successful: 0,
+        failed: 0,
+        models: []
+      });
+    }
 
     for (const question of activeQuestions) {
       for (const model of questionModels) {
         const promise = questionLimit(async () => {
+          const tracker = questionTracker.get(question.id);
+          tracker.attempted++;
+          tracker.models.push(model.id);
+
           try {
+            console.log(`🤖 Processing question "${question.query.substring(0, 50)}..." with ${model.id}`);
+            
             const questionInput = {
               question: question.query,
               company_name: fullCompany.name, // still used for brand-detection fallback
@@ -783,26 +801,55 @@ async function processReport(runId: string, company: any): Promise<void> {
               },
             });
 
-            // Extract and save citations
-            const citationRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-            let citationMatch;
+            // Extract and save citations - handle both markdown links and natural URLs
+            const citations = new Set(); // Avoid duplicates
             let citationPosition = 1;
 
-            while (
-              (citationMatch = citationRegex.exec(response.answer)) !== null
-            ) {
-              const title = citationMatch[1];
-              const url = citationMatch[2];
+            // 1. Extract markdown-style citations [title](url)
+            const markdownRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+            let markdownMatch;
+            while ((markdownMatch = markdownRegex.exec(response.answer)) !== null) {
+              const title = markdownMatch[1];
+              const url = markdownMatch[2];
+              citations.add({ url, title, source: 'markdown' });
+            }
 
+            // 2. Extract natural URLs from web search responses
+            const urlRegex = /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&=]*)/g;
+            const urlMatches = response.answer.match(urlRegex) || [];
+            
+            for (const url of urlMatches) {
+              // Extract domain for title
               try {
                 const urlObj = new URL(url);
+                const domain = urlObj.hostname.replace('www.', '');
+                const title = `${domain.charAt(0).toUpperCase() + domain.slice(1)} - Web Result`;
+                citations.add({ url, title, source: 'natural' });
+              } catch (error) {
+                continue; // Skip invalid URLs
+              }
+            }
+
+            // 3. Extract from structured citation data if available
+            if (response.citations && Array.isArray(response.citations)) {
+              for (const cite of response.citations) {
+                if (cite.url && cite.title) {
+                  citations.add({ url: cite.url, title: cite.title, source: 'structured' });
+                }
+              }
+            }
+
+            // 4. Save all unique citations to database
+            for (const citation of Array.from(citations) as Array<{url: string; title: string; source: string}>) {
+              try {
+                const urlObj = new URL(citation.url);
                 const domain = urlObj.hostname;
 
                 await prisma.citation.create({
                   data: {
                     responseId: responseRecord.id,
-                    url,
-                    title,
+                    url: citation.url,
+                    title: citation.title,
                     domain,
                     position: citationPosition,
                     accessedAt: new Date(),
@@ -811,15 +858,17 @@ async function processReport(runId: string, company: any): Promise<void> {
 
                 citationPosition++;
               } catch (error) {
-                console.warn(`Invalid URL in citation: ${url}`);
+                console.warn(`Invalid URL in citation: ${citation.url}`);
               }
             }
 
-            // Extract and save brand mentions with positions
+            // Extract and save ALL brand mentions with intelligent matching
             const brandMentionRegex =
               /<brand(?:\s+position="(\d+)")?>([^<]+)<\/brand>/gi;
             let mentionMatch;
             let fallbackPosition = 1;
+
+            console.log(`🔍 Processing brand mentions for response to: "${question.query.substring(0, 50)}..."`);
 
             while (
               (mentionMatch = brandMentionRegex.exec(response.answer)) !== null
@@ -829,7 +878,24 @@ async function processReport(runId: string, company: any): Promise<void> {
                 : fallbackPosition++;
               const brandName = mentionMatch[2].trim();
 
-              if (brandName === fullCompany.name) {
+              console.log(`🏢 Found brand mention: "${brandName}" at position ${position}`);
+
+              // Intelligent brand matching - check various forms of the company name
+              // Also check if brandName is a domain-like version (e.g., "nordstrom" for "Nordstrom")
+              const companyNameLower = fullCompany.name.toLowerCase();
+              const brandNameLower = brandName.toLowerCase();
+              
+              const isCompanyMention = 
+                brandNameLower === companyNameLower ||
+                brandNameLower.includes(companyNameLower) ||
+                companyNameLower.includes(brandNameLower) ||
+                // Handle domain-style mentions (nordstrom.com -> nordstrom)
+                brandNameLower === companyNameLower.replace(/\s+/g, '') ||
+                companyNameLower.replace(/\s+/g, '') === brandNameLower ||
+                // Handle brand without spaces/punctuation
+                brandNameLower.replace(/[^a-z0-9]/g, '') === companyNameLower.replace(/[^a-z0-9]/g, '');
+
+              if (isCompanyMention) {
                 // Company mention
                 await prisma.mention.create({
                   data: {
@@ -838,15 +904,48 @@ async function processReport(runId: string, company: any): Promise<void> {
                     companyId: fullCompany.id,
                   },
                 });
+                console.log(`✅ Saved company mention: ${brandName}`);
               } else {
-                // Check if it's a known competitor
-                const competitor = await prisma.competitor.findFirst({
+                // First check if it's a known competitor with fuzzy matching
+                let competitor = await prisma.competitor.findFirst({
                   where: {
                     companyId: fullCompany.id,
-                    name: { contains: brandName, mode: "insensitive" },
+                    OR: [
+                      { name: { contains: brandName, mode: "insensitive" } },
+                      { name: { equals: brandName, mode: "insensitive" } },
+                      // Also check if brandName contains competitor name
+                      ...(brandName.length > 3 ? [{ name: { in: [brandName] } }] : [])
+                    ]
                   },
                 });
 
+                // If not found, create new competitor immediately
+                // BUT first double-check this isn't the main company (safety check)
+                if (!competitor && !isCompanyMention) {
+                  try {
+                    competitor = await prisma.competitor.create({
+                      data: {
+                        name: brandName,
+                        companyId: fullCompany.id,
+                        website: `https://${brandName.toLowerCase().replace(/\s+/g, '')}.com`, // Placeholder
+                        isGenerated: true,
+                      },
+                    });
+                    console.log(`🆕 Created new competitor: ${brandName}`);
+                  } catch (error) {
+                    // Handle duplicate creation race condition
+                    competitor = await prisma.competitor.findFirst({
+                      where: {
+                        companyId: fullCompany.id,
+                        name: { equals: brandName, mode: "insensitive" }
+                      },
+                    });
+                  }
+                } else if (isCompanyMention) {
+                  console.log(`🚫 Skipping competitor creation for company brand: ${brandName}`);
+                }
+
+                // Save mention for competitor
                 if (competitor) {
                   await prisma.mention.create({
                     data: {
@@ -855,20 +954,23 @@ async function processReport(runId: string, company: any): Promise<void> {
                       competitorId: competitor.id,
                     },
                   });
+                  console.log(`✅ Saved competitor mention: ${brandName}`);
                 }
               }
             }
 
+            tracker.successful++;
             console.log(
-              `✅ Generated response for "${question.query}" with ${model.id}`,
+              `✅ Successfully processed question "${question.query.substring(0, 50)}..." with ${model.id}`,
             );
-            return { success: true };
+            return { success: true, questionId: question.id, modelId: model.id };
           } catch (error) {
+            tracker.failed++;
             console.error(
-              `❌ Failed to process question "${question.query}" with ${model.id}:`,
+              `❌ Failed to process question "${question.query.substring(0, 50)}..." with ${model.id}:`,
               error,
             );
-            return { success: false, error };
+            return { success: false, error, questionId: question.id, modelId: model.id };
           }
         });
 
@@ -877,12 +979,30 @@ async function processReport(runId: string, company: any): Promise<void> {
     }
 
     const questionResults = await Promise.allSettled(questionPromises);
-    const successfulQuestions = questionResults.filter(
+    const successfulAnswers = questionResults.filter(
       (r) => r.status === "fulfilled" && r.value.success,
     ).length;
 
+    // Log detailed results per question
+    console.log(`📊 Question processing summary:`);
+    console.log(`📊 Total question-model combinations: ${questionPromises.length}`);
+    console.log(`📊 Successful answers: ${successfulAnswers}/${questionPromises.length}`);
+    
+    for (const [questionId, tracker] of questionTracker) {
+      const { question, attempted, successful, failed, models } = tracker;
+      console.log(`📊 Question: "${question.substring(0, 50)}..."`);
+      console.log(`📊   - Attempted: ${attempted}, Successful: ${successful}, Failed: ${failed}`);
+      console.log(`📊   - Models: ${models.join(", ")}`);
+      
+      if (successful === 0) {
+        console.error(`❌ CRITICAL: Question "${question}" has NO successful responses!`);
+        console.error(`❌   This question will appear as inactive in the UI`);
+        console.error(`❌   Models attempted: ${models.join(", ")}`);
+      }
+    }
+
     console.log(
-      `📊 Question answering complete: ${successfulQuestions}/${questionPromises.length} successful`,
+      `📊 Question answering complete: ${successfulAnswers}/${questionPromises.length} successful`,
     );
 
     // === STAGE 3: Sentiment Analysis with Enabled Models ===
@@ -1060,7 +1180,7 @@ async function processReport(runId: string, company: any): Promise<void> {
 
     console.log(`🎉 Report generation completed successfully!`);
     console.log(
-      `📊 Total: ${activeQuestions.length} questions, ${successfulQuestions} responses, ${competitors.length} competitors, ${successfulSentiments.length} sentiment analyses`,
+      `📊 Total: ${activeQuestions.length} questions, ${successfulAnswers} responses, ${competitors.length} competitors, ${successfulSentiments.length} sentiment analyses`,
     );
     console.log(`💰 Cost: ${totalTokens} tokens, $${totalCost.toFixed(4)} USD`);
     console.log(`⏱️  Duration: ${(duration / 1000).toFixed(1)}s`);

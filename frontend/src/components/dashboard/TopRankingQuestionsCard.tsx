@@ -15,7 +15,7 @@
  * - TopRankingQuestionsCard: React functional component for displaying top-ranking questions.
  */
 import { useNavigate } from 'react-router-dom';
-import Card from '../ui/Card';
+import LiquidGlassCard from '../ui/LiquidGlassCard';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 
@@ -30,43 +30,32 @@ const TopRankingQuestionsCard = () => {
     navigate(`/response-details?questionId=${id}`);
   };
 
-  if (loading) {
-    return (
-      <Card className="h-full">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Top Ranking Questions</h3>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="animate-pulse text-gray-400">Loading...</div>
-        </div>
-      </Card>
-    );
-  }
-
   if (error) {
     return (
-      <Card className="h-full">
+      <LiquidGlassCard className="h-full">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Top Ranking Questions</h3>
         <div className="flex-1 flex items-center justify-center">
           <p className="text-red-500 text-sm">{error}</p>
         </div>
-      </Card>
+      </LiquidGlassCard>
     );
   }
 
   if (!questions.length) {
     return (
-      <Card className="h-full">
+      <LiquidGlassCard className="h-full">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Top Ranking Questions</h3>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <p className="text-gray-500 text-sm font-medium">Your company did not appear in this model's search results</p>
           </div>
         </div>
-      </Card>
+      </LiquidGlassCard>
     );
   }
 
   return (
-    <Card className="h-full flex flex-col">
+    <LiquidGlassCard className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-800">Top Ranking Questions</h3>
       </div>
@@ -75,7 +64,7 @@ const TopRankingQuestionsCard = () => {
         {questions.slice(0, isTallerScreen ? 5 : 4).map((question, index) => (
             <div 
               key={question.id}
-              className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg transition-colors cursor-pointer"
+              className="flex items-center gap-2 p-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md transition-colors cursor-pointer hover:bg-white/85"
               onClick={() => handleQuestionClick(question.id)}
             >
               <div className="flex-shrink-0">
@@ -96,7 +85,7 @@ const TopRankingQuestionsCard = () => {
             </div>
         ))}
       </div>
-    </Card>
+    </LiquidGlassCard>
   );
 };
 

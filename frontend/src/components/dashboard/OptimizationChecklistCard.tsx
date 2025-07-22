@@ -100,21 +100,7 @@ const OptimizationChecklistCard: React.FC = () => {
 
     const completedCount = tasks.filter(task => task.isCompleted).length;
 
-    if (loading) {
-        return (
-            <Card className="h-full flex flex-col p-6">
-                <div className="flex justify-between items-center mb-4 flex-shrink-0">
-                    <h3 className="text-lg font-semibold text-gray-800">Optimization Checklist</h3>
-                    <div className="bg-gray-200 rounded h-4 w-20 animate-pulse"></div>
-                </div>
-                <div className="flex-1 overflow-y-auto space-y-2">
-                    {Array.from({ length: 8 }).map((_, i) => (
-                        <div key={i} className="bg-gray-100 rounded h-16 animate-pulse"></div>
-                    ))}
-                </div>
-            </Card>
-        );
-    }
+
 
     if (tasks.length === 0) {
         return (
@@ -172,7 +158,7 @@ const OptimizationChecklistCard: React.FC = () => {
                                 <input
                                     type="checkbox"
                                     id={`task-${task.taskId}`}
-                                    className="h-5 w-5 rounded border-gray-300 text-[#7762ff] focus:ring-[#7762ff] focus:ring-offset-0 accent-[#7762ff]"
+                                    className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-600 focus:ring-offset-0 accent-blue-600"
                                     checked={isVisuallyCompleted}
                                     onChange={() => handleToggleCompleted(task)}
                                 />

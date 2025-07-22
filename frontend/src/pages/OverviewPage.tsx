@@ -13,6 +13,7 @@
  * - OverviewPage: The main overview page component.
  */
 import { Calendar, Sparkles, RefreshCw, Loader } from "lucide-react";
+import { dashboardClasses } from "../utils/colorClasses";
 import { useCompany } from "../contexts/CompanyContext";
 import { useDashboard } from "../hooks/useDashboard";
 import FilterDropdown from "../components/dashboard/FilterDropdown";
@@ -25,6 +26,7 @@ import TopRankingQuestionsCard from "../components/dashboard/TopRankingQuestions
 import RankingsCard from "../components/dashboard/RankingsCard";
 import WelcomePrompt from "../components/ui/WelcomePrompt";
 import BlankLoadingState from "../components/ui/BlankLoadingState";
+import LiquidGlassSpinner from "../components/ui/LiquidGlassSpinner";
 import { getModelFilterOptions } from "../types/dashboard";
 import { useReportGeneration } from "../hooks/useReportGeneration";
 import { useMediaQuery } from "../hooks/useMediaQuery";
@@ -54,6 +56,8 @@ const OverviewPage = () => {
   const isTallerScreen = useMediaQuery('(min-height: 1080px)');
   const { embeddedPage, openEmbeddedPage, closeEmbeddedPage, isEmbedded } = useEmbeddedPage('Dashboard');
   const { setBreadcrumbs, registerEmbeddedPageCloser, unregisterEmbeddedPageCloser } = useNavigation();
+
+
 
   // Set initial breadcrumb
   useEffect(() => {
@@ -106,11 +110,27 @@ const OverviewPage = () => {
 
   const cardKey = `overview-${filters.aiModel}-${filters.dateRange}-${refreshTrigger}`;
 
+  // Check if all critical data is loaded
+  const isDashboardFullyLoaded = data && 
+    data.shareOfVoice !== undefined &&
+    data.averageInclusionRate !== undefined &&
+    data.averagePosition !== undefined &&
+    data.competitorRankings !== undefined &&
+    data.topQuestions !== undefined &&
+    data.shareOfVoiceHistory !== undefined;
+
   return (
     <div className="h-full flex flex-col relative">
-      {/* Header Section - Only show when there's existing data */}
-      {loading || hasReport === null ? (
-        <BlankLoadingState message="Loading dashboard data..." />
+      {/* Loading State - Show glass spinner until everything is ready */}
+      {loading || hasReport === null || (hasReport === true && !isDashboardFullyLoaded) ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="mb-4">
+              <LiquidGlassSpinner size="lg" />
+            </div>
+            <p className="text-gray-600 text-sm">Loading dashboard data...</p>
+          </div>
+        </div>
       ) : hasReport === false ? (
         <WelcomePrompt
           onGenerateReport={generateReport}
@@ -145,7 +165,7 @@ const OverviewPage = () => {
               <button 
                 onClick={handleRefresh}
                 disabled={loading || refreshing}
-                className="flex items-center justify-center w-full lg:w-auto gap-2 px-4 py-2 bg-[#7762ff] text-white rounded-lg shadow-sm border border-[#7762ff] hover:bg-[#6650e6] hover:border-[#6650e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2"
+                className={`flex items-center justify-center w-full lg:w-auto gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-black`}
               >
                 {refreshing ? (
                   <>

@@ -125,6 +125,7 @@ export interface PromptQuestion {
   id: string;
   question: string;
   type: string;
+  isActive: boolean;
   responses: PromptResponse[];
 }
 
@@ -135,6 +136,16 @@ export interface PromptsWithResponsesResponse {
 export const getPromptsWithResponses = async (companyId: string): Promise<PromptsWithResponsesResponse> => {
   const { data } = await apiClient.get(`/companies/${companyId}/prompts-with-responses`);
   return data;
+};
+
+export const updateQuestionStatus = async (
+  companyId: string, 
+  questionId: string, 
+  isActive: boolean
+): Promise<void> => {
+  await apiClient.put(`/companies/${companyId}/questions/${questionId}`, {
+    isActive
+  });
 };
 
 export const getCompetitorRankings = async (companyId: string, filters?: { dateRange?: string; aiModel?: string }): Promise<CompetitorRankingsResponse> => {

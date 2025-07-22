@@ -34,6 +34,7 @@ import { getPrismaClient, getReadPrismaClient } from "../config/dbCache";
 import { getFullReportMetrics } from "../services/metricsService";
 import { calculateTopQuestions } from "../services/dashboardService";
 import { pydanticLlmService } from "../services/pydanticLlmService";
+import { flexibleUrlSchema } from "../utils/urlNormalizer";
 
 import env from "../config/env";
 
@@ -52,14 +53,14 @@ interface SentimentScoreValue {
 // Validation schemas
 const createCompanySchema = z.object({
   name: z.string().min(1, "Company name is required"),
-  website: z.string().url("Invalid website URL"),
+  website: flexibleUrlSchema,
   industry: z.string().min(1, "Industry is required"),
   // Removed required competitors and benchmarking questions - these will be auto-generated or added later
 });
 
 const updateCompanySchema = z.object({
   name: z.string().min(1, "Company name is required").optional(),
-  website: z.string().url("Invalid website URL").optional(),
+  website: flexibleUrlSchema.optional(),
   industry: z.string().min(1, "Industry is required").optional(),
   // Competitors and benchmarking questions can be updated separately if needed
 });
@@ -432,17 +433,10 @@ export const getPromptsWithResponses = async (req: Request, res: Response) => {
         .json({ error: "Company not found or unauthorized" });
     }
 
-    // Get all questions for this company that have at least one response
+    // Get all questions for this company (both answered and suggested)
     const questions = await prismaReadReplica.question.findMany({
       where: {
         companyId,
-        responses: {
-          some: {
-            run: {
-              status: "COMPLETED", // Only responses from completed report runs
-            },
-          },
-        },
       },
       include: {
         responses: {
@@ -495,6 +489,7 @@ export const getPromptsWithResponses = async (req: Request, res: Response) => {
       id: string;
       question: string;
       type: string;
+      isActive: boolean;
       responses: Array<{
         id: string;
         model: string;
@@ -516,6 +511,7 @@ export const getPromptsWithResponses = async (req: Request, res: Response) => {
           id: question.id,
           question: questionText,
           type: question.type || "unknown",
+          isActive: question.isActive,
           responses: [],
         });
       }
@@ -1068,7 +1064,7 @@ export const addCompetitor = async (req: Request, res: Response) => {
   try {
     const addCompetitorSchema = z.object({
       name: z.string().min(1, "Name is required").max(100),
-      website: z.string().url("Valid website URL is required"),
+      website: flexibleUrlSchema,
     });
 
     const validatedData = addCompetitorSchema.parse(req.body);
@@ -1130,7 +1126,7 @@ export const updateCompetitor = async (req: Request, res: Response) => {
   try {
     const updateCompetitorSchema = z.object({
       name: z.string().min(1, "Name is required").max(100),
-      website: z.string().url("Valid website URL is required"),
+      website: flexibleUrlSchema,
     });
 
     const validatedData = updateCompetitorSchema.parse(req.body);

@@ -12,11 +12,12 @@
  */
 import { createContext, useContext } from 'react';
 import { DashboardData, DashboardFilters } from '../types/dashboard';
-import { TopRankingQuestion } from '../services/companyService';
+import { TopRankingQuestion, CompetitorData } from '../services/companyService';
 
 export interface DashboardContextType {
   data: DashboardData | null;
   detailedQuestions: TopRankingQuestion[];
+  acceptedCompetitors: CompetitorData[];
   filters: DashboardFilters;
   loading: boolean;
   error: string | null;

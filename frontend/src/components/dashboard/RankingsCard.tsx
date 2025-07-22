@@ -19,7 +19,8 @@
 import { ChevronUp, ChevronDown, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect, useMemo } from 'react';
-import Card from '../ui/Card';
+import { chartColorArrays } from '../../utils/colorClasses';
+import LiquidGlassCard from '../ui/LiquidGlassCard';
 import { useDashboard } from '../../hooks/useDashboard';
 import { getCompanyLogo } from '../../lib/logoService';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
@@ -29,32 +30,13 @@ import { getAcceptedCompetitors, CompetitorData } from '../../services/companySe
 type TabType = 'mentions' | 'citations';
 
 const RankingsCard = () => {
-  const { data, loading, error } = useDashboard();
+  const { data, loading, error, acceptedCompetitors } = useDashboard();
   const { selectedCompany } = useCompany();
   const navigate = useNavigate();
   const isTallerScreen = useMediaQuery('(min-height: 900px)');
   const [activeTab, setActiveTab] = useState<TabType>('mentions');
-  const [acceptedCompetitors, setAcceptedCompetitors] = useState<CompetitorData[]>([]);
-  const [acceptedCompetitorsLoading, setAcceptedCompetitorsLoading] = useState(false);
 
-  // Fetch accepted competitors for filtering
-  useEffect(() => {
-    if (selectedCompany?.id) {
-      const fetchAcceptedCompetitors = async () => {
-        try {
-          setAcceptedCompetitorsLoading(true);
-          const result = await getAcceptedCompetitors(selectedCompany.id);
-          setAcceptedCompetitors(result.competitors || []);
-        } catch (err) {
-          console.error('Error fetching accepted competitors:', err);
-          setAcceptedCompetitors([]);
-        } finally {
-          setAcceptedCompetitorsLoading(false);
-        }
-      };
-      fetchAcceptedCompetitors();
-    }
-  }, [selectedCompany?.id]);
+
 
   // Data is now pre-calculated on the backend
   const rankingsData = data?.competitorRankings;
@@ -66,13 +48,8 @@ const RankingsCard = () => {
       return null;
     }
     
-    // Don't show unfiltered data while accepted competitors are loading
-    if (selectedCompany?.id && acceptedCompetitorsLoading) {
-      return null;
-    }
-    
-    // If we have no accepted competitors after loading, show empty state
-    if (selectedCompany?.id && !acceptedCompetitorsLoading && acceptedCompetitors.length === 0) {
+    // If we have no accepted competitors, show empty state
+    if (selectedCompany?.id && acceptedCompetitors.length === 0) {
       return {
         ...rankingsData,
         competitors: [],
@@ -99,7 +76,7 @@ const RankingsCard = () => {
       competitors: filteredCompetitors,
       chartCompetitors: filteredChartCompetitors,
     };
-  }, [rankingsData, acceptedCompetitors, acceptedCompetitorsLoading, selectedCompany?.id]);
+  }, [rankingsData, acceptedCompetitors, selectedCompany?.id]);
 
     // Define the competitor type based on companyService structure
     type Competitor = {
@@ -137,14 +114,6 @@ const RankingsCard = () => {
   };
 
   const renderIndustryRanking = () => {
-    if (loading || acceptedCompetitorsLoading) {
-      return (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="animate-pulse text-gray-400">Loading...</div>
-        </div>
-      );
-    }
-
     if (error) {
       return (
         <div className="flex-1 flex items-center justify-center">
@@ -176,7 +145,7 @@ const RankingsCard = () => {
                     key={`${competitor.name}-${index}`}
                     className={`
                       w-3 rounded-t transition-all duration-300
-                      ${isUserCompany ? 'bg-[#7762ff]' : 'bg-gray-300'}
+                      ${isUserCompany ? 'bg-blue-600' : 'bg-gray-300'}
                     `}
                     style={{ height: `${heightPx}px` }}
                     title={`${competitor.name}: ${competitor.shareOfVoice.toFixed(1)}%`}
@@ -205,10 +174,10 @@ const RankingsCard = () => {
     
     return (
       <div className="flex-1 flex flex-col items-center justify-center">
-        <div className="text-6xl font-bold text-gray-800 mb-6">
-          {filteredRankingsData?.industryRanking}
-          <span className="text-xl font-normal text-gray-500">{getOrdinalSuffix(filteredRankingsData?.industryRanking || 0)}</span>
-        </div>
+                    <div className="text-6xl font-bold text-gray-800 mb-6">
+        {filteredRankingsData?.industryRanking}
+        <span className="text-xl font-normal text-gray-500">{getOrdinalSuffix(filteredRankingsData?.industryRanking || 0)}</span>
+      </div>
         <div className="flex items-end justify-center space-x-1 h-16 w-full max-w-64">
           {displayedChartData.map((competitor: Competitor, index: number) => {
             const isUserCompany = competitor.isUserCompany;
@@ -219,11 +188,11 @@ const RankingsCard = () => {
             return (
               <div
                 key={`${competitor.name}-${index}`}
-                className={`
-                  w-3 rounded-t transition-all duration-300
-                  ${isUserCompany ? 'bg-[#7762ff]' : 'bg-gray-300'}
-                `}
-                style={{ height: `${heightPx}px` }}
+                className="w-3 rounded-t transition-all duration-300"
+                style={{ 
+                  height: `${heightPx}px`,
+                  backgroundColor: isUserCompany ? chartColorArrays.primary[0] : '#d1d5db' // blue-600 : gray-300
+                }}
                 title={`${competitor.name}: ${competitor.shareOfVoice.toFixed(1)}%`}
               />
             );
@@ -235,14 +204,6 @@ const RankingsCard = () => {
   };
 
   const renderMentionsView = () => {
-    if (loading || acceptedCompetitorsLoading) {
-      return (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="animate-pulse text-gray-400">Loading...</div>
-        </div>
-      );
-    }
-
     if (error) {
       return (
         <div className="flex-1 flex items-center justify-center">
@@ -383,14 +344,6 @@ const RankingsCard = () => {
   };
 
   const renderCitationsView = () => {
-    if (loading || acceptedCompetitorsLoading) {
-      return (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="animate-pulse text-gray-400">Loading...</div>
-        </div>
-      );
-    }
-
     if (error) {
       return (
         <div className="flex-1 flex items-center justify-center">
@@ -569,7 +522,7 @@ const RankingsCard = () => {
   };
 
   return (
-    <Card>
+    <LiquidGlassCard>
       <div className="flex flex-col lg:flex-row h-full w-full">
         <div className="w-full lg:w-1/2 pr-0 lg:pr-4 border-r-0 lg:border-r border-b lg:border-b-0 border-gray-200 flex flex-col pb-4 lg:pb-0 mb-4 lg:mb-0">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Industry Ranking</h3>
@@ -580,7 +533,7 @@ const RankingsCard = () => {
           {renderTabContent()}
         </div>
       </div>
-    </Card>
+    </LiquidGlassCard>
   );
 };
 
