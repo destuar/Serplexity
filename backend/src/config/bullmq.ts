@@ -42,6 +42,7 @@ const QUEUE_OPTIONS: QueueOptions = {
 
 const WORKER_OPTIONS: WorkerOptions = {
   connection: bullmqConnection,
+  prefix: env.BULLMQ_QUEUE_PREFIX, // CRITICAL: Workers must use same prefix as queues
 
   // Concurrency and performance
   concurrency: 2, // Process 2 jobs simultaneously

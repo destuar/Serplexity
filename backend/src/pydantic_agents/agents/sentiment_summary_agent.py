@@ -15,9 +15,9 @@ from pydantic_ai.models import KnownModelName
 # Add the parent directory to the path to import schemas
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from pydantic_agents.base_agent import BaseAgent
-from pydantic_agents.schemas import SentimentRating, SentimentScores
-from pydantic_agents.config.models import get_default_model_for_task, ModelTask
+from ..base_agent import BaseAgent
+from ..schemas import SentimentRating, SentimentScores
+from ..config.models import get_default_model_for_task, ModelTask
 
 class SentimentSummaryInput(BaseModel):
     company_name: str

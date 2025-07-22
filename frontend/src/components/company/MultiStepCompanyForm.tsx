@@ -134,7 +134,7 @@ const IndustryAutocomplete: React.FC<{
     }
   };
 
-  const inputClassName = "w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 [&:-webkit-autofill]:bg-white [&:-webkit-autofill]:text-gray-900 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_white]";
+  const inputClassName = "w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:hover]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:hover]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:focus]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:focus]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:active]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:active]:[-webkit-text-fill-color:rgb(17_24_39)!important]";
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -253,9 +253,6 @@ const MultiStepCompanyForm: React.FC<MultiStepCompanyFormProps> = ({
     <div className="max-w-md mx-auto bg-white/80 backdrop-blur-xl rounded-2xl p-8 shadow-lg">
       {/* Header */}
       <div className="text-center mb-8">
-        <div className="w-12 h-12 bg-gradient-to-r from-[#7762ff] to-[#9e52ff] rounded-xl flex items-center justify-center mx-auto mb-4">
-          <Building className="w-6 h-6 text-white" />
-        </div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Your Company Profile</h2>
         <p className="text-gray-600">Tell us about your company to get started</p>
       </div>
@@ -271,7 +268,7 @@ const MultiStepCompanyForm: React.FC<MultiStepCompanyFormProps> = ({
           <input
             type="text"
             {...register('name')}
-            className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 [&:-webkit-autofill]:bg-white [&:-webkit-autofill]:text-gray-900 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_white]"
+            className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:hover]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:hover]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:focus]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:focus]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:active]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:active]:[-webkit-text-fill-color:rgb(17_24_39)!important]"
             placeholder="Enter your company name"
             required
           />
@@ -287,7 +284,7 @@ const MultiStepCompanyForm: React.FC<MultiStepCompanyFormProps> = ({
           <input
             type="url"
             {...register('website')}
-            className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 [&:-webkit-autofill]:bg-white [&:-webkit-autofill]:text-gray-900 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_white]"
+            className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:hover]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:hover]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:focus]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:focus]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:active]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:active]:[-webkit-text-fill-color:rgb(17_24_39)!important]"
             placeholder="https://example.com"
             required
           />

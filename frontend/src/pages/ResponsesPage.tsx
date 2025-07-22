@@ -16,10 +16,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { MessageSquare, ChevronDown, ChevronUp, Calendar, Sparkles, Search } from 'lucide-react';
 import { useCompany } from '../contexts/CompanyContext';
-import { getPromptsWithResponses, PromptQuestion, getAcceptedCompetitors, CompetitorData } from '../services/companyService';
+import { getPromptsWithResponses, PromptQuestion, getAcceptedCompetitors, CompetitorData, getCitations, CitationData } from '../services/companyService';
 import BlankLoadingState from '../components/ui/BlankLoadingState';
 import FormattedResponseViewer from '../components/ui/FormattedResponseViewer';
-import { getModelDisplayName, MODEL_CONFIGS, getModelFilterOptions } from '../types/dashboard';
+import { getModelDisplayName, MODEL_CONFIGS } from '../types/dashboard';
 import { getCompanyLogo } from '../lib/logoService';
 import FilterDropdown from '../components/dashboard/FilterDropdown';
 
@@ -35,10 +35,51 @@ interface ResponsesPageProps {
   };
 }
 
+// Get citation icons with overflow handling - cross-references citation IDs with database
+const getCitationIcons = (citationIds: string[], allCitations: CitationData[], maxDisplay: number = 4): Array<{name: string, url: string, domain: string, isOverflow?: boolean, count?: number}> => {
+  if (!citationIds || citationIds.length === 0 || !allCitations || allCitations.length === 0) {
+    return [];
+  }
+  
+  // Cross-reference citation IDs with actual citation data
+  const matchedCitations = citationIds
+    .map(citationId => allCitations.find(citation => citation.id === citationId))
+    .filter(citation => citation !== undefined) as CitationData[];
+  
+  const uniqueCitations = [...new Map(matchedCitations.map(citation => [citation.id, citation])).values()];
+  const citationItems = uniqueCitations.map(citation => ({
+    name: citation.title || citation.domain,
+    url: citation.url,
+    domain: citation.domain
+  }));
+  
+  if (citationItems.length <= maxDisplay) {
+    return citationItems;
+  }
+  
+  const displayed = citationItems.slice(0, maxDisplay);
+  const remaining = citationItems.length - maxDisplay;
+  
+  return [
+    ...displayed,
+    {
+      name: `+${remaining} more`,
+      url: '',
+      domain: '',
+      isOverflow: true,
+      count: remaining
+    }
+  ];
+};
+
 // Get competitor logos with overflow handling - only shows accepted competitors
-const getCompetitorLogos = (brands: string[], acceptedCompetitors: any, maxDisplay: number = 4): Array<{name: string, logoUrl: string, isOverflow?: boolean, count?: number}> => {
+const getCompetitorLogos = (brands: string[], acceptedCompetitors: unknown, maxDisplay: number = 4): Array<{name: string, logoUrl: string, isOverflow?: boolean, count?: number}> => {
   // Handle case where acceptedCompetitors might be an object with competitors property
-  const competitorsList = Array.isArray(acceptedCompetitors) ? acceptedCompetitors : acceptedCompetitors?.competitors;
+  const competitorsList = Array.isArray(acceptedCompetitors) 
+    ? acceptedCompetitors 
+    : (acceptedCompetitors && typeof acceptedCompetitors === 'object' && 'competitors' in acceptedCompetitors) 
+      ? (acceptedCompetitors as { competitors: unknown }).competitors 
+      : null;
   
   if (!Array.isArray(competitorsList) || competitorsList.length === 0 || !brands || brands.length === 0) {
     return [];
@@ -83,7 +124,7 @@ const getCompetitorLogos = (brands: string[], acceptedCompetitors: any, maxDispl
 };
 
 // Utility function to format relative time
-const formatRelativeTime = (dateString: string | undefined): string => {
+const _formatRelativeTime = (dateString: string | undefined): string => {
   if (!dateString) return 'Unknown';
   
   const now = new Date();
@@ -105,17 +146,20 @@ interface ResponseItemData {
   response: string;
   position: number | null;
   brands: string[];
+  citations: string[];
   createdAt: string;
 }
 
 const ResponseListItem: React.FC<{ 
   response: ResponseItemData; 
   index: number;
-  acceptedCompetitors: any;
+  acceptedCompetitors: unknown;
+  citations: CitationData[];
   isExpanded: boolean;
   onToggle: () => void;
-}> = ({ response, index, acceptedCompetitors, isExpanded, onToggle }) => {
+}> = ({ response, index: _index, acceptedCompetitors, citations, isExpanded, onToggle }) => {
   const companyLogos = getCompetitorLogos(response.brands || [], acceptedCompetitors || [], 4);
+  const citationIcons = getCitationIcons(response.citations || [], citations || [], 4);
   const modelConfig = MODEL_CONFIGS[response.model];
 
   return (
@@ -140,7 +184,7 @@ const ResponseListItem: React.FC<{
           
           {/* Company Logos */}
           <div className="w-32 flex justify-start">
-            {companyLogos.length > 0 && (
+            {companyLogos.length > 0 ? (
               <div className="flex items-center gap-1">
                 {companyLogos.map((competitor, logoIndex) => (
                   competitor.isOverflow ? (
@@ -183,6 +227,45 @@ const ResponseListItem: React.FC<{
                   )
                 ))}
               </div>
+            ) : null}
+          </div>
+          
+          {/* Citations */}
+          <div className="w-32 flex justify-start">
+            {citationIcons.length > 0 && (
+              <div className="flex items-center gap-1">
+                {citationIcons.map((citation, citationIndex) => (
+                  citation.isOverflow ? (
+                    <div
+                      key={`citation-overflow-${citationIndex}`}
+                      className="w-6 h-6 rounded bg-gray-100 flex items-center justify-center text-xs font-medium text-gray-600 shadow-md"
+                      title={citation.name}
+                      style={{
+                        marginLeft: citationIndex > 0 ? '-14px' : '0',
+                        zIndex: citationIcons.length - citationIndex
+                      }}
+                    >
+                      +{citation.count}
+                    </div>
+                  ) : (
+                    <a
+                      key={`citation-${citation.name}-${citationIndex}`}
+                      href={citation.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-6 h-6 rounded bg-blue-50 flex items-center justify-center text-xs font-medium text-blue-600 shadow-md hover:bg-blue-100 transition-colors"
+                      title={`${citation.name} - ${citation.domain}`}
+                      style={{
+                        marginLeft: citationIndex > 0 ? '-14px' : '0',
+                        zIndex: citationIcons.length - citationIndex
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      🔗
+                    </a>
+                  )
+                ))}
+              </div>
             )}
           </div>
           
@@ -221,6 +304,7 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
   // Local state
   const [responses, setResponses] = useState<ResponseItemData[]>([]);
   const [acceptedCompetitors, setAcceptedCompetitors] = useState<CompetitorData[]>([]);
+  const [citations, setCitations] = useState<CitationData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
@@ -228,18 +312,22 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
   const [modelFilter, setModelFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Fetch accepted competitors
+  // Fetch accepted competitors and citations
   useEffect(() => {
     if (selectedCompany?.id) {
-      const fetchCompetitors = async () => {
+      const fetchCompetitorsAndCitations = async () => {
         try {
-          const competitors = await getAcceptedCompetitors(selectedCompany.id);
-          setAcceptedCompetitors(competitors.competitors || []);
+          const [competitorsData, citationsData] = await Promise.all([
+            getAcceptedCompetitors(selectedCompany.id),
+            getCitations(selectedCompany.id)
+          ]);
+          setAcceptedCompetitors(competitorsData.competitors || []);
+          setCitations(citationsData.citations || []);
         } catch (err) {
-          console.error('Error fetching competitors:', err);
+          console.error('Error fetching competitors and citations:', err);
         }
       };
-      fetchCompetitors();
+      fetchCompetitorsAndCitations();
     }
   }, [selectedCompany?.id]);
 
@@ -256,14 +344,18 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
           
           if (promptQuestion && promptQuestion.responses) {
             // Transform responses to the format we need
-            const transformedResponses: ResponseItemData[] = promptQuestion.responses.map((resp: any, index: number) => ({
-              id: `${resp.model}-${index}`,
-              model: resp.model,
-              response: resp.response,
-              position: resp.position,
-              brands: resp.brands || [],
-              createdAt: resp.createdAt || new Date().toISOString()
-            }));
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const transformedResponses: ResponseItemData[] = promptQuestion.responses.map((resp: any, _index: number) => {
+              return {
+                id: `${resp.model}-${_index}`,
+                model: resp.model,
+                response: resp.response,
+                position: resp.position,
+                brands: resp.brands || [],
+                citations: resp.citations || [],
+                createdAt: resp.createdAt || new Date().toISOString()
+              };
+            });
             
             // Sort by position (lower is better), null positions go to end
             transformedResponses.sort((a, b) => {
@@ -340,11 +432,24 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
 
     // Apply search filter
     if (searchTerm) {
-      filtered = filtered.filter(response => 
-        response.response.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        getModelDisplayName(response.model).toLowerCase().includes(searchTerm.toLowerCase()) ||
-        response.brands.some(brand => brand.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
+      filtered = filtered.filter(response => {
+        // Search in response text and model name
+        const basicMatch = response.response.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          getModelDisplayName(response.model).toLowerCase().includes(searchTerm.toLowerCase()) ||
+          response.brands.some(brand => brand.toLowerCase().includes(searchTerm.toLowerCase()));
+        
+        // Search in citation data
+        const citationMatch = response.citations.some(citationId => {
+          const citation = citations.find(c => c.id === citationId);
+          return citation && (
+            citation.url.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            citation.domain.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (citation.title && citation.title.toLowerCase().includes(searchTerm.toLowerCase()))
+          );
+        });
+        
+        return basicMatch || citationMatch;
+      });
     }
 
     // Apply model filter
@@ -411,7 +516,7 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
       filteredResponses: filtered,
       responsesByDate: sortedGrouped
     };
-  }, [responses, timeFilter, modelFilter, searchTerm]);
+  }, [responses, timeFilter, modelFilter, searchTerm, citations]);
 
   // Get unique models for filter dropdown
   const modelFilterOptions = useMemo(() => {
@@ -431,9 +536,9 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
   }, [responses]);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="space-y-4">
       {/* Filter Bar */}
-      <div className="flex-shrink-0 flex gap-4 mb-4 items-center">
+      <div className="flex gap-4 items-center">
         <FilterDropdown
           label="Time"
           value={timeFilter}
@@ -468,10 +573,9 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
       </div>
 
       {/* Prompt and Responses Container */}
-      <div className="flex-1 min-h-0 p-1">
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
         {/* Prompt Container */}
-        <div className="flex-shrink-0 mb-4 relative">
+        <div className="mb-4 relative">
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm mb-4 ml-4 max-w-4xl">
             <div className="px-4 py-3">
               <div className="flex items-center justify-between">
@@ -502,7 +606,7 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
             </div>
           </div>
         ) : (
-          <div className="h-full overflow-y-auto p-2">
+          <div className="p-2">
             {Object.keys(responsesByDate).length === 0 ? (
               <div className="flex items-center justify-center h-64">
                 <div className="text-center">
@@ -522,7 +626,7 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
                   return (
                     <div key={dateKey} className="space-y-3">
                       {/* Date and Mentions Header for this date group */}
-                      <div className="flex-shrink-0 ml-6">
+                      <div className="ml-6">
                         <div className="flex items-center">
                           <div className="text-sm text-gray-600 font-medium">
                             {formatDateDisplay(firstResponse.createdAt)} at {formatTimeDisplay(firstResponse.createdAt)}
@@ -532,6 +636,10 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
                           
                           <div className="w-32 flex justify-start mr-6">
                             <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">MENTIONS</span>
+                          </div>
+                          
+                          <div className="w-32 flex justify-start mr-6">
+                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">CITATIONS</span>
                           </div>
                           
                           <div className="w-5"></div>
@@ -546,6 +654,7 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
                             response={response}
                             index={index}
                             acceptedCompetitors={acceptedCompetitors}
+                            citations={citations}
                             isExpanded={expandedItems.has(response.id)}
                             onToggle={() => toggleExpanded(response.id)}
                           />
@@ -558,9 +667,8 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
             )}
           </div>
         )}
-        </div>
-        </div>
       </div>
+    </div>
     );
   };
 

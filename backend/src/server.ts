@@ -25,6 +25,7 @@ import "./queues/reportWorker"; // This initializes and starts the worker proces
 import "./queues/archiveWorker"; // This initializes and starts the archive worker process
 import "./queues/masterSchedulerWorker"; // This initializes the daily report scheduler worker
 import "./queues/backupSchedulerWorker"; // This initializes the backup scheduler worker
+import "./queues/reportEvents"; // Initializes the report event listener
 import { scheduleDailyReportTrigger } from "./queues/masterScheduler";
 import { scheduleBackupDailyReportTrigger } from "./queues/backupScheduler";
 

@@ -109,7 +109,7 @@ export async function calculateCompetitorRankings(
   // Fallback – compute simple SoV via Mention
   const company = await prismaReadReplica.company.findUnique({
     where: { id: companyId },
-    include: { competitors: true },
+    include: { competitors: true }, // Include ALL competitors for comprehensive SoV calculation
   });
   if (!company)
     return {
@@ -323,7 +323,7 @@ export async function calculateTopQuestions(
         orderBy: { model: "asc" },
       },
     },
-    orderBy: { text: "asc" },
+    orderBy: { query: "asc" },
   });
 
   console.log(`[calculateTopQuestions] Found ${questions.length} questions`);
@@ -378,7 +378,7 @@ export async function calculateTopQuestions(
 
     const questionData = {
       id: q.id,
-      question: q.text,
+      question: q.query || "Untitled Question",
       type: q.type,
       bestPosition: bestPos, // Will be null if no mentions
       totalMentions: totalPositions.length,
@@ -397,7 +397,7 @@ export async function calculateTopQuestions(
     // Debug log for questions with suspicious rankings
     if (bestPos === null && totalPositions.length === 0) {
       console.log(
-        `[calculateTopQuestions] Question without mentions: "${q.text.substring(0, 50)}" - bestPosition: ${bestPos}, totalMentions: ${totalPositions.length}`,
+        `[calculateTopQuestions] Question without mentions: "${(q.query || "").substring(0, 50)}" - bestPosition: ${bestPos}, totalMentions: ${totalPositions.length}`,
       );
     }
 
@@ -477,14 +477,14 @@ export async function calculateTopResponses(
     },
     include: {
       question: {
-        select: { id: true, text: true, type: true },
+        select: { id: true, query: true, type: true },
       },
       mentions: {
         where: { companyId },
         select: { position: true },
       },
     },
-    orderBy: [{ question: { text: "asc" } }, { model: "asc" }],
+    orderBy: [{ question: { query: "asc" } }, { model: "asc" }],
   });
 
   console.log(
@@ -519,7 +519,7 @@ export async function calculateTopResponses(
     return {
       id: r.id,
       questionId: r.question.id,
-      question: r.question.text,
+      question: r.question.query,
       questionType: r.question.type,
       model: r.model,
       response: r.content,
@@ -617,6 +617,7 @@ export async function saveShareOfVoiceHistoryPoint(
   aiModel: string,
   shareOfVoice: number,
   reportRunId?: string,
+  userTimezone?: string,
 ): Promise<void> {
   const prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
@@ -626,9 +627,37 @@ export async function saveShareOfVoiceHistoryPoint(
     );
     return;
   }
-  // Normalize date to day precision
-  const normalizedDate = new Date(date);
-  normalizedDate.setHours(0, 0, 0, 0);
+  
+  // Normalize date to day precision using user's timezone or UTC as fallback
+  let normalizedDate: Date;
+  if (userTimezone) {
+    try {
+      // Get the date in user's timezone and normalize to midnight
+      const userDate = new Date(date.toLocaleString("sv-SE", { timeZone: userTimezone }));
+      normalizedDate = new Date(Date.UTC(
+        userDate.getFullYear(),
+        userDate.getMonth(),
+        userDate.getDate(),
+        0, 0, 0, 0
+      ));
+    } catch (error) {
+      console.warn(`[saveShareOfVoiceHistoryPoint] Invalid timezone ${userTimezone}, falling back to UTC`);
+      normalizedDate = new Date(Date.UTC(
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        date.getUTCDate(),
+        0, 0, 0, 0
+      ));
+    }
+  } else {
+    // Fallback to UTC normalization
+    normalizedDate = new Date(Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      0, 0, 0, 0
+    ));
+  }
 
   await prisma.shareOfVoiceHistory.upsert({
     where: {
@@ -659,6 +688,7 @@ export async function saveSentimentOverTimePoint(
   aiModel: string,
   sentimentScore: number,
   reportRunId?: string,
+  userTimezone?: string,
 ): Promise<void> {
   const prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
@@ -668,9 +698,37 @@ export async function saveSentimentOverTimePoint(
     );
     return;
   }
-  // Normalize date to day precision
-  const normalizedDate = new Date(date);
-  normalizedDate.setHours(0, 0, 0, 0);
+  
+  // Normalize date to day precision using user's timezone or UTC as fallback
+  let normalizedDate: Date;
+  if (userTimezone) {
+    try {
+      // Get the date in user's timezone and normalize to midnight
+      const userDate = new Date(date.toLocaleString("sv-SE", { timeZone: userTimezone }));
+      normalizedDate = new Date(Date.UTC(
+        userDate.getFullYear(),
+        userDate.getMonth(),
+        userDate.getDate(),
+        0, 0, 0, 0
+      ));
+    } catch (error) {
+      console.warn(`[saveSentimentOverTimePoint] Invalid timezone ${userTimezone}, falling back to UTC`);
+      normalizedDate = new Date(Date.UTC(
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        date.getUTCDate(),
+        0, 0, 0, 0
+      ));
+    }
+  } else {
+    // Fallback to UTC normalization
+    normalizedDate = new Date(Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      0, 0, 0, 0
+    ));
+  }
 
   await prisma.sentimentOverTime.upsert({
     where: {

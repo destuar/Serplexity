@@ -3,13 +3,13 @@
  * @description Competitor management page for viewing and managing competitors.
  * Displays companies in a list format with logos, allows accepting/declining suggested competitors.
  */
-import React, { useState, useEffect, useMemo } from 'react';
-import { Check, X, Plus, ExternalLink, Users, Building2, RefreshCw, Loader, Edit2, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Check, X, Plus, ExternalLink, Users, Loader, Edit2 } from 'lucide-react';
 import { useCompany } from '../contexts/CompanyContext';
 import { useNavigation } from '../hooks/useNavigation';
 import { useDashboard } from '../hooks/useDashboard';
 import { getCompanyLogo } from '../lib/logoService';
-import { cn } from '../lib/utils';
+// import { cn } from '../lib/utils';
 import { 
   getAcceptedCompetitors, 
   getSuggestedCompetitors, 
@@ -366,11 +366,11 @@ const CompetitorCard: React.FC<{
 const CompetitorsPage = () => {
   const { selectedCompany } = useCompany();
   const { setBreadcrumbs } = useNavigation();
-  const { data: dashboardData, loading: dashboardLoading, hasReport } = useDashboard();
+  const { data: _dashboardData, loading: dashboardLoading, hasReport } = useDashboard();
   
   const [competitors, setCompetitors] = useState<CompetitorItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [_isRefreshing, setIsRefreshing] = useState(false);
   const [newCompetitorName, setNewCompetitorName] = useState('');
   const [newCompetitorWebsite, setNewCompetitorWebsite] = useState('');
   const [isAddingCompetitor, setIsAddingCompetitor] = useState(false);
@@ -393,12 +393,7 @@ const CompetitorsPage = () => {
     setBreadcrumbs([{ label: 'Competitors' }]);
   }, [setBreadcrumbs]);
 
-  // Load competitors when component mounts
-  useEffect(() => {
-    loadCompetitors();
-  }, [selectedCompany?.id]);
-
-  const loadCompetitors = async () => {
+  const loadCompetitors = useCallback(async () => {
     if (!selectedCompany?.id) return;
     
     setIsLoading(true);
@@ -407,7 +402,7 @@ const CompetitorsPage = () => {
     const allCompetitors: CompetitorItem[] = [{
       id: selectedCompany.id,
       name: selectedCompany.name,
-      website: selectedCompany.website,
+      website: selectedCompany.website || undefined,
       isGenerated: false,
       isAccepted: true,
       status: 'user-company'
@@ -439,9 +434,14 @@ const CompetitorsPage = () => {
       setCompetitors(allCompetitors);
       setIsLoading(false);
     }
-  };
+  }, [selectedCompany?.id, selectedCompany?.name, selectedCompany?.website]);
 
-  const handleRefresh = async () => {
+  // Load competitors when component mounts
+  useEffect(() => {
+    loadCompetitors();
+  }, [loadCompetitors]);
+
+  const _handleRefresh = async () => {
     setIsRefreshing(true);
     await loadCompetitors();
     setIsRefreshing(false);
@@ -510,7 +510,7 @@ const CompetitorsPage = () => {
     
     setIsUpdatingCompetitor(true);
     try {
-      const updatedCompetitor = await updateCompetitor(selectedCompany.id, competitorId, {
+      const _updatedCompetitor = await updateCompetitor(selectedCompany.id, competitorId, {
         name: name.trim(),
         website: website.trim(),
       });

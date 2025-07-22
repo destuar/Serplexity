@@ -25,6 +25,9 @@ class ModelTask(Enum):
     QUESTION_ANSWERING = "question_answering"
     WEBSITE_ENRICHMENT = "website_enrichment"
     OPTIMIZATION_TASKS = "optimization_tasks"
+    COMPANY_RESEARCH = "company_research"
+    QUESTION_GENERATION = "question_generation"
+    MENTION_DETECTION = "mention_detection"
 
 @dataclass
 class Model:
@@ -48,45 +51,48 @@ class Model:
         return task in self.tasks
 
 # Central model configuration - mirrors TypeScript models.ts
+# Updated based on actual PydanticAI agent implementations and usage patterns.
 MODELS: Dict[str, Model] = {
     "gpt-4.1-mini": Model(
         id="gpt-4.1-mini",
         engine=ModelEngine.OPENAI,
         tasks=[
-            ModelTask.SENTIMENT,
-            ModelTask.FANOUT_GENERATION,
-            ModelTask.QUESTION_ANSWERING,
-            ModelTask.SENTIMENT_SUMMARY,  # Only gpt-4.1-mini does sentiment summary
-            ModelTask.OPTIMIZATION_TASKS,  # Add optimization tasks to gpt-4.1-mini
+            ModelTask.SENTIMENT,  # ✅ WebSearchSentimentAgent (multi-provider)
+            ModelTask.FANOUT_GENERATION,  # ✅ IntelligentFanoutAgent (primary default)
+            ModelTask.QUESTION_ANSWERING,  # ✅ QuestionAnsweringAgent (multi-provider)
+            ModelTask.SENTIMENT_SUMMARY,  # ✅ SentimentSummaryAgent (ONLY gpt-4.1-mini)
+            ModelTask.OPTIMIZATION_TASKS,  # ✅ OptimizationTaskService (default model)
+            ModelTask.QUESTION_GENERATION,  # ✅ GenQuestionAgent (ONLY gpt-4.1-mini)
+            ModelTask.MENTION_DETECTION,  # ✅ MentionAgent (default model)
         ]
     ),
     "claude-3-5-haiku-20241022": Model(
         id="claude-3-5-haiku-20241022",
         engine=ModelEngine.ANTHROPIC,
         tasks=[
-            ModelTask.SENTIMENT,
-            ModelTask.FANOUT_GENERATION,
-            ModelTask.QUESTION_ANSWERING,
+            ModelTask.SENTIMENT,  # ✅ WebSearchSentimentAgent (multi-provider)
+            ModelTask.FANOUT_GENERATION,  # ✅ IntelligentFanoutAgent (available alternative)
+            ModelTask.QUESTION_ANSWERING,  # ✅ QuestionAnsweringAgent (multi-provider)
         ]
     ),
     "gemini-2.5-flash": Model(
         id="gemini-2.5-flash",
         engine=ModelEngine.GOOGLE,
         tasks=[
-            ModelTask.SENTIMENT,
-            ModelTask.FANOUT_GENERATION,
-            ModelTask.QUESTION_ANSWERING,
-            ModelTask.WEBSITE_ENRICHMENT,  # Only gemini does website enrichment
-            ModelTask.OPTIMIZATION_TASKS,  # Only gemini does optimization tasks
+            ModelTask.SENTIMENT,  # ✅ WebSearchSentimentAgent (multi-provider)
+            ModelTask.FANOUT_GENERATION,  # ✅ IntelligentFanoutAgent (available alternative)
+            ModelTask.QUESTION_ANSWERING,  # ✅ QuestionAnsweringAgent (multi-provider)
+            ModelTask.WEBSITE_ENRICHMENT,  # ✅ WebsiteEnrichmentAgent (ONLY gemini-2.5-flash)
         ]
     ),
     "sonar": Model(
         id="sonar",
         engine=ModelEngine.PERPLEXITY,
         tasks=[
-            ModelTask.SENTIMENT,
-            ModelTask.FANOUT_GENERATION,
-            ModelTask.QUESTION_ANSWERING,
+            ModelTask.SENTIMENT,  # ✅ WebSearchSentimentAgent (has built-in web search)
+            ModelTask.FANOUT_GENERATION,  # ✅ IntelligentFanoutAgent (available alternative)
+            ModelTask.QUESTION_ANSWERING,  # ✅ QuestionAnsweringAgent (has built-in web search)
+            ModelTask.COMPANY_RESEARCH,  # ✅ CompanyResearchAgent (ONLY sonar for web research)
         ]
     ),
 }
@@ -105,42 +111,44 @@ def get_default_model_for_task(task: ModelTask) -> Optional[Model]:
     if not models:
         return None
     
-    # Task-specific defaults
+    # Task-specific defaults based on actual agent implementations
     if task == ModelTask.SENTIMENT_SUMMARY:
         return get_model_by_id("gpt-4.1-mini")  # Only gpt-4.1-mini
     elif task == ModelTask.WEBSITE_ENRICHMENT:
         return get_model_by_id("gemini-2.5-flash")  # Only gemini
+    elif task == ModelTask.COMPANY_RESEARCH:
+        return get_model_by_id("sonar")  # Only sonar for web research
+    elif task == ModelTask.QUESTION_GENERATION:
+        return get_model_by_id("gpt-4.1-mini")  # Only gpt-4.1-mini
+    elif task == ModelTask.MENTION_DETECTION:
+        return get_model_by_id("gpt-4.1-mini")  # Default to gpt-4.1-mini
     elif task == ModelTask.OPTIMIZATION_TASKS:
-        return get_model_by_id("gpt-4.1-mini")  # Use gpt-4.1-mini for optimization tasks
+        return get_model_by_id("gpt-4.1-mini")  # Default to gpt-4.1-mini
     else:
         # Default to gpt-4.1-mini for other tasks
         return get_model_by_id("gpt-4.1-mini")
 
-def get_provider_models(provider: str) -> List[Model]:
-    """Get all models for a specific provider"""
-    try:
-        engine = ModelEngine(provider)
-        return [model for model in MODELS.values() if model.engine == engine]
-    except ValueError:
-        return []
+def get_all_models() -> List[Model]:
+    """Get all available models"""
+    return list(MODELS.values())
 
-def validate_model_for_task(model_id: str, task: ModelTask) -> bool:
-    """Validate that a model can perform a specific task"""
-    model = get_model_by_id(model_id)
-    if not model:
-        return False
-    return model.can_perform_task(task)
+def get_models_by_engine(engine: ModelEngine) -> List[Model]:
+    """Get all models for a specific engine"""
+    return [model for model in MODELS.values() if model.engine == engine]
 
-# Agent-specific model selection
+# Agent-specific model selection - updated to match actual implementations
 def get_agent_models() -> Dict[str, str]:
     """Get default models for each agent type"""
     return {
-        "web_search_sentiment": "gpt-4.1-mini",
-        "sentiment_summary": "gpt-4.1-mini",
-        "fanout": "gpt-4.1-mini", 
-        "question_answering": "gpt-4.1-mini",
-        "website_enrichment": "gemini-2.5-flash",
-        "optimization": "gpt-4.1-mini"
+        "web_search_sentiment": "gpt-4.1-mini",  # Multi-provider but defaults to gpt-4.1-mini
+        "sentiment_summary": "gpt-4.1-mini",  # Only gpt-4.1-mini
+        "fanout": "gpt-4.1-mini",  # Primary default
+        "question_answering": "gpt-4.1-mini",  # Multi-provider but defaults to gpt-4.1-mini
+        "website_enrichment": "gemini-2.5-flash",  # Only gemini
+        "company_research": "sonar",  # Only sonar
+        "question_generation": "gpt-4.1-mini",  # Only gpt-4.1-mini
+        "mention_detection": "gpt-4.1-mini",  # Default to gpt-4.1-mini
+        "optimization": "gpt-4.1-mini"  # Default to gpt-4.1-mini
     }
 
 # Configuration constants

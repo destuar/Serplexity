@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Web Search Sentiment Agent for PydanticAI
-Performs sentiment analysis with web search capabilities.
+Performs sentiment analysis with web search capabilities using centralized model configuration.
 """
 
 import asyncio
@@ -13,8 +13,8 @@ import uuid
 from datetime import datetime
 from typing import Dict, Any, Type, List, Optional
 
-from pydantic_agents.base_agent import BaseAgent
-from pydantic_agents.schemas import (
+from ..base_agent import BaseAgent
+from ..schemas import (
     SentimentScores, 
     SentimentRating, 
     WebSearchMetadata,
@@ -22,12 +22,13 @@ from pydantic_agents.schemas import (
     WebSearchSource,
     CitationSource
 )
-from pydantic_agents.config.web_search_config import WebSearchConfig
-from pydantic_agents.config.models import (
+from ..config.web_search_config import WebSearchConfig
+from ..config.models import (
     get_default_model_for_task,
     get_models_by_task,
     ModelTask,
-    get_model_by_id
+    get_model_by_id,
+    ModelEngine
 )
 from pydantic_ai import Agent
 import openai
@@ -41,37 +42,20 @@ class WebSearchSentimentAgent(BaseAgent):
     web search tools and provides comprehensive metadata about the search process.
     """
     
-    def __init__(self, provider: str = "openai", enable_web_search: bool = True):
+    def __init__(self, provider: str = "auto", enable_web_search: bool = True):
         """
         Initialize the web search sentiment agent.
         
         Args:
-            provider: LLM provider to use (openai, anthropic, gemini, perplexity)
+            provider: LLM provider to use (auto, openai, anthropic, gemini, perplexity)
             enable_web_search: Whether to enable web search capabilities
         """
         self.provider = provider
         self.enable_web_search = enable_web_search
         self.web_search_config = WebSearchConfig.for_task("sentiment", provider)
         
-        # Get the appropriate model based on provider (same pattern as question agent)
-        if provider == "gemini":
-            model_config = get_model_by_id("gemini-2.5-flash")
-            default_model = model_config.get_pydantic_model_id() if model_config else "gemini-2.5-flash"
-        elif provider == "anthropic":
-            model_config = get_model_by_id("claude-3-5-haiku-20241022")
-            default_model = model_config.get_pydantic_model_id() if model_config else "anthropic:claude-3-5-haiku-20241022"
-        elif provider == "perplexity" or provider == "sonar":
-            # Use custom OpenAI provider for Perplexity
-            default_model = self._create_perplexity_model()
-        else:
-            # Handle direct model names by looking them up in the configuration
-            model_config = get_model_by_id(provider)
-            if model_config:
-                default_model = model_config.get_pydantic_model_id()
-            else:
-                # Fallback to GPT-4.1-mini
-                model_config = get_model_by_id("gpt-4.1-mini")
-                default_model = model_config.get_pydantic_model_id() if model_config else "openai:gpt-4.1-mini"
+        # Use centralized configuration with provider-specific overrides
+        default_model = self._get_model_for_provider(provider)
         
         super().__init__(
             agent_id="web_search_sentiment_analyzer",
@@ -80,6 +64,61 @@ class WebSearchSentimentAgent(BaseAgent):
             temperature=0.3,
             timeout=90000,  # Increased from 60s to 90s for Perplexity web search
             max_retries=3
+        )
+    
+    def _get_model_for_provider(self, provider: str) -> str:
+        """Get the appropriate model for the given provider using centralized configuration"""
+        # If provider is "auto", use the default from centralized config
+        if provider == "auto":
+            default_model_config = get_default_model_for_task(ModelTask.SENTIMENT)
+            return default_model_config.get_pydantic_model_id() if default_model_config else "openai:gpt-4.1-mini"
+        
+        # For specific providers, find a model from that engine that can do sentiment analysis
+        available_models = get_models_by_task(ModelTask.SENTIMENT)
+        
+        # Provider-specific model selection
+        if provider == "gemini":
+            for model in available_models:
+                if model.engine.value == "gemini":
+                    return model.get_pydantic_model_id()
+            # Fallback
+            return "gemini-2.5-flash"
+            
+        elif provider == "anthropic":
+            for model in available_models:
+                if model.engine.value == "anthropic":
+                    return model.get_pydantic_model_id()
+            # Fallback
+            return "anthropic:claude-3-5-haiku-20241022"
+            
+        elif provider == "perplexity" or provider == "sonar":
+            # Use custom OpenAI provider for Perplexity
+            return self._create_perplexity_model()
+            
+        else:
+            # Handle direct model names by looking them up in the configuration
+            model_config = get_model_by_id(provider)
+            if model_config and ModelTask.SENTIMENT in model_config.tasks:
+                return model_config.get_pydantic_model_id()
+            else:
+                # Fallback to default from centralized config
+                default_model_config = get_default_model_for_task(ModelTask.SENTIMENT)
+                return default_model_config.get_pydantic_model_id() if default_model_config else "openai:gpt-4.1-mini"
+
+    def _create_perplexity_model(self):
+        """Create Perplexity model with custom OpenAI provider"""
+        from pydantic_ai.models.openai import OpenAIModel
+        from pydantic_ai.providers.openai import OpenAIProvider
+        import os
+        
+        api_key = os.getenv('PERPLEXITY_API_KEY')
+        
+        return OpenAIModel(
+            'sonar',
+            provider=OpenAIProvider(
+                base_url='https://api.perplexity.ai',
+                api_key=api_key,
+            ),
         )
     
     def _build_system_prompt(self) -> str:
@@ -145,20 +184,6 @@ Ensure all ratings are integers between 1-10 and include specific examples from 
     def get_output_type(self) -> Type[SentimentScores]:
         """Return the output type for this agent"""
         return SentimentScores
-    
-    def _create_perplexity_model(self):
-        """Create Perplexity model with custom OpenAI provider"""
-        from pydantic_ai.models.openai import OpenAIModel
-        from pydantic_ai.providers.openai import OpenAIProvider
-        import os
-        
-        return OpenAIModel(
-            'sonar',
-            provider=OpenAIProvider(
-                base_url='https://api.perplexity.ai',
-                api_key=os.getenv('PERPLEXITY_API_KEY'),
-            ),
-        )
     
     def _create_agent(self) -> Agent:
         """Create the PydanticAI agent with web search capabilities"""
@@ -1006,7 +1031,7 @@ async def main():
         input_data = json.loads(sys.stdin.read())
         
         # Get provider from environment or input
-        provider = input_data.get('provider', os.getenv('PYDANTIC_PROVIDER_ID', 'openai'))
+        provider = input_data.get('provider', os.getenv('PYDANTIC_PROVIDER_ID', 'auto'))
         enable_web_search = input_data.get('enable_web_search', True)
         
         # Create and execute agent

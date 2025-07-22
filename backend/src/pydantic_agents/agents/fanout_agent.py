@@ -57,9 +57,9 @@ import json
 import sys
 from typing import Dict, Any, Type, List
 
-from pydantic_agents.base_agent import BaseAgent
-from pydantic_agents.schemas import FanoutQueryGeneration, FanoutQuery, QueryType, QueryTypeSelection, PurchaseIntent
-from pydantic_agents.config.models import get_default_model_for_task, ModelTask
+from ..base_agent import BaseAgent
+from ..schemas import FanoutQueryGeneration, FanoutQuery, QueryType, QueryTypeSelection, PurchaseIntent
+from ..config.models import get_default_model_for_task, ModelTask
 
 class IntelligentFanoutAgent(BaseAgent):
     """

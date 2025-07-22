@@ -26,7 +26,8 @@
     
     "ops:health": "ts-node src/scripts/pydantic-health-check.ts",
     "ops:monitor": "ts-node src/scripts/monitor-redis-queues.ts",
-    "ops:repair": "ts-node src/scripts/repair-failed-reports.ts"
+    "ops:repair": "ts-node src/scripts/repair-failed-reports.ts",
+    "queue-report": "ts-node scripts/run-with-secrets.ts 'ts-node --transpile-only src/scripts/queue-today-report.ts'"
   },
   "keywords": [],
   "author": "",

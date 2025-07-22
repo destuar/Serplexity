@@ -45,9 +45,13 @@ const formatRelativeTime = (dateString: string | undefined): string => {
 
 
 // Get competitor logos with overflow handling - only shows accepted competitors
-const getCompetitorLogos = (brands: string[], acceptedCompetitors: any, maxDisplay: number = 4): Array<{name: string, logoUrl: string, isOverflow?: boolean, count?: number}> => {
+const getCompetitorLogos = (brands: string[], acceptedCompetitors: unknown, maxDisplay: number = 4): Array<{name: string, logoUrl: string, isOverflow?: boolean, count?: number}> => {
   // Handle case where acceptedCompetitors might be an object with competitors property
-  const competitorsList = Array.isArray(acceptedCompetitors) ? acceptedCompetitors : acceptedCompetitors?.competitors;
+  const competitorsList = Array.isArray(acceptedCompetitors) 
+    ? acceptedCompetitors 
+    : (acceptedCompetitors && typeof acceptedCompetitors === 'object' && 'competitors' in acceptedCompetitors) 
+      ? (acceptedCompetitors as { competitors: unknown }).competitors 
+      : null;
   
   if (!Array.isArray(competitorsList) || competitorsList.length === 0 || !brands || brands.length === 0) {
     return [];
@@ -92,7 +96,7 @@ const getCompetitorLogos = (brands: string[], acceptedCompetitors: any, maxDispl
 };
 
 // Get company logos for a prompt using the new data structure
-const getPromptCompanyLogos = (promptQuestion: PromptQuestion, acceptedCompetitors: any): Array<{name: string, logoUrl: string, isOverflow?: boolean, count?: number}> => {
+const getPromptCompanyLogos = (promptQuestion: PromptQuestion, acceptedCompetitors: unknown): Array<{name: string, logoUrl: string, isOverflow?: boolean, count?: number}> => {
   if (!promptQuestion?.responses || promptQuestion.responses.length === 0) return [];
   
   // Aggregate all brands from all responses for this question
@@ -118,7 +122,7 @@ const PromptListItem: React.FC<{
   prompt: PromptItem; 
   index: number;
   promptQuestion?: PromptQuestion;
-  acceptedCompetitors?: any;
+  acceptedCompetitors?: unknown;
   onEdit?: (prompt: PromptItem) => void;
   onDelete?: (prompt: PromptItem) => void;
   onClick?: (prompt: PromptItem) => void;
@@ -403,7 +407,7 @@ const PromptsPage: React.FC = () => {
         try {
           const competitors = await getAcceptedCompetitors(selectedCompany.id);
           setAcceptedCompetitors(competitors.competitors || []);
-        } catch (err) {
+        } catch {
           // Error handling in place
         }
       };
@@ -554,7 +558,7 @@ const PromptsPage: React.FC = () => {
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex flex-col">
       {dashboardLoading || hasReport === null ? (
         <BlankLoadingState message="Loading dashboard data..." />
       ) : hasReport === false ? (
@@ -651,17 +655,17 @@ const PromptsPage: React.FC = () => {
                             </div>
                           </div>
                           
-                          {/* Company Logos */}
-                          <div className="w-32 flex justify-start">
-                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Mentions</span>
+                          {/* Company Logos Header - aligned with content */}
+                          <div className="w-32 flex justify-start mr-6">
+                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">MENTIONS</span>
                           </div>
                           
-                          {/* Created Time */}
+                          {/* Created Time Header - aligned with content */}
                           <div className="flex-shrink-0 mr-8">
-                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Created</span>
+                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">CREATED</span>
                           </div>
                           
-                          {/* Actions */}
+                          {/* Actions placeholder */}
                           <div className="flex items-center gap-1 flex-shrink-0">
                             <div className="w-20"></div>
                           </div>

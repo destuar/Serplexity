@@ -79,7 +79,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       )}
       <div className="flex flex-col flex-1 min-h-0 relative">
         <Header toggleMobileSidebar={toggleMobileSidebar} />
-        <main className={`flex-1 overflow-y-auto lg:overflow-hidden p-4 ${!isSubscribed ? 'blur-sm' : ''}`}>
+        <main className={`flex-1 overflow-y-auto p-4 ${!isSubscribed ? 'blur-sm' : ''}`}>
           {children}
         </main>
         {!isSubscribed && <PaywallOverlay />}

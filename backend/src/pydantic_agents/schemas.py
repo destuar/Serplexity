@@ -732,3 +732,54 @@ class AgentExecutionMetadata(BaseModel):
                 "fallbackUsed": False
             }
         }
+
+# ===== QUESTION ANSWERING MODELS =====
+
+class SimpleQuestionResponse(BaseModel):
+    """
+    Simple question response model for natural question answering.
+    
+    Attributes:
+        answer: The comprehensive answer to the question
+        confidence: Confidence score of the answer (0.0 to 1.0)
+        has_web_search: Whether web search was used
+        brand_mentions_count: Number of brand mentions found in the answer
+        sources_count: Number of sources used
+    """
+    answer: str = Field(
+        ..., 
+        min_length=10, 
+        max_length=5000,
+        description="Comprehensive answer to the question"
+    )
+    confidence: float = Field(
+        ge=0.0, 
+        le=1.0, 
+        default=0.8,
+        description="Confidence score of the answer"
+    )
+    has_web_search: bool = Field(
+        default=False,
+        description="Whether web search was used to generate the answer"
+    )
+    brand_mentions_count: int = Field(
+        ge=0, 
+        default=0,
+        description="Number of brand mentions found in the answer"
+    )
+    sources_count: int = Field(
+        ge=0, 
+        default=0,
+        description="Number of sources used to generate the answer"
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "answer": "The best team communication tools for remote work include Slack for instant messaging, Zoom for video conferences, and Microsoft Teams for integrated collaboration.",
+                "confidence": 0.95,
+                "has_web_search": True,
+                "brand_mentions_count": 3,
+                "sources_count": 5
+            }
+        }

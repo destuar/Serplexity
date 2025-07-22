@@ -253,13 +253,25 @@ function getAverage(sentimentRating: any): number | null {
 export async function computeAndPersistMetrics(
   reportId: string,
   companyId: string,
+  userTimezone?: string,
 ): Promise<void> {
   const prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
 
   try {
+    // Get user timezone from company if not provided
+    let timezone = userTimezone;
+    if (!timezone) {
+      const company = await prismaReadReplica.company.findUnique({
+        where: { id: companyId },
+        include: { user: { select: { id: true } } }
+      });
+      // For now, default to UTC. Later we can add timezone to user profile
+      timezone = 'UTC';
+    }
+
     console.log(
-      `[METRICS] Starting computation for report ${reportId}, company ${companyId}`,
+      `[METRICS] Starting computation for report ${reportId}, company ${companyId}, timezone: ${timezone}`,
     );
 
     // ====== Get all models used in this report ======
@@ -445,6 +457,7 @@ export async function computeAndPersistMetrics(
           "all",
           avgSentiment,
           reportId,
+          timezone,
         );
       }
     }
@@ -456,6 +469,7 @@ export async function computeAndPersistMetrics(
       "all",
       allSoV,
       reportId,
+      timezone,
     );
 
     /******************************
@@ -603,6 +617,7 @@ export async function computeAndPersistMetrics(
             model,
             avgModelSentiment,
             reportId,
+            timezone,
           );
         }
       }
@@ -614,6 +629,7 @@ export async function computeAndPersistMetrics(
         model,
         shareOfVoice,
         reportId,
+        timezone,
       );
     }
   } catch (error) {

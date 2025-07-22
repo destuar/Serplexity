@@ -30,6 +30,9 @@ export const enum ModelTask {
   QUESTION_ANSWERING = "question_answering",
   WEBSITE_ENRICHMENT = "website_enrichment",
   OPTIMIZATION_TASKS = "optimization_tasks",
+  COMPANY_RESEARCH = "company_research",
+  QUESTION_GENERATION = "question_generation",
+  MENTION_DETECTION = "mention_detection",
 }
 
 export interface Model {
@@ -104,45 +107,48 @@ export const LLM_CONFIG = {
 } as const;
 
 // This record now represents the single source of truth for all models in the application.
-// It is based on the hard-coded values previously found in `llmService.ts` and `reportWorker.ts`.
+// Updated based on actual PydanticAI agent implementations and usage patterns.
 export const MODELS: Record<string, Model> = {
   "gpt-4.1-mini": {
     id: "gpt-4.1-mini",
     engine: ModelEngine.OPENAI,
     task: [
-      ModelTask.SENTIMENT, // ✅ WebSearchSentimentAgent
-      ModelTask.FANOUT_GENERATION, // ✅ FanoutQueryAgent
-      ModelTask.QUESTION_ANSWERING, // ✅ QuestionAnsweringAgent
-      ModelTask.SENTIMENT_SUMMARY, // ✅ SentimentSummaryAgent (only for gpt-4.1-mini)
-      ModelTask.OPTIMIZATION_TASKS, // ✅ OptimizationTaskAgent (moved from gemini)
+      ModelTask.SENTIMENT, // ✅ WebSearchSentimentAgent (multi-provider)
+      ModelTask.FANOUT_GENERATION, // ✅ IntelligentFanoutAgent (primary default)
+      ModelTask.QUESTION_ANSWERING, // ✅ QuestionAnsweringAgent (multi-provider)
+      ModelTask.SENTIMENT_SUMMARY, // ✅ SentimentSummaryAgent (ONLY gpt-4.1-mini)
+      ModelTask.OPTIMIZATION_TASKS, // ✅ OptimizationTaskService (default model)
+      ModelTask.QUESTION_GENERATION, // ✅ GenQuestionAgent (ONLY gpt-4.1-mini)
+      ModelTask.MENTION_DETECTION, // ✅ MentionAgent (default model)
     ],
   },
   "claude-3-5-haiku-20241022": {
     id: "claude-3-5-haiku-20241022",
     engine: ModelEngine.ANTHROPIC,
     task: [
-      ModelTask.SENTIMENT, // ✅ WebSearchSentimentAgent
-      ModelTask.FANOUT_GENERATION, // ✅ FanoutQueryAgent
-      ModelTask.QUESTION_ANSWERING, // ✅ QuestionAnsweringAgent
+      ModelTask.SENTIMENT, // ✅ WebSearchSentimentAgent (multi-provider)
+      ModelTask.FANOUT_GENERATION, // ✅ IntelligentFanoutAgent (available alternative)
+      ModelTask.QUESTION_ANSWERING, // ✅ QuestionAnsweringAgent (multi-provider)
     ],
   },
   "gemini-2.5-flash": {
     id: "gemini-2.5-flash",
     engine: ModelEngine.GOOGLE,
     task: [
-      ModelTask.SENTIMENT, // ✅ WebSearchSentimentAgent
-      ModelTask.FANOUT_GENERATION, // ✅ FanoutQueryAgent
-      ModelTask.QUESTION_ANSWERING, // ✅ QuestionAnsweringAgent
-      ModelTask.WEBSITE_ENRICHMENT, // ✅ WebsiteEnrichmentAgent (only for gemini)
+      ModelTask.SENTIMENT, // ✅ WebSearchSentimentAgent (multi-provider)
+      ModelTask.FANOUT_GENERATION, // ✅ IntelligentFanoutAgent (available alternative)
+      ModelTask.QUESTION_ANSWERING, // ✅ QuestionAnsweringAgent (multi-provider)
+      ModelTask.WEBSITE_ENRICHMENT, // ✅ WebsiteEnrichmentAgent (ONLY gemini-2.5-flash)
     ],
   },
   sonar: {
     id: "sonar",
     engine: ModelEngine.PERPLEXITY,
     task: [
-      ModelTask.SENTIMENT, // ✅ WebSearchSentimentAgent (has web search)
-      ModelTask.FANOUT_GENERATION, // ✅ FanoutQueryAgent
-      ModelTask.QUESTION_ANSWERING, // ✅ QuestionAnsweringAgent (has web search)
+      ModelTask.SENTIMENT, // ✅ WebSearchSentimentAgent (has built-in web search)
+      ModelTask.FANOUT_GENERATION, // ✅ IntelligentFanoutAgent (available alternative)
+      ModelTask.QUESTION_ANSWERING, // ✅ QuestionAnsweringAgent (has built-in web search)
+      ModelTask.COMPANY_RESEARCH, // ✅ CompanyResearchAgent (ONLY sonar for web research)
     ],
   },
 };

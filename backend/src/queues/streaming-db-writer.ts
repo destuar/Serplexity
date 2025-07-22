@@ -398,19 +398,19 @@ export class StreamingDatabaseWriter {
     const missingIds = uniqueIds.filter((id) => !existingIds.has(id));
     if (missingIds.length === 0) return;
 
-    // Attempt to look them up in the legacy question table so we can preserve text
+    // Attempt to look them up in the legacy question table so we can preserve query
     const legacyQuestions = await this.prisma.question.findMany({
       where: { id: { in: missingIds } },
-      select: { id: true, text: true },
+      select: { id: true, query: true },
     });
-    const legacyMap = new Map(legacyQuestions.map((q: any) => [q.id, q.text]));
+    const legacyMap = new Map(legacyQuestions.map((q: any) => [q.id, q.query]));
 
     const stubData = missingIds.map((id) => ({
       id, // preserve the original id so downstream references remain valid
-      text: legacyMap.get(id) ?? "Legacy question",
-      type: "benchmark",
+      query: legacyMap.get(id) ?? "Legacy question",
       companyId: this.companyId,
-      runId: this.runId,
+      source: "user", // Legacy questions treated as user questions
+      isActive: false,
     }));
 
     await this.prisma.question.createMany({

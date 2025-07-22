@@ -26,11 +26,11 @@ from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 from pydantic import BaseModel, ValidationError
 from pydantic_ai import Agent
 
-from pydantic_agents.schemas import AgentExecutionMetadata
-from pydantic_agents.config.models import LLM_CONFIG
+from .schemas import AgentExecutionMetadata
+from .config.models import LLM_CONFIG
 
 # Import logfire functions with lazy loading
-from pydantic_agents.config.logfire_config import (
+from .config.logfire_config import (
     setup_logfire,
     is_initialized,
     track_agent_execution,
@@ -145,7 +145,7 @@ class BaseAgent(ABC):
         # Initialize agent
         self.agent = self._create_agent()
         
-        logger.info(f"Initialized {agent_id} with model {self.model_id}")
+        logger.debug(f"Initialized {agent_id} with model {self.model_id}")
     
     def _create_agent(self) -> Agent:
         """Create the PydanticAI agent with proper configuration"""
@@ -185,7 +185,7 @@ class BaseAgent(ABC):
             attempt_count += 1
             
             try:
-                logger.info(f"Executing {self.agent_id} (attempt {attempt_count}/{self.max_retries})")
+                logger.debug(f"Executing {self.agent_id} (attempt {attempt_count}/{self.max_retries})")
                 
                 # Process input and get prompt
                 prompt = await self.process_input(input_data)

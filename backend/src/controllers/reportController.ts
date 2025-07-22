@@ -248,6 +248,8 @@ export const createReport = async (req: Request, res: Response) => {
       `Company validation successful: ${company.name}`,
     );
 
+    // Questions will be generated during first report run if they don't exist yet
+
     // Enhanced rate limiting check
     const rateLimitWindow = 60 * 1000; // 1 minute
     const maxRequestsPerWindow = 3;
@@ -884,7 +886,7 @@ export const getReportCitationDebug = async (req: Request, res: Response) => {
             engine: true,
             question: {
               select: {
-                text: true,
+                query: true,
                 type: true,
               },
             },
@@ -944,7 +946,7 @@ export const getReportCitationDebug = async (req: Request, res: Response) => {
         model: c.response.model,
         engine: c.response.engine,
         questionType: c.response.question?.type,
-        questionText: c.response.question?.text?.substring(0, 100) + "...",
+        questionText: c.response.question?.query?.substring(0, 100) + "...",
       })),
     });
   } catch (error) {

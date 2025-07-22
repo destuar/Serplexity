@@ -168,6 +168,60 @@ app.get("/api/health/deep", async (req: Request, res: Response) => {
   }
 });
 
+// 10x IMPROVEMENT: Comprehensive health check endpoint
+app.get("/healthz", async (req, res) => {
+  const startTime = Date.now();
+  const checks: Record<string, any> = {};
+  
+  try {
+    // Database health
+    try {
+      const { getPrismaClient } = await import("./config/dbCache");
+      const prisma = await getPrismaClient();
+      await prisma.$queryRaw`SELECT 1`;
+      checks.database = { status: "healthy", latency: Date.now() - startTime };
+    } catch (error) {
+      checks.database = { status: "unhealthy", error: (error as Error).message };
+    }
+    
+    // Redis health
+    try {
+      const { checkRedisHealth } = await import("./config/redis");
+      const redisHealth = await checkRedisHealth();
+      checks.redis = redisHealth;
+    } catch (error) {
+      checks.redis = { status: "unhealthy", error: (error as Error).message };
+    }
+    
+    // PydanticAI service health (optional - don't fail overall health if down)
+    try {
+      const { pydanticLlmService } = await import("./services/pydanticLlmService");
+      await pydanticLlmService.executeAgent("health_check", { test: true }, null, { timeout: 3000 });
+      checks.pydantic_ai = { status: "healthy" };
+    } catch (error) {
+      checks.pydantic_ai = { status: "degraded", error: "Service unavailable - first-time reports will fail" };
+    }
+    
+    const allHealthy = checks.database.status === "healthy" && checks.redis.status === "healthy";
+    const httpStatus = allHealthy ? 200 : 503;
+    
+    res.status(httpStatus).json({
+      status: allHealthy ? "healthy" : "degraded",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      checks,
+      totalLatency: Date.now() - startTime
+    });
+    
+  } catch (error) {
+    res.status(503).json({
+      status: "unhealthy",
+      error: (error as Error).message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Auth routes (public) with stricter rate limiting
 app.use("/api/auth", authLimiter, authRouter);
 

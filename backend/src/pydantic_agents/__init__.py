@@ -22,11 +22,11 @@ __version__ = "1.0.0"
 __author__ = "Serplexity Team"
 
 # Core agents exports
-from .agents.web_search_sentiment_agent import WebSearchSentimentAgent
+from .agents.sentiment_agent import WebSearchSentimentAgent
 from .agents.sentiment_summary_agent import SentimentSummaryAgent
 from .agents.fanout_agent import IntelligentFanoutAgent
-from .agents.question_agent import QuestionAnsweringAgent
-from .agents.website_enrichment_agent import WebsiteEnrichmentAgent
+from .agents.answer_agent import QuestionAnsweringAgent
+from .agents.website_agent import WebsiteEnrichmentAgent
 
 # Base classes and utilities
 from .base_agent import BaseAgent

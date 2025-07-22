@@ -12,8 +12,8 @@
 import { Worker, Job } from "bullmq";
 import pLimit from "p-limit";
 import env from "../config/env";
-import { getBullMQConnection } from "../config/bullmq";
-import { getPrismaClient } from "../config/dbCache";
+import { getBullMQConnection, getBullMQOptions, getWorkerOptions } from "../config/bullmq";
+import { getDbClient } from "../config/database"; // Direct DB connection instead of cache
 import { Prisma } from ".prisma/client";
 import {
   generateSentimentScores,
@@ -27,6 +27,216 @@ import { ModelTask, LLM_CONFIG } from "../config/models";
 import { CostCalculator } from "../config/llmPricing";
 import { computeAndPersistMetrics } from "../services/metricsService";
 import { initializeLogfire } from "../config/logfire";
+import { checkRedisHealth } from "../config/redis";
+import { dbCache } from "../config/dbCache";
+
+/**
+ * Critical dependency health checks - MUST pass before worker starts
+ * This prevents workers from starting when they can't actually process jobs
+ */
+async function validateWorkerDependencies(): Promise<void> {
+  const checks = [];
+  
+  // 1. Redis connectivity (BullMQ requires this)
+  checks.push(
+    checkRedisHealth().then(health => {
+      if (health.status !== "healthy") {
+        throw new Error(`Redis unhealthy: ${health.error || "Unknown error"}`);
+      }
+      console.log("✅ Redis connection verified");
+    })
+  );
+  
+  // 2. Database connectivity (worker needs to update status)
+  checks.push(
+    dbCache.initialize().then(() => {
+      console.log("✅ Database connection verified");
+    })
+  );
+  
+  // 3. PydanticAI service availability (for first-time reports)
+  checks.push(
+    (async () => {
+      try {
+        const { pydanticLlmService } = await import("../services/pydanticLlmService");
+        // Simple health check - try to get available providers
+        const healthResult = await pydanticLlmService.executeAgent(
+          "health_check",
+          { test: "connectivity" },
+          null,
+          { timeout: 5000 }
+        );
+        console.log("✅ PydanticAI service verified");
+      } catch (error) {
+        console.warn("⚠️  PydanticAI service unavailable - first-time reports will fail");
+        console.warn("   Make sure the Python service is running: cd src/pydantic_agents && python -m uvicorn main:app");
+        // Don't throw - allow worker to start for existing reports that don't need Python
+      }
+    })()
+  );
+  
+  try {
+    await Promise.all(checks);
+    console.log("🎯 All worker dependencies verified - ready to process jobs");
+  } catch (error) {
+    console.error("💥 CRITICAL: Worker dependency check failed:", error);
+    
+    if (process.env.NODE_ENV === "production") {
+      console.error("💥 Exiting in production mode - container will restart");
+      process.exit(1);
+    } else {
+      console.error("💥 Development mode - worker will not start but server continues");
+      throw error;
+    }
+  }
+}
+
+// Run health checks before any worker initialization
+console.log("🔍 Validating worker dependencies...");
+validateWorkerDependencies().then(() => {
+  console.log("✅ Dependency validation complete - initializing worker");
+  
+  // NOW create the worker - only after dependencies are verified
+  const worker = new Worker("report-generation", processJob, {
+    ...getWorkerOptions(),
+    // Override with worker-specific settings
+    concurrency: LLM_CONFIG.WORKER_CONCURRENCY,
+    lockDuration: 1000 * 60 * 15, // 15 minutes
+    limiter: {
+      max: LLM_CONFIG.WORKER_RATE_LIMIT.max,
+      duration: LLM_CONFIG.WORKER_RATE_LIMIT.duration,
+    },
+    removeOnComplete: { count: 100 },
+    removeOnFail: { count: 50 },
+    
+    // Enhanced worker configuration
+    stalledInterval: 30000, // Check for stalled jobs every 30s
+    maxStalledCount: 1, // Retry stalled jobs once
+    drainDelay: 5, // Wait 5ms when queue is empty
+    
+    // CRITICAL: Prevent auto-start to ensure event handlers are attached first
+    autorun: false,
+  });
+
+  // Enhanced event handlers with proper debugging
+  worker.on("ready", () => {
+    console.log("🎯 Worker is ready and waiting for jobs...");
+  });
+
+  worker.on("active", (job: Job) => {
+    const { runId, company } = job.data;
+    console.log(`🚀 Worker started processing job ${job.id} for ${company?.name} (runId: ${runId})`);
+  });
+
+  worker.on("progress", (job: Job, progress: any) => {
+    console.log(`📈 Job ${job.id} progress:`, progress);
+  });
+
+  worker.on("completed", (job: Job) => {
+    const { runId, company } = job.data;
+    console.log(`✅ Worker event: Job ${job.id} completed for ${company?.name}`);
+  });
+
+  worker.on("failed", async (job, err) => {
+    const { runId, company } = job?.data || {};
+    console.error(
+      `❌ Worker event: Job ${job?.id} failed for ${company?.name}:`,
+      err,
+    );
+  });
+
+  worker.on("error", (err) => {
+    console.error("❌ Worker error:", err);
+  });
+
+  worker.on("stalled", (jobId: string) => {
+    console.warn(`⚠️ Job ${jobId} stalled and will be retried`);
+  });
+
+  // Log when worker closes
+  worker.on("closed", () => {
+    console.log("🔒 Worker closed");
+  });
+
+  // Test Redis connection and worker readiness (keeping your existing logic)
+  (async () => {
+    try {
+      // Test Redis connection
+      const connection = getBullMQConnection();
+      await connection.ping();
+      console.log("✅ Redis connection test successful");
+      
+      // Import Queue to check status
+      const { Queue } = await import("bullmq");
+      const testQueue = new Queue("report-generation", getBullMQOptions());
+      
+      // Check queue status
+      const waiting = await testQueue.getWaiting();
+      const active = await testQueue.getActive();
+      const completed = await testQueue.getCompleted();
+      const failed = await testQueue.getFailed();
+      
+      console.log("📋 Report worker initialized successfully");
+      console.log(`🔗 Connected to queue: report-generation`);
+      console.log(`🔗 Queue prefix: ${env.BULLMQ_QUEUE_PREFIX || 'none'}`);
+      console.log(`📊 Queue status: ${waiting.length} waiting, ${active.length} active, ${completed.length} completed, ${failed.length} failed`);
+      console.log("🎯 Worker is ready to process jobs!");
+      
+      // Set up periodic queue monitoring for debugging
+      const monitorQueue = async () => {
+        try {
+          const currentWaiting = await testQueue.getWaiting();
+          if (currentWaiting.length > 0) {
+            console.log(`🔍 MONITORING: ${currentWaiting.length} jobs waiting in queue`);
+            for (const job of currentWaiting.slice(0, 3)) { // Show first 3 jobs
+              console.log(`   - Job ${job.id}: ${job.name} (runId: ${job.data?.runId})`);
+            }
+          }
+        } catch (error) {
+          console.error("❌ Queue monitoring failed:", error);
+        }
+      };
+      
+      // Monitor queue every 10 seconds continuously
+      const monitorInterval = setInterval(monitorQueue, 10000);
+      
+      // Clean up on process exit
+      process.on('SIGINT', () => {
+        clearInterval(monitorInterval);
+        console.log("🔍 Queue monitoring stopped due to process exit");
+      });
+      
+      // Clean up the test queue
+      await testQueue.close();
+      
+    } catch (error) {
+      console.error("❌ Worker/Redis initialization failed:", error);
+      // Don't exit in dev mode, just log the error
+      if (process.env.NODE_ENV === 'production') {
+        process.exit(1);
+      }
+    }
+  })();
+
+  console.log("📋 Report worker process started...");
+  console.log("🔗 Initializing database connection...");
+
+  // CRITICAL: Start worker after all event handlers are attached
+  setTimeout(() => {
+    worker.run();
+    console.log("🎯 Worker started after event handler setup");
+  }, 100);
+
+  // Export the worker instance
+  module.exports = worker;
+  
+}).catch(() => {
+  console.error("❌ Worker initialization blocked due to failed dependencies");
+  // In development, don't crash the entire process
+  if (process.env.NODE_ENV !== 'development') {
+    process.exit(1);
+  }
+});
 
 // Initialize Logfire
 (async () => {
@@ -293,9 +503,20 @@ async function processReport(runId: string, company: any): Promise<void> {
   console.log(
     `🚀 Starting report generation for ${company?.name || "Unknown"}`,
   );
-  console.log(`📊 Stage 0: Getting database client...`);
+  console.log(`📊 Stage 0: Checking AWS credentials...`);
+  
+  // Debug AWS credentials availability
+  const awsKeyId = process.env.AWS_ACCESS_KEY_ID;
+  const awsSecret = process.env.AWS_SECRET_ACCESS_KEY;
+  const awsRegion = process.env.AWS_REGION;
+  console.log(`AWS_ACCESS_KEY_ID: ${awsKeyId ? 'SET' : 'MISSING'}`);
+  console.log(`AWS_SECRET_ACCESS_KEY: ${awsSecret ? 'SET' : 'MISSING'}`);
+  console.log(`AWS_REGION: ${awsRegion || 'MISSING'}`);
 
-  const prisma = await getPrismaClient();
+  console.log(`📊 Stage 1: Getting direct database client...`);
+
+  // Use direct database connection instead of cache
+  const prisma = await getDbClient();
   console.log(`✅ Database client obtained successfully`);
 
   const startTime = Date.now();
@@ -322,60 +543,154 @@ async function processReport(runId: string, company: any): Promise<void> {
       throw new Error(`Company ${company.id} not found`);
     }
 
-    // === STAGE 1: Company Research & Question Generation ===
+    // === STAGE 1: Check for Questions or Generate Them ===
     console.log(
-      `📊 Stage 1: Researching website & generating target market questions`,
+      `📊 Stage 1: Checking if questions exist for company`,
     );
 
     await prisma.reportRun.update({
       where: { id: runId },
-      data: { stepStatus: "Researching company and generating questions" },
+      data: { stepStatus: "Checking for existing questions" },
     });
 
-    const { pydanticLlmService } = await import(
-      "../services/pydanticLlmService"
-    );
+    // Check if any questions exist for this company
+    const existingQuestions = await prisma.question.findMany({
+      where: { companyId: fullCompany.id },
+    });
 
-    const researchInput = {
-      company_name: fullCompany.name,
-      website_url: fullCompany.website,
-      industry: fullCompany.industry || "Technology",
-    };
+    let activeQuestions;
 
-    const researchResult = await pydanticLlmService.executeAgent(
-      "company_research_agent",
-      researchInput,
-      null, // No output schema validation needed - agent handles structured output
-      { modelId: "sonar" }, // Use Perplexity Sonar model
-    );
+    if (existingQuestions.length === 0) {
+      // First report run - generate questions
+      console.log(`🔍 First report run for ${fullCompany.name} - generating questions`);
+      
+      await prisma.reportRun.update({
+        where: { id: runId },
+        data: { stepStatus: "First run: researching company and generating questions" },
+      });
 
-    if (!researchResult.metadata?.success || !researchResult.data) {
-      throw new Error(
-        `Company research failed: ${JSON.stringify(researchResult)}`,
+      // Step 1: Research company website with Sonar
+      const { pydanticLlmService } = await import(
+        "../services/pydanticLlmService"
       );
+
+      console.log(`📝 Step 1: Researching website for ${fullCompany.name}`);
+      const researchResult = await pydanticLlmService.executeAgent(
+        "research_agent.py",
+        {
+          company_name: fullCompany.name,
+          website_url: fullCompany.website,
+          industry: fullCompany.industry || "General",
+        },
+        null,
+        {
+          temperature: 0.3,
+          maxTokens: 1500,
+          timeout: 60000,
+        }
+      );
+
+      if (!researchResult.data) {
+        throw new Error("Company research failed - no data returned");
+      }
+
+      console.log(`🤖 Step 2: Generating questions based on research for ${fullCompany.name}`);
+      
+      // Step 2: Generate questions using GPT-4.1-mini
+      const questionResult = await pydanticLlmService.executeAgent(
+        "question_agent.py",
+        {
+          company_name: fullCompany.name,
+          research_context: researchResult.data,
+        },
+        null,
+        {
+          temperature: 0.7,
+          maxTokens: 2000,
+          timeout: 30000,
+        }
+      );
+
+      if (questionResult.data && 
+          typeof questionResult.data === 'object' && 
+          'activeQuestions' in questionResult.data && 
+          'suggestedQuestions' in questionResult.data) {
+        const { activeQuestions: generatedActive, suggestedQuestions } = questionResult.data as {
+          activeQuestions: Array<{ query: string; type: string; intent: string }>;
+          suggestedQuestions: Array<{ query: string; type: string; intent: string }>;
+        };
+        
+        // Store all 25 questions in database
+        const questionsToCreate = [
+          ...generatedActive.map((q: any) => ({
+            query: q.query,
+            type: q.type,
+            intent: q.intent,
+            isActive: true,
+            source: "ai",
+            companyId: fullCompany.id,
+          })),
+          ...suggestedQuestions.map((q: any) => ({
+            query: q.query,
+            type: q.type,
+            intent: q.intent,
+            isActive: false,
+            source: "ai",
+            companyId: fullCompany.id,
+          })),
+        ];
+
+        await prisma.question.createMany({
+          data: questionsToCreate,
+        });
+
+        // Mark questions as ready
+        await prisma.company.update({
+          where: { id: fullCompany.id },
+          data: { questionsReady: true },
+        });
+
+        // Fetch the newly created active questions
+        activeQuestions = await prisma.question.findMany({
+          where: {
+            companyId: fullCompany.id,
+            isActive: true,
+          },
+          orderBy: { createdAt: "asc" },
+        });
+
+        console.log(`✅ Generated and stored ${questionsToCreate.length} questions for ${fullCompany.name}`);
+      } else {
+        throw new Error("Question generation failed - unexpected response format");
+      }
+    } else {
+      // Subsequent reports - use existing active questions
+      console.log(`📋 Using existing questions for ${fullCompany.name}`);
+      
+      activeQuestions = await prisma.question.findMany({
+        where: {
+          companyId: fullCompany.id,
+          isActive: true,
+        },
+        orderBy: { createdAt: "asc" },
+      });
+
+      if (activeQuestions.length === 0) {
+        throw new Error(
+          `No active questions found for company ${fullCompany.name}. Please activate some questions before generating a report.`,
+        );
+      }
     }
 
-    const research = researchResult.data as any;
-    totalTokens += researchResult.metadata?.tokensUsed || 0;
-    // Company research with Sonar typically uses web search
-    const researchSearchCount = 1; // Assume 1 search for company research
-    totalCost += calculateCost(
-      "sonar",
-      researchResult.metadata?.tokensUsed || 0,
-      0,
-      researchSearchCount,
-    );
-
-    // Store research data
     await prisma.reportRun.update({
       where: { id: runId },
       data: {
-        stepStatus: `Generated ${research.target_questions?.length || 0} target market questions`,
+        stepStatus: `Ready to process ${activeQuestions.length} active questions`,
       },
     });
 
     console.log(
-      `✅ Generated ${research.target_questions?.length || 0} target market questions`,
+      `✅ Ready to process ${activeQuestions.length} active questions`,
     );
 
     // === STAGE 2: Answer Questions with Enabled Models ===
@@ -392,6 +707,11 @@ async function processReport(runId: string, company: any): Promise<void> {
       fullCompany.userId,
     );
 
+    // Import pydantic service for question answering
+    const { pydanticLlmService } = await import(
+      "../services/pydanticLlmService"
+    );
+
     // Initialize competitor pipeline for parallel processing
     const competitorPipeline = new CompetitorPipeline(runId);
 
@@ -399,21 +719,18 @@ async function processReport(runId: string, company: any): Promise<void> {
     const questionLimit = pLimit(LLM_CONFIG.QUESTION_ANSWERING_CONCURRENCY);
     const questionPromises = [];
 
-    for (const [index, questionText] of (
-      research.target_questions || []
-    ).entries()) {
+    for (const question of activeQuestions) {
       for (const model of questionModels) {
         const promise = questionLimit(async () => {
           try {
             const questionInput = {
-              question: questionText,
-              company_name: fullCompany.name,
-              context: `Target market research for ${fullCompany.name}`,
+              question: question.query,
+              company_name: fullCompany.name, // still used for brand-detection fallback
               enable_web_search: true,
             };
 
             const result = await pydanticLlmService.executeAgent(
-              "question_agent",
+              "answer_agent.py",
               questionInput,
               null,
               { modelId: model.id },
@@ -447,25 +764,7 @@ async function processReport(runId: string, company: any): Promise<void> {
               }
             }
 
-            // Create or find the question
-            const question = await prisma.question.upsert({
-              where: {
-                text_companyId_runId: {
-                  text: questionText,
-                  companyId: fullCompany.id,
-                  runId,
-                },
-              },
-              update: {},
-              create: {
-                text: questionText,
-                type: "research",
-                companyId: fullCompany.id,
-                runId,
-              },
-            });
-
-            // Save the response
+            // Save the response for the active question
             const responseRecord = await prisma.response.create({
               data: {
                 questionId: question.id,
@@ -477,7 +776,9 @@ async function processReport(runId: string, company: any): Promise<void> {
                   confidence: response.confidence,
                   has_web_search: response.has_web_search,
                   brand_mentions_count: response.brand_mentions_count,
-                  question_type: "research",
+                  question_type: question.type,
+                  question_intent: question.intent,
+                  question_source: question.source,
                 } as any,
               },
             });
@@ -559,12 +860,12 @@ async function processReport(runId: string, company: any): Promise<void> {
             }
 
             console.log(
-              `✅ Generated response for "${questionText}" with ${model.id}`,
+              `✅ Generated response for "${question.query}" with ${model.id}`,
             );
             return { success: true };
           } catch (error) {
             console.error(
-              `❌ Failed to process question "${questionText}" with ${model.id}:`,
+              `❌ Failed to process question "${question.query}" with ${model.id}:`,
               error,
             );
             return { success: false, error };
@@ -751,7 +1052,7 @@ async function processReport(runId: string, company: any): Promise<void> {
     try {
       const { persistOptimizationTasks, PRESET_TASKS } = await import('../services/optimizationTaskService');
       console.log(`📋 Generating optimization tasks...`);
-      await persistOptimizationTasks(PRESET_TASKS, runId, fullCompany.id, prisma);
+      await persistOptimizationTasks(PRESET_TASKS as any, runId, fullCompany.id, prisma);
       console.log(`✅ Optimization tasks generated successfully`);
     } catch (error) {
       console.error(`❌ Failed to generate optimization tasks:`, error);
@@ -759,7 +1060,7 @@ async function processReport(runId: string, company: any): Promise<void> {
 
     console.log(`🎉 Report generation completed successfully!`);
     console.log(
-      `📊 Total: ${research.target_questions?.length || 0} questions, ${successfulQuestions} responses, ${competitors.length} competitors, ${successfulSentiments.length} sentiment analyses`,
+      `📊 Total: ${activeQuestions.length} questions, ${successfulQuestions} responses, ${competitors.length} competitors, ${successfulSentiments.length} sentiment analyses`,
     );
     console.log(`💰 Cost: ${totalTokens} tokens, $${totalCost.toFixed(4)} USD`);
     console.log(`⏱️  Duration: ${(duration / 1000).toFixed(1)}s`);
@@ -784,55 +1085,28 @@ async function processReport(runId: string, company: any): Promise<void> {
  * Main job processor
  */
 const processJob = async (job: Job) => {
-  const { runId, company, force } = job.data;
+  try {
+    console.log(`🔥 WORKER ENTRY POINT - Job ${job.id} starting...`);
+    
+    const { runId, company, force } = job.data;
 
   console.log(
     `🎯 Processing job ${job.id} - Report generation for company '${company.name}'`,
   );
+  
+  console.log(`🔍 AWS ENV CHECK: KEY=${process.env.AWS_ACCESS_KEY_ID ? 'SET' : 'MISSING'}, SECRET=${process.env.AWS_SECRET_ACCESS_KEY ? 'SET' : 'MISSING'}, REGION=${process.env.AWS_REGION || 'MISSING'}`);
 
-  try {
-    await processReport(runId, company);
-    console.log(`✅ Job ${job.id} completed successfully`);
-  } catch (error) {
-    console.error(`❌ Job ${job.id} failed:`, error);
-    throw error;
+    try {
+      await processReport(runId, company);
+      console.log(`✅ Job ${job.id} completed successfully`);
+    } catch (error) {
+      console.error(`❌ Job ${job.id} failed:`, error);
+      console.error(`❌ Error stack:`, error instanceof Error ? error.stack : error);
+      throw error;
+    }
+  } catch (outerError) {
+    console.error(`🚨 CRITICAL: Job processor failed at entry level:`, outerError);
+    console.error(`🚨 Stack:`, outerError instanceof Error ? outerError.stack : outerError);
+    throw outerError;
   }
 };
-
-/**
- * Create and export the worker
- */
-const worker = new Worker("report-generation", processJob, {
-  connection: getBullMQConnection(),
-  prefix: env.BULLMQ_QUEUE_PREFIX,
-  concurrency: LLM_CONFIG.WORKER_CONCURRENCY,
-  lockDuration: 1000 * 60 * 15, // 15 minutes
-  limiter: {
-    max: LLM_CONFIG.WORKER_RATE_LIMIT.max,
-    duration: LLM_CONFIG.WORKER_RATE_LIMIT.duration,
-  },
-  removeOnComplete: { count: 100 },
-  removeOnFail: { count: 50 },
-});
-
-worker.on("completed", (job: Job) => {
-  const { runId, company } = job.data;
-  console.log(`✅ Worker event: Job ${job.id} completed for ${company?.name}`);
-});
-
-worker.on("failed", async (job, err) => {
-  const { runId, company } = job?.data || {};
-  console.error(
-    `❌ Worker event: Job ${job?.id} failed for ${company?.name}:`,
-    err,
-  );
-});
-
-worker.on("error", (err) => {
-  console.error("❌ Worker error:", err);
-});
-
-console.log("📋 Report worker process started...");
-console.log("🔗 Initializing database connection...");
-
-export default worker;

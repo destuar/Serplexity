@@ -117,7 +117,8 @@ const VisibilityOverTimeCard: React.FC<VisibilityOverTimeCardProps> = ({ selecte
 
     const processedData = uniqueFilteredData
       .map(item => {
-        const date = new Date(item.date);
+        // Parse date as UTC to avoid timezone conversion issues
+        const date = new Date(item.date + (item.date.includes('T') ? '' : 'T00:00:00Z'));
         // Ensure the date is valid
         if (isNaN(date.getTime())) {
           console.warn('Invalid date:', item.date);
@@ -127,6 +128,7 @@ const VisibilityOverTimeCard: React.FC<VisibilityOverTimeCardProps> = ({ selecte
           date: date.toLocaleDateString('en-US', {
             month: 'short',
             day: 'numeric',
+            timeZone: 'UTC' // Force UTC to avoid timezone conversion
           }),
           shareOfVoice: item.shareOfVoice,
           fullDate: item.date // Keep original date for sorting
@@ -161,6 +163,7 @@ const VisibilityOverTimeCard: React.FC<VisibilityOverTimeCardProps> = ({ selecte
       increment = 20;
     }
 
+    // Calculate finalMax using consistent increments
     const finalMax = Math.ceil(dynamicMax / increment) * increment;
 
     const tickValues = [];
@@ -179,7 +182,7 @@ const VisibilityOverTimeCard: React.FC<VisibilityOverTimeCardProps> = ({ selecte
     return { yAxisMax: finalMax, ticks: tickValues, xAxisInterval: interval };
   }, [chartData]);
 
-  const getModelDisplayName = (model: string): string => {
+  const _getModelDisplayName = (model: string): string => {
     if (model === 'all') return 'All Models';
     const modelMap: Record<string, string> = {
       'gpt-4.1-mini': 'GPT-4o Mini',
@@ -258,6 +261,7 @@ const VisibilityOverTimeCard: React.FC<VisibilityOverTimeCardProps> = ({ selecte
             <YAxis 
               domain={[0, yAxisMax]}
               ticks={ticks}
+              interval={0}
               allowDecimals={false}
               axisLine={{ stroke: '#e2e8f0', strokeWidth: 1 }}
               tickLine={false}

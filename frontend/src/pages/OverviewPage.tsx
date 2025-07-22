@@ -33,8 +33,8 @@ import { useNavigation } from "../hooks/useNavigation";
 import { useEffect } from "react";
 
 // Import sentiment page components
-import SentimentOverTimeCard from "../components/dashboard/SentimentOverTimeCard";
-import SentimentDetailsCard from "../components/dashboard/SentimentDetailsCard";
+// import SentimentOverTimeCard from "../components/dashboard/SentimentOverTimeCard";
+// import SentimentDetailsCard from "../components/dashboard/SentimentDetailsCard";
 import ModelComparisonPage from "./ModelComparisonPage";
 import SentimentAnalysisPage from "./SentimentAnalysisPage";
 

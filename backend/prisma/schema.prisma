@@ -33,11 +33,13 @@ model Company {
   website             String                       @unique
   industry            String?
   userId              String
+  questionsReady      Boolean                      @default(false)
   createdAt           DateTime                     @default(now())
   updatedAt           DateTime                     @updatedAt
   user                User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
   competitors         Competitor[]
   questions           Question[]
+  companyQuestions    CompanyQuestion[]
   mentions            Mention[]
   reportMetrics       ReportMetric[]
   runs                ReportRun[]
@@ -65,26 +67,29 @@ model Competitor {
 }
 
 model Question {
-  id        String     @id @default(cuid())
-  text      String
-  type      String     @default("research")
-  companyId String
-  runId     String
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  run       ReportRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
-  responses Response[]
+  id           String     @id @default(cuid())
+  query        String     // The actual question text
+  type         String?    // QueryType from fanout agent (paraphrase, comparison, etc.) - optional for user questions
+  intent       String?    // PurchaseIntent (awareness, consideration, purchase) - optional for user questions
+  isActive     Boolean    @default(false) // true for top 5 active questions, false for 20 suggested
+  source       String     @default("user") // "ai" for generated questions, "user" for manually added
+  companyId    String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  company      Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  responses    Response[]
 
-  @@unique([text, companyId, runId])
   @@index([companyId])
-  @@index([runId])
+  @@index([isActive])
+  @@index([source])
   @@index([type])
+  @@index([intent])
 }
 
 model ReportRun {
   id                  String                       @id @default(cuid())
   companyId           String
+  jobId               String?  @unique // To link BullMQ job to the report run
   status              String
   stepStatus          String?
   tokensUsed          Int?
@@ -93,7 +98,6 @@ model ReportRun {
   createdAt           DateTime                     @default(now())
   updatedAt           DateTime                     @updatedAt
   aiVisibilitySummary String?
-  questions           Question[]
   responses           Response[]
   sentimentScores     SentimentScore[]
   reportMetrics       ReportMetric[]
@@ -303,6 +307,21 @@ model BlogMedia {
   blogPost   BlogPost @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
 
   @@index([blogPostId])
+}
+
+model CompanyQuestion {
+  id           String              @id @default(cuid())
+  query        String
+  type         String              // QueryType from pydantic schema
+  intent       String              // PurchaseIntent from pydantic schema  
+  isActive     Boolean             @default(false) // true for top 5 active questions
+  companyId    String
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  company      Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+ 
+  @@index([companyId])
+  @@index([isActive])
 }
 
 enum Role {

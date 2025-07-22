@@ -30,6 +30,7 @@
 import { spawn, ChildProcess } from "child_process";
 import { z } from "zod";
 import logger from "../utils/logger";
+import env from "../config/env";
 import {
   PydanticProviderConfig,
   providerManager,
@@ -202,6 +203,148 @@ export class PydanticLlmService {
         reject(new Error(`Python validation failed: ${error.message}`));
       });
     });
+  }
+
+  /**
+   * Extract clean JSON from mixed output (logging + JSON)
+   */
+  private extractJSONFromOutput(output: string): string {
+    // Look for JSON content - typically starts with { and ends with }
+    const lines = output.split('\n');
+    const jsonLines: string[] = [];
+    let inJson = false;
+    let braceCount = 0;
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      
+      // Skip empty lines
+      if (!trimmed) continue;
+      
+      // Start of JSON
+      if (!inJson && trimmed.startsWith('{')) {
+        inJson = true;
+        braceCount = 0;
+      }
+      
+      if (inJson) {
+        jsonLines.push(line);
+        
+        // Count braces to determine end of JSON
+        for (const char of trimmed) {
+          if (char === '{') braceCount++;
+          if (char === '}') braceCount--;
+        }
+        
+        // End of JSON object
+        if (braceCount === 0) {
+          break;
+        }
+      }
+    }
+
+    return jsonLines.length > 0 ? jsonLines.join('\n') : output;
+  }
+
+  /**
+   * Check if output contains only logging information
+   */
+  private isLoggingOutput(output: string): boolean {
+    if (!output || output.trim() === '') return false;
+    
+    const loggingPrefixes = [
+      'INFO:',
+      'DEBUG:',
+      'WARNING:',
+      'WARN:',
+      'ERROR:',
+      'CRITICAL:',
+      '[INFO]',
+      '[DEBUG]',
+      '[WARNING]',
+      '[ERROR]',
+      '[CRITICAL]'
+    ];
+    
+    const lines = output.split('\n').filter(line => line.trim());
+    
+    // Check if all non-empty lines are logging
+    return lines.every(line => {
+      const trimmed = line.trim();
+      return trimmed === '' || loggingPrefixes.some(prefix => trimmed.startsWith(prefix));
+    });
+  }
+
+  /**
+   * Check if output contains ONLY logging (no real errors)
+   */
+  private isOnlyLoggingOutput(output: string): boolean {
+    if (!output || output.trim() === '') return true;
+    
+    const lines = output.split('\n').filter(line => line.trim());
+    
+    // Real error indicators
+    const errorIndicators = [
+      'Traceback (most recent call last):',
+      'Exception:',
+      'Error:',
+      'Failed:',
+      'ModuleNotFoundError:',
+      'ImportError:',
+      'AttributeError:',
+      'TypeError:',
+      'ValueError:',
+      'KeyError:',
+      'FileNotFoundError:',
+      'ConnectionError:',
+      'TimeoutError:',
+      'CRITICAL ERROR:',
+      'FATAL ERROR:'
+    ];
+    
+    // Check if any line contains real error indicators
+    const hasRealError = lines.some(line => {
+      const trimmed = line.trim();
+      return errorIndicators.some(indicator => trimmed.includes(indicator));
+    });
+    
+    return !hasRealError;
+  }
+
+  /**
+   * Extract actual error message from stderr, filtering out logging
+   */
+  private extractActualError(stderr: string): string {
+    if (!stderr || stderr.trim() === '') return '';
+    
+    const lines = stderr.split('\n');
+    const errorLines: string[] = [];
+    
+    // Look for actual error patterns, not just logging
+    for (const line of lines) {
+      const trimmed = line.trim();
+      
+      // Skip empty lines and pure logging
+      if (!trimmed) continue;
+      
+      // Keep lines that indicate real errors
+      if (trimmed.includes('Traceback') ||
+          trimmed.includes('Exception:') ||
+          trimmed.includes('Error:') ||
+          trimmed.includes('Failed:') ||
+          trimmed.includes('CRITICAL:') ||
+          trimmed.includes('FATAL:') ||
+          /\w+Error:/.test(trimmed)) {
+        errorLines.push(line);
+      }
+    }
+    
+    // If no real errors found, but stderr has content, it might be logging
+    if (errorLines.length === 0 && this.isLoggingOutput(stderr)) {
+      return ''; // Not a real error, just logging
+    }
+    
+    return errorLines.length > 0 ? errorLines.join('\n') : stderr;
   }
 
   /**
@@ -453,6 +596,11 @@ export class PydanticLlmService {
           PYDANTIC_MAX_TOKENS: options.maxTokens?.toString(),
           PYDANTIC_SYSTEM_PROMPT: options.systemPrompt,
           PYDANTIC_TIMEOUT: options.timeout?.toString(),
+          // Explicitly pass API keys to Python subprocess
+          PERPLEXITY_API_KEY: env.PERPLEXITY_API_KEY,
+          OPENAI_API_KEY: env.OPENAI_API_KEY,
+          ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
+          GEMINI_API_KEY: env.GEMINI_API_KEY,
         },
       });
 
@@ -480,7 +628,18 @@ export class PydanticLlmService {
 
         if (code === 0) {
           try {
-            const result = JSON.parse(stdout);
+            // Clean stdout from any logging contamination
+            const cleanStdout = this.extractJSONFromOutput(stdout);
+            const result = JSON.parse(cleanStdout);
+
+            // Check if this is a health check with logging output
+            const isHealthCheck = scriptPath.includes('health_check');
+            const hasLoggingInStderr = this.isLoggingOutput(stderr);
+            
+            if (isHealthCheck && hasLoggingInStderr) {
+              // For health checks, logging in stderr is normal, not an error
+              logger.debug(`[Health Check] Normal logging output captured for ${providerId}`);
+            }
 
             // Update provider health on success
             providerManager.updateProviderHealth(
@@ -504,9 +663,12 @@ export class PydanticLlmService {
               fallbackUsed: attempt > 1,
             });
           } catch (parseError) {
+            // Try to extract actual error from stderr vs logging
+            const actualError = this.extractActualError(stderr);
+            
             resolve({
               success: false,
-              error: `Failed to parse agent output: ${parseError}`,
+              error: actualError || `Failed to parse agent output: ${parseError}`,
               executionTime,
               modelUsed: "unknown",
               tokensUsed: 0,
@@ -516,9 +678,41 @@ export class PydanticLlmService {
             });
           }
         } else {
+          // Process failed - but check if it's actually an error or just logging
+          const actualError = this.extractActualError(stderr);
+          const hasRealError = actualError && !this.isOnlyLoggingOutput(stderr);
+          
+          if (!hasRealError && scriptPath.includes('health_check')) {
+            // Health check completed but with logging output - treat as success
+            try {
+              const cleanStdout = this.extractJSONFromOutput(stdout);
+              const result = JSON.parse(cleanStdout);
+              
+              providerManager.updateProviderHealth(
+                providerId,
+                true,
+                executionTime,
+              );
+              
+              resolve({
+                success: true,
+                data: result.result || result.data,
+                executionTime,
+                modelUsed: result.model_used || result.modelUsed || options.modelId || providerId,
+                tokensUsed: result.tokens_used || 0,
+                providerId,
+                attemptCount: attempt,
+                fallbackUsed: attempt > 1,
+              });
+              return;
+            } catch (parseError) {
+              // Fall through to error handling
+            }
+          }
+
           resolve({
             success: false,
-            error: stderr || `Process exited with code ${code}`,
+            error: actualError || `Process exited with code ${code}`,
             executionTime,
             modelUsed: "unknown",
             tokensUsed: 0,

@@ -53,7 +53,7 @@ const CompanyOnboardingPage: React.FC = () => {
       if (!starContainerRef.current) return;
 
       const starEl = document.createElement('div');
-      starEl.className = "absolute h-px bg-gradient-to-r from-transparent via-white to-transparent";
+      starEl.className = "absolute h-px bg-gradient-to-r from-transparent via-gray-400 to-transparent";
       starEl.style.width = '120px';
       
       const duration = (Math.random() * 1.5 + 1) * 1000; // 1s-2.5s in ms
@@ -78,7 +78,7 @@ const CompanyOnboardingPage: React.FC = () => {
       const deltaX_px = (endX_vw - startX_vw) * window.innerWidth;
       const deltaY_px = (endY_vh - startY_vh) * window.innerHeight;
       const angle = Math.atan2(deltaY_px, deltaX_px) * 180 / Math.PI;
-      const opacity = Math.random() * 0.4 + 0.5;
+      const opacity = Math.random() * 0.3 + 0.2;
 
       const keyframes = [
         { transform: `translate(${startX_vw}vw, ${startY_vh}vh) rotate(${angle}deg)`, opacity: 0 },
@@ -111,17 +111,17 @@ const CompanyOnboardingPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-[#0a0a1a] to-[#050510] text-white relative">
+    <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-gray-100 text-gray-900 relative">
       {/* Subtle background gradients */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#5271ff]/15 via-[#7662ff]/8 to-[#9e52ff]/15"></div>
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(82,113,255,0.08),transparent_50%)]"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-[#5271ff]/8 via-[#7662ff]/4 to-[#9e52ff]/8"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(82,113,255,0.05),transparent_50%)]"></div>
       
       {/* Shooting Stars */}
       <div ref={starContainerRef} className="absolute inset-0 overflow-hidden pointer-events-none" />
       
       <div className="relative z-10">
         {/* Header */}
-        <div className="bg-black/5 backdrop-blur-xl border-b border-white/10">
+        <div className="bg-white/60 backdrop-blur-xl border-b border-gray-200/50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
               <div className="flex items-center">
@@ -130,7 +130,7 @@ const CompanyOnboardingPage: React.FC = () => {
                   alt="Serplexity Logo"
                   className="w-8 h-8"
                 />
-                <h1 className="ml-2 text-xl font-bold text-white">Serplexity</h1>
+                <h1 className="ml-2 text-xl font-bold text-gray-900">Serplexity</h1>
               </div>
             </div>
           </div>
@@ -150,17 +150,17 @@ const CompanyOnboardingPage: React.FC = () => {
               {/* Left Side - Welcome Content */}
               <div className="space-y-8">
                 <div>
-                  <h1 className="text-4xl font-bold text-white mb-4">
+                  <h1 className="text-4xl font-bold text-gray-900 mb-4">
                     The Future of Search is <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">Generative</span>
                   </h1>
-                  <p className="text-xl text-gray-300 mb-4">
+                  <p className="text-xl text-gray-600 mb-4">
                     While your competitors optimize for yesterday's search, you'll dominate tomorrow's AI-powered search results.
                   </p>
                 </div>
 
                 {/* Features */}
                 <div className="space-y-6">
-                  <h2 className="text-2xl font-semibold text-white">
+                  <h2 className="text-2xl font-semibold text-gray-900">
                     Why brands choose Serplexity:
                   </h2>
                   <div className="space-y-4">
@@ -169,15 +169,15 @@ const CompanyOnboardingPage: React.FC = () => {
                       return (
                         <div key={index} className="flex items-start space-x-4">
                           <div className="flex-shrink-0">
-                            <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-r from-[#5271ff]/20 to-[#9e52ff]/20 backdrop-blur-xl rounded-lg border border-white/10">
-                              <Icon className="w-5 h-5 text-blue-400" />
+                            <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-r from-[#5271ff]/10 to-[#9e52ff]/10 backdrop-blur-xl rounded-lg border border-gray-200/50">
+                              <Icon className="w-5 h-5 text-[#5271ff]" />
                             </div>
                           </div>
                           <div>
-                            <h3 className="text-lg font-medium text-white">
+                            <h3 className="text-lg font-medium text-gray-900">
                               {feature.title}
                             </h3>
-                            <p className="text-gray-300">
+                            <p className="text-gray-600">
                               {feature.description}
                             </p>
                           </div>

@@ -5,7 +5,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { NavigationContext, BreadcrumbItem } from './NavigationContextTypes';
-import { useLocation } from 'react-router-dom';
+// import { useLocation } from 'react-router-dom';
 
 export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [breadcrumbs, setBreadcrumbsState] = useState<BreadcrumbItem[]>([]);

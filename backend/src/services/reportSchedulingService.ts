@@ -313,7 +313,7 @@ export async function queueReport(
       );
     }
 
-    await reportGenerationQueue.add(
+    const job = await reportGenerationQueue.add(
       "report-generation",
       {
         runId: reportRun.id,
@@ -322,6 +322,12 @@ export async function queueReport(
       },
       jobOptions,
     );
+
+    // Now that we have the job ID, update the report run record
+    await prisma.reportRun.update({
+      where: { id: reportRun.id },
+      data: { jobId: job.id },
+    });
 
     const queueDuration = Date.now() - queueTimer;
     const totalDuration = Date.now() - startTime;

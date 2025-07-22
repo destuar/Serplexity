@@ -116,11 +116,10 @@ const envData = parsedEnv.data;
 
 // Determine secrets provider (support legacy USE_AWS_SECRETS flag)
 let secretsProvider = envData.SECRETS_PROVIDER;
+
+// Support legacy USE_AWS_SECRETS flag
 if (envData.USE_AWS_SECRETS && secretsProvider === "environment") {
   secretsProvider = "aws";
-  console.log(
-    "⚠️  Using legacy USE_AWS_SECRETS flag. Consider migrating to SECRETS_PROVIDER=aws",
-  );
 }
 
 if (secretsProvider !== "environment") {

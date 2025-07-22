@@ -129,7 +129,7 @@ export async function generateSentimentScores(
 
     // Execute PydanticAI agent
     const result = await pydanticLlmService.executeAgent<SentimentScores>(
-      "web_search_sentiment_agent.py",
+      "sentiment_agent.py",
       {
         company_name: companyName,
         industry,
@@ -228,7 +228,7 @@ export async function generateOverallSentimentSummary(
 
     // Generate summary description using sentiment agent
     const result = await pydanticLlmService.executeAgent<SentimentScores>(
-      "web_search_sentiment_agent.py",
+      "sentiment_agent.py",
       {
         company_name: companyName,
         search_queries: [`${companyName} reviews`, `${companyName} sentiment`],
@@ -435,7 +435,7 @@ export async function generateWebsiteForCompetitors(
     const result = await pydanticLlmService.executeAgent<{
       competitors: CompetitorInfo[];
     }>(
-      "website_enrichment_agent.py",
+      "website_agent.py",
       {
         competitor_names: competitorNames,
         context,

@@ -18,23 +18,88 @@
  */
 import { ChevronUp, ChevronDown, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Card from '../ui/Card';
 import { useDashboard } from '../../hooks/useDashboard';
 import { getCompanyLogo } from '../../lib/logoService';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { useCompany } from '../../contexts/CompanyContext';
+import { getAcceptedCompetitors, CompetitorData } from '../../services/companyService';
 
 type TabType = 'mentions' | 'citations';
 
 const RankingsCard = () => {
   const { data, loading, error } = useDashboard();
+  const { selectedCompany } = useCompany();
   const navigate = useNavigate();
   const isTallerScreen = useMediaQuery('(min-height: 900px)');
   const [activeTab, setActiveTab] = useState<TabType>('mentions');
+  const [acceptedCompetitors, setAcceptedCompetitors] = useState<CompetitorData[]>([]);
+  const [acceptedCompetitorsLoading, setAcceptedCompetitorsLoading] = useState(false);
 
-      // Data is now pre-calculated on the backend
-    const rankingsData = data?.competitorRankings;
-    const citationData = data?.citationRankings;
+  // Fetch accepted competitors for filtering
+  useEffect(() => {
+    if (selectedCompany?.id) {
+      const fetchAcceptedCompetitors = async () => {
+        try {
+          setAcceptedCompetitorsLoading(true);
+          const result = await getAcceptedCompetitors(selectedCompany.id);
+          setAcceptedCompetitors(result.competitors || []);
+        } catch (err) {
+          console.error('Error fetching accepted competitors:', err);
+          setAcceptedCompetitors([]);
+        } finally {
+          setAcceptedCompetitorsLoading(false);
+        }
+      };
+      fetchAcceptedCompetitors();
+    }
+  }, [selectedCompany?.id]);
+
+  // Data is now pre-calculated on the backend
+  const rankingsData = data?.competitorRankings;
+  const citationData = data?.citationRankings;
+
+  // Filter competitor rankings to only show accepted competitors
+  const filteredRankingsData = useMemo(() => {
+    if (!rankingsData) {
+      return null;
+    }
+    
+    // Don't show unfiltered data while accepted competitors are loading
+    if (selectedCompany?.id && acceptedCompetitorsLoading) {
+      return null;
+    }
+    
+    // If we have no accepted competitors after loading, show empty state
+    if (selectedCompany?.id && !acceptedCompetitorsLoading && acceptedCompetitors.length === 0) {
+      return {
+        ...rankingsData,
+        competitors: [],
+        chartCompetitors: [],
+      };
+    }
+
+    // Create a set of accepted competitor names (including user company)
+    const acceptedNames = new Set(
+      acceptedCompetitors.map(comp => comp.name.toLowerCase().trim())
+    );
+
+    // Filter competitors to only include accepted ones
+    const filteredCompetitors = rankingsData.competitors?.filter(competitor => 
+      competitor.isUserCompany || acceptedNames.has(competitor.name.toLowerCase().trim())
+    ) || [];
+
+    const filteredChartCompetitors = rankingsData.chartCompetitors?.filter(competitor => 
+      competitor.isUserCompany || acceptedNames.has(competitor.name.toLowerCase().trim())
+    ) || [];
+
+    return {
+      ...rankingsData,
+      competitors: filteredCompetitors,
+      chartCompetitors: filteredChartCompetitors,
+    };
+  }, [rankingsData, acceptedCompetitors, acceptedCompetitorsLoading, selectedCompany?.id]);
 
     // Define the competitor type based on companyService structure
     type Competitor = {
@@ -72,7 +137,7 @@ const RankingsCard = () => {
   };
 
   const renderIndustryRanking = () => {
-    if (loading) {
+    if (loading || acceptedCompetitorsLoading) {
       return (
         <div className="flex-1 flex items-center justify-center">
           <div className="animate-pulse text-gray-400">Loading...</div>
@@ -133,7 +198,7 @@ const RankingsCard = () => {
     }
 
     // Chart logic is now simplified as data is pre-calculated.
-    const chartData = rankingsData.chartCompetitors || [];
+    const chartData = filteredRankingsData?.chartCompetitors || [];
     // Show up to 12 competitors, or all available if fewer than 12
     const displayedChartData = chartData.slice(0, Math.min(12, chartData.length));
     const maxShareOfVoice = displayedChartData.length > 0 ? Math.max(...displayedChartData.map((c: Competitor) => c.shareOfVoice)) : 0;
@@ -141,8 +206,8 @@ const RankingsCard = () => {
     return (
       <div className="flex-1 flex flex-col items-center justify-center">
         <div className="text-6xl font-bold text-gray-800 mb-6">
-          {rankingsData.industryRanking}
-          <span className="text-xl font-normal text-gray-500">{getOrdinalSuffix(rankingsData.industryRanking)}</span>
+          {filteredRankingsData?.industryRanking}
+          <span className="text-xl font-normal text-gray-500">{getOrdinalSuffix(filteredRankingsData?.industryRanking || 0)}</span>
         </div>
         <div className="flex items-end justify-center space-x-1 h-16 w-full max-w-64">
           {displayedChartData.map((competitor: Competitor, index: number) => {
@@ -170,7 +235,7 @@ const RankingsCard = () => {
   };
 
   const renderMentionsView = () => {
-    if (loading) {
+    if (loading || acceptedCompetitorsLoading) {
       return (
         <div className="flex-1 flex items-center justify-center">
           <div className="animate-pulse text-gray-400">Loading...</div>
@@ -187,7 +252,7 @@ const RankingsCard = () => {
     }
 
     // Use chartCompetitors to include the user's company
-    if (!rankingsData || !rankingsData.chartCompetitors || rankingsData.chartCompetitors.length === 0) {
+    if (!filteredRankingsData || !filteredRankingsData.chartCompetitors || filteredRankingsData.chartCompetitors.length === 0) {
       return (
         <div className="flex-1 flex items-center justify-center">
           <p className="text-gray-400 text-sm">No competitor mentions found</p>
@@ -198,7 +263,7 @@ const RankingsCard = () => {
     const numCompetitorsToShow = isTallerScreen ? 4 : 3;
 
     // Show only top 3 entities (including user company), then "X+ others" if there are more
-    const allCompetitors = rankingsData.chartCompetitors;
+    const allCompetitors = filteredRankingsData.chartCompetitors;
     const topCompetitors = allCompetitors.slice(0, numCompetitorsToShow);
     const remainingCompetitors = allCompetitors.slice(numCompetitorsToShow);
     const remainingCount = remainingCompetitors.length;
@@ -224,7 +289,7 @@ const RankingsCard = () => {
       <div className="flex-1 space-y-2">
         {displayCompetitors.map((competitor: Competitor | { name: string; shareOfVoice: number; change: number; changeType: 'stable'; isUserCompany: boolean; website?: string }, index: number) => {
           const logoResult = competitor.website ? getCompanyLogo(competitor.website) : null;
-          const isUserCompany = competitor.isUserCompany;
+          const _isUserCompany = competitor.isUserCompany;
           const isOthers = competitor.name.includes('others');
           
           return (
@@ -236,18 +301,16 @@ const RankingsCard = () => {
               onClick={isOthers ? () => navigate('/competitor-rankings') : undefined}
             >
               <div className="flex items-center space-x-3 flex-1 min-w-0">
-                <span className={`text-sm font-medium w-4 flex-shrink-0 ${
-                  isUserCompany ? 'text-[#7762ff]' : 'text-gray-600'
-                }`}>{index + 1}.</span>
+                <span className="text-sm font-medium w-4 flex-shrink-0 text-gray-600">{index + 1}.</span>
                 
                 {/* Company Logo - don't show for Others */}
                 {!isOthers && (
-                  <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-100 flex-shrink-0">
+                  <div className="w-6 h-6 rounded overflow-hidden bg-gray-100 flex-shrink-0">
                     {logoResult ? (
                       <img
                         src={logoResult.url}
                         alt={`${competitor.name} logo`}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain"
                         onError={(e) => {
                           // Fallback to first letter if logo fails to load
                           e.currentTarget.style.display = 'none';
@@ -270,7 +333,7 @@ const RankingsCard = () => {
                 {/* Company Name - fixed width container for consistent alignment */}
                 <div className="flex-1 min-w-0">
                   <span className={`text-sm font-medium block break-words ${
-                    isOthers ? 'text-gray-500 italic hover:underline' : isUserCompany ? 'text-[#7762ff]' : 'text-gray-800'
+                    isOthers ? 'text-gray-500 italic hover:underline' : 'text-gray-800'
                   }`} style={{
                     display: '-webkit-box',
                     WebkitLineClamp: 1,
@@ -307,7 +370,7 @@ const RankingsCard = () => {
                 {/* Share of voice with fixed width for alignment */}
                 <div className="w-10 text-right">
                   <span className={`text-sm font-semibold ${
-                    isUserCompany ? 'text-[#7762ff]' : isOthers ? 'text-gray-500' : 'text-gray-700'
+                    isOthers ? 'text-gray-500' : 'text-gray-700'
                   }`}>
                     {competitor.shareOfVoice.toFixed(0)}%
                   </span>
@@ -321,7 +384,7 @@ const RankingsCard = () => {
   };
 
   const renderCitationsView = () => {
-    if (loading) {
+    if (loading || acceptedCompetitorsLoading) {
       return (
         <div className="flex-1 flex items-center justify-center">
           <div className="animate-pulse text-gray-400">Loading...</div>
@@ -392,7 +455,7 @@ const RankingsCard = () => {
                 
                 {/* Domain Favicon/Icon */}
                 {!isOthers && (
-                  <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center">
+                  <div className="w-6 h-6 rounded overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center">
                     <img
                       src={`https://www.google.com/s2/favicons?domain=${source.domain}&sz=32`}
                       alt={`${source.domain} favicon`}

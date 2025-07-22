@@ -26,6 +26,8 @@ const RETRY_DELAY_MS = 2000; // Longer retry delay
 const HEALTH_CHECK_INTERVAL = 60000; // 60 seconds - less aggressive
 const CIRCUIT_BREAKER_THRESHOLD = 10; // Higher threshold before opening circuit
 const CIRCUIT_BREAKER_TIMEOUT = 120000; // 2 minutes - longer recovery time
+const MAINTENANCE_INTERVAL = 3600000; // 1 hour - cleanup old data
+const MAX_QUEUE_AGE_HOURS = 24; // Remove queue data older than 24 hours
 
 // Circuit breaker state
 enum CircuitState {
@@ -40,6 +42,7 @@ class RedisConnectionManager {
   private failureCount = 0;
   private lastFailureTime = 0;
   private healthCheckInterval?: NodeJS.Timeout;
+  private maintenanceInterval?: NodeJS.Timeout;
   private isShuttingDown = false;
   private lastHealthyCount: number = POOL_SIZE;
 
@@ -72,7 +75,7 @@ class RedisConnectionManager {
     
     // Additional stability settings
     enableOfflineQueue: true, // Queue commands when disconnected
-    maxLoadingTimeout: 10000, // 10 seconds for LOADING responses
+    // maxLoadingTimeout: 10000, // 10 seconds for LOADING responses - not available in this Redis version
     
     // TLS configuration
     tls: env.REDIS_USE_TLS
@@ -87,6 +90,7 @@ class RedisConnectionManager {
     this.initializeConnections();
     this.startHealthCheck();
     this.setupGracefulShutdown();
+    this.startMaintenanceTask();
   }
 
   private initializeConnections(): void {
@@ -95,9 +99,18 @@ class RedisConnectionManager {
     );
 
     for (let i = 0; i < POOL_SIZE; i++) {
-      const connection = new Redis(this.baseConfig);
+      const connection = new Redis({
+        ...this.baseConfig,
+        // Add unique connection name for debugging
+        connectionName: `serplexity-conn-${i}`,
+      });
       this.setupConnectionHandlers(connection, i);
       this.connections.push(connection);
+      
+      // Force immediate connection attempt
+      connection.connect().catch((err) => {
+        logger.warn(`[Redis:${i}] Initial connection failed: ${err.message}`);
+      });
     }
   }
 
@@ -190,6 +203,186 @@ class RedisConnectionManager {
         logger.error("[Redis] Health check failed:", error);
       }
     }, HEALTH_CHECK_INTERVAL);
+  }
+
+  private startMaintenanceTask(): void {
+    this.maintenanceInterval = setInterval(async () => {
+      if (this.isShuttingDown) return;
+
+      try {
+        await this.performMaintenance();
+      } catch (error) {
+        logger.error("[Redis] Maintenance task failed:", error);
+      }
+    }, MAINTENANCE_INTERVAL);
+
+    // Run initial maintenance after 5 minutes
+    setTimeout(() => {
+      if (!this.isShuttingDown) {
+        this.performMaintenance().catch((error) => {
+          logger.error("[Redis] Initial maintenance failed:", error);
+        });
+      }
+    }, 300000);
+  }
+
+  private async performMaintenance(): Promise<void> {
+    logger.info("[Redis] Starting maintenance task");
+    
+    try {
+      const connection = this.getConnection();
+      
+      // 1. Clean up old BullMQ job data
+      await this.cleanupOldJobs(connection);
+      
+      // 2. Clean up expired keys
+      await this.cleanupExpiredKeys(connection);
+      
+      // 3. Check memory usage
+      await this.checkMemoryUsage(connection);
+      
+      // 4. Optimize connection pool
+      await this.optimizeConnectionPool();
+      
+      logger.info("[Redis] Maintenance task completed successfully");
+    } catch (error) {
+      logger.error("[Redis] Maintenance task failed:", error);
+    }
+  }
+
+  private async cleanupOldJobs(connection: Redis): Promise<void> {
+    try {
+      const queuePrefix = env.BULLMQ_QUEUE_PREFIX || "bull";
+      const cutoffTime = Date.now() - (MAX_QUEUE_AGE_HOURS * 60 * 60 * 1000);
+      
+      // Get all queue keys
+      const queueKeys = await connection.keys(`${queuePrefix}:*:completed`);
+      const failedKeys = await connection.keys(`${queuePrefix}:*:failed`);
+      
+      let cleanedJobs = 0;
+      
+      // Clean completed jobs older than cutoff
+      for (const key of [...queueKeys, ...failedKeys]) {
+        const jobs = await connection.zrangebyscore(key, 0, cutoffTime);
+        if (jobs.length > 0) {
+          await connection.zremrangebyscore(key, 0, cutoffTime);
+          cleanedJobs += jobs.length;
+        }
+      }
+      
+      if (cleanedJobs > 0) {
+        logger.info(`[Redis] Cleaned up ${cleanedJobs} old queue jobs`);
+      }
+    } catch (error) {
+      logger.warn("[Redis] Failed to cleanup old jobs:", error);
+    }
+  }
+
+  private async cleanupExpiredKeys(connection: Redis): Promise<void> {
+    try {
+      // Get keys that might be expired or stale
+      const stalePatterns = [
+        "cache:*",
+        "session:*", 
+        "temp:*",
+        "lock:*"
+      ];
+      
+      let expiredKeys = 0;
+      
+      for (const pattern of stalePatterns) {
+        const keys = await connection.keys(pattern);
+        
+        for (const key of keys) {
+          const ttl = await connection.ttl(key);
+          // If key has no TTL but should expire, set a reasonable TTL
+          if (ttl === -1 && (key.includes("temp:") || key.includes("lock:"))) {
+            await connection.expire(key, 3600); // 1 hour
+            expiredKeys++;
+          }
+        }
+      }
+      
+      if (expiredKeys > 0) {
+        logger.info(`[Redis] Set TTL on ${expiredKeys} stale keys`);
+      }
+    } catch (error) {
+      logger.warn("[Redis] Failed to cleanup expired keys:", error);
+    }
+  }
+
+  private async checkMemoryUsage(connection: Redis): Promise<void> {
+    try {
+      const info = await connection.info("memory");
+      const memoryLines = info.split("\r\n");
+      
+      let usedMemory = 0;
+      let maxMemory = 0;
+      
+      for (const line of memoryLines) {
+        if (line.startsWith("used_memory:")) {
+          usedMemory = parseInt(line.split(":")[1]);
+        }
+        if (line.startsWith("maxmemory:")) {
+          maxMemory = parseInt(line.split(":")[1]);
+        }
+      }
+      
+      if (maxMemory > 0) {
+        const usagePercent = (usedMemory / maxMemory) * 100;
+        
+        if (usagePercent > 80) {
+          logger.warn(`[Redis] High memory usage: ${usagePercent.toFixed(1)}%`);
+        } else {
+          logger.info(`[Redis] Memory usage: ${usagePercent.toFixed(1)}%`);
+        }
+      }
+    } catch (error) {
+      logger.warn("[Redis] Failed to check memory usage:", error);
+    }
+  }
+
+  private async optimizeConnectionPool(): Promise<void> {
+    try {
+      // Check if we have dead connections and recreate them
+      const deadConnections: number[] = [];
+      
+      for (let i = 0; i < this.connections.length; i++) {
+        const connection = this.connections[i];
+        if (connection.status === "end" || connection.status === "close") {
+          deadConnections.push(i);
+        }
+      }
+      
+      if (deadConnections.length > 0) {
+        logger.info(`[Redis] Recreating ${deadConnections.length} dead connections`);
+        
+        for (const index of deadConnections) {
+          // Close the dead connection properly
+          try {
+            await this.connections[index].quit();
+          } catch (error) {
+            // Ignore errors when closing dead connections
+          }
+          
+          // Create new connection
+          const newConnection = new Redis({
+            ...this.baseConfig,
+            connectionName: `serplexity-conn-${index}-recreated`,
+          });
+          
+          this.setupConnectionHandlers(newConnection, index);
+          this.connections[index] = newConnection;
+          
+          // Force connection
+          newConnection.connect().catch((err) => {
+            logger.warn(`[Redis:${index}] Recreated connection failed: ${err.message}`);
+          });
+        }
+      }
+    } catch (error) {
+      logger.warn("[Redis] Failed to optimize connection pool:", error);
+    }
   }
 
   private async checkConnectionHealth(): Promise<number> {
@@ -299,6 +492,10 @@ class RedisConnectionManager {
 
       if (this.healthCheckInterval) {
         clearInterval(this.healthCheckInterval);
+      }
+      
+      if (this.maintenanceInterval) {
+        clearInterval(this.maintenanceInterval);
       }
 
       // Close all connections

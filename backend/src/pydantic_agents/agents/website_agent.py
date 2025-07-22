@@ -13,8 +13,8 @@ from urllib.parse import urlparse, urljoin
 from pydantic import BaseModel, Field, validator
 from pydantic_ai import Agent
 from pydantic_ai.models import KnownModelName
-from pydantic_agents.base_agent import BaseAgent
-from pydantic_agents.config.models import get_default_model_for_task, ModelTask
+from ..base_agent import BaseAgent
+from ..config.models import get_default_model_for_task, ModelTask
 
 class CompetitorInfo(BaseModel):
     name: str = Field(min_length=1, description="Canonical company name")

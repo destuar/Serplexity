@@ -28,6 +28,7 @@ import {
   getShareOfVoice,
   getShareOfVoiceHistory,
   getTopRankingQuestions,
+  getCitations,
   getPromptsWithResponses,
   updateCompany,
   getAcceptedCompetitors,
@@ -37,6 +38,11 @@ import {
   addCompetitor,
   updateCompetitor,
   deleteCompetitor,
+  addQuestion,
+  updateQuestion,
+  deleteQuestion,
+  getCompanyQuestions,
+  getCompanyReadiness,
 } from "../controllers/companyController";
 
 const router = Router();
@@ -48,6 +54,7 @@ router.use(authenticate);
 router.post("/", createCompany); // POST /api/companies - Create new company
 router.get("/", getCompanies); // GET /api/companies - Get all user's companies
 router.get("/:id", getCompany); // GET /api/companies/:id - Get specific company
+router.get("/:id/readiness", getCompanyReadiness); // GET /api/companies/:id/readiness - Check if questions are ready
 router.put("/:id", updateCompany); // PUT /api/companies/:id - Update company
 router.delete("/:id", deleteCompany); // DELETE /api/companies/:id - Delete company
 
@@ -64,11 +71,18 @@ router.get("/:id/share-of-voice-history", getShareOfVoiceHistory);
 
 // Competitor management routes
 router.get("/:id/competitors/accepted", getAcceptedCompetitors); // GET /api/companies/:id/competitors/accepted
+router.get("/:id/citations", getCitations); // GET /api/companies/:id/citations
 router.get("/:id/competitors/suggested", getSuggestedCompetitors); // GET /api/companies/:id/competitors/suggested
 router.post("/:id/competitors/:competitorId/accept", acceptCompetitor); // POST /api/companies/:id/competitors/:competitorId/accept
 router.post("/:id/competitors/:competitorId/decline", declineCompetitor); // POST /api/companies/:id/competitors/:competitorId/decline
 router.post("/:id/competitors", addCompetitor); // POST /api/companies/:id/competitors
 router.put("/:id/competitors/:competitorId", updateCompetitor); // PUT /api/companies/:id/competitors/:competitorId
 router.delete("/:id/competitors/:competitorId", deleteCompetitor); // DELETE /api/companies/:id/competitors/:competitorId
+
+// Question management routes
+router.get("/:id/questions", getCompanyQuestions);
+router.post("/:id/questions", addQuestion);
+router.put("/:id/questions/:questionId", updateQuestion);
+router.delete("/:id/questions/:questionId", deleteQuestion);
 
 export default router;

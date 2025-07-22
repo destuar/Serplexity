@@ -43,6 +43,10 @@ export const getShareOfVoiceHistory = async (companyId: string, filters?: { date
   if (filters?.dateRange) params.append('dateRange', filters.dateRange);
   if (filters?.aiModel) params.append('aiModel', filters.aiModel);
   
+  // Add user's timezone
+  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  params.append('timezone', userTimezone);
+  
   const { data } = await apiClient.get(`/companies/${companyId}/share-of-voice-history?${params.toString()}`);
   return data;
 };
@@ -182,6 +186,25 @@ export interface CompetitorData {
 export interface CompetitorsResponse {
   competitors: CompetitorData[];
 }
+
+export interface CitationData {
+  id: string;
+  url: string;
+  title?: string;
+  domain: string;
+  companyId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CitationsResponse {
+  citations: CitationData[];
+}
+
+export const getCitations = async (companyId: string): Promise<CitationsResponse> => {
+  const { data } = await apiClient.get(`/companies/${companyId}/citations`);
+  return data;
+};
 
 export const getAcceptedCompetitors = async (companyId: string): Promise<CompetitorsResponse> => {
   const { data } = await apiClient.get(`/companies/${companyId}/competitors/accepted`);
