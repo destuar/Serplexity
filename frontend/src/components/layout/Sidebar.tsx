@@ -235,20 +235,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                       : 'cursor-not-allowed opacity-50'
                   }`}
                 >
-                  <div className={`flex items-center justify-center w-4 h-4 rounded ${
-                    canCreateMore 
-                      ? 'bg-black/20' 
-                      : 'bg-gray-100'
-                  }`}>
-                    <Plus size={10} className={canCreateMore ? 'text-black' : 'text-gray-400'} />
-                  </div>
+                  <Plus size={14} className={canCreateMore ? 'text-black' : 'text-gray-400'} />
                   <div className="flex flex-col min-w-0">
                     <span className={`text-sm font-medium ${
                       canCreateMore 
                         ? 'text-black group-hover:text-gray-800' 
                         : 'text-gray-400'
                     }`}>
-                      {canCreateMore ? 'Create New +' : 'Create New'}
+                      Create New
                     </span>
                     {!canCreateMore && (
                       <span className="text-xs text-gray-400">

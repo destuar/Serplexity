@@ -11,3 +11,25 @@ coverage
 
 # Archive (old scripts and tests)
 archive/
+
+# Test artifacts and output (NOT actual test source code)
+test-results/
+test-output/
+junit.xml
+.nyc_output/
+jest-cache/
+.jest/
+
+# Temporary test files and artifacts
+test-temp/
+temp-test-*
+*-test-temp.*
+*-test-output.*
+test-results-*
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python

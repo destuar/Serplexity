@@ -139,20 +139,14 @@ const CompanySelector: React.FC<CompanySelectorProps> = ({
                 : 'cursor-not-allowed opacity-50'
             }`}
           >
-            <div className={`flex items-center justify-center w-4 h-4 rounded ${
-              canCreateMore 
-                ? 'bg-[#7762ff]/20' 
-                : 'bg-gray-100'
-            }`}>
-              <Plus size={12} className={canCreateMore ? 'text-[#7762ff]' : 'text-gray-400'} />
-            </div>
+            <Plus size={16} className={canCreateMore ? 'text-[#7762ff]' : 'text-gray-400'} />
             <div className="flex flex-col">
               <span className={`text-sm font-medium ${
                 canCreateMore 
                   ? 'text-[#7762ff] group-hover:text-[#6650e6]' 
                   : 'text-gray-400'
               }`}>
-                {canCreateMore ? 'Create New +' : 'Create New'}
+                Create New
               </span>
               {!canCreateMore && (
                 <span className="text-xs text-gray-400">

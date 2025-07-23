@@ -89,8 +89,32 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 # Copy Python agents
 COPY backend/src/pydantic_agents/ ./pydantic_agents/
 
-# Copy scripts if any
+# Copy scripts and startup script
 COPY backend/src/scripts/ ./scripts/
+COPY backend/start.sh ./start.sh
+
+# Create Docker-specific startup script
+RUN echo '#!/bin/bash\n\
+echo "🚀 Starting Serplexity Backend (Docker)..."\n\
+export PYTHON_PATH="python3"\n\
+echo "✅ PYTHON_PATH set to: $PYTHON_PATH"\n\
+if $PYTHON_PATH -c "import pydantic_ai" 2>/dev/null; then\n\
+    echo "✅ PydanticAI is available"\n\
+else\n\
+    echo "❌ PydanticAI not found - attempting reinstall..."\n\
+    pip3 install --no-cache-dir --break-system-packages -r requirements.txt\n\
+    if $PYTHON_PATH -c "import pydantic_ai" 2>/dev/null; then\n\
+        echo "✅ PydanticAI installed successfully"\n\
+    else\n\
+        echo "❌ Critical: PydanticAI installation failed"\n\
+        exit 1\n\
+    fi\n\
+fi\n\
+echo "🔧 Running database migrations..."\n\
+npx prisma migrate deploy || echo "⚠️ Database migrations skipped"\n\
+echo "🎯 Starting server..."\n\
+node dist/server.js' > /app/docker-start.sh && \
+    chmod +x /app/docker-start.sh
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
@@ -106,4 +130,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 EXPOSE 8000
 
-CMD ["node", "dist/server.js"] 
+CMD ["./docker-start.sh"] 

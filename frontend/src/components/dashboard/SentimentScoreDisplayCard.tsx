@@ -9,7 +9,7 @@
  * - ../../hooks/useDashboard: Custom hook for accessing dashboard data.
  * - ../ui/Card: Generic card component for consistent UI.
  * - recharts: A customizable charting library for React.
- * - ../../types/dashboard: Type definitions for Metric and SentimentScoreValue.
+ * - ../../types/dashboard: Type definitions for model utilities.
  *
  * @exports
  * - SentimentScoreDisplayCard: React functional component for displaying sentiment scores in a radar chart.
@@ -17,7 +17,8 @@
 import { useDashboard } from '../../hooks/useDashboard';
 import LiquidGlassCard from '../ui/LiquidGlassCard';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts';
-import { Metric, SentimentScoreValue } from '../../types/dashboard';
+import { SentimentDetail } from '../../types/dashboardData';
+import { createModelFilterConfig, filterDetailedMetricsByModel } from '../../utils/modelFiltering';
 import { ArrowRight } from 'lucide-react';
 
 interface SentimentScoreDisplayCardProps {
@@ -36,15 +37,21 @@ const SentimentScoreDisplayCard: React.FC<SentimentScoreDisplayCardProps> = ({ s
         customerService: 'Service',
     };
 
-    const sentimentMetrics: Metric<SentimentScoreValue>[] = data?.sentimentDetails?.filter(
+    const sentimentMetrics: SentimentDetail[] = data?.sentimentDetails?.filter(
         (m) => m.name === 'Detailed Sentiment Scores' || m.name === 'Overall Sentiment Summary'
     ) || [];
 
-    let metricToShow: Metric<SentimentScoreValue> | undefined;
-    if (selectedModel === 'all') {
-        metricToShow = sentimentMetrics.find(m => m.engine === 'serplexity-summary');
-    } else {
-        metricToShow = sentimentMetrics.find(m => m.engine === selectedModel);
+    // Use standardized model filtering for consistent behavior
+    const modelConfig = createModelFilterConfig(selectedModel);
+    const filteredMetrics = filterDetailedMetricsByModel(sentimentMetrics, modelConfig);
+    let metricToShow: SentimentDetail | undefined = filteredMetrics[0];
+    
+    // Fallback mechanism for when no exact match is found
+    if (!metricToShow && sentimentMetrics.length > 0) {
+        console.warn(
+            `[SentimentScoreDisplayCard] No metric found for engine "${modelConfig.queryParams.engineParam}", using first available`
+        );
+        metricToShow = sentimentMetrics[0];
     }
 
     const detailedScores = metricToShow?.value.ratings[0];

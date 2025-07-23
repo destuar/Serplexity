@@ -7,23 +7,22 @@
     "start": "node dist/server.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
+    "lint": "eslint \"src/**/*.ts\" --ignore-pattern \"src/__tests__/**\"",
+    "lint:fix": "eslint \"src/**/*.ts\" --ignore-pattern \"src/__tests__/**\" --fix",
+    "typecheck": "tsc --noEmit",
     "generate": "npx prisma generate",
     "prisma:dev": "ts-node scripts/run-with-secrets.ts npx prisma",
     "migrate:dev": "npm run prisma:dev -- migrate dev",
     "studio:dev": "npm run prisma:dev -- studio",
-    
     "test": "npm run test:pre-deploy",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    
     "test:pre-deploy": "npm run test:agents && npm run test:integration && npm run test:production",
     "test:integration": "jest src/__tests__/integration/ --testTimeout=120000",
     "test:production": "jest src/__tests__/{production-validation,typescript-integration}.test.ts --config=jest.real-providers.config.js --testTimeout=240000 --verbose",
-    
     "test:quick": "npm run test:agents",
     "test:agents": "jest src/__tests__/agents/ --testTimeout=60000",
     "test:full": "npm run test:pre-deploy && npm run test:coverage",
-    
     "ops:health": "ts-node src/scripts/pydantic-health-check.ts",
     "ops:monitor": "ts-node src/scripts/monitor-redis-queues.ts",
     "ops:repair": "ts-node src/scripts/repair-failed-reports.ts",
@@ -48,7 +47,6 @@
     "axios": "^1.10.0",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.54.3",
-    "logfire": "^0.8.0",
     "cheerio": "^1.1.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -58,6 +56,7 @@
     "helmet": "^8.1.0",
     "ioredis": "^5.6.1",
     "jsonwebtoken": "^9.0.2",
+    "logfire": "^0.8.0",
     "morgan": "^1.10.0",
     "multer": "^2.0.1",
     "multer-s3": "^3.0.1",
@@ -85,11 +84,16 @@
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.16",
     "@types/supertest": "^6.0.3",
+    "@typescript-eslint/eslint-plugin": "^8.38.0",
+    "@typescript-eslint/parser": "^8.38.0",
+    "eslint": "^9.31.0",
+    "globals": "^16.3.0",
     "jest": "^30.0.3",
     "prisma": "^6.10.0",
     "supertest": "^7.1.1",
     "ts-jest": "^29.4.0",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "typescript-eslint": "^8.38.0"
   }
 }

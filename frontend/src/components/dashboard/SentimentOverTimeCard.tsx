@@ -1,16 +1,34 @@
 /**
  * @file SentimentOverTimeCard.tsx
  * @description Combined sentiment chart that displays sentiment scores over time.
- * Features a toggle button to switch between aggregated and model breakdown views and starts the line chart at zero.
+ * Features a toggle button to switch between aggregated and model breakdown views.
+ * 
+ * REFACTORED (v2.0.0): Now uses centralized utilities for:
+ * - Chart data processing (eliminates duplicated logic)
+ * - Model filtering (consistent behavior across components)
+ * - Sentiment value resolution (fixes current vs historical data discrepancy)
+ * - Y-axis scaling and date formatting
+ * 
+ * Key features:
+ * - Single source of truth for current sentiment values
+ * - Consistent model filtering logic
+ * - Standardized chart data processing
+ * - Proper error handling and data validation
  *
  * @dependencies
- * - react: For component state and rendering.
- * - recharts: For line chart visualization.
- * - lucide-react: For icons.
- * - ../../hooks/useDashboard: For dashboard data access.
+ * - react: For component state and rendering
+ * - recharts: For area chart visualization
+ * - lucide-react: For icons
+ * - ../../hooks/useDashboard: For dashboard data access
+ * - ../../utils/sentimentDataResolver: For centralized sentiment value resolution
+ * - ../../utils/chartDataProcessing: For shared chart processing utilities
+ * - ../../utils/modelFiltering: For standardized model filtering
  *
  * @exports
- * - SentimentOverTimeCard: The main combined sentiment chart component.
+ * - SentimentOverTimeCard: The main combined sentiment chart component
+ * 
+ * @author Dashboard Team
+ * @version 2.0.0 - Refactored to use centralized utilities
  */
 import { useState, useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -19,22 +37,28 @@ import LiquidGlassCard from '../ui/LiquidGlassCard';
 import { useDashboard } from '../../hooks/useDashboard';
 import { chartColorArrays } from '../../utils/colorClasses';
 import { MODEL_CONFIGS, getModelDisplayName } from '../../types/dashboard';
+import { 
+  resolveCurrentSentimentValue, 
+  resolveCurrentSentimentChange,
+  debugSentimentResolution 
+} from '../../utils/sentimentDataResolver';
+import {
+  processTimeSeriesData,
+  SentimentChartDataPoint,
+  SentimentHistoryItem,
+  calculateYAxisScaling,
+  calculateXAxisInterval,
+  parseApiDate,
+  formatChartDate
+} from '../../utils/chartDataProcessing';
 
 interface SentimentOverTimeCardProps {
   selectedModel?: string;
 }
 
-interface ChartDataPoint {
-  date: string;
-  score: number;
-  isZeroPoint?: boolean; // Flag to identify the synthetic zero point
-}
-
-interface SentimentHistoryItem {
-  date: string;
-  aiModel: string;
-  sentimentScore: number;
-}
+// Using imported interfaces from chartDataProcessing utilities
+// ChartDataPoint -> SentimentChartDataPoint
+// SentimentHistoryItem -> imported from chartDataProcessing
 
 const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedModel = 'all' }) => {
   const { data, error, filters } = useDashboard();
@@ -47,288 +71,126 @@ const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedM
   };
 
   /**
-   * Process chart data - supports both single line (aggregated) and multi-line (breakdown by model)
+   * Process chart data using centralized utilities
+   * Eliminates duplicated logic and ensures consistency with MetricsOverTimeCard
    */
   const { chartData, modelIds } = useMemo(() => {
     if (!data?.sentimentOverTime || !Array.isArray(data.sentimentOverTime)) {
       return { chartData: [], modelIds: [] };
     }
 
-    // Apply date range filter first
-    const now = new Date();
-    const dateFilter = filters?.dateRange || '30d';
-    const cutoffDate = new Date(now);
-    
-    switch (dateFilter) {
-      case '7d':
-        cutoffDate.setDate(now.getDate() - 7);
-        break;
-      case '30d':
-        cutoffDate.setDate(now.getDate() - 30);
-        break;
-      case '90d':
-        cutoffDate.setDate(now.getDate() - 90);
-        break;
-      case '1y':
-        cutoffDate.setFullYear(now.getFullYear() - 1);
-        break;
-    }
-
-    const dateFilteredData = (data.sentimentOverTime as SentimentHistoryItem[])
-      .filter(item => new Date(item.date) >= cutoffDate);
-
-    if (showModelBreakdown) {
-      // Multi-line mode: break down by individual models
-      const historyAccumulator: Record<string, any> = {};
-      const models = new Set<string>();
-
-      dateFilteredData.forEach(item => {
-        if (item.aiModel !== 'all') { // Exclude the aggregated 'all' data
-          const dateKey = new Date(item.date).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            timeZone: 'UTC'
-          });
-          
-          if (!historyAccumulator[dateKey]) {
-            historyAccumulator[dateKey] = { date: dateKey };
-          }
-          
-          historyAccumulator[dateKey][item.aiModel] = item.sentimentScore;
-          models.add(item.aiModel);
-        }
-      });
-      
-      // If no individual model data found, fall back to single line mode
-      if (models.size === 0) {
-        // Fall through to single-line mode processing below
-      } else {
-        const processedData = Object.values(historyAccumulator)
-          .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-        // Add synthetic zero point at the beginning if we have data
-        if (processedData.length > 0 && models.size > 0) {
-          const firstDataPoint = processedData[0] as any;
-          const firstDate = new Date(firstDataPoint.date);
-          let zeroDate: Date;
-          
-          switch (dateFilter) {
-            case '7d':
-              zeroDate = new Date(firstDate);
-              zeroDate.setDate(firstDate.getDate() - 1);
-              break;
-            case '30d':
-              zeroDate = new Date(firstDate);
-              zeroDate.setDate(firstDate.getDate() - 3);
-              break;
-            case '90d':
-              zeroDate = new Date(firstDate);
-              zeroDate.setDate(firstDate.getDate() - 7);
-              break;
-            case '1y':
-              zeroDate = new Date(firstDate);
-              zeroDate.setDate(firstDate.getDate() - 30);
-              break;
-            default:
-              zeroDate = new Date(firstDate);
-              zeroDate.setDate(firstDate.getDate() - 1);
-          }
-
-          const zeroPoint: any = {
-            date: '', // Empty string so no X-axis label appears
-            isZeroPoint: true
-          };
-
-          // Add zero values for all models
-          Array.from(models).forEach(modelId => {
-            zeroPoint[modelId] = 0;
-          });
-
-          return { chartData: [zeroPoint, ...processedData], modelIds: Array.from(models) };
-        }
-
-        return { chartData: processedData, modelIds: Array.from(models) };
-      }
-    }
-
-    // Single-line mode: use aggregated data
-    const targetModel = selectedModel === 'all' ? 'all' : selectedModel;
-    
-    let filteredData = dateFilteredData.filter(item => item.aiModel === targetModel);
-
-    // If no data for target model, fall back to other options
-    if (filteredData.length === 0 && dateFilteredData.length > 0) {
-      const firstModel = dateFilteredData[0].aiModel;
-      filteredData = dateFilteredData.filter(item => item.aiModel === firstModel);
-    }
-
-    // Group by date to ensure unique dates
-    const dateMap = new Map<string, SentimentHistoryItem>();
-    filteredData.forEach(item => {
-      const dateKey = new Date(item.date).toISOString().split('T')[0];
-      if (!dateMap.has(dateKey) || new Date(item.date) > new Date(dateMap.get(dateKey)!.date)) {
-        dateMap.set(dateKey, item);
-      }
-    });
-
-    const uniqueFilteredData = Array.from(dateMap.values());
-
-    // Process and sort the data
-    const processedData = uniqueFilteredData
-      .map(item => {
-        const date = new Date(item.date + (item.date.includes('T') ? '' : 'T00:00:00Z'));
-        if (isNaN(date.getTime())) {
-          console.warn('Invalid date:', item.date);
-          return null;
-        }
+    // Use centralized chart data processing
+    const result = processTimeSeriesData<SentimentHistoryItem, SentimentChartDataPoint>(
+      data.sentimentOverTime,
+      {
+        dateRange: (filters?.dateRange || '30d') as any,
+        selectedModel,
+        showModelBreakdown,
+        includeZeroPoint: true,
+      },
+      // Data transformer function
+      (item: SentimentHistoryItem) => {
+        const parsedDate = parseApiDate(item.date);
+        if (!parsedDate) return null;
+        
         return {
-          date: date.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            timeZone: 'UTC'
-          }),
+          date: formatChartDate(parsedDate),
           score: item.sentimentScore,
-          fullDate: item.date
+          fullDate: item.date,
+          // For breakdown mode, the score will be copied to model-specific keys by the processor
         };
-      })
-      .filter(item => item !== null)
-      .sort((a, b) => new Date(a!.fullDate).getTime() - new Date(b!.fullDate).getTime())
-      .map(({ fullDate: _fullDate, ...rest }) => rest) as ChartDataPoint[];
-
-    // Add synthetic zero point at the beginning if we have data
-    if (processedData.length > 0) {
-      const firstDate = new Date(uniqueFilteredData[0].date);
-      let zeroDate: Date;
-      
-      switch (dateFilter) {
-        case '7d':
-          zeroDate = new Date(firstDate);
-          zeroDate.setDate(firstDate.getDate() - 1);
-          break;
-        case '30d':
-          zeroDate = new Date(firstDate);
-          zeroDate.setDate(firstDate.getDate() - 3);
-          break;
-        case '90d':
-          zeroDate = new Date(firstDate);
-          zeroDate.setDate(firstDate.getDate() - 7);
-          break;
-        case '1y':
-          zeroDate = new Date(firstDate);
-          zeroDate.setDate(firstDate.getDate() - 30);
-          break;
-        default:
-          zeroDate = new Date(firstDate);
-          zeroDate.setDate(firstDate.getDate() - 1);
+      },
+      // Value extractor for Y-axis scaling  
+      (chartData: SentimentChartDataPoint[], modelIds: string[]) => {
+        if (modelIds.length > 0) {
+          // Breakdown mode: extract values from all model keys
+          return chartData.flatMap(d => 
+            modelIds.map(modelId => d[modelId] as number)
+              .filter(val => typeof val === 'number' && !isNaN(val))
+          );
+        } else {
+          // Single line mode: extract score values
+          return chartData
+            .map(d => d.score)
+            .filter(val => typeof val === 'number' && !isNaN(val));
+        }
       }
+    );
 
-      const zeroPoint: ChartDataPoint = {
-        date: '', // Empty string so no X-axis label appears
-        score: 0,
-        isZeroPoint: true
-      };
-
-      return { chartData: [zeroPoint, ...processedData], modelIds: [] };
-    }
-
-    return { chartData: processedData, modelIds: [] };
+    return {
+      chartData: result.chartData,  
+      modelIds: result.modelIds,
+    };
   }, [data?.sentimentOverTime, selectedModel, showModelBreakdown, filters?.dateRange]);
 
+  /**
+   * Calculate Y-axis and X-axis configuration using shared utilities
+   */
   const { yAxisMax, ticks, xAxisInterval } = useMemo(() => {
     if (!chartData || chartData.length === 0) {
       return { yAxisMax: 10, ticks: [0, 2, 4, 6, 8, 10], xAxisInterval: 0 };
     }
     
+    // Extract values for Y-axis scaling
     let values: number[] = [];
-    
     if (showModelBreakdown && modelIds.length > 0) {
-      // For breakdown mode, get values from all model keys
       values = chartData.flatMap(d => 
         modelIds.map(modelId => d[modelId] as number)
-          .filter(val => val !== undefined && val !== null)
+          .filter(val => typeof val === 'number' && !isNaN(val))
       );
     } else {
-      // For single line mode, use the score
       values = chartData
         .map(d => d.score)
-        .filter(val => val !== undefined && val !== null) as number[];
+        .filter(val => typeof val === 'number' && !isNaN(val));
     }
     
-    if (values.length === 0) {
-      return { yAxisMax: 10, ticks: [0, 2, 4, 6, 8, 10], xAxisInterval: 0 };
-    }
-
-    const maxVal = Math.max(...values);
-    const dynamicMax = Math.min(10, Math.max(10, maxVal * 1.4));
+    // Use centralized Y-axis scaling (sentiment is 0-10 scale, not percentage)
+    const { yAxisMax, ticks } = calculateYAxisScaling(values, false, 10);
     
-    let increment = 2;
-    const finalMax = Math.ceil(dynamicMax / increment) * increment;
-
-    const tickValues = [];
-    for (let i = 0; i <= finalMax; i += increment) {
-      tickValues.push(i);
-    }
+    // Use centralized X-axis interval calculation
+    const xAxisInterval = calculateXAxisInterval(chartData.length);
     
-    // Calculate X-axis interval to prevent clipping
-    let interval = 0;
-    if (chartData.length > 15) {
-      interval = Math.ceil(chartData.length / 8);
-    } else if (chartData.length > 10) {
-      interval = Math.ceil(chartData.length / 6);
-    }
-    
-    return { yAxisMax: finalMax, ticks: tickValues, xAxisInterval: interval };
+    return { yAxisMax, ticks, xAxisInterval };
   }, [chartData, showModelBreakdown, modelIds]);
 
+  /**
+   * Gets current sentiment value using centralized resolver
+   * Eliminates the 5.0 vs 4.6 discrepancy by establishing clear data hierarchy
+   */
   const getCurrentSentimentValue = () => {
     if (!data) return null;
     
-    // First try to get from direct sentiment score field
-    if (typeof data.sentimentScore === 'number') {
-      return data.sentimentScore;
+    // Use centralized resolver with proper data hierarchy
+    const result = resolveCurrentSentimentValue(data, {
+      selectedModel,
+      dateRange: filters?.dateRange || '30d',
+      preferAggregated: selectedModel === 'all',
+      minConfidence: 0.5
+    });
+    
+    // Debug in development mode
+    if (process.env.NODE_ENV === 'development') {
+      debugSentimentResolution('SentimentOverTimeCard.getCurrentValue', data, {
+        selectedModel,
+        dateRange: filters?.dateRange || '30d'
+      });
     }
     
-    // If not available, calculate from sentimentDetails (average of all models)
-    if (data.sentimentDetails && Array.isArray(data.sentimentDetails)) {
-      const sentimentMetrics = data.sentimentDetails.filter(
-        (m: any) => m.name === 'Detailed Sentiment Scores' || m.name === 'Overall Sentiment Summary'
-      );
-      
-      let metricToShow;
-      if (selectedModel === 'all') {
-        metricToShow = sentimentMetrics.find((m: any) => m.engine === 'serplexity-summary');
-      } else {
-        metricToShow = sentimentMetrics.find((m: any) => m.engine === selectedModel);
-      }
-      
-      // Extract overall sentiment score from the metric
-      if (metricToShow?.value?.overallSentiment) {
-        return metricToShow.value.overallSentiment;
-      }
-      
-      // Fallback to calculating average from detailed scores
-      if (metricToShow?.value?.ratings?.[0]) {
-        const ratings = metricToShow.value.ratings[0];
-        const scores = [
-          ratings.quality,
-          ratings.priceValue,
-          ratings.brandReputation,
-          ratings.brandTrust,
-          ratings.customerService
-        ].filter(score => typeof score === 'number');
-        
-        if (scores.length > 0) {
-          return scores.reduce((sum, score) => sum + score, 0) / scores.length;
-        }
-      }
-    }
-    
-    return null;
+    return result.value;
   };
 
+  /**
+   * Gets current sentiment change using centralized resolver
+   */
   const getCurrentSentimentChange = () => {
     if (!data) return null;
-    return data.sentimentChange;
+    
+    const result = resolveCurrentSentimentChange(data, {
+      selectedModel,
+      dateRange: filters?.dateRange || '30d'
+    });
+    
+    return result.change;
   };
 
   const renderContent = () => {

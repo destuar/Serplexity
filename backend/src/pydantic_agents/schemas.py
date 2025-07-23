@@ -100,7 +100,7 @@ class SentimentRating(BaseModel):
     summaryDescription: str = Field(
         ..., 
         min_length=10, 
-        max_length=500,
+        max_length=1000,
         description="Detailed description of the overall sentiment"
     )
 

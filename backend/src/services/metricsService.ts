@@ -22,6 +22,7 @@ import {
   calculateCitationRankings,
   saveSentimentOverTimePoint,
   saveShareOfVoiceHistoryPoint,
+  saveInclusionRateHistoryPoint,
   calculateTopResponses,
 } from "./dashboardService";
 
@@ -472,6 +473,16 @@ export async function computeAndPersistMetrics(
       timezone,
     );
 
+    // Save inclusion rate history point for overall
+    await saveInclusionRateHistoryPoint(
+      companyId,
+      new Date(),
+      "all",
+      allInclusionRate,
+      reportId,
+      timezone,
+    );
+
     /******************************
      * Per-model metrics
      ******************************/
@@ -628,6 +639,16 @@ export async function computeAndPersistMetrics(
         new Date(),
         model,
         shareOfVoice,
+        reportId,
+        timezone,
+      );
+
+      // Save inclusion rate history point for this model
+      await saveInclusionRateHistoryPoint(
+        companyId,
+        new Date(),
+        model,
+        rate,
         reportId,
         timezone,
       );

@@ -101,6 +101,20 @@ const envSchema = z.object({
   SMTP_FROM_EMAIL: z.string().email().optional(),
   ALERT_WEBHOOK_URL: z.string().url().optional(),
   ADMIN_EMAIL: z.string().email().optional(),
+
+  // Dependency Management
+  AUTO_REMEDIATE_DEPENDENCIES: z
+    .string()
+    .transform((val) => val === "true")
+    .default("false"),
+  DEPENDENCY_CHECK_ENABLED: z
+    .string()
+    .transform((val) => val === "true")
+    .default("true"),
+  FAIL_FAST_ON_DEPENDENCIES: z
+    .string()
+    .transform((val) => val === "true")
+    .default("false"),
 });
 
 // Validate the environment variables

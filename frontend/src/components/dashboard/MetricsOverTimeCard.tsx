@@ -13,6 +13,26 @@
  * @exports
  * - MetricsOverTimeCard: The main combined metrics chart component.
  */
+/**
+ * @file MetricsOverTimeCard.tsx
+ * @description Combined metrics chart that displays either Share of Voice or Inclusion Rate over time.
+ * Features toggle buttons to switch between metrics and model breakdown views.
+ * 
+ * REFACTORED (v2.0.0): Now uses centralized utilities for:
+ * - Chart data processing (eliminates duplicated logic)
+ * - Model filtering (consistent behavior across components)  
+ * - Data transformation and validation
+ * - Y-axis scaling and date formatting
+ * 
+ * Key features:
+ * - Dual metric support (Share of Voice + Inclusion Rate)
+ * - Consistent model filtering logic
+ * - Standardized chart data processing
+ * - Proper error handling and data validation
+ * 
+ * @author Dashboard Team
+ * @version 2.0.0 - Refactored to use centralized utilities
+ */
 import { useState, useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { MessageSquare, Eye, Layers } from 'lucide-react';
@@ -20,23 +40,25 @@ import LiquidGlassCard from '../ui/LiquidGlassCard';
 import { useDashboard } from '../../hooks/useDashboard';
 import { chartColorArrays } from '../../utils/colorClasses';
 import { MODEL_CONFIGS, getModelDisplayName } from '../../types/dashboard';
+import {
+  processTimeSeriesData,
+  MetricsChartDataPoint,
+  ShareOfVoiceHistoryItem,
+  InclusionRateHistoryItem,
+  extractCurrentValue,
+  calculateYAxisScaling,
+  calculateXAxisInterval,
+  parseApiDate,
+  formatChartDate
+} from '../../utils/chartDataProcessing';
+// Model filtering handled within processTimeSeriesData
 
 interface MetricsOverTimeCardProps {
   selectedModel?: string;
 }
 
-interface ChartDataPoint {
-  date: string;
-  shareOfVoice: number;
-  inclusionRate?: number; // Optional since we might not have historical data yet
-  isZeroPoint?: boolean; // Flag to identify the synthetic zero point
-}
-
-interface ShareOfVoiceHistoryItem {
-  date: string;
-  aiModel: string;
-  shareOfVoice: number;
-}
+// Using shared interfaces from chartDataProcessing utils
+// Legacy interfaces removed - now using centralized types
 
 type MetricType = 'shareOfVoice' | 'inclusionRate';
 
@@ -54,262 +76,140 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
   /**
    * Process chart data - supports both single line (aggregated) and multi-line (breakdown by model)
    */
+  /**
+   * Process chart data using centralized utilities
+   * Handles both Share of Voice and Inclusion Rate with consistent logic
+   */
   const chartDataResult = useMemo(() => {
-    if (!data?.shareOfVoiceHistory || !Array.isArray(data.shareOfVoiceHistory)) {
+    // Get the appropriate history data based on selected metric
+    const historyData = selectedMetric === 'inclusionRate' 
+      ? data?.inclusionRateHistory 
+      : data?.shareOfVoiceHistory;
+
+    if (!historyData || !Array.isArray(historyData)) {
       return { chartData: [], modelIds: [] };
     }
 
-    // Apply date range filter first
-    const now = new Date();
-    const dateFilter = filters?.dateRange || '30d';
-    const cutoffDate = new Date(now);
-    
-    switch (dateFilter) {
-      case '7d':
-        cutoffDate.setDate(now.getDate() - 7);
-        break;
-      case '30d':
-        cutoffDate.setDate(now.getDate() - 30);
-        break;
-      case '90d':
-        cutoffDate.setDate(now.getDate() - 90);
-        break;
-      case '1y':
-        cutoffDate.setFullYear(now.getFullYear() - 1);
-        break;
-    }
-
-    const dateFilteredData = (data.shareOfVoiceHistory as ShareOfVoiceHistoryItem[])
-      .filter(item => new Date(item.date) >= cutoffDate);
-
-    if (showModelBreakdown) {
-      // Multi-line mode: break down by individual models
-      const historyAccumulator: Record<string, any> = {};
-      const models = new Set<string>();
-
-      dateFilteredData.forEach(item => {
-        if (item.aiModel !== 'all') { // Exclude the aggregated 'all' data
-          const dateKey = new Date(item.date).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            timeZone: 'UTC'
-          });
-          
-          if (!historyAccumulator[dateKey]) {
-            historyAccumulator[dateKey] = { date: dateKey };
-          }
-          
-          historyAccumulator[dateKey][item.aiModel] = selectedMetric === 'shareOfVoice' 
-            ? item.shareOfVoice 
-            : (item as any).inclusionRate || 0; // Fallback for inclusion rate
-          
-          models.add(item.aiModel);
-        }
-      });
-      
-      // If no individual model data found, fall back to single line mode
-      if (models.size === 0) {
-        // Fall through to single-line mode processing below
-      } else {
-        const processedData = Object.values(historyAccumulator)
-          .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-        // Add synthetic zero point at the beginning if we have data
-        if (processedData.length > 0 && models.size > 0) {
-          const firstDataPoint = processedData[0] as any;
-          const firstDate = new Date(firstDataPoint.date);
-          let zeroDate: Date;
-          
-          switch (dateFilter) {
-            case '7d':
-              zeroDate = new Date(firstDate);
-              zeroDate.setDate(firstDate.getDate() - 1);
-              break;
-            case '30d':
-              zeroDate = new Date(firstDate);
-              zeroDate.setDate(firstDate.getDate() - 3);
-              break;
-            case '90d':
-              zeroDate = new Date(firstDate);
-              zeroDate.setDate(firstDate.getDate() - 7);
-              break;
-            case '1y':
-              zeroDate = new Date(firstDate);
-              zeroDate.setDate(firstDate.getDate() - 30);
-              break;
-            default:
-              zeroDate = new Date(firstDate);
-              zeroDate.setDate(firstDate.getDate() - 1);
-          }
-
-          const zeroPoint: any = {
-            date: '', // Empty string so no X-axis label appears
-            isZeroPoint: true
-          };
-
-          // Add zero values for all models
-          Array.from(models).forEach(modelId => {
-            zeroPoint[modelId] = 0;
-          });
-
-          return { chartData: [zeroPoint, ...processedData], modelIds: Array.from(models) };
-        }
-
-        return { chartData: processedData, modelIds: Array.from(models) };
-      }
-    } else {
-      // Single-line mode: use aggregated data
-      const targetModel = selectedModel === 'all' ? 'all' : selectedModel;
-      
-      let filteredData = dateFilteredData.filter(item => item.aiModel === targetModel);
-
-      // If no data for target model, fall back to other options
-      if (filteredData.length === 0 && dateFilteredData.length > 0) {
-        const firstModel = dateFilteredData[0].aiModel;
-        filteredData = dateFilteredData.filter(item => item.aiModel === firstModel);
-      }
-
-      // Group by date to ensure unique dates
-      const dateMap = new Map<string, ShareOfVoiceHistoryItem>();
-      filteredData.forEach(item => {
-        const dateKey = new Date(item.date).toISOString().split('T')[0];
-        if (!dateMap.has(dateKey) || new Date(item.date) > new Date(dateMap.get(dateKey)!.date)) {
-          dateMap.set(dateKey, item);
-        }
-      });
-
-      const uniqueFilteredData = Array.from(dateMap.values());
-
-      // Process and sort the data
-      const processedData = uniqueFilteredData
-        .map(item => {
-          const date = new Date(item.date + (item.date.includes('T') ? '' : 'T00:00:00Z'));
-          if (isNaN(date.getTime())) {
-            console.warn('Invalid date:', item.date);
-            return null;
-          }
-          return {
-            date: date.toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              timeZone: 'UTC'
-            }),
-            shareOfVoice: item.shareOfVoice,
-            inclusionRate: (item as any).inclusionRate || 0,
-            fullDate: item.date
-          };
-        })
-        .filter(item => item !== null)
-        .sort((a, b) => new Date(a!.fullDate).getTime() - new Date(b!.fullDate).getTime())
-        .map(({ fullDate: _fullDate, ...rest }) => rest) as ChartDataPoint[];
-
-      // Add synthetic zero point at the beginning if we have data
-      if (processedData.length > 0) {
-        const firstDate = new Date(uniqueFilteredData[0].date);
-        let zeroDate: Date;
+    // Use centralized chart data processing
+    const result = processTimeSeriesData<
+      ShareOfVoiceHistoryItem | InclusionRateHistoryItem, 
+      MetricsChartDataPoint
+    >(
+      historyData,
+      {
+        dateRange: (filters?.dateRange || '30d') as any,
+        selectedModel,
+        showModelBreakdown,
+        includeZeroPoint: true,
+      },
+      // Data transformer function
+      (item: ShareOfVoiceHistoryItem | InclusionRateHistoryItem) => {
+        const parsedDate = parseApiDate(item.date);
+        if (!parsedDate) return null;
         
-        switch (dateFilter) {
-          case '7d':
-            zeroDate = new Date(firstDate);
-            zeroDate.setDate(firstDate.getDate() - 1);
-            break;
-          case '30d':
-            zeroDate = new Date(firstDate);
-            zeroDate.setDate(firstDate.getDate() - 3);
-            break;
-          case '90d':
-            zeroDate = new Date(firstDate);
-            zeroDate.setDate(firstDate.getDate() - 7);
-            break;
-          case '1y':
-            zeroDate = new Date(firstDate);
-            zeroDate.setDate(firstDate.getDate() - 30);
-            break;
-          default:
-            zeroDate = new Date(firstDate);
-            zeroDate.setDate(firstDate.getDate() - 1);
-        }
-
-        const zeroPoint: ChartDataPoint = {
-          date: '', // Empty string so no X-axis label appears
+        // Create chart data point with the selected metric value
+        // For breakdown mode, we need to set the primary metric value that will be used for model keys
+        const chartPoint: MetricsChartDataPoint = {
+          date: formatChartDate(parsedDate),
+          fullDate: item.date,
           shareOfVoice: 0,
           inclusionRate: 0,
-          isZeroPoint: true
         };
 
-        return { chartData: [zeroPoint, ...processedData], modelIds: [] };
-      }
+        // Set the appropriate values based on data type and selected metric
+        if ('shareOfVoice' in item) {
+          chartPoint.shareOfVoice = item.shareOfVoice;
+          chartPoint.inclusionRate = item.inclusionRate || 0;
+          // For breakdown mode, set the primary metric that will be mapped to model keys
+          (chartPoint as any).primaryValue = selectedMetric === 'shareOfVoice' ? item.shareOfVoice : (item.inclusionRate || 0);
+        } else if ('inclusionRate' in item) {
+          chartPoint.inclusionRate = item.inclusionRate;
+          // For inclusion rate data, we don't have shareOfVoice, so keep at 0
+          (chartPoint as any).primaryValue = item.inclusionRate;
+        }
 
-      return { chartData: processedData, modelIds: [] };
-    }
-  }, [data?.shareOfVoiceHistory, selectedModel, selectedMetric, showModelBreakdown, filters?.dateRange]);
+        return chartPoint;
+      },
+      // Value extractor for Y-axis scaling  
+      (chartData: MetricsChartDataPoint[], modelIds: string[]) => {
+        const valueKey = selectedMetric === 'shareOfVoice' ? 'shareOfVoice' : 'inclusionRate';
+        
+        if (modelIds.length > 0) {
+          // Breakdown mode: extract values from all model keys
+          return chartData.flatMap(d => 
+            modelIds.map(modelId => d[modelId] as number)
+              .filter(val => typeof val === 'number' && !isNaN(val))
+          );
+        } else {
+          // Single line mode: extract values for selected metric
+          return chartData
+            .map(d => d[valueKey])
+            .filter(val => typeof val === 'number' && !isNaN(val)) as number[];
+        }
+      }
+    );
+
+    return {
+      chartData: result.chartData,  
+      modelIds: result.modelIds,
+    };
+  }, [data?.shareOfVoiceHistory, data?.inclusionRateHistory, selectedModel, selectedMetric, showModelBreakdown, filters?.dateRange]);
 
   const chartData = chartDataResult?.chartData || [];
   const modelIds = chartDataResult?.modelIds || [];
 
+  /**
+   * Calculate Y-axis and X-axis configuration using shared utilities
+   */
   const { yAxisMax, ticks, xAxisInterval } = useMemo(() => {
     if (!chartData || chartData.length === 0) {
       return { yAxisMax: 100, ticks: [0, 20, 40, 60, 80, 100], xAxisInterval: 0 };
     }
     
+    // Extract values for Y-axis scaling using shared logic
     let values: number[] = [];
-    
     if (showModelBreakdown && modelIds.length > 0) {
-      // For breakdown mode, get values from all model keys
       values = chartData.flatMap((d: any) => 
         modelIds.map((modelId: string) => d[modelId] as number)
-          .filter((val: any) => val !== undefined && val !== null)
+          .filter((val: any) => typeof val === 'number' && !isNaN(val))
       );
     } else {
-      // For single line mode, use the selected metric
       const metricKey = selectedMetric === 'shareOfVoice' ? 'shareOfVoice' : 'inclusionRate';
       values = chartData
         .map((d: any) => d[metricKey])
-        .filter((val: any) => val !== undefined && val !== null) as number[];
+        .filter((val: any) => typeof val === 'number' && !isNaN(val));
     }
     
-    if (values.length === 0) {
-      return { yAxisMax: 100, ticks: [0, 20, 40, 60, 80, 100], xAxisInterval: 0 };
-    }
-
-    const maxVal = Math.max(...values);
-
-    if (maxVal === 0) {
-      return { yAxisMax: 10, ticks: [0, 5, 10], xAxisInterval: 0 };
-    }
-
-    const dynamicMax = Math.min(100, maxVal * 1.4);
+    // Use centralized Y-axis scaling (metrics are percentages, 0-100 range)
+    const { yAxisMax, ticks } = calculateYAxisScaling(values, true, 100);
     
-    let increment;
-    if (dynamicMax <= 20) {
-      increment = 5;
-    } else if (dynamicMax <= 50) {
-      increment = 10;
-    } else {
-      increment = 20;
-    }
-
-    const finalMax = Math.ceil(dynamicMax / increment) * increment;
-
-    const tickValues = [];
-    for (let i = 0; i <= finalMax; i += increment) {
-      tickValues.push(i);
-    }
+    // Use centralized X-axis interval calculation
+    const xAxisInterval = calculateXAxisInterval(chartData.length);
     
-    // Calculate X-axis interval to prevent clipping
-    let interval = 0;
-    if (chartData.length > 15) {
-      interval = Math.ceil(chartData.length / 8);
-    } else if (chartData.length > 10) {
-      interval = Math.ceil(chartData.length / 6);
-    }
-    
-    return { yAxisMax: finalMax, ticks: tickValues, xAxisInterval: interval };
+    return { yAxisMax, ticks, xAxisInterval };
   }, [chartData, selectedMetric, showModelBreakdown, modelIds]);
 
+  /**
+   * Gets current metric value using centralized approach
+   * Ensures consistency with chart data source
+   */
   const getCurrentMetricValue = () => {
     if (!data) return null;
     
+    // Use extractCurrentValue utility for consistency with chart data
+    const currentValueFromChart = extractCurrentValue(
+      chartData,
+      selectedMetric === 'shareOfVoice' ? 'shareOfVoice' : 'inclusionRate',
+      modelIds,
+      showModelBreakdown
+    );
+    
+    // If we have chart data, use it for consistency
+    if (currentValueFromChart !== null) {
+      return currentValueFromChart;
+    }
+    
+    // Fallback to direct data fields
     if (selectedMetric === 'shareOfVoice') {
       return data.shareOfVoice;
     } else {
@@ -374,20 +274,6 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
       );
     }
 
-    // For inclusion rate, show message if no historical data yet
-    if (selectedMetric === 'inclusionRate' && !showModelBreakdown && !chartData.some(d => d.inclusionRate !== undefined)) {
-      return (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <div className="text-gray-400 mb-2">
-              <Eye className="w-12 h-12 mx-auto" />
-            </div>
-            <p className="text-gray-500 text-sm font-medium">Inclusion Rate trends coming soon</p>
-            <p className="text-gray-400 text-xs mt-1">Historical data will be available in future reports</p>
-          </div>
-        </div>
-      );
-    }
 
     return (
               <div className="flex-1 min-h-0 relative">

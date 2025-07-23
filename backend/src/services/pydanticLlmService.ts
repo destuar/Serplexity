@@ -45,6 +45,7 @@ import {
   createSpan,
   initializeLogfire,
 } from "../config/logfire";
+import DependencyValidator from "./dependencyValidator";
 
 // Initialize Logfire for the PydanticAI service
 (async () => {
@@ -136,7 +137,12 @@ export class PydanticLlmService {
     // Always point to source directory for Python scripts
     // This works both in development and production since Python files don't get compiled
     this.scriptsPath = path.resolve(__dirname, "../../src/pydantic_agents");
-    this.initializePythonEnvironment();
+    // Initialize Python environment asynchronously without blocking constructor
+    this.initializePythonEnvironment().catch(error => {
+      logger.error("Failed to initialize PydanticAI Python environment", { error });
+      // Mark all providers as unavailable in case of initialization failure
+      providerManager.markAllProvidersUnavailable("Python environment initialization failed");
+    });
   }
 
   static getInstance(): PydanticLlmService {
@@ -160,16 +166,109 @@ export class PydanticLlmService {
         return;
       }
 
-      // Validate Python and PydanticAI availability
-      await this.validatePythonEnvironment();
-
-      logger.info("PydanticAI service initialized successfully", {
-        pythonPath: this.pythonPath,
-        scriptsPath: this.scriptsPath,
-      });
+      // Use comprehensive dependency validation
+      const validator = DependencyValidator.getInstance();
+      const validation = await validator.validateAll(false);
+      
+      if (validation.success) {
+        logger.info("✅ PydanticAI service initialized successfully - all dependencies validated", {
+          pythonPath: this.pythonPath,
+          scriptsPath: this.scriptsPath,
+          validationSummary: validator.getHealthSummary()
+        });
+      } else {
+        // Log detailed failure information
+        logger.error("❌ PydanticAI service running in degraded mode - dependency validation failed", {
+          criticalFailures: validation.criticalFailures,
+          warnings: validation.warnings,
+          pythonPath: this.pythonPath,
+          remediationSteps: this.generateRemediationSteps(validation.results)
+        });
+        
+        // Mark all providers as unavailable with detailed reason
+        const failureReason = `Dependencies failed: ${validation.criticalFailures.join('; ')}`;
+        providerManager.markAllProvidersUnavailable(failureReason);
+        
+        // Attempt automated remediation if configured
+        if (env.AUTO_REMEDIATE_DEPENDENCIES) {
+          logger.info("🔧 Attempting automated dependency remediation...");
+          await this.attemptAutomatedRemediation(validation.results);
+        }
+      }
     } catch (error) {
-      logger.error("Failed to initialize PydanticAI service", { error });
-      throw new Error("PydanticAI service initialization failed");
+      logger.error("Failed to initialize PydanticAI service directory setup", { error });
+      // Mark all providers as unavailable but don't crash the service
+      providerManager.markAllProvidersUnavailable("Service directory setup failed");
+    }
+  }
+
+  /**
+   * Generate actionable remediation steps from validation results
+   */
+  private generateRemediationSteps(results: Map<string, any>): string[] {
+    const steps: string[] = [];
+    
+    for (const [checkName, result] of results) {
+      if (!result.success && result.remediation) {
+        steps.push(`${checkName}: ${result.remediation}`);
+      }
+    }
+    
+    return steps;
+  }
+
+  /**
+   * Attempt automated remediation for common dependency issues
+   */
+  private async attemptAutomatedRemediation(results: Map<string, any>): Promise<void> {
+    const remediation = results.get('pydantic-ai-installation');
+    
+    if (remediation && !remediation.success && remediation.remediation?.includes('pip3 install')) {
+      try {
+        logger.info("🔧 Attempting to install Python dependencies automatically...");
+        
+        const { spawn } = await import("child_process");
+        const requirementsPath = path.join(process.cwd(), "requirements.txt");
+        
+        return new Promise((resolve, reject) => {
+          const installProc = spawn("pip3", ["install", "-r", requirementsPath], {
+            stdio: ['ignore', 'pipe', 'pipe']
+          });
+          
+          let output = "";
+          let errorOutput = "";
+          
+          installProc.stdout?.on('data', (data) => {
+            output += data.toString();
+          });
+          
+          installProc.stderr?.on('data', (data) => {
+            errorOutput += data.toString();
+          });
+          
+          installProc.on('close', (code) => {
+            if (code === 0) {
+              logger.info("✅ Python dependencies installed successfully", { output });
+              resolve();
+            } else {
+              logger.error("❌ Failed to install Python dependencies", { 
+                exitCode: code, 
+                error: errorOutput 
+              });
+              reject(new Error(`pip install failed with code ${code}`));
+            }
+          });
+          
+          installProc.on('error', (error) => {
+            logger.error("❌ pip install process failed", { error: error.message });
+            reject(error);
+          });
+        });
+      } catch (error) {
+        logger.error("❌ Automated remediation failed", { 
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
     }
   }
 
@@ -632,13 +731,12 @@ export class PydanticLlmService {
             const cleanStdout = this.extractJSONFromOutput(stdout);
             const result = JSON.parse(cleanStdout);
 
-            // Check if this is a health check with logging output
-            const isHealthCheck = scriptPath.includes('health_check');
+            // Check for logging output in stderr
             const hasLoggingInStderr = this.isLoggingOutput(stderr);
             
-            if (isHealthCheck && hasLoggingInStderr) {
-              // For health checks, logging in stderr is normal, not an error
-              logger.debug(`[Health Check] Normal logging output captured for ${providerId}`);
+            if (hasLoggingInStderr) {
+              // Logging in stderr is normal, not an error
+              logger.debug(`Normal logging output captured for ${providerId}`);
             }
 
             // Update provider health on success
@@ -682,8 +780,8 @@ export class PydanticLlmService {
           const actualError = this.extractActualError(stderr);
           const hasRealError = actualError && !this.isOnlyLoggingOutput(stderr);
           
-          if (!hasRealError && scriptPath.includes('health_check')) {
-            // Health check completed but with logging output - treat as success
+          if (!hasRealError) {
+            // Script completed but with logging output - treat as success if we can parse JSON
             try {
               const cleanStdout = this.extractJSONFromOutput(stdout);
               const result = JSON.parse(cleanStdout);
@@ -868,6 +966,13 @@ export class PydanticLlmService {
       poolSize: this.processPool.size,
       providerHealth: [...providerManager.getHealthReport()],
     };
+  }
+
+  /**
+   * Get available providers for health checks
+   */
+  getAvailableProviders(): any[] {
+    return [...providerManager.getAvailableProviders()];
   }
 
   /**

@@ -22,32 +22,32 @@ model User {
   updatedAt          DateTime   @updatedAt
   stripeCustomerId   String?    @unique
   subscriptionStatus String?
-  trialStartedAt     DateTime?  // When user started their 7-day trial
-  trialEndsAt        DateTime?  // When trial expires (calculated from trialStartedAt + 7 days)
-  modelPreferences   Json?      @default("{\"gpt-4.1-mini\":true,\"claude-3-5-haiku-20241022\":true,\"gemini-2.5-flash\":true,\"sonar\":true}")
+  modelPreferences   Json?      @default("{\"sonar\": true, \"gpt-4.1-mini\": true, \"gemini-2.5-flash\": true, \"claude-3-5-haiku-20241022\": true}")
+  trialEndsAt        DateTime?
+  trialStartedAt     DateTime?
   blogPosts          BlogPost[]
   companies          Company[]
 }
 
 model Company {
-  id                  String                       @id @default(cuid())
-  name                String
-  website             String                       @unique
-  industry            String?
-  userId              String
-  questionsReady      Boolean                      @default(false)
-  createdAt           DateTime                     @default(now())
-  updatedAt           DateTime                     @updatedAt
-  user                User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  competitors         Competitor[]
-  questions           Question[]
-  companyQuestions    CompanyQuestion[]
-  mentions            Mention[]
-  reportMetrics       ReportMetric[]
-  runs                ReportRun[]
-  sentimentOverTime   SentimentOverTime[]
-  shareOfVoiceHistory ShareOfVoiceHistory[]
-  optimizationTasks   VisibilityOptimizationTask[]
+  id                   String                       @id @default(cuid())
+  name                 String
+  website              String                       @unique
+  industry             String?
+  userId               String
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
+  questionsReady       Boolean                      @default(false)
+  user                 User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  competitors          Competitor[]
+  inclusionRateHistory InclusionRateHistory[]
+  mentions             Mention[]
+  questions            Question[]
+  reportMetrics        ReportMetric[]
+  runs                 ReportRun[]
+  sentimentOverTime    SentimentOverTime[]
+  shareOfVoiceHistory  ShareOfVoiceHistory[]
+  optimizationTasks    VisibilityOptimizationTask[]
 
   @@index([userId])
 }
@@ -60,7 +60,7 @@ model Competitor {
   updatedAt   DateTime  @updatedAt
   website     String
   isGenerated Boolean   @default(false)
-  isAccepted  Boolean?  // null = not decided, true = accepted, false = declined
+  isAccepted  Boolean?
   company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   mentions    Mention[]
 
@@ -69,17 +69,17 @@ model Competitor {
 }
 
 model Question {
-  id           String     @id @default(cuid())
-  query        String     // The actual question text
-  type         String?    // QueryType from fanout agent (paraphrase, comparison, etc.) - optional for user questions
-  intent       String?    // PurchaseIntent (awareness, consideration, purchase) - optional for user questions
-  isActive     Boolean    @default(false) // true for top 5 active questions, false for 20 suggested
-  source       String     @default("user") // "ai" for generated questions, "user" for manually added
-  companyId    String
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  company      Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  responses    Response[]
+  id        String     @id @default(cuid())
+  query     String
+  type      String?
+  intent    String?
+  isActive  Boolean    @default(false)
+  source    String     @default("user")
+  companyId String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  responses Response[]
 
   @@index([companyId])
   @@index([isActive])
@@ -89,24 +89,25 @@ model Question {
 }
 
 model ReportRun {
-  id                  String                       @id @default(cuid())
-  companyId           String
-  jobId               String?  @unique // To link BullMQ job to the report run
-  status              String
-  stepStatus          String?
-  tokensUsed          Int?
-  usdCost             Float?
-  traceId             String?
-  createdAt           DateTime                     @default(now())
-  updatedAt           DateTime                     @updatedAt
-  aiVisibilitySummary String?
-  responses           Response[]
-  sentimentScores     SentimentScore[]
-  reportMetrics       ReportMetric[]
-  company             Company                      @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  sentimentOverTime   SentimentOverTime[]
-  shareOfVoiceHistory ShareOfVoiceHistory[]
-  optimizationTasks   VisibilityOptimizationTask[]
+  id                   String                       @id @default(cuid())
+  companyId            String
+  status               String
+  stepStatus           String?
+  tokensUsed           Int?
+  usdCost              Float?
+  traceId              String?
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
+  aiVisibilitySummary  String?
+  jobId                String?                      @unique
+  inclusionRateHistory InclusionRateHistory[]
+  sentimentScores      SentimentScore[]
+  reportMetrics        ReportMetric[]
+  company              Company                      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  responses            Response[]
+  sentimentOverTime    SentimentOverTime[]
+  shareOfVoiceHistory  ShareOfVoiceHistory[]
+  optimizationTasks    VisibilityOptimizationTask[]
 
   @@index([companyId])
 }
@@ -136,10 +137,10 @@ model Response {
   metadata   Json?
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
-  question   Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  run        ReportRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
   citations  Citation[]
   mentions   Mention[]
+  question   Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  run        ReportRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
 
   @@index([questionId])
   @@index([runId])
@@ -195,7 +196,6 @@ model ReportMetric {
   averageInclusionChange Float?
   averagePosition        Float
   averagePositionChange  Float?
-  sentimentScore         Json?
   sentimentChange        Float?
   topRankingsCount       Int?
   rankingsChange         Float?
@@ -204,6 +204,7 @@ model ReportMetric {
   competitorRankings     Json?
   topQuestions           Json?
   sentimentDetails       Json?
+  sentimentScore         Json?
   company                Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   report                 ReportRun @relation(fields: [reportId], references: [id], onDelete: Cascade)
 
@@ -222,6 +223,22 @@ model ShareOfVoiceHistory {
   updatedAt    DateTime  @updatedAt
   company      Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   reportRun    ReportRun @relation(fields: [reportRunId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, date, aiModel])
+  @@index([companyId, aiModel])
+}
+
+model InclusionRateHistory {
+  id            String    @id @default(cuid())
+  companyId     String
+  date          DateTime  @db.Date
+  aiModel       String
+  inclusionRate Float
+  reportRunId   String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  company       Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reportRun     ReportRun @relation(fields: [reportRunId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, date, aiModel])
   @@index([companyId, aiModel])
@@ -280,13 +297,13 @@ model BlogPost {
   authorId          String
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
-  canonicalUrl      String?
-  estimatedReadTime Int?
-  metaDescription   String?
   metaTitle         String?
+  metaDescription   String?
+  canonicalUrl      String?
   openGraphImage    String?
-  tags              String[]
   twitterCard       String?     @default("summary_large_image")
+  tags              String[]
+  estimatedReadTime Int?
   media             BlogMedia[]
   author            User        @relation(fields: [authorId], references: [id])
 
@@ -309,21 +326,6 @@ model BlogMedia {
   blogPost   BlogPost @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
 
   @@index([blogPostId])
-}
-
-model CompanyQuestion {
-  id           String              @id @default(cuid())
-  query        String
-  type         String              // QueryType from pydantic schema
-  intent       String              // PurchaseIntent from pydantic schema  
-  isActive     Boolean             @default(false) // true for top 5 active questions
-  companyId    String
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
-  company      Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
- 
-  @@index([companyId])
-  @@index([isActive])
 }
 
 enum Role {

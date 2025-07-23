@@ -498,6 +498,16 @@ export class PydanticProviderManager {
     this.initializeHealthStatus();
     logger.info("Provider health status reset");
   }
+
+  /**
+   * Mark all providers as unavailable (for degraded mode)
+   */
+  markAllProvidersUnavailable(reason: string): void {
+    PYDANTIC_PROVIDERS.forEach((provider) => {
+      this.updateProviderHealth(provider.id, false, undefined, reason);
+    });
+    logger.warn("All PydanticAI providers marked as unavailable", { reason });
+  }
 }
 
 /**

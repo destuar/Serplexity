@@ -25,6 +25,8 @@ import { Router, Request, Response } from "express";
 import { getServiceStatistics, getServiceHealth } from "../services/llmService";
 import { providerManager } from "../config/pydanticProviders";
 import { pydanticLlmService } from "../services/pydanticLlmService";
+import SystemValidator from "../startup/systemValidator";
+import DependencyValidator from "../services/dependencyValidator";
 // Modern PydanticAI uses embedded system prompts, not external prompt management
 import logger from "../utils/logger";
 
@@ -389,6 +391,149 @@ router.get("/agents", async (req: Request, res: Response) => {
         poolSize: 0,
         overallHealth: 0,
       },
+    });
+  }
+});
+
+/**
+ * System-wide health check with dependency validation
+ * GET /health/system
+ */
+router.get("/system", async (req: Request, res: Response) => {
+  try {
+    const systemValidator = SystemValidator.getInstance();
+    const health = await systemValidator.getSystemHealth();
+    
+    const statusCode = health.status === 'healthy' ? 200 : 
+                      health.status === 'degraded' ? 206 : 503;
+    
+    res.status(statusCode).json({
+      status: health.status,
+      timestamp: health.timestamp,
+      dependencies: health.dependencies,
+      system: {
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        version: process.env.npm_package_version || 'unknown'
+      }
+    });
+  } catch (error) {
+    logger.error("[HealthCheck] System health check failed", { error });
+    res.status(503).json({
+      status: 'error',
+      message: 'System health check failed',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * Readiness probe for Kubernetes/container orchestration
+ * GET /health/ready
+ */
+router.get("/ready", async (req: Request, res: Response) => {
+  try {
+    const systemValidator = SystemValidator.getInstance();
+    const health = await systemValidator.getSystemHealth();
+    
+    // Ready if healthy or degraded (can serve traffic)
+    if (health.status === 'healthy' || health.status === 'degraded') {
+      res.status(200).json({
+        ready: true,
+        status: health.status,
+        timestamp: health.timestamp
+      });
+    } else {
+      res.status(503).json({
+        ready: false,
+        status: health.status,
+        timestamp: health.timestamp
+      });
+    }
+  } catch (error) {
+    logger.error("[HealthCheck] Readiness check failed", { error });
+    res.status(503).json({
+      ready: false,
+      status: 'error',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * Liveness probe for Kubernetes/container orchestration
+ * GET /health/live
+ */
+router.get("/live", async (req: Request, res: Response) => {
+  try {
+    // Simple liveness check - just verify the server is responding
+    res.status(200).json({
+      alive: true,
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    });
+  } catch (error) {
+    logger.error("[HealthCheck] Liveness check failed", { error });
+    res.status(503).json({
+      alive: false,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * Force dependency re-validation (useful for debugging)
+ * POST /health/validate
+ */
+router.post("/validate", async (req: Request, res: Response) => {
+  try {
+    const dependencyValidator = DependencyValidator.getInstance();
+    const validation = await dependencyValidator.validateAll(false);
+    
+    res.status(validation.success ? 200 : 206).json({
+      success: validation.success,
+      criticalFailures: validation.criticalFailures,
+      warnings: validation.warnings,
+      results: Object.fromEntries(validation.results),
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error("[HealthCheck] Manual validation failed", { error });
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * Dependency-specific health status
+ * GET /health/dependencies
+ */
+router.get("/dependencies", async (req: Request, res: Response) => {
+  try {
+    const dependencyValidator = DependencyValidator.getInstance();
+    const healthSummary = dependencyValidator.getHealthSummary();
+    const validationResults = dependencyValidator.getValidationResults();
+    
+    const status = healthSummary.criticalUnhealthy === 0 ? 'healthy' : 
+                  healthSummary.criticalUnhealthy < healthSummary.total / 2 ? 'degraded' : 'unhealthy';
+    
+    const statusCode = status === 'healthy' ? 200 : status === 'degraded' ? 206 : 503;
+    
+    res.status(statusCode).json({
+      status,
+      timestamp: new Date().toISOString(),
+      summary: healthSummary,
+      dependencies: Object.fromEntries(validationResults)
+    });
+  } catch (error) {
+    logger.error("[HealthCheck] Dependencies check failed", { error });
+    res.status(503).json({
+      status: 'error',
+      message: 'Dependencies check failed',
+      timestamp: new Date().toISOString()
     });
   }
 });

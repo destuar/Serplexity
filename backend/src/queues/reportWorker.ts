@@ -59,14 +59,14 @@ async function validateWorkerDependencies(): Promise<void> {
     (async () => {
       try {
         const { pydanticLlmService } = await import("../services/pydanticLlmService");
-        // Simple health check - try to get available providers
-        const healthResult = await pydanticLlmService.executeAgent(
-          "health_check",
-          { test: "connectivity" },
-          null,
-          { timeout: 5000 }
-        );
-        console.log("✅ PydanticAI service verified");
+        // Simple health check - check available providers
+        const providers = pydanticLlmService.getAvailableProviders();
+        const healthyProviders = providers.filter(p => p.status === 'available').length;
+        if (healthyProviders > 0) {
+          console.log("✅ PydanticAI service verified");
+        } else {
+          console.warn("⚠️  No healthy PydanticAI providers available");
+        }
       } catch (error) {
         console.warn("⚠️  PydanticAI service unavailable - first-time reports will fail");
         console.warn("   Make sure the Python service is running: cd src/pydantic_agents && python -m uvicorn main:app");
@@ -995,7 +995,33 @@ async function processReport(runId: string, company: any): Promise<void> {
       }
     }
 
-    const questionResults = await Promise.allSettled(questionPromises);
+    // Process questions with granular progress updates
+    let completedQuestions = 0;
+    const totalQuestionPromises = questionPromises.length;
+    
+    const questionResults = await Promise.allSettled(
+      questionPromises.map(async (promise) => {
+        const result = await promise;
+        completedQuestions++;
+        
+        // Update progress every 5 questions or at key milestones
+        if (completedQuestions % 5 === 0 || completedQuestions === totalQuestionPromises) {
+          const progressPercent = Math.round((completedQuestions / totalQuestionPromises) * 100);
+          
+          await prisma.reportRun.update({
+            where: { id: runId },
+            data: { 
+              stepStatus: `Generating answers to target market questions (${progressPercent}% - ${completedQuestions}/${totalQuestionPromises} processed)` 
+            },
+          });
+          
+          console.log(`📊 Question progress: ${completedQuestions}/${totalQuestionPromises} (${progressPercent}%)`);
+        }
+        
+        return result;
+      })
+    );
+    
     const successfulAnswers = questionResults.filter(
       (r) => r.status === "fulfilled" && r.value.success,
     ).length;
@@ -1204,17 +1230,163 @@ async function processReport(runId: string, company: any): Promise<void> {
   } catch (error) {
     console.error(`💥 Report generation failed:`, error);
 
-    await prisma.reportRun.update({
-      where: { id: runId },
-      data: {
-        status: "FAILED",
-        stepStatus: `Failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-        tokensUsed: totalTokens,
-        usdCost: totalCost,
-      },
+    // Enhanced error handling with database connection resilience
+    await safeUpdateReportStatus(prisma, runId, {
+      status: "FAILED",
+      stepStatus: `Failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      tokensUsed: totalTokens,
+      usdCost: totalCost,
     });
 
     throw error;
+  }
+}
+
+/**
+ * Safely update report status with database connection resilience
+ * Prevents cascade failures when database connections fail during error handling
+ */
+async function safeUpdateReportStatus(
+  prisma: any,
+  runId: string, 
+  updateData: {
+    status: string;
+    stepStatus: string;
+    tokensUsed?: number;
+    usdCost?: number;
+  },
+  maxRetries: number = 3
+): Promise<void> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await prisma.reportRun.update({
+        where: { id: runId },
+        data: updateData,
+      });
+      
+      console.log(`✅ Report status updated successfully (attempt ${attempt})`);
+      return;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Unknown database error');
+      
+      // Log the database error with context
+      console.error(`❌ Database update failed (attempt ${attempt}/${maxRetries}):`, {
+        error: lastError.message,
+        runId,
+        updateData,
+        attempt,
+        isTLSError: lastError.message.includes('certificate') || lastError.message.includes('TLS') || lastError.message.includes('SSL')
+      });
+      
+      // Handle specific database connection errors
+      if (isDatabaseConnectionError(lastError)) {
+        console.warn(`🔄 Database connection issue detected, attempting reconnection...`);
+        
+        // Wait with exponential backoff
+        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        // Try to reinitialize database connection if possible
+        try {
+          await reinitializeDatabaseConnection();
+        } catch (reconnectError) {
+          console.error(`❌ Database reconnection failed:`, reconnectError);
+        }
+      } else if (attempt === maxRetries) {
+        // Non-recoverable error or max retries reached
+        break;
+      }
+    }
+  }
+  
+  // If all retries failed, log to alternative storage or alerting system
+  console.error(`💥 CRITICAL: Failed to update report status after ${maxRetries} attempts`, {
+    runId,
+    updateData,
+    lastError: lastError?.message,
+    timestamp: new Date().toISOString()
+  });
+  
+  // Send to fallback error reporting (don't throw to prevent cascade failure)
+  await fallbackErrorReporting(runId, updateData, lastError);
+}
+
+/**
+ * Check if error is a database connection-related issue
+ */
+function isDatabaseConnectionError(error: Error): boolean {
+  const connectionErrors = [
+    'certificate',
+    'TLS connection',
+    'SSL',
+    'ECONNREFUSED',
+    'ENOTFOUND',
+    'ETIMEDOUT',
+    'connection terminated',
+    'connection refused',
+    'server closed the connection'
+  ];
+  
+  return connectionErrors.some(pattern => 
+    error.message.toLowerCase().includes(pattern.toLowerCase())
+  );
+}
+
+/**
+ * Attempt to reinitialize database connection
+ */
+async function reinitializeDatabaseConnection(): Promise<void> {
+  try {
+    // Import database service dynamically to avoid circular dependencies
+    const { databaseService } = await import("../config/database");
+    
+    // Force reconnection by testing and reinitializing if needed
+    const isHealthy = await databaseService.testConnection();
+    if (!isHealthy) {
+      throw new Error("Database health check failed after reconnection attempt");
+    }
+    
+    console.log("✅ Database connection reinitialized successfully");
+  } catch (error) {
+    console.error("❌ Database reinitialization failed:", error);
+    throw error;
+  }
+}
+
+/**
+ * Fallback error reporting when database is unavailable
+ */
+async function fallbackErrorReporting(
+  runId: string, 
+  updateData: any, 
+  error: Error | null
+): Promise<void> {
+  try {
+    // Log to file system as fallback
+    const fallbackLog = {
+      timestamp: new Date().toISOString(),
+      event: 'database_update_failed',
+      runId,
+      updateData,
+      error: error?.message,
+      stack: error?.stack
+    };
+    
+    // In a production environment, you could:
+    // 1. Write to a local file
+    // 2. Send to an external monitoring service
+    // 3. Publish to a message queue
+    // 4. Send webhook notification
+    
+    console.error(`📝 FALLBACK ERROR LOG:`, JSON.stringify(fallbackLog, null, 2));
+    
+    // Example: Send to external monitoring (implement based on your monitoring setup)
+    // await sendToExternalMonitoring(fallbackLog);
+    
+  } catch (fallbackError) {
+    console.error(`💥 CRITICAL: Even fallback error reporting failed:`, fallbackError);
   }
 }
 

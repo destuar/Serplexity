@@ -25,6 +25,7 @@
  * - getTopRankingQuestions: Controller for fetching top ranking questions.
  * - getSentimentOverTime: Controller for fetching sentiment over time.
  * - getShareOfVoiceHistory: Controller for fetching share of voice history.
+ * - getInclusionRateHistory: Controller for fetching inclusion rate history.
  * - updateCompany: Controller for updating a company.
  * - deleteCompany: Controller for deleting a company.
  */
@@ -716,6 +717,39 @@ export const getShareOfVoiceHistory = async (req: Request, res: Response) => {
     return res.json(history);
   } catch (error) {
     console.error("[GET SHARE OF VOICE HISTORY ERROR]", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+export const getInclusionRateHistory = async (req: Request, res: Response) => {
+  try {
+    const prismaReadReplica = await getReadPrismaClient();
+    const { id: companyId } = req.params;
+    const { aiModel, timezone } = req.query;
+    const userId = req.user?.id;
+
+    if (!userId)
+      return res.status(401).json({ error: "User not authenticated" });
+
+    const company = await prismaReadReplica.company.findFirst({
+      where: { id: companyId, userId },
+    });
+    if (!company)
+      return res
+        .status(404)
+        .json({ error: "Company not found or unauthorized" });
+
+    // Use the dashboard service function to get the inclusion rate history
+    const { calculateInclusionRateHistory } = await import(
+      "../services/dashboardService"
+    );
+    const history = await calculateInclusionRateHistory("", companyId, {
+      aiModel: aiModel as string,
+    });
+
+    return res.json(history);
+  } catch (error) {
+    console.error("[GET INCLUSION RATE HISTORY ERROR]", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };

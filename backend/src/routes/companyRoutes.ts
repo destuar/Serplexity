@@ -28,6 +28,7 @@ import {
   getSentimentOverTime,
   getShareOfVoice,
   getShareOfVoiceHistory,
+  getInclusionRateHistory,
   getTopRankingQuestions,
   getCitations,
   getPromptsWithResponses,
@@ -69,6 +70,7 @@ router.get("/:id/top-ranking-questions", getTopRankingQuestions); // GET /api/co
 router.get("/:id/prompts-with-responses", authenticate, getPromptsWithResponses); // GET /api/companies/:id/prompts-with-responses - View only for free users
 router.get("/:id/metrics/sentiment-over-time", getSentimentOverTime);
 router.get("/:id/share-of-voice-history", getShareOfVoiceHistory);
+router.get("/:id/inclusion-rate-history", getInclusionRateHistory);
 
 // Competitor management routes
 router.get("/:id/competitors/accepted", getAcceptedCompetitors); // GET /api/companies/:id/competitors/accepted

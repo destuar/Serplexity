@@ -41,6 +41,7 @@ import {
   calculateCompetitorRankings,
   calculateTopQuestions,
   calculateShareOfVoiceHistory,
+  calculateInclusionRateHistory,
   calculateSentimentOverTime,
 } from "../services/dashboardService";
 import { checkRedisHealth } from "../config/redis";
@@ -732,6 +733,19 @@ export const getLatestReport = async (req: Request, res: Response) => {
       );
     }
 
+    // Similarly, fetch inclusionRateHistory if it's not on the main metrics object
+    let inclusionRateHistory = (metrics as any)?.inclusionRateHistory;
+    if (
+      !inclusionRateHistory ||
+      (Array.isArray(inclusionRateHistory) && inclusionRateHistory.length === 0)
+    ) {
+      inclusionRateHistory = await calculateInclusionRateHistory(
+        latestRun.id,
+        companyId,
+        { aiModel: effectiveModel },
+      );
+    }
+
     // Similarly, fetch sentimentOverTime if it's not on the main metrics object
     let sentimentOverTime = (metrics as any)?.sentimentOverTime;
     if (
@@ -789,6 +803,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
       ...metrics, // Spread all the pre-computed metrics (may include history if present)
       sentimentDetails, // Override metrics.sentimentDetails with our complete array
       shareOfVoiceHistory, // Ensure history is always present
+      inclusionRateHistory, // Ensure inclusion rate history is always present
       sentimentOverTime, // Ensure sentiment history is always present
     };
 

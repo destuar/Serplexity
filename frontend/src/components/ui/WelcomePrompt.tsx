@@ -30,94 +30,49 @@ const WelcomePrompt: React.FC<WelcomePromptProps> = ({
   isGenerating,
   generationStatus,
   progress = 0,
-  isButtonDisabled = false,
-  generationState: _generationState
+  isButtonDisabled = false
 }) => {
-  const { selectedCompany: _selectedCompany } = useCompany();
-
-  // Use the progress value directly from the hook (which already handles monotonic progression)
-  const currentProgress = progress;
-
-  // Enhanced button state logic
-  const getButtonContent = () => {
-    if (isGenerating) {
-      return (
-        <>
-          <div className="flex items-center justify-center gap-3">
-            <Loader size={20} className="animate-spin" />
-            <span>{generationStatus || 'Generating your first report...'}</span>
-          </div>
-          
-          {/* Progress Bar */}
-          {currentProgress > 0 && (
-            <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
-              <div 
-                className="bg-white/80 h-full rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${currentProgress}%` }}
-              ></div>
-            </div>
-          )}
-        </>
-      );
-    }
-
-    return (
-      <div className="flex items-center justify-center gap-3">
-        <Sparkles size={20} />
-        <span>Generate Your First Report</span>
-      </div>
-    );
-  };
-
-  // Enhanced button class logic
-  const getButtonClass = () => {
-    const baseClass = "w-full flex flex-col gap-2 px-6 py-3 rounded-lg transition-all text-lg font-medium shadow-lg hover:shadow-xl relative overflow-hidden";
-    
-    if (isButtonDisabled) {
-      return `${baseClass} bg-gray-400 text-white cursor-not-allowed opacity-50`;
-    }
-
-    return `${baseClass} bg-gradient-to-r from-[#7762ff] to-[#9e52ff] text-white hover:from-[#6650e6] hover:to-[#8a47e6]`;
-  };
-
   return (
-    <div className="flex-1 flex items-center justify-center">
-      <div className="max-w-2xl mx-auto text-center p-8">
-        <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-gray-200/50 p-8 shadow-lg">
-          <div className="w-16 h-16 flex items-center justify-center mx-auto mb-6">
-            <img
-              src="/Serplexity.svg"
-              alt="Serplexity Logo"
-              className="w-16 h-16"
-            />
-          </div>
-          
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">
-            Ready to boost your visibility?
-          </h2>
-          
-          <p className="text-gray-600 mb-6 leading-relaxed">
-            Get started by generating your first competitive intelligence report. 
-            We'll analyze your market position, track competitor mentions, and provide 
-            insights across multiple AI platforms.
-          </p>
+    <div className="flex-1 flex items-center justify-center p-6">
+      <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md p-6 max-w-md w-full text-center">
+        <div className="w-12 h-12 mx-auto mb-4">
+          <img
+            src="/Serplexity.svg"
+            alt="Serplexity"
+            className="w-12 h-12"
+          />
+        </div>
+        
+        <h2 className="text-lg font-semibold text-gray-900 mb-2">
+          Ready to get started?
+        </h2>
+        
+        <p className="text-sm text-gray-500 mb-6">
+          Generate your first competitive intelligence report
+        </p>
 
-          <div className="space-y-3">
-            <button 
-              onClick={onGenerateReport}
-              disabled={isButtonDisabled}
-              className={getButtonClass()}
-            >
-              {getButtonContent()}
-            </button>
-            
-            {!isGenerating && (
-              <p className="text-xs text-gray-500">
-                Report generation typically takes 2-5 minutes depending on market complexity.
-              </p>
+        <button 
+          onClick={onGenerateReport}
+          disabled={isButtonDisabled}
+          className="w-full relative overflow-hidden flex items-center justify-center gap-3 px-4 py-3 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+        >
+          {isGenerating && (
+            <div 
+              className="absolute inset-0 bg-white/20 transition-all duration-700 ease-out"
+              style={{ width: `${Math.max(progress, 2)}%` }}
+            />
+          )}
+          <div className="relative z-10 flex items-center gap-3">
+            {isGenerating ? (
+              <Loader size={16} className="animate-spin" />
+            ) : (
+              <>
+                <Sparkles size={16} />
+                <span>Generate Report</span>
+              </>
             )}
           </div>
-        </div>
+        </button>
       </div>
     </div>
   );

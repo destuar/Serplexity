@@ -589,6 +589,28 @@ export async function calculateShareOfVoiceHistory(
 }
 
 // runId is ignored in new pipeline but kept for backward compatibility
+export async function calculateInclusionRateHistory(
+  _runId: string,
+  companyId: string,
+  filters?: { aiModel?: string },
+) {
+  const prisma = await getDbClient();
+  const prismaReadReplica = await getReadDbClient();
+  const whereClause: any = { companyId };
+
+  // Apply aiModel filter if provided
+  if (filters?.aiModel && filters.aiModel !== "all") {
+    whereClause.aiModel = filters.aiModel;
+  }
+
+  const history = await prismaReadReplica.inclusionRateHistory.findMany({
+    where: whereClause,
+    orderBy: { date: "asc" },
+  });
+  return history;
+}
+
+// runId is ignored in new pipeline but kept for backward compatibility
 export async function calculateSentimentOverTime(
   _runId: string,
   companyId: string,
@@ -677,6 +699,77 @@ export async function saveShareOfVoiceHistoryPoint(
       date: normalizedDate,
       aiModel,
       shareOfVoice,
+      reportRunId,
+    },
+  });
+}
+
+export async function saveInclusionRateHistoryPoint(
+  companyId: string,
+  date: Date,
+  aiModel: string,
+  inclusionRate: number,
+  reportRunId?: string,
+  userTimezone?: string,
+): Promise<void> {
+  const prisma = await getDbClient();
+  const prismaReadReplica = await getReadDbClient();
+  if (!reportRunId) {
+    console.warn(
+      `[saveInclusionRateHistoryPoint] reportRunId is missing for company ${companyId}. Skipping save.`,
+    );
+    return;
+  }
+  
+  // Normalize date to day precision using user's timezone or UTC as fallback
+  let normalizedDate: Date;
+  if (userTimezone) {
+    try {
+      // Get the date in user's timezone and normalize to midnight
+      const userDate = new Date(date.toLocaleString("sv-SE", { timeZone: userTimezone }));
+      normalizedDate = new Date(Date.UTC(
+        userDate.getFullYear(),
+        userDate.getMonth(),
+        userDate.getDate(),
+        0, 0, 0, 0
+      ));
+    } catch (error) {
+      console.warn(`[saveInclusionRateHistoryPoint] Invalid timezone ${userTimezone}, falling back to UTC`);
+      normalizedDate = new Date(Date.UTC(
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        date.getUTCDate(),
+        0, 0, 0, 0
+      ));
+    }
+  } else {
+    // Fallback to UTC normalization
+    normalizedDate = new Date(Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      0, 0, 0, 0
+    ));
+  }
+
+  await prisma.inclusionRateHistory.upsert({
+    where: {
+      companyId_date_aiModel: {
+        companyId,
+        date: normalizedDate,
+        aiModel,
+      },
+    },
+    update: {
+      inclusionRate,
+      reportRunId,
+      updatedAt: new Date(),
+    },
+    create: {
+      companyId,
+      date: normalizedDate,
+      aiModel,
+      inclusionRate,
       reportRunId,
     },
   });

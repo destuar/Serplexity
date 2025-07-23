@@ -11,6 +11,7 @@
  */
 import { CompetitorRankingsResponse, TopRankingQuestion } from '../services/companyService';
 import { Sparkles } from 'lucide-react';
+import { SentimentDetail } from './dashboardData';
 
 // Model configuration that matches backend models.ts
 export interface ModelConfig {
@@ -152,7 +153,7 @@ export interface DashboardData {
   rankingsChange: number | null;
 
   // Detailed sentiment scores, which may not always be present
-  sentimentDetails?: Metric<SentimentScoreValue>[];
+  sentimentDetails?: SentimentDetail[];
 
   // Complex, pre-computed data objects
   competitorRankings: CompetitorRankingsResponse;
@@ -178,6 +179,7 @@ export interface DashboardData {
   topQuestions: TopRankingQuestion[];
   sentimentOverTime: { date: string; sentimentScore: number; aiModel: string; }[];
   shareOfVoiceHistory: { date: string; shareOfVoice: number; aiModel: string; }[];
+  inclusionRateHistory: { date: string; inclusionRate: number; aiModel: string; }[];
 
   // Report metadata
   lastUpdated: string;
@@ -204,17 +206,10 @@ export interface PreloadedMetricSet {
   sentimentChange: number | null;
   topRankingsCount: number | null;
   rankingsChange: number | null;
-  sentimentDetails?: Metric<SentimentScoreValue>; // Optional since it's a specific metric
+  sentimentDetails?: SentimentDetail; // Optional since it's a specific metric
 }
 
-export interface Metric<T = unknown> {
-  id: string;
-  runId: string;
-  name: string;
-  value: T;
-  engine: string;
-  createdAt: string;
-}
+// Legacy Metric interface - use SentimentDetail from dashboardData.ts instead
 
 export interface SentimentRating {
   quality: number;
@@ -231,6 +226,4 @@ export interface SentimentScores {
   ratings: SentimentRating[];
 }
 
-export interface SentimentScoreValue {
-  ratings: SentimentRating[];
-} 
+// Legacy SentimentScoreValue interface - use SentimentRating from dashboardData.ts instead 

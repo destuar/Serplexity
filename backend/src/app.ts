@@ -196,8 +196,9 @@ app.get("/healthz", async (req, res) => {
     // PydanticAI service health (optional - don't fail overall health if down)
     try {
       const { pydanticLlmService } = await import("./services/pydanticLlmService");
-      await pydanticLlmService.executeAgent("health_check", { test: true }, null, { timeout: 3000 });
-      checks.pydantic_ai = { status: "healthy" };
+      const providers = pydanticLlmService.getAvailableProviders();
+      const healthyProviders = providers.filter(p => p.status === 'available').length;
+      checks.pydantic_ai = { status: healthyProviders > 0 ? "healthy" : "degraded", availableProviders: healthyProviders };
     } catch (error) {
       checks.pydantic_ai = { status: "degraded", error: "Service unavailable - first-time reports will fail" };
     }

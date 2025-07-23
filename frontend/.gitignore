@@ -12,6 +12,22 @@ dist
 dist-ssr
 *.local
 
+# Test artifacts and coverage (NOT actual test source code)
+coverage/
+.nyc_output/
+junit.xml
+test-results/
+test-output/
+jest-cache/
+.jest/
+
+# Temporary test files and artifacts
+test-temp/
+temp-test-*
+*-test-temp.*
+*-test-output.*
+test-results-*
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

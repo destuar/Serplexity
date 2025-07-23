@@ -43,15 +43,17 @@ Key requirements:
 1. Analyze the aggregated ratings to understand overall sentiment trends
 2. Create a comprehensive summary that reflects the collective sentiment
 3. Use the provided average ratings as a baseline but add nuanced insights
-4. Ensure the summary is between 50-400 characters
-5. Focus on key strengths, weaknesses, and overall market position
-6. Maintain objectivity while being insightful
+4. Focus on WHY these ratings exist, key strengths, and areas for improvement with recommendations
+5. DO NOT simply list metric scores - instead provide actionable insights
+6. Identify what the company is doing well and specific improvement opportunities
+7. Maintain objectivity while being insightful and strategic
 
-Output format:
-- Return a SentimentScores with the company name, industry, and a single rating entry
-- The rating should use the aggregated averages with a comprehensive summary description
-- Ensure all ratings are between 1-10
-- Make the summary actionable and insightful""",
+Summary format:
+- Highlight strengths (areas scoring 7+): "demonstrates strong performance in..."
+- Identify improvement areas (scores below 6): "key improvement opportunities include..."
+- Provide strategic context and recommendations based on sentiment patterns
+- Make the summary actionable for business decision-making
+- Ensure all ratings are between 1-10""",
             temperature=0.4
         )
     
@@ -97,14 +99,15 @@ INDIVIDUAL MODEL SUMMARIES:
 
 Please create a comprehensive sentiment summary that:
 1. Uses the aggregated ratings as baseline scores (with minor adjustments if justified)
-2. Provides a higher-level summary that captures key sentiment trends across all models
-3. Identifies consensus strengths and weaknesses from multiple perspectives
-4. References the diversity of sources analyzed (e.g., "based on analysis of reviews from G2, Capterra, etc.")
-5. Highlights any notable patterns or discrepancies between model analyses
-6. Focuses on actionable insights for the company
-7. Keeps summary between 200-500 characters for comprehensive but concise insights
+2. Identifies and highlights key STRENGTHS where the company excels (scores 7+)
+3. Pinpoints specific IMPROVEMENT OPPORTUNITIES for scores below 6
+4. Explains WHY these patterns exist based on the diverse source analysis
+5. Provides strategic RECOMMENDATIONS for addressing weak areas
+6. References the diversity of sources analyzed when relevant
+7. Focuses on actionable business insights rather than restating numerical scores
+8. Synthesizes consensus findings from multiple AI model perspectives
 
-Create a summary that synthesizes insights from multiple AI models and web sources to provide authoritative sentiment analysis.
+DO NOT simply list "Quality: X/10, Price: Y/10" - instead create strategic narrative insights that help business decision-making. Example: "Company demonstrates strong performance in product quality and brand trust, with key improvement opportunities in customer service responsiveness and pricing competitiveness."
 """
         
         return context

@@ -21,6 +21,7 @@ import app from "./app";
 import http from "http";
 import env from "./config/env";
 import { dbCache } from "./config/dbCache";
+import SystemValidator from "./startup/systemValidator";
 import "./queues/reportWorker"; // This initializes and starts the worker process
 import "./queues/archiveWorker"; // This initializes and starts the archive worker process
 import "./queues/masterSchedulerWorker"; // This initializes the daily report scheduler worker
@@ -35,8 +36,16 @@ const server = http.createServer(app);
 
 const startServer = async () => {
   try {
-    console.log("🔗 Initializing database cache...");
+    // Perform comprehensive startup validation
+    console.log("🔍 Starting system validation...");
+    const systemValidator = SystemValidator.getInstance();
+    const validationResult = await systemValidator.validateSystemStartup();
+    
+    if (validationResult.degradedMode) {
+      console.log("⚠️ System starting in DEGRADED MODE - some features will be limited");
+    }
 
+    console.log("🔗 Initializing database cache...");
     await dbCache.initialize();
     console.log("✅ Database cache initialized successfully.");
 

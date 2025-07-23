@@ -982,36 +982,58 @@ Please include actual URLs from your web searches in the response text for prope
         brand_trust = max(1, min(10, brand_trust + sentiment_adjustment))
         customer_service = max(1, min(10, customer_service + sentiment_adjustment))
         
-        # Create comprehensive summary with reasoning and citations
-        summary_parts = [
-            f"Based on web search analysis, {company_name} received the following sentiment scores:",
-            f"Quality: {quality}/10 - reflecting product/service assessment from reviews",
-            f"Price Value: {price_value}/10 - based on value-for-money perceptions",
-            f"Brand Reputation: {brand_reputation}/10 - derived from news and social mentions",
-            f"Brand Trust: {brand_trust}/10 - indicating reliability and trustworthiness",
-            f"Customer Service: {customer_service}/10 - from support experience feedback"
-        ]
+        # Create insight-focused summary with strengths, weaknesses, and recommendations
+        summary_parts = []
         
-        # Add sentiment analysis details
-        if positive_indicators > 0 or negative_indicators > 0:
-            summary_parts.append(f"Analysis found {positive_indicators} positive and {negative_indicators} negative sentiment indicators in search results")
+        # Identify strengths (scores 7+)
+        strengths = []
+        if quality >= 7:
+            strengths.append("product quality")
+        if price_value >= 7:
+            strengths.append("value proposition")
+        if brand_reputation >= 7:
+            strengths.append("brand reputation")
+        if brand_trust >= 7:
+            strengths.append("customer trust")
+        if customer_service >= 7:
+            strengths.append("customer service")
         
-        # Add citation information
+        # Identify areas for improvement (scores below 6)
+        improvements = []
+        if quality < 6:
+            improvements.append("product quality")
+        if price_value < 6:
+            improvements.append("pricing strategy")
+        if brand_reputation < 6:
+            improvements.append("brand image")
+        if brand_trust < 6:
+            improvements.append("trust building")
+        if customer_service < 6:
+            improvements.append("customer support")
+        
+        # Build narrative summary
+        if strengths:
+            summary_parts.append(f"{company_name} demonstrates strong performance in {', '.join(strengths)}")
+        
+        if improvements:
+            summary_parts.append(f"Key improvement opportunities include {', '.join(improvements)}")
+        
+        # Add sentiment trend analysis
+        if positive_indicators > negative_indicators * 1.5:
+            summary_parts.append("Overall sentiment trends positive across review sources")
+        elif negative_indicators > positive_indicators * 1.5:
+            summary_parts.append("Sentiment analysis reveals concerning negative feedback patterns")
+        else:
+            summary_parts.append("Mixed sentiment signals suggest varied customer experiences")
+        
+        # Add inline citation markers for frontend to convert to clickable badges
         if citations:
             citation_details = []
             for i, cite in enumerate(citations[:3], 1):
-                citation_details.append(f"[{i}] {cite.domain}")
+                citation_details.append(f"[{i}]")
             summary_parts.append(f"Sources: {', '.join(citation_details)}")
-            
-            # Add full URLs at the end
-            citation_urls = [cite.url for cite in citations[:3]]
-            summary_parts.append(f"References: {'; '.join(citation_urls)}")
         
         summary_description = ". ".join(summary_parts)
-        
-        # Truncate if too long for schema
-        if len(summary_description) > 490:
-            summary_description = summary_description[:487] + "..."
         
         return [
             SentimentRating(

@@ -24,6 +24,12 @@ export type ShareOfVoiceHistoryResponse = Array<{
   aiModel: string;
 }>;
 
+export type InclusionRateHistoryResponse = Array<{
+  date: string;
+  inclusionRate: number;
+  aiModel: string;
+}>;
+
 export const updateCompany = async (companyId: string, updates: Partial<Company>): Promise<{ company: Company }> => {
   const { data } = await apiClient.put(`/companies/${companyId}`, updates);
   return data;
@@ -48,6 +54,19 @@ export const getShareOfVoiceHistory = async (companyId: string, filters?: { date
   params.append('timezone', userTimezone);
   
   const { data } = await apiClient.get(`/companies/${companyId}/share-of-voice-history?${params.toString()}`);
+  return data;
+};
+
+export const getInclusionRateHistory = async (companyId: string, filters?: { dateRange?: string; aiModel?: string }): Promise<InclusionRateHistoryResponse> => {
+  const params = new URLSearchParams();
+  if (filters?.dateRange) params.append('dateRange', filters.dateRange);
+  if (filters?.aiModel) params.append('aiModel', filters.aiModel);
+  
+  // Add user's timezone
+  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  params.append('timezone', userTimezone);
+  
+  const { data } = await apiClient.get(`/companies/${companyId}/inclusion-rate-history?${params.toString()}`);
   return data;
 };
 
