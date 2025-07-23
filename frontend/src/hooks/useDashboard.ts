@@ -22,6 +22,7 @@ export interface DashboardContextType {
   loading: boolean;
   error: string | null;
   refreshing: boolean;
+  filterLoading: boolean;
   refreshTrigger: number;
   updateFilters: (newFilters: Partial<DashboardFilters>) => void;
   refreshData: () => Promise<void>;

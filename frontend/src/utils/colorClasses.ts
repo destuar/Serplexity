@@ -77,14 +77,14 @@ export const textClasses = {
 export const chartColorArrays = {
   primary: ['#2563eb', '#e5e7eb'], // Blue-600, Gray-200
   multiColor: [
+    '#1d4ed8', // Blue-700
     '#2563eb', // Blue-600
-    '#3b82f6', // Blue-500  
-    '#60a5fa', // Blue-400
-    '#93c5fd', // Blue-300
-    '#059669', // Emerald-600
-    '#d97706', // Amber-600
-    '#dc2626', // Red-600
-    '#6b7280', // Gray-500
+    '#3b82f6', // Blue-500
+    '#1e40af', // Blue-800
+    '#1e3a8a', // Blue-900
+    '#312e81', // Indigo-900
+    '#1e1b4b', // Indigo-950
+    '#0c4a6e', // Sky-900
   ],
   status: {
     success: '#059669',

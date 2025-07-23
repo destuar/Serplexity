@@ -78,7 +78,7 @@ const TopRankingQuestionsCard = () => {
               </div>
               
               <div className="flex items-center gap-1 flex-shrink-0 text-xs text-gray-500">
-                <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-xs font-medium">
+                <span className="text-gray-500 text-xs font-medium">
                   {question.type}
                 </span>
               </div>

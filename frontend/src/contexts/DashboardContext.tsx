@@ -70,6 +70,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
   // flashing while data is still on the way.
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [filterLoading, setFilterLoading] = useState(false); // Subtle loading for filter changes
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -99,35 +100,45 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
       return;
     }
 
+    // Build cache key and check for cached data FIRST
+    const cacheKey = `${selectedCompany.id}|${filters.dateRange}|${filters.aiModel}`;
+
+    // Check cache before setting any loading states to avoid unnecessary page refreshes
+    if (!isRefresh && cacheRef.current[cacheKey]) {
+      const cached = cacheRef.current[cacheKey];
+      setData(cached.data);
+      setDetailedQuestions(cached.detailedQuestions);
+      setAcceptedCompetitors(cached.acceptedCompetitors);
+      if (cached.data?.lastUpdated) {
+        setLastUpdated(cached.data.lastUpdated);
+      }
+      
+      // Update hasReport based on cached data
+      if (cached.data && hasReport !== true) {
+        setHasReport(true);
+      }
+      
+      // Don't trigger loading states for cached data
+      setLoading(false);
+      setRefreshing(false);
+      setError(null);
+      return;
+    }
+
     try {
+      // Only set loading states if we actually need to fetch data
       if (isRefresh) {
         setRefreshing(true);
       } else {
-        setLoading(true);
+        // Use subtle filter loading instead of full page loading for filter changes
+        const isInitialLoad = !data;
+        if (isInitialLoad) {
+          setLoading(true);
+        } else {
+          setFilterLoading(true);
+        }
       }
       setError(null);
-
-      // Build cache key and check for warm data
-      const cacheKey = `${selectedCompany.id}|${filters.dateRange}|${filters.aiModel}`;
-
-      if (!isRefresh && cacheRef.current[cacheKey]) {
-        const cached = cacheRef.current[cacheKey];
-        setData(cached.data);
-        setDetailedQuestions(cached.detailedQuestions);
-        setAcceptedCompetitors(cached.acceptedCompetitors);
-        if (cached.data?.lastUpdated) {
-          setLastUpdated(cached.data.lastUpdated);
-        }
-        
-        // Update hasReport based on cached data
-        if (cached.data && hasReport !== true) {
-          setHasReport(true);
-        }
-        
-        setLoading(false);
-        setRefreshing(false);
-        return;
-      }
 
       // Only pass essential filters, not the massive competitor list
       const currentFilters = {
@@ -222,6 +233,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setFilterLoading(false);
     }
   }, [selectedCompany, filters, location.pathname, hasReport, data]);
 
@@ -332,6 +344,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
     loading,
     error,
     refreshing,
+    filterLoading,
     refreshTrigger,
     updateFilters,
     refreshData,
@@ -345,6 +358,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
     loading,
     error,
     refreshing,
+    filterLoading,
     refreshTrigger,
     updateFilters,
     refreshData,

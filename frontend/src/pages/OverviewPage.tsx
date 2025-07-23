@@ -17,11 +17,8 @@ import { Calendar, Sparkles, RefreshCw, Loader } from "lucide-react";
 import { useCompany } from "../contexts/CompanyContext";
 import { useDashboard } from "../hooks/useDashboard";
 import FilterDropdown from "../components/dashboard/FilterDropdown";
-import BrandShareOfVoiceCard from "../components/dashboard/BrandShareOfVoiceCard";
-import VisibilityOverTimeCard from "../components/dashboard/VisibilityOverTimeCard";
+import MetricsOverTimeCard from "../components/dashboard/MetricsOverTimeCard";
 import SentimentScoreDisplayCard from "../components/dashboard/SentimentScoreDisplayCard";
-import AverageInclusionRateCard from "../components/dashboard/AverageInclusionRateCard";
-import AveragePositionCard from "../components/dashboard/AveragePositionCard";
 import TopRankingQuestionsCard from "../components/dashboard/TopRankingQuestionsCard";
 import RankingsCard from "../components/dashboard/RankingsCard";
 import WelcomePrompt from "../components/ui/WelcomePrompt";
@@ -42,7 +39,7 @@ import SentimentAnalysisPage from "./SentimentAnalysisPage";
 
 const OverviewPage = () => {
   const { selectedCompany } = useCompany();
-  const { data, filters, loading, refreshing, updateFilters, refreshData, lastUpdated, refreshTrigger, hasReport } = useDashboard();
+  const { data, filters, loading, refreshing, filterLoading, updateFilters, refreshData, lastUpdated, refreshTrigger, hasReport } = useDashboard();
   
   const { 
     isGenerating, 
@@ -84,9 +81,9 @@ const OverviewPage = () => {
     openEmbeddedPage('sentiment', 'Sentiment');
   };
 
-  const handleModelComparisonSeeMore = () => {
-    openEmbeddedPage('model-comparison', 'Model Comparison');
-  };
+  // const handleModelComparisonSeeMore = () => {
+  //   openEmbeddedPage('model-comparison', 'Model Comparison');
+  // };
 
   // Define options before using them
   const dateRangeOptions = [
@@ -189,21 +186,25 @@ const OverviewPage = () => {
           {!data || Object.keys(data).length === 0 ? (
             <BlankLoadingState message="Processing report data..." />
           ) : (
-            <div className="flex-1 min-h-0 p-1">
+            <div className="flex-1 min-h-0 p-1 relative">
+              {/* Subtle loading overlay for filter changes */}
+              {filterLoading && (
+                <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                  <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-lg px-4 py-2 flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-sm font-medium text-gray-700">Updating...</span>
+                  </div>
+                </div>
+              )}
               <div className="h-full w-full">
                 <div className="lg:hidden h-full overflow-y-auto space-y-4">
-                  <div className="grid grid-cols-2 gap-4 min-h-[200px]">
-                    <BrandShareOfVoiceCard key={`${cardKey}-sov`} />
-                    <VisibilityOverTimeCard key={`${cardKey}-vot`} selectedModel={filters.aiModel} onSeeMore={handleModelComparisonSeeMore} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 min-h-[200px]">
-                    <AverageInclusionRateCard key={`${cardKey}-air`} />
-                    <AveragePositionCard key={`${cardKey}-ap`} />
+                  <div className="min-h-[400px]">
+                    <MetricsOverTimeCard key={`${cardKey}-metrics`} selectedModel={filters.aiModel} />
                   </div>
                   <div className="min-h-[300px]">
                     <SentimentScoreDisplayCard key={`${cardKey}-ss`} selectedModel={filters.aiModel} onSeeMore={handleSentimentSeeMore} />
                   </div>
-                  <div className="min-h-[00px]">
+                  <div className="min-h-[300px]">
                     <TopRankingQuestionsCard key={`${cardKey}-trq`} />
                   </div>
                   <div className="min-h-[200px]">
@@ -215,12 +216,12 @@ const OverviewPage = () => {
                   gridTemplateColumns: 'repeat(48, 1fr)',
                   gridTemplateRows: 'repeat(14, minmax(30px, 1fr))',
                   gridTemplateAreas: isTallerScreen ? `
-                    "m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-                    "m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-                    "m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-                    "m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-                    "m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-                    "m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+                    "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+                    "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+                    "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+                    "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+                    "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+                    "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
                     "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
                     "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
                     "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
@@ -230,14 +231,14 @@ const OverviewPage = () => {
                     "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
                     "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
                   ` : `
-                    "m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-                    "m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-                    "m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-                    "m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-                    "m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-                    "m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-                    "m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-                    "m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+                    "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+                    "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+                    "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+                    "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+                    "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+                    "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+                    "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+                    "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
                     "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
                     "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
                     "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
@@ -246,10 +247,7 @@ const OverviewPage = () => {
                     "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
                   `
                 }}>
-                  <div style={{ gridArea: 'm1' }}><BrandShareOfVoiceCard key={`${cardKey}-sov-desk`} /></div>
-                  <div style={{ gridArea: 'm2' }}><VisibilityOverTimeCard key={`${cardKey}-vot-desk`} selectedModel={filters.aiModel} onSeeMore={handleModelComparisonSeeMore} /></div>
-                  <div style={{ gridArea: 'm3' }}><AverageInclusionRateCard key={`${cardKey}-air-desk`} /></div>
-                  <div style={{ gridArea: 'm4' }}><AveragePositionCard key={`${cardKey}-ap-desk`} /></div>
+                  <div style={{ gridArea: 'metrics' }}><MetricsOverTimeCard key={`${cardKey}-metrics-desk`} selectedModel={filters.aiModel} /></div>
                   <div style={{ gridArea: 's1' }}><SentimentScoreDisplayCard key={`${cardKey}-ss-desk`} selectedModel={filters.aiModel} onSeeMore={handleSentimentSeeMore} /></div>
                   <div style={{ gridArea: 'q1' }}><TopRankingQuestionsCard key={`${cardKey}-trq-desk`} /></div>
                   <div style={{ gridArea: 'r1' }}><RankingsCard key={`${cardKey}-rank-desk`} /></div>

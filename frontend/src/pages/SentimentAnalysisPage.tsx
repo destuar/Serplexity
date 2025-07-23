@@ -27,7 +27,7 @@ import { DashboardFilters, getModelFilterOptions } from '../types/dashboard';
 
 const SentimentAnalysisPage: React.FC = () => {
   const { selectedCompany } = useCompany();
-  const { data, filters, updateFilters, refreshing, refreshData, loading, lastUpdated, hasReport, refreshTrigger } = useDashboard();
+  const { data, filters, updateFilters, refreshing, refreshData, loading, filterLoading, lastUpdated, hasReport, refreshTrigger } = useDashboard();
   const { 
     isGenerating, 
     generationStatus, 
@@ -114,7 +114,16 @@ const SentimentAnalysisPage: React.FC = () => {
           {!data || Object.keys(data).length === 0 ? (
             <BlankLoadingState message="Processing sentiment data..." />
           ) : (
-            <div className="flex-1 min-h-0 p-1">
+            <div className="flex-1 min-h-0 p-1 relative">
+              {/* Subtle loading overlay for filter changes */}
+              {filterLoading && (
+                <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                  <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-lg px-4 py-2 flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-sm font-medium text-gray-700">Updating...</span>
+                  </div>
+                </div>
+              )}
               <div className="h-full w-full">
                 <div className="lg:hidden h-full overflow-y-auto space-y-4">
                   <div className="min-h-[300px]">

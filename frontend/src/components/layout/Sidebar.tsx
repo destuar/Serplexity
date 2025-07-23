@@ -160,7 +160,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
     <div className={sidebarClasses} onClick={handleSidebarClick}>
-      <div className={`flex items-center py-2 border-b border-gray-200/50 px-3 min-h-[60px] ${isDesktopCollapsed ? 'justify-center' : ''}`}>
+      <div className={`flex items-center py-2 border-b border-gray-200/50 px-3 min-h-[56px] ${isDesktopCollapsed ? 'justify-center' : ''}`}>
         {selectedCompany && !isDesktopCollapsed ? (
           <div className="relative w-full" ref={companyDropdownRef}>
             <button

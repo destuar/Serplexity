@@ -220,7 +220,7 @@ const RankingsCard = () => {
       );
     }
 
-    const numCompetitorsToShow = isTallerScreen ? 4 : 3;
+    const numCompetitorsToShow = isTallerScreen ? 5 : 4;
 
     // Show only top 3 entities (including user company), then "X+ others" if there are more
     const allCompetitors = filteredRankingsData.chartCompetitors;
@@ -246,7 +246,7 @@ const RankingsCard = () => {
     }
 
     return (
-      <div className="flex-1 space-y-2">
+      <div className="flex-1 space-y-1">
         {displayCompetitors.map((competitor: Competitor | { name: string; shareOfVoice: number; change: number; changeType: 'stable'; isUserCompany: boolean; website?: string }, index: number) => {
           const logoResult = competitor.website ? getCompanyLogo(competitor.website) : null;
           const isOthers = competitor.name.includes('others');
@@ -254,7 +254,7 @@ const RankingsCard = () => {
           return (
             <div 
               key={`${competitor.name}-${index}`} 
-              className={`flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-gray-50 ${
+              className={`flex items-center justify-between rounded-lg px-2 py-1 transition-colors hover:bg-gray-50 ${
                 isOthers ? 'cursor-pointer' : ''
               }`}
               onClick={isOthers ? () => navigate('/competitor-rankings') : undefined}
@@ -363,11 +363,13 @@ const RankingsCard = () => {
     const maxSlots = isTallerScreen ? 4 : 3;
     const allSources = citationData.sources;
 
-    // If we have more sources than available slots, reserve the last slot for "X+ others"
+    // Always show at least 3 sources plus "X+ others" if there are more than maxSlots
     let displaySources: (Citation | { domain: string; name: string; shareOfVoice: number; citationCount: number; uniqueUrls: number; sampleTitle: string })[];
     if (allSources.length > maxSlots) {
-      const topSources = allSources.slice(0, maxSlots - 1);
-      const remainingSources = allSources.slice(maxSlots - 1);
+      // Show first 3 sources (or maxSlots-1 if maxSlots is 4), then "X+ others"
+      const numToShow = Math.max(3, maxSlots - 1);
+      const topSources = allSources.slice(0, numToShow);
+      const remainingSources = allSources.slice(numToShow);
       const remainingCount = remainingSources.length;
       
       // Calculate combined share of voice for remaining sources
@@ -390,14 +392,14 @@ const RankingsCard = () => {
     }
 
     return (
-      <div className="flex-1 space-y-2">
+      <div className="flex-1 space-y-1">
         {displaySources.map((source: Citation, index: number) => {
           const isOthers = source.domain.includes('others');
           
           return (
             <div 
               key={`${source.domain}-${index}`} 
-              className="flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-gray-50"
+              className="flex items-center justify-between rounded-lg px-2 py-1 transition-colors hover:bg-gray-50"
             >
               <div className="flex items-center space-x-3 flex-1 min-w-0">
                 <span className="text-sm font-medium w-4 flex-shrink-0 text-gray-600">
@@ -482,28 +484,30 @@ const RankingsCard = () => {
     );
   };
 
-  const renderTabButtons = () => {
+  const renderIconTabs = () => {
     return (
-      <div className="flex bg-gray-100 rounded-lg p-1 mb-2">
+      <div className="flex space-x-1">
         <button
           onClick={() => setActiveTab('mentions')}
-          className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+          className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-medium transition-all duration-200 ${
             activeTab === 'mentions'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
+              ? 'bg-white/60 backdrop-blur-sm border border-white/30 shadow-inner text-gray-900'
+              : 'bg-white/80 backdrop-blur-sm border border-white/20 shadow-md text-gray-500 hover:text-gray-700 hover:bg-white/85'
           }`}
+          title="Mentions"
         >
-          Mentions
+          @
         </button>
         <button
           onClick={() => setActiveTab('citations')}
-          className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+          className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-medium transition-all duration-200 ${
             activeTab === 'citations'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
+              ? 'bg-white/60 backdrop-blur-sm border border-white/30 shadow-inner text-gray-900'
+              : 'bg-white/80 backdrop-blur-sm border border-white/20 shadow-md text-gray-500 hover:text-gray-700 hover:bg-white/85'
           }`}
+          title="Citations"
         >
-          Citations
+          [ ]
         </button>
       </div>
     );
@@ -528,7 +532,10 @@ const RankingsCard = () => {
           {renderIndustryRanking()}
         </div>
         <div className="w-full lg:w-1/2 pl-0 lg:pl-4 flex flex-col">
-          {renderTabButtons()}
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">Rankings</h3>
+            {renderIconTabs()}
+          </div>
           {renderTabContent()}
         </div>
       </div>

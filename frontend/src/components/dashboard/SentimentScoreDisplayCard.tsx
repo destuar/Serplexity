@@ -36,20 +36,13 @@ const SentimentScoreDisplayCard: React.FC<SentimentScoreDisplayCardProps> = ({ s
         customerService: 'Service',
     };
 
-    console.log('ALL sentimentDetails:', data?.sentimentDetails);
-    console.log('ALL sentimentDetails names:', data?.sentimentDetails?.map(m => ({ name: m.name, engine: m.engine })));
-    
     const sentimentMetrics: Metric<SentimentScoreValue>[] = data?.sentimentDetails?.filter(
         (m) => m.name === 'Detailed Sentiment Scores' || m.name === 'Overall Sentiment Summary'
     ) || [];
 
-    console.log('Filtered sentimentMetrics:', sentimentMetrics);
-    console.log('Available engines:', sentimentMetrics.map(m => ({ engine: m.engine, name: m.name })));
-
     let metricToShow: Metric<SentimentScoreValue> | undefined;
     if (selectedModel === 'all') {
         metricToShow = sentimentMetrics.find(m => m.engine === 'serplexity-summary');
-        console.log('Looking for serplexity-summary, found:', metricToShow);
     } else {
         metricToShow = sentimentMetrics.find(m => m.engine === selectedModel);
     }
@@ -85,9 +78,27 @@ const SentimentScoreDisplayCard: React.FC<SentimentScoreDisplayCardProps> = ({ s
                     >
                         <PolarGrid stroke="#e2e8f0" />
                         <PolarAngleAxis dataKey="category" tick={{ fontSize: 12, fill: '#64748b' }} />
-                        <PolarRadiusAxis angle={90} domain={[0, 10]} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                        <Radar name="Score" dataKey="value" stroke="#2563eb" fill="#2563eb" fillOpacity={0.1} />
-                        <Tooltip />
+                        <PolarRadiusAxis angle={90} domain={[0, 10]} tick={false} />
+                        <Radar name="Score" dataKey="value" stroke="#2563eb" strokeWidth={1} fill="#2563eb" fillOpacity={0.1} />
+                        <Tooltip 
+                            contentStyle={{
+                                backgroundColor: '#ffffff',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '8px',
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                                fontSize: '12px',
+                                padding: '8px'
+                            }}
+                            labelStyle={{
+                                color: '#1f2937',
+                                fontWeight: 'bold',
+                                marginBottom: '4px'
+                            }}
+                            itemStyle={{
+                                color: '#2563eb',
+                                fontSize: '12px'
+                            }}
+                        />
                     </RadarChart>
                 </ResponsiveContainer>
             </div>
