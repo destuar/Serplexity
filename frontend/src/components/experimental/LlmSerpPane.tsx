@@ -18,8 +18,9 @@
  * - LlmSerpPane: React functional component for displaying LLM-generated search results.
  */
 import React, { useEffect, useState, useRef } from 'react';
-import { Globe, Clock, Zap, ExternalLink, Settings, X } from 'lucide-react';
+import { Zap, ExternalLink, Settings, X, ArrowRight, User } from 'lucide-react'; // Globe removed as unused
 import ReactMarkdown from 'react-markdown';
+import { useNavigate } from 'react-router-dom';
 import Card from '../ui/Card';
  
 import { searchModels, type Citation } from '../../services/experimentalSearchService.ts';
@@ -42,7 +43,6 @@ interface ChatItem {
   // Enhanced search agent properties
   citations?: Citation[];
   hasWebSearch?: boolean;
-  tokensUsed?: number;
   requestId?: string;
 }
 
@@ -72,33 +72,23 @@ const CitationBadge: React.FC<{ citation: Citation; index: number }> = ({ citati
   </a>
 );
 
-// Response metadata component
-const ResponseMetadata: React.FC<{ 
-  item: ChatItem; 
-  modelDisplayName: string; 
-}> = ({ item, modelDisplayName }) => (
-  <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
-    <div className="flex items-center gap-3">
-      <div className="flex items-center gap-1">
-        <Clock className="w-3 h-3" />
-        <span>{item.latencyMs}ms</span>
-      </div>
-      {item.hasWebSearch && (
-        <div className="flex items-center gap-1 text-green-600">
-          <Globe className="w-3 h-3" />
-          <span>Web search</span>
-        </div>
-      )}
-      {item.tokensUsed && (
-        <div className="flex items-center gap-1">
-          <Zap className="w-3 h-3" />
-          <span>{item.tokensUsed} tokens</span>
-        </div>
-      )}
-    </div>
-    <span>— {modelDisplayName}</span>
-  </div>
-);
+// Response metadata component (currently unused)
+// const ResponseMetadata: React.FC<{ 
+//   item: ChatItem; 
+//   modelDisplayName: string; 
+// }> = ({ item, modelDisplayName }) => (
+//   <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
+//     <div className="flex items-center gap-3">
+//       {item.hasWebSearch && (
+//         <div className="flex items-center gap-1 text-green-600">
+//           <Globe className="w-3 h-3" />
+//           <span>Web search</span>
+//         </div>
+//       )}
+//     </div>
+//     <span>— {modelDisplayName}</span>
+//   </div>
+// );
 
 // Settings interface
 interface ChatSettings {
@@ -108,16 +98,21 @@ interface ChatSettings {
 }
 
 const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [answers, setAnswers] = useState<ChatItem[]>([]);
   const [showSettings, setShowSettings] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
+  
+  // TODO: Replace with actual subscription check
+  const hasSubscription = false;
   const [settings, setSettings] = useState<ChatSettings>({
-    webSearchEnabled: true,
+    webSearchEnabled: false,
     temperature: 0.7,
     persona: ''
   });
   const [lastSearchSettings, setLastSearchSettings] = useState<ChatSettings>({
-    webSearchEnabled: true,
+    webSearchEnabled: false,
     temperature: 0.7,
     persona: ''
   });
@@ -125,6 +120,29 @@ const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
   const aiModelOptions = getModelFilterOptions().filter((o) => o.value !== 'all');
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Handle model changes with subscription check
+  const handleModelChange = (newModelId: string) => {
+    console.log('Model change attempted:', newModelId);
+    // Check if user has subscription for non-ChatGPT models
+    if (!hasSubscription && newModelId !== 'gpt-4.1-mini') {
+      console.log('Subscription required for non-ChatGPT model, showing paywall');
+      setShowPaywall(true);
+      return;
+    }
+    onModelChange(newModelId);
+  };
+
+  // Handle settings changes with subscription check
+  const handleSettingsChange = (newSettings: Partial<ChatSettings>) => {
+    console.log('Settings change attempted:', newSettings);
+    if (!hasSubscription) {
+      console.log('Subscription required for settings change, showing paywall');
+      setShowPaywall(true);
+      return;
+    }
+    setSettings(prev => ({ ...prev, ...newSettings }));
+  };
 
   // Check if settings have changed since last search
   const settingsChanged = () => {
@@ -139,6 +157,7 @@ const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
   const executeSearch = async (searchQuery: string, searchModelId: string) => {
     if (!searchQuery.trim()) return;
     
+    console.log('Executing search with settings:', settings);
     setLoading(true);
     setAnswers([]);
     
@@ -190,19 +209,19 @@ const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
   }, [answers]);
 
   return (
-    <Card className="h-full flex flex-col overflow-hidden p-4">
+    <Card className="h-full flex flex-col overflow-hidden p-4 relative">
       {/* Header with model dropdown and settings */}
       <div className="flex items-center justify-between gap-2 mb-3 sticky top-0 bg-white/80 backdrop-blur z-10 py-1">
-        <FilterDropdown
-          label="Model"
-          value={modelId}
-          options={aiModelOptions}
-          onChange={(v) => onModelChange(v as string)}
-          icon={undefined}
-          disabled={loading}
-          noShadow
-          autoWidth
-        />
+        <div className="[&>div>button]:!bg-white/95 [&>div>button]:hover:!bg-white [&_div[class*='bg-white/80']]:!bg-white/95">
+          <FilterDropdown
+            label="Model"
+            value={modelId}
+            options={aiModelOptions}
+            onChange={(v) => handleModelChange(v as string)}
+            icon={undefined}
+            disabled={loading}
+          />
+        </div>
         
         {/* Settings button */}
         <button
@@ -214,73 +233,86 @@ const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
         </button>
       </div>
 
-      {/* Settings panel */}
+      {/* Settings panel with UI/UX matching design system */}
       {showSettings && (
-        <div className="mb-3 bg-gray-50 rounded-lg p-4 border">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-700">Chat Settings</h3>
+        <div className="absolute top-16 left-4 right-4 z-20 bg-white/80 backdrop-blur-sm rounded-lg shadow-md border border-white/20 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-gray-900">Chat Settings</h3>
             <button
               onClick={() => setShowSettings(false)}
-              className="p-1 text-gray-400 hover:text-gray-600"
+              className="p-1 text-gray-400 hover:text-gray-600 transition-colors rounded-sm hover:bg-gray-100"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
           
-          <div className="space-y-4">
+          <div className="space-y-5">
             {/* Web Search Toggle */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Globe className="w-4 h-4 text-gray-500" />
-                <label className="text-sm text-gray-700">Web Search</label>
+              <div className="flex items-center gap-3">
+                <div>
+                  <label className="text-sm font-medium text-gray-900">Live Web Search</label>
+                  <p className="text-xs text-gray-500">Access real-time information from the web</p>
+                </div>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
                   checked={settings.webSearchEnabled}
-                  onChange={(e) => setSettings(prev => ({ ...prev, webSearchEnabled: e.target.checked }))}
+                  onChange={(e) => handleSettingsChange({ webSearchEnabled: e.target.checked })}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 shadow-sm"></div>
               </label>
             </div>
 
             {/* Temperature Slider */}
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-gray-500" />
-                  <label className="text-sm text-gray-700">Temperature</label>
+                <div className="flex items-center gap-3">
+                  <div>
+                    <label className="text-sm font-medium text-gray-900">Temperature</label>
+                    <p className="text-xs text-gray-500">Control response randomness and creativity</p>
+                  </div>
                 </div>
-                <span className="text-sm text-gray-500">{settings.temperature}</span>
+                <span className="text-sm font-mono text-gray-600 bg-gray-100 px-2 py-1 rounded-md min-w-[3rem] text-center">
+                  {settings.temperature}
+                </span>
               </div>
-              <input
-                type="range"
-                min="0"
-                max="2"
-                step="0.1"
-                value={settings.temperature}
-                onChange={(e) => setSettings(prev => ({ ...prev, temperature: parseFloat(e.target.value) }))}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-              />
-              <div className="flex justify-between text-xs text-gray-400">
-                <span>Focused</span>
-                <span>Balanced</span>
-                <span>Creative</span>
+              <div className="px-1">
+                <input
+                  type="range"
+                  min="0"
+                  max="2"
+                  step="0.1"
+                  value={settings.temperature}
+                  onChange={(e) => handleSettingsChange({ temperature: parseFloat(e.target.value) })}
+                  className="w-full h-2 bg-gradient-to-r from-blue-200 via-purple-200 to-pink-200 rounded-lg appearance-none cursor-pointer slider [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-gray-300 [&::-webkit-slider-thumb]:cursor-pointer"
+                />
+                <div className="flex justify-between mt-1">
+                  <span className="text-xs text-gray-400">Focused</span>
+                  <span className="text-xs text-gray-400">Balanced</span>
+                  <span className="text-xs text-gray-400">Creative</span>
+                </div>
               </div>
             </div>
 
-            {/* Persona Input */}
-            <div className="space-y-2">
-              <label className="text-sm text-gray-700 font-medium">System Persona (optional)</label>
-              <textarea
-                placeholder="e.g., You are a helpful expert in technology..."
-                value={settings.persona}
-                onChange={(e) => setSettings(prev => ({ ...prev, persona: e.target.value }))}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                rows={2}
-              />
-              <p className="text-xs text-gray-500">Add a custom persona to influence the model's responses</p>
+            {/* User Persona Input */}
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="flex-1">
+                  <label className="text-sm font-medium text-gray-900">User Persona (optional)</label>
+                  <p className="text-xs text-gray-500 mb-2">Describe yourself to help the AI understand your context</p>
+                  <textarea
+                    placeholder="e.g., User is interested in technology and works in software development..."
+                    value={settings.persona}
+                    onChange={(e) => handleSettingsChange({ persona: e.target.value })}
+                    className="w-full px-3 py-2.5 text-sm bg-black/5 backdrop-blur-sm border border-white/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/20 resize-none shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]"
+                    rows={2}
+                  />
+                  <p className="text-xs text-gray-400 mt-1.5">This acts like memory - helps the AI remember your interests and background</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -324,8 +356,13 @@ const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
         {/* User prompt */}
         {query && (
           <div className="flex justify-end">
-            <div className="max-w-[75%] rounded-2xl bg-white/60 dark:bg-white/10 backdrop-blur-lg border border-white/30 px-4 py-2 text-sm text-gray-900 whitespace-pre-line shadow">
-              {query}
+            <div className="flex items-start gap-3 max-w-[85%]">
+              <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-2xl shadow-md px-4 py-3 rounded-tr-md">
+                <p className="text-gray-900 text-sm leading-relaxed whitespace-pre-line">{query}</p>
+              </div>
+              <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
+                <User size={16} className="text-gray-600" />
+              </div>
             </div>
           </div>
         )}
@@ -333,11 +370,26 @@ const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
         {/* Enhanced typing indicator */}
         {loading && query && (
           <div className="flex justify-start">
-            <div className="max-w-[85%] rounded-2xl bg-white/20 backdrop-blur-lg border border-white/30 px-4 py-3 shadow-lg ring-1 ring-white/20">
-              <div className="flex items-center space-x-1">
-                <span className="block w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                <span className="block w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                <span className="block w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+            <div className="flex items-start gap-3 max-w-[85%]">
+              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center flex-shrink-0 border border-gray-200">
+                {MODEL_CONFIGS[modelId]?.logoUrl ? (
+                  <img 
+                    src={MODEL_CONFIGS[modelId].logoUrl} 
+                    alt={MODEL_CONFIGS[modelId].displayName} 
+                    className="w-5 h-5 rounded object-contain"
+                  />
+                ) : (
+                  <span className="text-xs font-semibold text-gray-600">
+                    {(MODEL_CONFIGS[modelId]?.displayName || modelId).charAt(0)}
+                  </span>
+                )}
+              </div>
+              <div className="rounded-2xl bg-white/20 backdrop-blur-lg border border-white/30 px-4 py-3 shadow-lg ring-1 ring-white/20 rounded-tl-md">
+                <div className="flex items-center space-x-1">
+                  <span className="block w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                  <span className="block w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                  <span className="block w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                </div>
               </div>
             </div>
           </div>
@@ -349,60 +401,135 @@ const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
           
           return (
             <div key={a.engine} className="flex justify-start">
-              <div className="max-w-[85%] rounded-2xl bg-white/40 dark:bg-white/5 backdrop-blur-lg border border-white/30 px-4 py-3 text-sm text-gray-900 shadow-lg ring-1 ring-white/20">
+              <div className="flex items-start gap-3 max-w-[85%]">
+                <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center flex-shrink-0 border border-gray-200">
+                  {MODEL_CONFIGS[a.engine]?.logoUrl ? (
+                    <img 
+                      src={MODEL_CONFIGS[a.engine].logoUrl} 
+                      alt={modelDisplayName} 
+                      className="w-5 h-5 rounded object-contain"
+                    />
+                  ) : (
+                    <span className="text-xs font-semibold text-gray-600">
+                      {modelDisplayName.charAt(0)}
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-col">
+                  <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-2xl shadow-md px-4 py-3 rounded-tl-md">
                 {/* Main response content */}
-                <div className="text-sm text-gray-900 [&_p]:mb-3 [&_p:last-child]:mb-0 leading-relaxed">
+                <div className="text-sm text-gray-800 leading-relaxed [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:my-3 [&_ol]:my-3 [&_li]:my-1 [&_pre]:my-3 [&_blockquote]:my-3 [&_table]:my-4">
                   <ReactMarkdown 
                     remarkPlugins={[remarkGfm]}
                     components={{
-                      // Enhanced code blocks with syntax highlighting styling
+                      // Enhanced paragraph renderer
+                      p: ({ children }) => (
+                        <p className="mb-3 leading-relaxed text-sm text-gray-800">
+                          {children}
+                        </p>
+                      ),
+                      
+                      // Enhanced strong renderer
+                      strong: ({ children }) => (
+                        <strong className="font-semibold text-sm text-gray-900">
+                          {children}
+                        </strong>
+                      ),
+                      
+                      // Enhanced list item renderer
+                      li: ({ children }) => (
+                        <li className="text-sm text-gray-800 my-1">
+                          {children}
+                        </li>
+                      ),
+                      
+                      // Customize code blocks for better appearance
                       code: ({ className, children, ...props }) => {
                         const match = /language-(\w+)/.exec(className || '');
                         return match ? (
-                          <pre className="bg-gray-50 rounded-lg p-3 overflow-x-auto my-3 border">
+                          <pre className="bg-gray-100 rounded-md p-3 overflow-x-auto border border-gray-200 my-4">
                             <code className={className} {...props}>
                               {children}
                             </code>
                           </pre>
                         ) : (
-                          <code className="bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+                          <code className="bg-gray-100 px-1 py-0.5 rounded text-sm font-mono text-gray-800" {...props}>
                             {children}
                           </code>
                         );
                       },
-                      // Enhanced links
+                      
+                      // Enhanced blockquote styling
+                      blockquote: ({ children }) => (
+                        <blockquote className="border-l-4 border-gray-300 pl-4 italic text-gray-700 my-4">
+                          {children}
+                        </blockquote>
+                      ),
+                      
+                      // Enhanced link styling
                       a: ({ href, children, ...props }) => (
                         <a 
                           href={href} 
                           target="_blank" 
                           rel="noopener noreferrer" 
-                          className="text-blue-600 hover:text-blue-800 underline decoration-blue-300 hover:decoration-blue-500 transition-colors"
+                          className="text-blue-600 hover:text-blue-800 underline font-medium" 
                           {...props}
                         >
                           {children}
                         </a>
                       ),
-                      // Enhanced headings
-                      h1: ({ children, ...props }) => (
-                        <h1 className="text-lg font-semibold text-gray-800 mt-4 mb-2" {...props}>
-                          {children}
-                        </h1>
-                      ),
-                      h2: ({ children, ...props }) => (
-                        <h2 className="text-base font-semibold text-gray-800 mt-3 mb-2" {...props}>
-                          {children}
-                        </h2>
-                      ),
-                      // Enhanced lists
-                      ul: ({ children, ...props }) => (
-                        <ul className="list-disc pl-4 space-y-1" {...props}>
+                      
+                      // Enhanced unordered list styling
+                      ul: ({ children }) => (
+                        <ul className="list-disc pl-6 space-y-1 my-3 text-sm text-gray-800">
                           {children}
                         </ul>
                       ),
-                      ol: ({ children, ...props }) => (
-                        <ol className="list-decimal pl-4 space-y-1" {...props}>
+                      
+                      // Enhanced ordered list styling  
+                      ol: ({ children }) => (
+                        <ol className="list-decimal pl-6 space-y-1 my-3 text-sm text-gray-800">
                           {children}
                         </ol>
+                      ),
+                      
+                      // Enhanced table styling for proper display
+                      table: ({ children }) => (
+                        <div className="overflow-x-auto my-6">
+                          <table className="min-w-full divide-y divide-gray-300 border border-gray-200 rounded-lg">
+                            {children}
+                          </table>
+                        </div>
+                      ),
+                      
+                      thead: ({ children }) => (
+                        <thead className="bg-gray-50">
+                          {children}
+                        </thead>
+                      ),
+                      
+                      tbody: ({ children }) => (
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {children}
+                        </tbody>
+                      ),
+                      
+                      tr: ({ children }) => (
+                        <tr className="hover:bg-gray-50 transition-colors">
+                          {children}
+                        </tr>
+                      ),
+                      
+                      th: ({ children }) => (
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
+                          {children}
+                        </th>
+                      ),
+                      
+                      td: ({ children }) => (
+                        <td className="px-4 py-3 text-sm text-gray-800">
+                          {children}
+                        </td>
                       ),
                     }}
                   >
@@ -426,14 +553,45 @@ const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
                     </div>
                   </div>
                 )}
-
-                {/* Response metadata */}
-                <ResponseMetadata item={a} modelDisplayName={modelDisplayName} />
+                  </div>
+                </div>
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* Paywall Modal */}
+      {showPaywall && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md w-full max-w-md mx-4 p-6">
+            <div className="text-center">
+              <h3 className="text-base font-semibold text-gray-900 mb-3">Serplexity Pro Required</h3>
+              <p className="text-sm text-gray-600 mb-6">
+                Additional models and settings require a subscription.
+              </p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => setShowPaywall(false)}
+                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowPaywall(false);
+                    navigate('/payment');
+                  }}
+                  className="px-6 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors inline-flex items-center gap-2"
+                >
+                  Upgrade Now
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   );
 };

@@ -14,7 +14,7 @@
  */
 import { useState, useMemo } from 'react';
 import { Loader, Calendar, RefreshCw, ArrowUpDown, ChevronUp, ChevronDown, Sparkles } from 'lucide-react';
-import { dashboardClasses, chartColorArrays } from '../utils/colorClasses';
+import { chartColorArrays } from '../utils/colorClasses';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';
 import { useModelComparison } from '../hooks/useModelComparison';

@@ -16,71 +16,36 @@ export const LiquidGlassSpinner: React.FC<LiquidGlassSpinnerProps> = ({
   };
   
   const spinnerSize = sizeMap[size];
+  const offset = spinnerSize * 0.44;
+
+  const spinnerStyle = {
+    '--spinner-size': `${spinnerSize}px`,
+    '--spinner-offset': `${offset}px`,
+    width: spinnerSize,
+    height: spinnerSize
+  } as React.CSSProperties;
 
   return (
-    <div className={`liquid-glass-spinner ${className}`}>
-      <div className="loader"></div>
-
-      <style jsx>{`
-        .liquid-glass-spinner {
-          position: relative;
-          margin: 0 auto;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: ${spinnerSize}px;
-          height: ${spinnerSize}px;
-        }
-
-        .loader {
-          position: relative;
-          width: ${spinnerSize}px;
-          height: ${spinnerSize}px;
-        }
-
-        .loader::before,
-        .loader::after {
-          content: "";
-          position: absolute;
-          inset: 0;
-          border-radius: 50%;
-        }
-
-        /* Loader Black Circle */
-        .loader::before {
-          background: #000000;
-          animation: animate 2s ease-in-out infinite;
-        }
-
-        /* Loader Glassmorphism */
-        .loader::after {
-          background: rgba(0, 0, 0, 0.05);
-          backdrop-filter: blur(6px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          animation: animate 2s ease-in-out infinite;
-          z-index: 1;
-          animation-delay: -1s;
-        }
-
-        /* Animation */
-        @keyframes animate {
-          0%,
-          100% {
-            transform: translateX(-${spinnerSize * 0.44}px);
+    <div className={`relative mx-auto flex items-center justify-center ${className}`} style={spinnerStyle}>
+      <div className="relative w-full h-full">
+        <div className="absolute inset-0 bg-black rounded-full animate-[glass-spinner-slide_2s_ease-in-out_infinite]"></div>
+        <div className="absolute inset-0 bg-black/5 backdrop-blur-md border border-white/10 rounded-full animate-[glass-spinner-slide_2s_ease-in-out_infinite] z-10" style={{ animationDelay: '-1s' }}></div>
+      </div>
+      
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          @keyframes glass-spinner-slide {
+            0%, 100% { transform: translateX(calc(-1 * var(--spinner-offset))); }
+            50% { transform: translateX(var(--spinner-offset)); }
           }
-          50% {
-            transform: translateX(${spinnerSize * 0.44}px);
+          @media (prefers-reduced-motion: reduce) {
+            .animate-\\[glass-spinner-slide_2s_ease-in-out_infinite\\] {
+              animation: none !important;
+              transform: translateX(0) !important;
+            }
           }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .loader::before,
-          .loader::after {
-            animation: none;
-            transform: translateX(0);
-          }
-        }
-      `}</style>
+        `
+      }} />
     </div>
   );
 };

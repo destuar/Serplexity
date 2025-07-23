@@ -6,7 +6,7 @@
 import React from 'react';
 import { ChevronRight } from 'lucide-react';
 import { useNavigation } from '../../hooks/useNavigation';
-import { textClasses } from '../../utils/colorClasses';
+// Note: textClasses import removed as it's unused
 
 const Breadcrumb: React.FC = () => {
   const { breadcrumbs } = useNavigation();

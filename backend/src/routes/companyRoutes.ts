@@ -15,6 +15,7 @@
  */
 import { Router } from "express";
 import { authenticate } from "../middleware/authMiddleware";
+import { subscriptionOnlyGuard } from "../middleware/freemiumGuard";
 import {
   createCompany,
   deleteCompany,
@@ -65,7 +66,7 @@ router.get("/:id/metrics/share-of-voice", getShareOfVoice); // GET /api/companie
 router.get("/:id/metrics/competitor-rankings", getCompetitorRankings);
 router.get("/:id/metrics/sentiment", getSentimentData); // GET /api/companies/:id/metrics/sentiment
 router.get("/:id/top-ranking-questions", getTopRankingQuestions); // GET /api/companies/:id/top-ranking-questions
-router.get("/:id/prompts-with-responses", getPromptsWithResponses); // GET /api/companies/:id/prompts-with-responses
+router.get("/:id/prompts-with-responses", authenticate, getPromptsWithResponses); // GET /api/companies/:id/prompts-with-responses - View only for free users
 router.get("/:id/metrics/sentiment-over-time", getSentimentOverTime);
 router.get("/:id/share-of-voice-history", getShareOfVoiceHistory);
 
@@ -80,9 +81,9 @@ router.put("/:id/competitors/:competitorId", updateCompetitor); // PUT /api/comp
 router.delete("/:id/competitors/:competitorId", deleteCompetitor); // DELETE /api/companies/:id/competitors/:competitorId
 
 // Question management routes
-router.get("/:id/questions", getCompanyQuestions);
-router.post("/:id/questions", addQuestion);
-router.put("/:id/questions/:questionId", updateQuestion);
-router.delete("/:id/questions/:questionId", deleteQuestion);
+router.get("/:id/questions", authenticate, getCompanyQuestions); // View questions - free
+router.post("/:id/questions", authenticate, subscriptionOnlyGuard, addQuestion); // Add questions - subscription only
+router.put("/:id/questions/:questionId", authenticate, subscriptionOnlyGuard, updateQuestion); // Edit questions - subscription only  
+router.delete("/:id/questions/:questionId", authenticate, subscriptionOnlyGuard, deleteQuestion); // Delete questions - subscription only
 
 export default router;

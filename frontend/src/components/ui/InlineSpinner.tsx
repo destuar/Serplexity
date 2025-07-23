@@ -9,68 +9,37 @@ export const InlineSpinner: React.FC<InlineSpinnerProps> = ({
   size = 16, 
   className = '' 
 }) => {
+  const spinnerStyle = {
+    '--spinner-size': `${size}px`,
+    '--spinner-offset': `${size * 0.35}px`,
+    width: size,
+    height: size
+  } as React.CSSProperties;
+
   return (
     <div 
-      className={`inline-spinner ${className}`}
-      style={{ width: size, height: size }}
+      className={`inline-block align-middle ${className}`}
+      style={spinnerStyle}
     >
-      <div className="loader"></div>
-
-      <style jsx>{`
-        .inline-spinner {
-          display: inline-block;
-          vertical-align: middle;
-        }
-
-        .loader {
-          position: relative;
-          width: ${size}px;
-          height: ${size}px;
-        }
-
-        .loader::before,
-        .loader::after {
-          content: "";
-          position: absolute;
-          inset: 0;
-          border-radius: 50%;
-        }
-
-        /* Loader Black Circle */
-        .loader::before {
-          background: #000000;
-          animation: animate 2s ease-in-out infinite;
-        }
-
-        /* Loader Glassmorphism */
-        .loader::after {
-          background: rgba(0, 0, 0, 0.05);
-          backdrop-filter: blur(2px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          animation: animate 2s ease-in-out infinite;
-          z-index: 1;
-          animation-delay: -1s;
-        }
-
-        /* Animation - scaled for smaller size */
-        @keyframes animate {
-          0%,
-          100% {
-            transform: translateX(-${size * 0.35}px);
+      <div className="relative w-full h-full">
+        <div className="absolute inset-0 bg-black rounded-full animate-[spinner-slide_2s_ease-in-out_infinite]"></div>
+        <div className="absolute inset-0 bg-black/5 backdrop-blur-sm border border-white/10 rounded-full animate-[spinner-slide_2s_ease-in-out_infinite] z-10" style={{ animationDelay: '-1s' }}></div>
+      </div>
+      
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          @keyframes spinner-slide {
+            0%, 100% { transform: translateX(calc(-1 * var(--spinner-offset))); }
+            50% { transform: translateX(var(--spinner-offset)); }
           }
-          50% {
-            transform: translateX(${size * 0.35}px);
+          @media (prefers-reduced-motion: reduce) {
+            .animate-\\[spinner-slide_2s_ease-in-out_infinite\\] {
+              animation: none !important;
+              transform: translateX(0) !important;
+            }
           }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .loader::before,
-          .loader::after {
-            animation: none;
-            transform: translateX(0);
-          }
-        }
-      `}</style>
+        `
+      }} />
     </div>
   );
 };

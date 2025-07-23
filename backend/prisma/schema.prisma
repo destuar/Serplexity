@@ -22,6 +22,8 @@ model User {
   updatedAt          DateTime   @updatedAt
   stripeCustomerId   String?    @unique
   subscriptionStatus String?
+  trialStartedAt     DateTime?  // When user started their 7-day trial
+  trialEndsAt        DateTime?  // When trial expires (calculated from trialStartedAt + 7 days)
   modelPreferences   Json?      @default("{\"gpt-4.1-mini\":true,\"claude-3-5-haiku-20241022\":true,\"gemini-2.5-flash\":true,\"sonar\":true}")
   blogPosts          BlogPost[]
   companies          Company[]

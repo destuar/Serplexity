@@ -36,7 +36,7 @@ interface ShareOfVoiceHistoryItem {
 }
 
 const VisibilityOverTimeCard: React.FC<VisibilityOverTimeCardProps> = ({ selectedModel = 'all', onSeeMore }) => {
-  const { data, loading, error, filters } = useDashboard();
+  const { data, loading: _loading, error, filters } = useDashboard();
   
   /**
    * Memoized computation of chart data based on `shareOfVoiceHistory`, `selectedModel`, and `dateRange` filters.

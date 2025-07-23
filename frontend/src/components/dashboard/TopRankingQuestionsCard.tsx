@@ -20,7 +20,7 @@ import { useDashboard } from '../../hooks/useDashboard';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 const TopRankingQuestionsCard = () => {
-  const { data, loading, error } = useDashboard();
+  const { data, loading: _loading, error } = useDashboard();
   const navigate = useNavigate();
   const isTallerScreen = useMediaQuery('(min-height: 900px)');
 

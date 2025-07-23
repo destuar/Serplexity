@@ -1247,6 +1247,28 @@ export const addQuestion = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Company not found" });
     }
 
+    // Check active question limit for free users
+    if (validatedData.isActive) {
+      const activeQuestions = await prisma.question.count({
+        where: { companyId, isActive: true },
+      });
+
+      // Free users limited to 5 active questions
+      const user = req.user;
+      const hasActiveSubscription = user?.subscriptionStatus === "active";
+      const isInActiveTrial = user?.subscriptionStatus === "trialing" && 
+        user?.trialEndsAt && new Date() < new Date(user.trialEndsAt);
+      
+      if (!hasActiveSubscription && !isInActiveTrial && activeQuestions >= 5) {
+        return res.status(403).json({ 
+          error: "Free accounts are limited to 5 active questions",
+          message: "Upgrade to add more active questions",
+          currentActive: activeQuestions,
+          limit: 5
+        });
+      }
+    }
+
     // Create new question (source defaults to "user")
     const newQuestion = await prisma.question.create({
       data: {

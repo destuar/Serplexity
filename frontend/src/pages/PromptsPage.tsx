@@ -439,7 +439,7 @@ const PromptsPage: React.FC = () => {
   // Transform prompt questions to prompt format
   const allPrompts = useMemo(() => {
     // Convert prompt questions to prompt items with status logic
-    const generatedPrompts: PromptItem[] = promptQuestions.map((q, index) => {
+    const generatedPrompts: PromptItem[] = promptQuestions.map((q) => {
       // Check if we have a status override for this prompt
       const overrideStatus = promptStatusOverrides[q.id];
       

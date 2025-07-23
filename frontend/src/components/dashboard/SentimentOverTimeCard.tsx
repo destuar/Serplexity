@@ -31,7 +31,7 @@ interface ChartDataPoint {
 }
 
 const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedModel = 'all' }) => {
-  const { data, loading } = useDashboard();
+  const { data, loading: _loading } = useDashboard();
 
   // Filter data by selected model and format for chart
   const chartData: ChartDataPoint[] = useMemo(() => {

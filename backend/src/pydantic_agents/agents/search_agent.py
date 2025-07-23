@@ -286,17 +286,11 @@ Prioritize accuracy and recency of information."""
                 execution_time=execution_time
             )
             
-            # Extract token usage
-            tokens_used = 0
-            if hasattr(response, 'usage') and response.usage:
-                tokens_used = response.usage.total_tokens
-            
             return {
                 "result": search_response.model_dump(),
                 "execution_time": execution_time,
                 "attempt_count": 1,
                 "agent_id": self.agent_id,
-                "tokens_used": tokens_used,
                 "model_used": model_name
             }
             
@@ -343,17 +337,11 @@ Prioritize accuracy and recency of information."""
                 execution_time=execution_time
             )
             
-            # Extract token usage
-            tokens_used = 0
-            if hasattr(result, 'usage') and result.usage:
-                tokens_used = result.usage.total_tokens if hasattr(result.usage, 'total_tokens') else 0
-            
             return {
                 "result": search_response.model_dump(),
                 "execution_time": execution_time,
                 "attempt_count": 1,
                 "agent_id": self.agent_id,
-                "tokens_used": tokens_used,
                 "model_used": self.model_id.split(':')[-1]
             }
             
@@ -423,17 +411,11 @@ Prioritize accuracy and recency of information."""
                 execution_time=execution_time
             )
             
-            # Extract token usage
-            tokens_used = 0
-            if hasattr(response, 'usage_metadata') and response.usage_metadata:
-                tokens_used = (response.usage_metadata.prompt_token_count or 0) + (response.usage_metadata.candidates_token_count or 0)
-            
             return {
                 "result": search_response.model_dump(),
                 "execution_time": execution_time,
                 "attempt_count": 1,
                 "agent_id": self.agent_id,
-                "tokens_used": tokens_used,
                 "model_used": model_name
             }
             
@@ -483,17 +465,11 @@ Prioritize accuracy and recency of information."""
                 execution_time=execution_time
             )
             
-            # Extract token usage
-            tokens_used = 0
-            if hasattr(result, 'usage') and result.usage:
-                tokens_used = result.usage.total_tokens if hasattr(result.usage, 'total_tokens') else 0
-            
             return {
                 "result": search_response.model_dump(),
                 "execution_time": execution_time,
                 "attempt_count": 1,
                 "agent_id": self.agent_id,
-                "tokens_used": tokens_used,
                 "model_used": "sonar"
             }
             

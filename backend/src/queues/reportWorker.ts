@@ -252,27 +252,44 @@ validateWorkerDependencies().then(() => {
 })();
 
 /**
- * Calculate USD cost from token usage and web searches
+ * Calculate USD cost from ACTUAL token usage and web searches
+ * CRITICAL: This replaces the dangerous estimation-based approach
  */
 function calculateCost(
   modelId: string | undefined,
   inputTokens: number,
   outputTokens: number = 0,
   searchCount: number = 0,
+  thinkingTokens?: number,
+  cachedTokens?: number,
 ): number {
   if (!modelId) return 0;
 
   try {
-    const { totalCost } = CostCalculator.calculateTotalCost(
+    const result = CostCalculator.calculateTotalCost(
       modelId,
       inputTokens,
       outputTokens,
       searchCount,
+      cachedTokens,
+      thinkingTokens,
     );
-    return totalCost;
+    
+    // Log cost breakdown for audit trail
+    console.log(`💰 Cost calculation for ${modelId}:`, {
+      inputTokens,
+      outputTokens,
+      thinkingTokens,
+      searchCount,
+      breakdown: result.breakdown,
+      totalCost: result.totalCost
+    });
+    
+    return result.totalCost;
   } catch (error) {
-    console.warn(`Failed to calculate cost for model ${modelId}:`, error);
-    return 0;
+    console.error(`❌ CRITICAL: Cost calculation failed for model ${modelId}:`, error);
+    // Don't silently return 0 - this hides cost tracking failures
+    throw new Error(`Cost calculation failed for ${modelId}: ${error}`);
   }
 }
 

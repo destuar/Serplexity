@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { textClasses } from "../../utils/colorClasses";
+// Note: textClasses import removed as it's unused
 import { useCompany } from "../../hooks/useCompany";
 import { useNavigation } from "../../hooks/useNavigation";
 import CompanyLogo from "../company/CompanyLogo";
@@ -160,7 +160,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
     <div className={sidebarClasses} onClick={handleSidebarClick}>
-      <div className={`flex items-center py-2 border-b border-gray-200/50 px-3 ${isDesktopCollapsed ? 'justify-center' : ''}`}>
+      <div className={`flex items-center py-2 border-b border-gray-200/50 px-3 min-h-[60px] ${isDesktopCollapsed ? 'justify-center' : ''}`}>
         {selectedCompany && !isDesktopCollapsed ? (
           <div className="relative w-full" ref={companyDropdownRef}>
             <button
@@ -283,7 +283,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
       </div>
       <div className="flex flex-col flex-1 overflow-hidden">
-        <div className="flex flex-col px-4 pt-3 flex-1 overflow-y-auto space-y-4">
+        <div className={`flex flex-col px-4 pt-3 flex-1 overflow-y-auto ${isDesktopCollapsed ? 'space-y-1' : 'space-y-4'}`}>
         <div>
           {!isDesktopCollapsed && (
             <div 

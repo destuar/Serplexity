@@ -56,9 +56,9 @@ class RedisConnectionManager {
     enableReadyCheck: true,
     showFriendlyErrorStack: env.NODE_ENV !== "production",
 
-    // More generous connection settings for unstable networks
-    connectTimeout: 30000, // 30 seconds - much longer timeout
-    commandTimeout: 15000, // 15 seconds for commands
+    // More generous connection settings for unstable networks and high-latency Redis Cloud
+    connectTimeout: 60000, // 60 seconds - extended for Redis Cloud
+    commandTimeout: 90000, // 90 seconds for commands - extended for Redis Cloud BullMQ operations
     lazyConnect: true, // Don't connect immediately
 
     // Retry strategy with exponential backoff

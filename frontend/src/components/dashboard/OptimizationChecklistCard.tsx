@@ -22,7 +22,7 @@ import Card from '../ui/Card';
 import { cn } from '../../lib/utils';
 
 const OptimizationChecklistCard: React.FC = () => {
-    const { data, loading } = useDashboard();
+    const { data, loading: _loading } = useDashboard();
     const [tasks, setTasks] = useState<OptimizationTask[]>([]);
     const [justCompleted, setJustCompleted] = useState<string[]>([]);
     const [sliding, setSliding] = useState<string[]>([]);

@@ -122,7 +122,6 @@ export const searchWithAgent = async (req: Request, res: Response) => {
       requestId,
       modelId,
       latencyMs,
-      tokensUsed: agentResult.metadata.tokensUsed || 0,
       queryLength: query.length,
       answerLength: searchResult.answer.length,
       citationsCount: searchResult.citations?.length || 0,
@@ -134,12 +133,10 @@ export const searchWithAgent = async (req: Request, res: Response) => {
       engine: searchResult.model_used || modelId,
       answer: searchResult.answer,
       latencyMs: searchResult.execution_time || latencyMs,
-      tokensUsed: agentResult.metadata.tokensUsed || 0,
       requestId,
-      // Additional search-specific metadata
+      // Additional search-specific metadata with properly formatted citations
       citations: searchResult.citations || [],
       hasWebSearch: searchResult.has_web_search || false,
-      confidence: searchResult.confidence || 0.8,
     };
 
     return res.status(200).json(response);

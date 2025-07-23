@@ -18,19 +18,18 @@
  */
 import { ChevronUp, ChevronDown, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { chartColorArrays } from '../../utils/colorClasses';
 import LiquidGlassCard from '../ui/LiquidGlassCard';
 import { useDashboard } from '../../hooks/useDashboard';
 import { getCompanyLogo } from '../../lib/logoService';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useCompany } from '../../contexts/CompanyContext';
-import { getAcceptedCompetitors, CompetitorData } from '../../services/companyService';
 
 type TabType = 'mentions' | 'citations';
 
 const RankingsCard = () => {
-  const { data, loading, error, acceptedCompetitors } = useDashboard();
+  const { data, loading: _loading, error, acceptedCompetitors } = useDashboard();
   const { selectedCompany } = useCompany();
   const navigate = useNavigate();
   const isTallerScreen = useMediaQuery('(min-height: 900px)');

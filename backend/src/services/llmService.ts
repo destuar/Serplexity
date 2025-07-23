@@ -39,6 +39,7 @@ import {
   getModelsByTask,
 } from "../config/models";
 import { getDbClient } from "../config/database";
+import { TokenUsageDetail } from "../interfaces/TokenUsageDetail";
 
 // --- Enhanced Type Definitions ---
 export interface TokenUsage {
@@ -158,13 +159,13 @@ export async function generateSentimentScores(
       success: result.metadata.success,
     });
 
+    // CRITICAL FIX: Extract actual token counts from PydanticAI response
+    // TODO: Update PydanticAI agents to return actual input/output token counts
+    const actualUsage = extractActualTokenUsage(result.metadata);
+    
     return {
       data: result.data,
-      usage: {
-        promptTokens: Math.floor(result.metadata.tokensUsed * 0.7),
-        completionTokens: Math.floor(result.metadata.tokensUsed * 0.3),
-        totalTokens: result.metadata.tokensUsed,
-      },
+      usage: actualUsage,
       modelUsed: result.metadata.modelUsed,
     };
   } catch (error) {
@@ -726,4 +727,48 @@ export async function getModelsByTaskWithUserPreferences(
   const userPreferences = await getUserModelPreferences(userId);
 
   return allModels.filter((model: Model) => userPreferences[model.id] === true);
+}
+
+/**
+ * CRITICAL: Extract actual token usage from PydanticAI metadata
+ * This replaces the dangerous hardcoded percentage estimates
+ */
+function extractActualTokenUsage(metadata: any): TokenUsage {
+  // Try to extract actual token counts from metadata
+  if (metadata.usage && typeof metadata.usage === 'object') {
+    const usage = metadata.usage;
+    
+    // Priority 1: Direct token counts from provider
+    if (usage.prompt_tokens !== undefined && usage.completion_tokens !== undefined) {
+      return {
+        promptTokens: usage.prompt_tokens,
+        completionTokens: usage.completion_tokens,
+        totalTokens: usage.total_tokens || (usage.prompt_tokens + usage.completion_tokens),
+      };
+    }
+    
+    // Priority 2: Input/output tokens
+    if (usage.input_tokens !== undefined && usage.output_tokens !== undefined) {
+      return {
+        promptTokens: usage.input_tokens,
+        completionTokens: usage.output_tokens,
+        totalTokens: usage.total_tokens || (usage.input_tokens + usage.output_tokens),
+      };
+    }
+  }
+  
+  // FALLBACK: Log warning and use conservative estimates
+  // This should trigger alerts in production
+  console.warn(`⚠️  CRITICAL: No actual token counts available for model ${metadata.modelUsed}`);
+  console.warn(`⚠️  Using fallback estimates - cost calculation may be inaccurate`);
+  console.warn(`⚠️  PydanticAI agents must be updated to return actual token counts`);
+  
+  const totalTokens = metadata.tokensUsed || 0;
+  
+  // Use conservative 80/20 split for fallback (overestimate input tokens for safety)
+  return {
+    promptTokens: Math.floor(totalTokens * 0.8),
+    completionTokens: Math.floor(totalTokens * 0.2),
+    totalTokens: totalTokens,
+  };
 }

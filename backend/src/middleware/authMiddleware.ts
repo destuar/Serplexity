@@ -58,6 +58,8 @@ export const authenticate = async (
         tokenVersion: true,
         subscriptionStatus: true,
         stripeCustomerId: true,
+        trialStartedAt: true,
+        trialEndsAt: true,
         companies: { include: { competitors: true } },
       },
     });

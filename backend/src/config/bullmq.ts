@@ -49,8 +49,8 @@ const WORKER_OPTIONS: WorkerOptions = {
   maxStalledCount: 1, // Max times a job can be stalled
   stalledInterval: 30000, // Check for stalled jobs every 30s
 
-  // Job processing timeouts
-  drainDelay: 5, // Delay when queue is empty
+  // Job processing timeouts - optimized for Redis Cloud latency
+  drainDelay: 100, // Increased delay when queue is empty to reduce Redis calls
 
   // Error handling
   skipVersionCheck: false,

@@ -344,3 +344,65 @@ export const updateModelPreferences = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to update model preferences" });
   }
 };
+
+/**
+ * Get user trial status and access permissions
+ */
+export const getTrialStatus = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        subscriptionStatus: true,
+        trialStartedAt: true,
+        trialEndsAt: true,
+        role: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Calculate trial status
+    const now = new Date();
+    const isAdmin = user.role === "ADMIN";
+    const hasActiveSubscription = user.subscriptionStatus === "active";
+    const isTrialing = user.subscriptionStatus === "trialing";
+    const trialExpired = user.trialEndsAt ? now >= new Date(user.trialEndsAt) : true;
+    const isInActiveTrial = isTrialing && !trialExpired;
+    
+    const daysRemaining = user.trialEndsAt ? 
+      Math.max(0, Math.ceil((new Date(user.trialEndsAt).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))) 
+      : 0;
+
+    // Determine access levels
+    const hasFullAccess = isAdmin || hasActiveSubscription || isInActiveTrial;
+    const canModifyPrompts = hasFullAccess;
+    const canCreateReports = true; // Always allowed during and after trial
+    const maxActiveQuestions = hasFullAccess ? null : 5; // Unlimited for paid users, 5 for free
+
+    res.status(200).json({
+      subscriptionStatus: user.subscriptionStatus,
+      isTrialing,
+      trialExpired,
+      trialStartedAt: user.trialStartedAt,
+      trialEndsAt: user.trialEndsAt,
+      daysRemaining,
+      hasFullAccess,
+      canModifyPrompts,
+      canCreateReports,
+      maxActiveQuestions,
+      isAdmin,
+    });
+  } catch (error) {
+    console.error("[GET TRIAL STATUS ERROR]", error);
+    res.status(500).json({ error: "Failed to get trial status" });
+  }
+};

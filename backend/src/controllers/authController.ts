@@ -62,11 +62,18 @@ export const register = async (req: Request, res: Response) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Calculate trial dates for new users
+    const trialStartedAt = new Date();
+    const trialEndsAt = new Date(trialStartedAt.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         name,
+        trialStartedAt,
+        trialEndsAt,
+        subscriptionStatus: "trialing", // Start as trialing
       },
       select: {
         id: true,
@@ -76,6 +83,8 @@ export const register = async (req: Request, res: Response) => {
         tokenVersion: true,
         subscriptionStatus: true,
         stripeCustomerId: true,
+        trialStartedAt: true,
+        trialEndsAt: true,
         companies: { include: { competitors: true } },
       },
     });

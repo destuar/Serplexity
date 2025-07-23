@@ -13,7 +13,7 @@
  * - OverviewPage: The main overview page component.
  */
 import { Calendar, Sparkles, RefreshCw, Loader } from "lucide-react";
-import { dashboardClasses } from "../utils/colorClasses";
+// Note: dashboardClasses import removed as it's unused
 import { useCompany } from "../contexts/CompanyContext";
 import { useDashboard } from "../hooks/useDashboard";
 import FilterDropdown from "../components/dashboard/FilterDropdown";
@@ -125,10 +125,7 @@ const OverviewPage = () => {
       {loading || hasReport === null || (hasReport === true && !isDashboardFullyLoaded) ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <div className="mb-4">
-              <LiquidGlassSpinner size="lg" />
-            </div>
-            <p className="text-gray-600 text-sm">Loading dashboard data...</p>
+            <LiquidGlassSpinner size="lg" />
           </div>
         </div>
       ) : hasReport === false ? (

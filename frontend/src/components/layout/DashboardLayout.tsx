@@ -18,32 +18,24 @@ import React, { useState } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import { useAuth } from "../../contexts/AuthContext";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 
 const PaywallOverlay: React.FC = () => (
-  <div className="absolute inset-0 bg-gradient-to-br from-black/80 via-[#0a0a1a]/80 to-[#050510]/80 backdrop-blur-sm flex items-center justify-center z-50">
-    {/* Subtle background gradients */}
-    <div className="absolute inset-0 bg-gradient-to-br from-[#5271ff]/15 via-[#7662ff]/8 to-[#9e52ff]/15"></div>
-    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(82,113,255,0.08),transparent_50%)]"></div>
-    
-    {/* Main liquid glass container */}
-    <div className="relative bg-black/5 backdrop-blur-xl rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.3)] p-8 text-center max-w-md mx-4 overflow-hidden">
-      {/* Glass morphism border glow */}
-      <div className="absolute inset-0 bg-gradient-to-r from-[#5271ff]/10 via-[#7662ff]/10 to-[#9e52ff]/10 rounded-3xl blur-xl"></div>
-      <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/5 rounded-3xl"></div>
-      
-      {/* Content with relative positioning */}
-      <div className="relative z-10">
-        <h2 className="text-2xl font-bold mb-4 text-white">Serplexity Pro Required</h2>
-        <p className="mb-6 text-gray-300">Activate subscription to view this content.</p>
-                  <Link
-            to="/payment"
-            className="bg-[#7762ff] hover:bg-[#6650e6] text-white px-6 py-3 rounded-full font-semibold transition-all duration-200 shadow-lg hover:shadow-xl inline-flex items-center gap-2"
-          >
-            Boost Your Visibility
-            <ArrowRight className="h-5 w-5" />
-          </Link>
+  <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md w-full max-w-md mx-4 p-6">
+      <div className="text-center">
+        <h3 className="text-base font-semibold text-gray-900 mb-3">Serplexity Pro Required</h3>
+        <p className="text-sm text-gray-600 mb-6">
+          Activate subscription to view this content.
+        </p>
+        <Link
+          to="/payment"
+          className="px-6 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors inline-flex items-center gap-2"
+        >
+          Upgrade Now
+          <ArrowRight className="h-4 w-4" />
+        </Link>
       </div>
     </div>
   </div>
@@ -53,7 +45,20 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const { user } = useAuth();
-  const isSubscribed = user?.subscriptionStatus === 'active' || user?.role === 'ADMIN';
+  const location = useLocation();
+  
+  // Check if user has active subscription or is admin
+  const hasActiveSubscription = user?.subscriptionStatus === 'active' || user?.role === 'ADMIN';
+  
+  // Check if user is in active trial period
+  const isInActiveTrial = user?.subscriptionStatus === 'trialing' && 
+    user?.trialEndsAt && new Date() < new Date(user.trialEndsAt);
+  
+  // Allow experimental search page for free
+  const isExperimentalSearchPage = location.pathname === '/experimental-search';
+  
+  // Show paywall for expired trial users on all pages except experimental search
+  const shouldShowPaywall = !hasActiveSubscription && !isInActiveTrial && !isExperimentalSearchPage;
 
   const toggleDesktopSidebar = () => {
     setIsDesktopSidebarCollapsed(!isDesktopSidebarCollapsed);
@@ -79,10 +84,10 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       )}
       <div className="flex flex-col flex-1 min-h-0 relative">
         <Header toggleMobileSidebar={toggleMobileSidebar} />
-        <main className={`flex-1 overflow-y-auto p-4 ${!isSubscribed ? 'blur-sm' : ''}`}>
+        <main className={`flex-1 overflow-y-auto p-4 ${shouldShowPaywall ? 'blur-sm' : ''}`}>
           {children}
         </main>
-        {!isSubscribed && <PaywallOverlay />}
+        {shouldShowPaywall && <PaywallOverlay />}
       </div>
     </div>
   );

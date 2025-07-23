@@ -61,6 +61,8 @@ export const UserSchema = z.object({
     provider: z.string(),
     subscriptionStatus: z.string().optional(),
     role: z.string().optional(),
+    trialStartedAt: z.string().optional(),
+    trialEndsAt: z.string().optional(),
     companies: z.array(CompanySchema).optional(),
 });
 

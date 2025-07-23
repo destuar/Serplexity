@@ -34,12 +34,13 @@ import {
 } from "../controllers/optimizationController";
 import { authenticate } from "../middleware/authMiddleware";
 import { paymentGuard } from "../middleware/paymentGuard";
+import { freemiumGuard } from "../middleware/freemiumGuard";
 
 const router = Router();
 
 // Enhanced report creation endpoint with company ID as URL parameter
-// This endpoint is protected by authentication and a payment check
-router.post("/companies/:companyId", authenticate, paymentGuard, createReport);
+// This endpoint is protected by authentication and freemium access (7-day trial)
+router.post("/companies/:companyId", authenticate, freemiumGuard, createReport);
 
 // This endpoint is protected by authentication
 router.get("/:id/status", authenticate, getReportStatus);

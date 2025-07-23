@@ -14,7 +14,7 @@
  */
 import React, { useState } from 'react';
 import { X, Building, HelpCircle, Trash2, Edit, Mail, ArrowLeft, AlertTriangle } from 'lucide-react';
-import { buttonClasses, formClasses, textClasses } from '../../utils/colorClasses';
+// Note: buttonClasses and formClasses imports removed as they're unused
 import { useCompany } from '../../contexts/CompanyContext';
 import { Button } from '../ui/Button';
 import CompanyProfileForm from '../company/CompanyProfileForm';

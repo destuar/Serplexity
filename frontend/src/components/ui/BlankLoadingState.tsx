@@ -19,7 +19,7 @@ interface BlankLoadingStateProps {
 
 
 const BlankLoadingState: React.FC<BlankLoadingStateProps> = ({ 
-  message = "Loading dashboard data..." 
+  message: _message = "Loading dashboard data..." 
 }) => {
   return (
     <div className="flex-1 flex items-center justify-center min-h-0 h-full">

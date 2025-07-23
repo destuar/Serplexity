@@ -26,7 +26,9 @@ import { CompanyProvider } from './contexts/CompanyContext';
 import { DashboardProvider } from './contexts/DashboardContext';
 import { NavigationProvider } from './contexts/NavigationContext';
 import CompanyGuard from './components/company/CompanyGuard';
-import PaymentGuard from './components/auth/PaymentGuard';
+// import PaymentGuard from './components/auth/PaymentGuard'; // Replaced with FreemiumGuard
+// import FreemiumGuard from './components/auth/FreemiumGuard'; // Not used in main routing anymore
+import TrialBanner from './components/ui/TrialBanner';
 import DashboardLayout from './components/layout/DashboardLayout';
 import OverviewPage from './pages/OverviewPage';
 
@@ -52,6 +54,7 @@ import { usePageTracking, useSessionTracking } from './hooks/useAnalytics';
 
 const DashboardRoutes: React.FC = () => (
   <NavigationProvider>
+    <TrialBanner />
     <DashboardLayout>
       <Routes>
         <Route path="/overview" element={<OverviewPage />} />
@@ -77,11 +80,9 @@ const ProtectedArea: React.FC = () => (
         <Route
           path="/*"
           element={
-            <PaymentGuard>
-              <DashboardProvider>
-                <DashboardRoutes />
-              </DashboardProvider>
-            </PaymentGuard>
+            <DashboardProvider>
+              <DashboardRoutes />
+            </DashboardProvider>
           }
         />
       </Routes>

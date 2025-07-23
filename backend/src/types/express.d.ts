@@ -22,6 +22,8 @@ declare module "express-serve-static-core" {
       tokenVersion: number;
       subscriptionStatus: string | null;
       stripeCustomerId: string | null;
+      trialStartedAt?: Date | null;
+      trialEndsAt?: Date | null;
     };
   }
 }

@@ -17,6 +17,7 @@
 export interface TokenPricing {
   readonly inputTokensPerMillion: number; // USD per 1M input tokens
   readonly outputTokensPerMillion: number; // USD per 1M output tokens
+  readonly outputThinkingTokensPerMillion?: number; // USD per 1M thinking output tokens (Gemini 2.5+)
   readonly contextCachingPerMillion?: number; // USD per 1M cached tokens
   readonly contextCachingStoragePerHour?: number; // USD per 1M tokens per hour
 }
@@ -143,8 +144,9 @@ export const LLM_PRICING: Record<string, ModelPricing> = {
     provider: "gemini",
     displayName: "Gemini 2.5 Flash",
     tokens: {
-      inputTokensPerMillion: 0.3, // $0.30 per 1M input tokens (text/image/video)
-      outputTokensPerMillion: 2.5, // $2.50 per 1M output tokens
+      inputTokensPerMillion: 0.1, // $0.10 per 1M input tokens (CORRECTED from $0.30 - was 300% overcharge)
+      outputTokensPerMillion: 0.6, // $0.60 per 1M output tokens (CORRECTED from $2.50 - was 417% overcharge)
+      outputThinkingTokensPerMillion: 3.5, // $3.50 per 1M thinking output tokens (NEW - critical for 2.5 models)
       contextCachingPerMillion: 0.075, // $0.075 per 1M cached tokens
       contextCachingStoragePerHour: 1.0, // $1.00 per 1M tokens per hour
     },
@@ -271,13 +273,14 @@ export const LLM_PRICING: Record<string, ModelPricing> = {
  */
 export class CostCalculator {
   /**
-   * Calculate token cost for a model
+   * Calculate token cost for a model with proper token type handling
    */
   static calculateTokenCost(
     modelId: string,
     inputTokens: number,
     outputTokens: number,
     cachedTokens?: number,
+    thinkingTokens?: number,
   ): number {
     const pricing = LLM_PRICING[modelId];
     if (!pricing) {
@@ -289,9 +292,15 @@ export class CostCalculator {
     // Input tokens
     totalCost += (inputTokens / 1000000) * pricing.tokens.inputTokensPerMillion;
 
-    // Output tokens
+    // Output tokens (regular)
     totalCost +=
       (outputTokens / 1000000) * pricing.tokens.outputTokensPerMillion;
+
+    // Thinking tokens (Gemini 2.5+ only) - CRITICAL for accurate Gemini pricing
+    if (thinkingTokens && pricing.tokens.outputThinkingTokensPerMillion) {
+      totalCost +=
+        (thinkingTokens / 1000000) * pricing.tokens.outputThinkingTokensPerMillion;
+    }
 
     // Cached tokens (if applicable)
     if (cachedTokens && pricing.tokens.contextCachingPerMillion) {
@@ -315,7 +324,7 @@ export class CostCalculator {
   }
 
   /**
-   * Calculate total cost for a model run
+   * Calculate total cost for a model run with comprehensive token tracking
    */
   static calculateTotalCost(
     modelId: string,
@@ -323,23 +332,46 @@ export class CostCalculator {
     outputTokens: number,
     searchCount: number = 0,
     cachedTokens?: number,
+    thinkingTokens?: number,
   ): {
     tokenCost: number;
     searchCost: number;
     totalCost: number;
+    breakdown: {
+      inputCost: number;
+      outputCost: number;
+      thinkingCost: number;
+      cachingCost: number;
+    };
   } {
-    const tokenCost = this.calculateTokenCost(
-      modelId,
-      inputTokens,
-      outputTokens,
-      cachedTokens,
-    );
+    const pricing = LLM_PRICING[modelId];
+    if (!pricing) {
+      throw new Error(`Pricing not found for model: ${modelId}`);
+    }
+
+    // Calculate individual cost components for transparency
+    const inputCost = (inputTokens / 1000000) * pricing.tokens.inputTokensPerMillion;
+    const outputCost = (outputTokens / 1000000) * pricing.tokens.outputTokensPerMillion;
+    const thinkingCost = thinkingTokens && pricing.tokens.outputThinkingTokensPerMillion
+      ? (thinkingTokens / 1000000) * pricing.tokens.outputThinkingTokensPerMillion
+      : 0;
+    const cachingCost = cachedTokens && pricing.tokens.contextCachingPerMillion
+      ? (cachedTokens / 1000000) * pricing.tokens.contextCachingPerMillion
+      : 0;
+
+    const tokenCost = inputCost + outputCost + thinkingCost + cachingCost;
     const searchCost = this.calculateWebSearchCost(modelId, searchCount);
 
     return {
       tokenCost,
       searchCost,
       totalCost: tokenCost + searchCost,
+      breakdown: {
+        inputCost,
+        outputCost,
+        thinkingCost,
+        cachingCost,
+      },
     };
   }
 

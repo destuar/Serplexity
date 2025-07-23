@@ -21,6 +21,7 @@ import {
   changePassword,
   getModelPreferences,
   updateModelPreferences,
+  getTrialStatus,
 } from "../controllers/userController";
 import { authenticate } from "../middleware/authMiddleware";
 
@@ -34,6 +35,9 @@ router.put("/me/password", authenticate, changePassword);
 // Model preferences routes
 router.get("/me/model-preferences", authenticate, getModelPreferences);
 router.put("/me/model-preferences", authenticate, updateModelPreferences);
+
+// Trial status route
+router.get("/me/trial-status", authenticate, getTrialStatus);
 
 // Data management routes
 router.get("/me/export", authenticate, exportUserData);
