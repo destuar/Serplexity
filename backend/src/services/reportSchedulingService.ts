@@ -16,7 +16,7 @@
  */
 import { reportGenerationQueue } from "../queues/reportGenerationQueue";
 import { getDbClient } from "../config/database";
-import { ReportRun } from ".prisma/client";
+import { ReportRun as _ReportRun } from ".prisma/client";
 
 // Enhanced logging for the report scheduling service
 interface SchedulingLogContext {
@@ -26,7 +26,7 @@ interface SchedulingLogContext {
   duration?: number;
   force?: boolean;
   error?: unknown;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 const schedulingLog = (
@@ -382,7 +382,7 @@ export async function queueReport(
 /**
  * Schedules a report for a specific company if it has a schedule.
  */
-export async function scheduleReport(companyId: string) {
-  const prisma = await getDbClient();
+export async function scheduleReport(_companyId: string) {
+  const _prisma = await getDbClient();
   // Implementation of scheduleReport function
 }

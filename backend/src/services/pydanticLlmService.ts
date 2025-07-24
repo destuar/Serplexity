@@ -34,7 +34,7 @@ import env from "../config/env";
 import {
   PydanticProviderConfig,
   providerManager,
-  getDefaultModelString,
+  getDefaultModelString as _getDefaultModelString,
 } from "../config/pydanticProviders";
 import path from "path";
 import fs from "fs/promises";
@@ -75,13 +75,13 @@ export interface PydanticAgentOptions {
   readonly enableStreaming?: boolean;
   readonly enableFallback?: boolean;
   readonly retryAttempts?: number;
-  readonly metadata?: Record<string, any>;
+  readonly metadata?: Record<string, unknown>;
 }
 
 /**
  * Response interface for PydanticAI agent executions
  */
-export interface PydanticResponse<T = any> {
+export interface PydanticResponse<T = unknown> {
   readonly data: T;
   readonly metadata: {
     readonly modelUsed: string;
@@ -102,8 +102,8 @@ export interface AgentExecutionContext {
   readonly sessionId: string;
   readonly timestamp: Date;
   readonly options: PydanticAgentOptions;
-  readonly inputData: any;
-  readonly outputSchema?: z.ZodType<any> | null;
+  readonly inputData: unknown;
+  readonly outputSchema?: z.ZodType<unknown> | null;
 }
 
 /**
@@ -111,7 +111,7 @@ export interface AgentExecutionContext {
  */
 interface AgentExecutionResult {
   readonly success: boolean;
-  readonly data?: any;
+  readonly data?: unknown;
   readonly error?: string;
   readonly executionTime: number;
   readonly modelUsed: string;
@@ -205,7 +205,7 @@ export class PydanticLlmService {
   /**
    * Generate actionable remediation steps from validation results
    */
-  private generateRemediationSteps(results: Map<string, any>): string[] {
+  private generateRemediationSteps(results: Map<string, unknown>): string[] {
     const steps: string[] = [];
     
     for (const [checkName, result] of results) {
@@ -220,7 +220,7 @@ export class PydanticLlmService {
   /**
    * Attempt automated remediation for common dependency issues
    */
-  private async attemptAutomatedRemediation(results: Map<string, any>): Promise<void> {
+  private async attemptAutomatedRemediation(results: Map<string, unknown>): Promise<void> {
     const remediation = results.get('pydantic-ai-installation');
     
     if (remediation && !remediation.success && remediation.remediation?.includes('pip3 install')) {
@@ -282,11 +282,11 @@ export class PydanticLlmService {
         'import pydantic_ai; print("OK")',
       ]);
 
-      validation.stdout?.on("data", (data) => {
+      validation.stdout?.on("data", (_data) => {
         // Validation output received
       });
 
-      validation.stderr?.on("data", (data) => {
+      validation.stderr?.on("data", (_data) => {
         // Validation error output
       });
 
@@ -451,7 +451,7 @@ export class PydanticLlmService {
    */
   async executeAgent<T>(
     agentScript: string,
-    inputData: any,
+    inputData: unknown,
     outputSchema: z.ZodType<T> | null,
     options: PydanticAgentOptions = {},
   ): Promise<PydanticResponse<T>> {
@@ -459,7 +459,7 @@ export class PydanticLlmService {
 
     return createSpan(
       `PydanticAI Agent: ${agentScript}`,
-      async (span) => {
+      async (_span) => {
         const startTime = Date.now();
 
         const context: AgentExecutionContext = {
@@ -606,7 +606,7 @@ export class PydanticLlmService {
    */
   private async executeAgentInternal(
     agentScript: string,
-    inputData: any,
+    inputData: unknown,
     options: PydanticAgentOptions,
   ): Promise<AgentExecutionResult> {
     const scriptPath = path.join(this.scriptsPath, "agents", agentScript);
@@ -665,7 +665,7 @@ export class PydanticLlmService {
    */
   private async spawnPythonProcess(
     scriptPath: string,
-    inputData: any,
+    inputData: unknown,
     providerId: string,
     options: PydanticAgentOptions,
     attempt: number,
@@ -803,7 +803,7 @@ export class PydanticLlmService {
                 fallbackUsed: attempt > 1,
               });
               return;
-            } catch (parseError) {
+            } catch {
               // Fall through to error handling
             }
           }
@@ -895,7 +895,7 @@ export class PydanticLlmService {
   /**
    * Sanitize options for logging (remove sensitive data)
    */
-  private sanitizeOptions(options: PydanticAgentOptions): any {
+  private sanitizeOptions(options: PydanticAgentOptions): Record<string, unknown> {
     const { ...sanitized } = options;
     return sanitized;
   }
@@ -903,7 +903,7 @@ export class PydanticLlmService {
   /**
    * Sanitize input data for logging (remove sensitive data)
    */
-  private sanitizeInputData(inputData: any): any {
+  private sanitizeInputData(inputData: unknown): unknown {
     if (typeof inputData === "string") {
       return inputData.length > 100
         ? `${inputData.substring(0, 100)}...`
@@ -959,7 +959,7 @@ export class PydanticLlmService {
   getServiceStatistics(): {
     activeExecutions: number;
     poolSize: number;
-    providerHealth: any[];
+    providerHealth: unknown[];
   } {
     return {
       activeExecutions: this.activeExecutions.size,
@@ -971,7 +971,7 @@ export class PydanticLlmService {
   /**
    * Get available providers for health checks
    */
-  getAvailableProviders(): any[] {
+  getAvailableProviders(): unknown[] {
     return [...providerManager.getAvailableProviders()];
   }
 
@@ -980,7 +980,7 @@ export class PydanticLlmService {
    */
   async cleanup(): Promise<void> {
     // Kill all active processes
-    for (const [sessionId, process] of this.processPool) {
+    for (const [_sessionId, process] of this.processPool) {
       process.kill("SIGTERM");
     }
 

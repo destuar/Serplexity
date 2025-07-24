@@ -279,7 +279,7 @@ describe("🔗 TypeScript Service Integration Tests", () => {
     //     const mockRunId = 'test-run-123';
     //     const tasks = agentResult.data.tasks;
     //     // Validate each task has required fields for persistence
-    //     tasks.forEach((task: any, index: number) => {
+    //     tasks.forEach((task: unknown, index: number) => {
     //       expect(task).toHaveProperty('title');
     //       expect(task).toHaveProperty('description');
     //       expect(task).toHaveProperty('category');
@@ -293,7 +293,7 @@ describe("🔗 TypeScript Service Integration Tests", () => {
     //     const mockPersistResult = {
     //       tasksCreated: tasks.length,
     //       runId: mockRunId,
-    //       tasks: tasks.map((task: any, index: number) => ({
+    //       tasks: tasks.map((task: unknown, index: number) => ({
     //         id: `mock-task-${index + 1}`,
     //         title: task.title,
     //         description: task.description,
@@ -369,7 +369,7 @@ describe("🔗 TypeScript Service Integration Tests", () => {
         // Test metrics calculation logic (without database persistence)
         const mockMetricsCalculation = {
           // Calculate average sentiment scores
-          calculateAverageSentiment: (sentiments: any[]) => {
+          calculateAverageSentiment: (sentiments: unknown[]) => {
             const allRatings = sentiments.flatMap((s) => s.value.ratings);
             const avgQuality =
               allRatings.reduce((sum, r) => sum + r.quality, 0) /
@@ -381,11 +381,11 @@ describe("🔗 TypeScript Service Integration Tests", () => {
           },
 
           // Calculate mention metrics
-          calculateMentionMetrics: (responses: any[]) => {
+          calculateMentionMetrics: (responses: unknown[]) => {
             const totalMentions = responses.reduce(
               (sum, r) =>
                 sum +
-                Object.values(r.mentions).reduce((a: any, b: any) => a + b, 0),
+                Object.values(r.mentions).reduce((a: unknown, b: unknown) => a + b, 0),
               0,
             );
             const companyMentions = responses.reduce(
@@ -547,7 +547,7 @@ describe("🔗 TypeScript Service Integration Tests", () => {
           executeWithFallback: async (
             primaryAgent: string,
             fallbackAgent: string,
-            input: any,
+            input: unknown,
           ) => {
             try {
               return await pydanticLlmService.executeAgent(

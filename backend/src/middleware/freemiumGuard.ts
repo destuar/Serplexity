@@ -7,7 +7,7 @@
 import { Request, Response, NextFunction } from "express";
 
 const ACTIVE_SUBSCRIPTION_STATUSES = ["active"];
-const TRIAL_STATUSES = ["trialing"];
+const _TRIAL_STATUSES = ["trialing"];
 const FREE_FEATURES = ["dashboard", "competitors", "overview", "experimental-search"];
 
 

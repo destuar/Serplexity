@@ -4,7 +4,7 @@ import { prisma } from "./setup";
 import bcrypt from "bcrypt";
 
 // Helper function to safely extract refresh token from cookies
-function extractRefreshTokenCookie(headers: any): string {
+function extractRefreshTokenCookie(headers: unknown): string {
   const cookies = Array.isArray(headers["set-cookie"])
     ? headers["set-cookie"]
     : [headers["set-cookie"]];

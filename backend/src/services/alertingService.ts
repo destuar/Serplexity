@@ -46,7 +46,7 @@ interface ReportFailureAlert {
 interface SystemAlert {
   component: "SCHEDULER" | "REDIS" | "DATABASE" | "AI_MODELS" | "QUEUE_WORKER";
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   timestamp: Date;
 }
 

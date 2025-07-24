@@ -134,7 +134,7 @@ describe("Report Generation Flow", () => {
       isNew: true,
       runId: "test-run-id",
       status: "PENDING",
-    } as any);
+    } as unknown);
 
     const res = await request(app)
       .post(`/api/reports/companies/${companyId}`)
@@ -153,7 +153,7 @@ describe("Report Generation Flow", () => {
       isNew: false,
       runId: "existing-run-id",
       status: "COMPLETED",
-    } as any);
+    } as unknown);
 
     const res = await request(app)
       .post(`/api/reports/companies/${companyId}`)

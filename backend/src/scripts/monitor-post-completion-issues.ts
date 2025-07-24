@@ -35,7 +35,7 @@ async function monitorPostCompletionIssues(): Promise<void> {
     });
 
     for (const report of suspiciousReports) {
-      // Check if this report has any successful indicators (like metrics)
+      // Check if this report has unknown successful indicators (like metrics)
       const hasMetrics = await prisma.reportMetric.count({
         where: { reportId: report.id },
       });

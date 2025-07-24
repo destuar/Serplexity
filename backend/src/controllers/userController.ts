@@ -191,7 +191,7 @@ export const updateUserProfile = async (req: Request, res: Response) => {
     }
 
     // Build update data object
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (name !== undefined) updateData.name = name;
     if (email !== undefined) updateData.email = email;
 

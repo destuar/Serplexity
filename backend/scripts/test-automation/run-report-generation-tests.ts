@@ -13,7 +13,7 @@
  * - Test result analysis and reporting
  */
 
-import { execSync, spawn } from 'child_process';
+import { execSync } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -145,7 +145,7 @@ class ReportGenerationTestRunner {
       try {
         execSync('python3 -c "import pydantic_ai; print(\\"OK\\")"', { stdio: 'pipe' });
         console.log('✅ PydanticAI dependencies validated');
-      } catch (error) {
+      } catch {
         console.log('⚠️  PydanticAI not available - some tests will use mocks');
       }
 
@@ -230,7 +230,7 @@ class ReportGenerationTestRunner {
       }
       
       return totalStatements > 0 ? (coveredStatements / totalStatements) * 100 : 0;
-    } catch (error) {
+    } catch {
       return 0;
     }
   }

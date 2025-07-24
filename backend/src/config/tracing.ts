@@ -16,7 +16,7 @@
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
-import { Resource } from "@opentelemetry/resources";
+import logger from "../utils/logger";
 
 // Configure tracing based on available observability platforms
 const logfireToken = process.env.LOGFIRE_TOKEN;
@@ -26,7 +26,7 @@ let traceExporter: OTLPTraceExporter;
 
 if (logfireToken) {
   // Use Logfire as the primary observability backend
-  console.log("Configuring OpenTelemetry to send traces to Logfire...");
+  logger.info("Configuring OpenTelemetry to send traces to Logfire");
   traceExporter = new OTLPTraceExporter({
     url: "https://logfire-api.pydantic.dev/v1/traces",
     headers: {
@@ -36,7 +36,7 @@ if (logfireToken) {
   });
 } else {
   // Fallback to local or custom OTLP endpoint
-  console.log("LOGFIRE_TOKEN not found, using fallback OTLP endpoint...");
+  logger.info("LOGFIRE_TOKEN not found, using fallback OTLP endpoint");
   traceExporter = new OTLPTraceExporter({
     url:
       process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ||
@@ -64,16 +64,16 @@ const sdk = new NodeSDK({
 
 try {
   sdk.start();
-  console.log("OpenTelemetry tracing initialized successfully.");
+  logger.info("OpenTelemetry tracing initialized successfully");
 } catch (error) {
-  console.error("Error initializing OpenTelemetry tracing", error);
+  logger.error("Error initializing OpenTelemetry tracing", { error });
 }
 
 process.on("SIGTERM", () => {
   sdk
     .shutdown()
-    .then(() => console.log("Tracing terminated"))
-    .catch((error) => console.error("Error terminating tracing", error))
+    .then(() => logger.info("Tracing terminated"))
+    .catch((error) => logger.error("Error terminating tracing", { error }))
     .finally(() => process.exit(0));
 });
 

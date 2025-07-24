@@ -17,7 +17,7 @@
  */
 import { redis } from "../config/redis";
 import logger from "../utils/logger";
-import { z } from "zod";
+import { z as _z } from "zod";
 
 export interface UserEvent {
   userId?: string;
@@ -25,7 +25,7 @@ export interface UserEvent {
   event: string;
   page?: string;
   timestamp: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PageView {
@@ -91,7 +91,7 @@ export class AnalyticsService {
   }
 
   // Get daily analytics summary
-  async getDailyAnalytics(date?: string): Promise<any> {
+  async getDailyAnalytics(date?: string): Promise<unknown> {
     try {
       const dateKey = date || this.getDateKey();
 
@@ -116,9 +116,9 @@ export class AnalyticsService {
   }
 
   // Track user journey
-  async getUserJourney(userId: string, days: number = 7): Promise<any[]> {
+  async getUserJourney(userId: string, _days: number = 7): Promise<unknown[]> {
     try {
-      const journey = [];
+      const _journey = [];
       const userKey = `analytics:user:${userId}:events`;
 
       const events = await redis.lrange(userKey, 0, -1);
@@ -151,13 +151,13 @@ export class AnalyticsService {
     return date.toISOString().split("T")[0]; // YYYY-MM-DD
   }
 
-  private async getEventsByDate(dateKey: string): Promise<any[]> {
+  private async getEventsByDate(dateKey: string): Promise<unknown[]> {
     const key = `analytics:events:${dateKey}`;
     const events = await redis.lrange(key, 0, -1);
     return events.map((event: string) => JSON.parse(event));
   }
 
-  private async getPageViewsByDate(dateKey: string): Promise<any[]> {
+  private async getPageViewsByDate(dateKey: string): Promise<unknown[]> {
     const key = `analytics:pageviews:${dateKey}`;
     const pageViews = await redis.lrange(key, 0, -1);
     return pageViews.map((pv: string) => JSON.parse(pv));
@@ -220,7 +220,7 @@ export const ANALYTICS_EVENTS = {
   PAYMENT_COMPLETED: "payment_completed",
 } as const;
 
-export async function getRawEvents(companyId: string): Promise<any[]> {
+export async function getRawEvents(companyId: string): Promise<unknown[]> {
   const key = `raw_events:${companyId}`;
   try {
     const events = await redis.lrange(key, 0, -1);
@@ -232,7 +232,7 @@ export async function getRawEvents(companyId: string): Promise<any[]> {
   }
 }
 
-export async function getRawPageViews(companyId: string): Promise<any[]> {
+export async function getRawPageViews(companyId: string): Promise<unknown[]> {
   const key = `raw_page_views:${companyId}`;
   try {
     const pageViews = await redis.lrange(key, 0, -1);

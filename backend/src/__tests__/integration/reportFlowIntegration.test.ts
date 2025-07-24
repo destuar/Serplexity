@@ -537,7 +537,7 @@ describe("Report Generation Integration Tests", () => {
 
       // Validate sentiment details structure and ranges
       expect(reportMetric.sentimentDetails).toBeDefined();
-      const sentimentDetails = reportMetric.sentimentDetails as any;
+      const sentimentDetails = reportMetric.sentimentDetails as unknown;
 
       expect(sentimentDetails.sentiment_score).toBeGreaterThanOrEqual(0);
       expect(sentimentDetails.sentiment_score).toBeLessThanOrEqual(1);

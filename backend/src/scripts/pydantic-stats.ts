@@ -7,11 +7,12 @@
  * This script provides detailed performance statistics and monitoring
  * information for the PydanticAI system.
  */
+import { writeFileSync } from "fs";
 
 import { getServiceHealth, getServiceStatistics } from "../services/llmService";
 import { providerManager } from "../config/pydanticProviders";
 // Modern PydanticAI uses embedded system prompts, not external prompt management
-import { pydanticLlmService } from "../services/pydanticLlmService";
+import { pydanticLlmService as _pydanticLlmService } from "../services/pydanticLlmService";
 import logger from "../utils/logger";
 
 interface DetailedStats {
@@ -21,17 +22,17 @@ interface DetailedStats {
     activeExecutions: number;
     poolSize: number;
     overallHealth: number;
-    statistics: any;
+    statistics: unknown;
   };
   providers: {
     total: number;
     available: number;
-    healthReport: readonly any[];
-    availableProviders: readonly any[];
+    healthReport: readonly unknown[];
+    availableProviders: readonly unknown[];
   };
   agents: {
     embedSystemPrompts: boolean;
-    performanceStats: any;
+    performanceStats: unknown;
     averageQuality: number;
     totalUsage: number;
   };
@@ -192,7 +193,7 @@ async function main() {
       const stats = await getDetailedStats();
       const filename = `pydantic-stats-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
 
-      require("fs").writeFileSync(filename, JSON.stringify(stats, null, 2));
+      writeFileSync(filename, JSON.stringify(stats, null, 2));
       console.log(`✅ Statistics exported to ${filename}`);
     } else {
       console.log("📊 PydanticAI Statistics\n");

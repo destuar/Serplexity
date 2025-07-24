@@ -49,7 +49,7 @@ async function runHealthCheck(): Promise<HealthCheckResult> {
 
     // Get provider health details
     const providerHealth = providerManager.getHealthReport();
-    const availableProviders = providerManager.getAvailableProviders();
+    const _availableProviders = providerManager.getAvailableProviders();
 
     // Modern PydanticAI uses embedded system prompts - performance tracked in agents
     const avgPromptPerformance = serviceHealth.overallHealth;

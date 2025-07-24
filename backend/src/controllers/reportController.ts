@@ -31,11 +31,11 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { getPrismaClient, getReadPrismaClient } from "../config/dbCache";
-import { redis } from "../config/redis";
+import { redis as _redis } from "../config/redis";
 import { queueReport } from "../services/reportSchedulingService";
 import { scheduleEmergencyReportTrigger } from "../queues/backupScheduler";
 import { alertingService } from "../services/alertingService";
-import { MODELS } from "../config/models";
+import { MODELS as _MODELS } from "../config/models";
 import { getFullReportMetrics } from "../services/metricsService";
 import {
   calculateCompetitorRankings,
@@ -56,7 +56,7 @@ interface ControllerLogContext {
   duration?: number;
   statusCode?: number;
   error?: unknown;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 const controllerLog = (
@@ -119,7 +119,7 @@ const controllerLog = (
   }
 };
 
-const createReportSchema = z.object({
+const _createReportSchema = z.object({
   companyId: z.string(),
   force: z.boolean().optional().default(false),
 });
@@ -133,7 +133,7 @@ const STATUS_LOG_COOLDOWN = 30000; // Only log status every 30 seconds max
 
 export const createReport = async (req: Request, res: Response) => {
   const prisma = await getPrismaClient();
-  const prismaReadReplica = await getReadPrismaClient();
+  const _prismaReadReplica = await getReadPrismaClient();
   const startTime = Date.now();
   const endpoint = "CREATE_REPORT";
   const userId = req.user?.id;
@@ -460,7 +460,7 @@ export const createReport = async (req: Request, res: Response) => {
 };
 
 export const getReportStatus = async (req: Request, res: Response) => {
-  const prisma = await getPrismaClient();
+  const _prisma = await getPrismaClient();
   const prismaReadReplica = await getReadPrismaClient();
   const startTime = Date.now();
   const endpoint = "GET_REPORT_STATUS";
@@ -610,7 +610,7 @@ export const getReportStatus = async (req: Request, res: Response) => {
 };
 
 export const getLatestReport = async (req: Request, res: Response) => {
-  const prisma = await getPrismaClient();
+  const _prisma = await getPrismaClient();
   const prismaReadReplica = await getReadPrismaClient();
   const startTime = Date.now();
   const endpoint = "GET_LATEST_REPORT";
@@ -659,7 +659,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
     const metrics = await getFullReportMetrics(latestRun.id, effectiveModel);
 
     // Fetch sentiment details from SentimentScore table
-    let sentimentDetails: any[] = [];
+    let sentimentDetails: unknown[] = [];
     try {
       const sentimentScores = await prismaReadReplica.sentimentScore.findMany({
         where: {
@@ -721,7 +721,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
     }
 
     // If shareOfVoiceHistory is missing (which it is for individual models), fetch it on demand
-    let shareOfVoiceHistory = (metrics as any)?.shareOfVoiceHistory;
+    let shareOfVoiceHistory = (metrics as Record<string, unknown>)?.shareOfVoiceHistory;
     if (
       !shareOfVoiceHistory ||
       (Array.isArray(shareOfVoiceHistory) && shareOfVoiceHistory.length === 0)
@@ -734,7 +734,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
     }
 
     // Similarly, fetch inclusionRateHistory if it's not on the main metrics object
-    let inclusionRateHistory = (metrics as any)?.inclusionRateHistory;
+    let inclusionRateHistory = (metrics as Record<string, unknown>)?.inclusionRateHistory;
     if (
       !inclusionRateHistory ||
       (Array.isArray(inclusionRateHistory) && inclusionRateHistory.length === 0)
@@ -747,7 +747,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
     }
 
     // Similarly, fetch sentimentOverTime if it's not on the main metrics object
-    let sentimentOverTime = (metrics as any)?.sentimentOverTime;
+    let sentimentOverTime = (metrics as Record<string, unknown>)?.sentimentOverTime;
     if (
       !sentimentOverTime ||
       (Array.isArray(sentimentOverTime) && sentimentOverTime.length === 0)
@@ -789,7 +789,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
     }
 
     console.log('🔥 [DEBUG] metrics object has sentimentDetails?', 'sentimentDetails' in (metrics || {}));
-    console.log('🔥 [DEBUG] metrics.sentimentDetails length:', (metrics as any)?.sentimentDetails?.length);
+    console.log('🔥 [DEBUG] metrics.sentimentDetails length:', (metrics as Record<string, unknown>)?.sentimentDetails?.length);
 
     const responseData = {
       id: latestRun.id,
@@ -847,7 +847,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
 
 // Debug endpoint to check citation data for a specific report
 export const getReportCitationDebug = async (req: Request, res: Response) => {
-  const prisma = await getPrismaClient();
+  const _prisma = await getPrismaClient();
   const prismaReadReplica = await getReadPrismaClient();
   const { runId } = req.params;
   const userId = req.user?.id;
@@ -974,8 +974,8 @@ export const getCompetitorRankingsForReport = async (
   req: Request,
   res: Response,
 ) => {
-  const prisma = await getPrismaClient();
-  const prismaReadReplica = await getReadPrismaClient();
+  const _prisma = await getPrismaClient();
+  const _prismaReadReplica = await getReadPrismaClient();
   const { runId } = req.params;
   const { companyId, aiModel } = req.query;
 
@@ -1000,8 +1000,8 @@ export const getCompetitorRankingsForReport = async (
 };
 
 export const getReportResponses = async (req: Request, res: Response) => {
-  const prisma = await getPrismaClient();
-  const prismaReadReplica = await getReadPrismaClient();
+  const _prisma = await getPrismaClient();
+  const _prismaReadReplica = await getReadPrismaClient();
   const { runId } = req.params;
   const { companyId, aiModel, page = "1", limit = "100" } = req.query;
 
@@ -1039,7 +1039,7 @@ export const emergencyTriggerCompanyReport = async (
   res: Response,
 ) => {
   const prisma = await getPrismaClient();
-  const prismaReadReplica = await getReadPrismaClient();
+  const _prismaReadReplica = await getReadPrismaClient();
   const startTime = Date.now();
   const { companyId } = req.params;
   const { reason = "Manual emergency trigger" } = req.body;
@@ -1155,7 +1155,7 @@ export const emergencyTriggerAllReports = async (
   res: Response,
 ) => {
   const prisma = await getPrismaClient();
-  const prismaReadReplica = await getReadPrismaClient();
+  const _prismaReadReplica = await getReadPrismaClient();
   const startTime = Date.now();
   const {
     reason = "Manual emergency trigger for all companies",
@@ -1284,8 +1284,8 @@ export const emergencyTriggerAllReports = async (
  * System health check endpoint that validates all critical components
  */
 export const getSystemHealth = async (req: Request, res: Response) => {
-  const prisma = await getPrismaClient();
-  const prismaReadReplica = await getReadPrismaClient();
+  const _prisma = await getPrismaClient();
+  const _prismaReadReplica = await getReadPrismaClient();
   const startTime = Date.now();
 
   try {
@@ -1379,7 +1379,7 @@ export const getSystemHealth = async (req: Request, res: Response) => {
 };
 
 // Helper function to process health check results
-const processHealthResult = (result: PromiseSettledResult<any>) => {
+const processHealthResult = (result: PromiseSettledResult<unknown>) => {
   if (result.status === "fulfilled") {
     return result.value;
   } else {

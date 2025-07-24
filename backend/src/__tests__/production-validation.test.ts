@@ -141,7 +141,7 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
         expect(result.data.queries.length).toBeGreaterThan(0);
 
         // Validate query structure (critical for visibility analysis)
-        result.data.queries.forEach((query: any) => {
+        result.data.queries.forEach((query: unknown) => {
           expect(query).toHaveProperty("query");
           expect(query).toHaveProperty("type");
           expect(query.query).toBeTruthy();
@@ -233,7 +233,7 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
     //     expect(result.data.tasks.length).toBeGreaterThan(0);
 
     //     // Validate task structure (critical for client actionability)
-    //     result.data.tasks.forEach((task: any) => {
+    //     result.data.tasks.forEach((task: unknown) => {
     //       expect(task).toHaveProperty('title');
     //       expect(task).toHaveProperty('description');
     //       expect(task).toHaveProperty('category');
@@ -494,12 +494,12 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
 
       const companyName = "Slack";
       const pipeline = {
-        sentiment: null as any,
-        fanout: null as any,
-        questions: [] as any[],
-        optimization: null as any,
-        summary: null as any,
-        metrics: null as any,
+        sentiment: null as unknown,
+        fanout: null as unknown,
+        questions: [] as unknown[],
+        optimization: null as unknown,
+        summary: null as unknown,
+        metrics: null as unknown,
       };
 
       try {

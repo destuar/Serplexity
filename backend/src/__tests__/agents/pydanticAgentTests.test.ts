@@ -205,7 +205,7 @@ describe("PydanticAI Agent Unit Tests", () => {
       expect(result.data.queries.length).toBeGreaterThan(0);
 
       // Validate query structure
-      result.data.queries.forEach((query: any) => {
+      result.data.queries.forEach((query: unknown) => {
         expect(query).toHaveProperty("query");
         expect(query).toHaveProperty("type");
         expect(query).toHaveProperty("priority");
@@ -330,7 +330,7 @@ describe("PydanticAI Agent Unit Tests", () => {
   //   //   expect(result.data.tasks).toBeDefined();
   //   //   expect(Array.isArray(result.data.tasks)).toBe(true);
 
-  //   //   result.data.tasks.forEach((task: any) => {
+  //   //   result.data.tasks.forEach((task: unknown) => {
   //   //     expect(task).toHaveProperty('title');
   //   //     expect(task).toHaveProperty('description');
   //   //     expect(task).toHaveProperty('category');
@@ -354,7 +354,7 @@ describe("PydanticAI Agent Unit Tests", () => {
       const healthReport = providerManager.getHealthReport();
       expect(Array.isArray(healthReport)).toBe(true);
 
-      healthReport.forEach((provider: any) => {
+      healthReport.forEach((provider: unknown) => {
         expect(provider).toHaveProperty("id");
         expect(provider).toHaveProperty("available");
         expect(provider).toHaveProperty("errorCount");
@@ -371,7 +371,7 @@ describe("PydanticAI Agent Unit Tests", () => {
 
         const healthReport = providerManager.getHealthReport();
         const updatedProvider = healthReport.find(
-          (p: any) => p.id === providerId,
+          (p: unknown) => p.id === providerId,
         );
 
         expect(updatedProvider).toBeDefined();

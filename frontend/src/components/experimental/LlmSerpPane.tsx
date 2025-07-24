@@ -18,7 +18,7 @@
  * - LlmSerpPane: React functional component for displaying LLM-generated search results.
  */
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Zap, ExternalLink, Settings, X, ArrowRight, User } from 'lucide-react'; // Globe removed as unused
+import { Zap, Settings, X, ArrowRight, User } from 'lucide-react'; // Globe and ExternalLink removed as unused
 import ReactMarkdown from 'react-markdown';
 import { useNavigate } from 'react-router-dom';
 import Card from '../ui/Card';
@@ -28,6 +28,7 @@ import { MODEL_CONFIGS } from '../../types/dashboard';
 import FilterDropdown from '../dashboard/FilterDropdown';
 import { getModelFilterOptions } from '../../types/dashboard';
 import { formatResponseText } from '../../lib/responseFormatter';
+import { useAuth } from '../../hooks/useAuth';
 import remarkGfm from 'remark-gfm';
 
 interface Props {
@@ -57,20 +58,8 @@ interface ApiError {
 
 
 
-// Citation component for displaying search sources
-const CitationBadge: React.FC<{ citation: Citation; index: number }> = ({ citation, index }) => (
-  <a 
-    href={citation.url}
-    target="_blank"
-    rel="noopener noreferrer"
-    className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md transition-colors border border-blue-200"
-    title={citation.title}
-  >
-    <ExternalLink className="w-3 h-3" />
-    <span className="font-medium">{index + 1}</span>
-    <span className="truncate max-w-[80px]">{citation.domain}</span>
-  </a>
-);
+// Import the enhanced CitationBadge component
+import CitationBadge from '../ui/CitationBadge';
 
 // Response metadata component (currently unused)
 // const ResponseMetadata: React.FC<{ 
@@ -99,13 +88,16 @@ interface ChatSettings {
 
 const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [answers, setAnswers] = useState<ChatItem[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   
-  // TODO: Replace with actual subscription check
-  const hasSubscription = false;
+  // Check if user has subscription OR is admin - both get full access
+  const hasFullAccess = user?.subscriptionStatus === 'active' || 
+                       user?.role === 'ADMIN' ||
+                       (user?.subscriptionStatus === 'trialing' && user?.trialEndsAt && new Date() < new Date(user.trialEndsAt));
   const [settings, setSettings] = useState<ChatSettings>({
     webSearchEnabled: false,
     temperature: 0.7,
@@ -121,23 +113,23 @@ const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  // Handle model changes with subscription check
+  // Handle model changes with access check (admins and subscribers get full access)
   const handleModelChange = (newModelId: string) => {
     console.log('Model change attempted:', newModelId);
-    // Check if user has subscription for non-ChatGPT models
-    if (!hasSubscription && newModelId !== 'gpt-4.1-mini') {
-      console.log('Subscription required for non-ChatGPT model, showing paywall');
+    // Check if user has full access for non-ChatGPT models
+    if (!hasFullAccess && newModelId !== 'gpt-4.1-mini') {
+      console.log('Subscription or admin access required for non-ChatGPT model, showing paywall');
       setShowPaywall(true);
       return;
     }
     onModelChange(newModelId);
   };
 
-  // Handle settings changes with subscription check
+  // Handle settings changes with access check (admins and subscribers get full access)
   const handleSettingsChange = (newSettings: Partial<ChatSettings>) => {
     console.log('Settings change attempted:', newSettings);
-    if (!hasSubscription) {
-      console.log('Subscription required for settings change, showing paywall');
+    if (!hasFullAccess) {
+      console.log('Subscription or admin access required for settings change, showing paywall');
       setShowPaywall(true);
       return;
     }
@@ -543,7 +535,7 @@ const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
                     <div className="text-xs font-medium text-gray-600 mb-2">Sources:</div>
                     <div className="flex flex-wrap gap-1">
                       {a.citations.slice(0, 6).map((citation, index) => (
-                        <CitationBadge key={citation.url} citation={citation} index={index} />
+                        <CitationBadge key={citation.url} citation={citation} index={index} compact />
                       ))}
                       {a.citations.length > 6 && (
                         <span className="text-xs text-gray-500 px-2 py-1">

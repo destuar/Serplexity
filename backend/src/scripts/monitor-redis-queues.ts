@@ -1,5 +1,5 @@
 import { redis } from "../config/redis";
-import { Queue } from "bullmq";
+import { Queue as _Queue } from "bullmq";
 import logger from "../utils/logger";
 import env from "../config/env";
 
@@ -24,7 +24,7 @@ async function monitorQueues() {
     // Process current queues with configured prefix
     if (queueKeys.length > 0) {
       logger.info("\n📊 Current Queues (with configured prefix):");
-      const queueStats: Record<string, any> = {};
+      const queueStats: Record<string, { waiting?: number; active?: number; completed?: number; failed?: number; delayed?: number; paused?: number }> = {};
 
       for (const key of queueKeys) {
         const parts = key.split(":");
@@ -62,7 +62,7 @@ async function monitorQueues() {
     // Show legacy queues if they exist
     if (legacyKeys.length > 0) {
       logger.info("⚠️  Legacy Queues Found (bull: prefix):");
-      const legacyStats: Record<string, any> = {};
+      const legacyStats: Record<string, { waiting?: number; active?: number; completed?: number; failed?: number; delayed?: number; paused?: number }> = {};
 
       for (const key of legacyKeys) {
         const parts = key.split(":");

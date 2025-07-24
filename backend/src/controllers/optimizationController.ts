@@ -51,7 +51,7 @@ export const toggleOptimizationTaskCompletion = async (
 ) => {
   const prisma = await getDbClient();
   try {
-    const { reportRunId, taskId } = req.params;
+    const { reportRunId: _reportRunId, taskId } = req.params;
 
     const updatedTask = await toggleTaskCompletion(taskId, prisma);
 
@@ -71,7 +71,7 @@ export const updateOptimizationTaskStatus = async (
 ) => {
   const prisma = await getDbClient();
   try {
-    const { reportRunId, taskId } = req.params;
+    const { reportRunId: _reportRunId, taskId } = req.params;
     const { status } = req.body;
 
     // Validate status

@@ -287,7 +287,8 @@ export class DependencyValidator {
         if (trimmed && !trimmed.startsWith("#")) {
           const match = trimmed.match(/^([^=<>!]+)[=<>!]+(.+)$/);
           if (match) {
-            let [, packageName, version] = match;
+            const [, rawPackageName, version] = match;
+            let packageName = rawPackageName;
             // Handle extras like package[extra1,extra2]==version
             if (packageName.includes('[')) {
               packageName = packageName.split('[')[0];

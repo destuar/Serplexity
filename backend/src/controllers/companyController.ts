@@ -33,14 +33,12 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { getPrismaClient, getReadPrismaClient } from "../config/dbCache";
 import { getFullReportMetrics } from "../services/metricsService";
-import { calculateTopQuestions } from "../services/dashboardService";
-import { pydanticLlmService } from "../services/pydanticLlmService";
+import { calculateTopQuestions as _calculateTopQuestions } from "../services/dashboardService";
+import { pydanticLlmService as _pydanticLlmService } from "../services/pydanticLlmService";
 import { flexibleUrlSchema } from "../utils/urlNormalizer";
 
-import env from "../config/env";
-
 // Type for sentiment score values
-interface SentimentScoreValue {
+interface _SentimentScoreValue {
   ratings: Array<{
     quality: number;
     priceValue: number;
@@ -653,7 +651,7 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
     );
 
     // Transform to expected frontend format (backwards compatibility)
-    const questions = responses.map((r: any) => ({
+    const questions = responses.map((r: { question: { text: string }; id: string }) => ({
       id: r.id,
       question: r.question,
       type: r.type,
@@ -692,7 +690,7 @@ export const getShareOfVoiceHistory = async (req: Request, res: Response) => {
   try {
     const prismaReadReplica = await getReadPrismaClient();
     const { id: companyId } = req.params;
-    const { aiModel, timezone } = req.query;
+    const { aiModel, timezone: _timezone } = req.query;
     const userId = req.user?.id;
 
     if (!userId)
@@ -725,7 +723,7 @@ export const getInclusionRateHistory = async (req: Request, res: Response) => {
   try {
     const prismaReadReplica = await getReadPrismaClient();
     const { id: companyId } = req.params;
-    const { aiModel, timezone } = req.query;
+    const { aiModel, timezone: _timezone } = req.query;
     const userId = req.user?.id;
 
     if (!userId)
@@ -1483,7 +1481,7 @@ export const getCompanyQuestions = async (req: Request, res: Response) => {
     }
 
     // Build filter conditions
-    const whereConditions: any = { companyId };
+    const whereConditions: Record<string, unknown> = { companyId };
     if (source && typeof source === 'string') {
       whereConditions.source = source;
     }

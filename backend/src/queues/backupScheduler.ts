@@ -16,7 +16,7 @@
  * - scheduleEmergencyReportTrigger: Function to schedule an emergency report trigger.
  */
 import { Queue } from "bullmq";
-import env from "../config/env";
+import _env from "../config/env";
 import { getBullMQOptions } from "../config/bullmq";
 
 export const backupSchedulerQueue = new Queue(

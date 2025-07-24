@@ -8,6 +8,7 @@
 
 import { PrismaClient } from "@prisma/client";
 import { getDbClient, getReadDbClient } from "./database";
+import logger from "../utils/logger";
 
 class DatabaseCache {
   private static instance: DatabaseCache;
@@ -46,7 +47,7 @@ class DatabaseCache {
     await this.getReplicaClient();
     
     this.isInitialized = true;
-    console.log("✅ Database cache initialized successfully");
+    logger.info("Database cache initialized successfully");
   }
 
   async close(): Promise<void> {
@@ -64,7 +65,7 @@ class DatabaseCache {
 
     await Promise.all(promises);
     this.isInitialized = false;
-    console.log("✅ Database cache closed successfully");
+    logger.info("Database cache closed successfully");
   }
 }
 

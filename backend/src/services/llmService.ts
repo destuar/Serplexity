@@ -28,18 +28,18 @@ import { z } from "zod";
 import logger from "../utils/logger";
 import {
   pydanticLlmService,
-  PydanticAgentOptions,
-  PydanticResponse,
+  PydanticAgentOptions as _PydanticAgentOptions,
+  PydanticResponse as _PydanticResponse,
 } from "./pydanticLlmService";
 import { providerManager } from "../config/pydanticProviders";
 import {
   Model,
-  ModelEngine,
+  ModelEngine as _ModelEngine,
   ModelTask,
   getModelsByTask,
 } from "../config/models";
 import { getDbClient } from "../config/database";
-import { TokenUsageDetail } from "../interfaces/TokenUsageDetail";
+import { TokenUsageDetail as _TokenUsageDetail } from "../interfaces/TokenUsageDetail";
 
 // --- Enhanced Type Definitions ---
 export interface TokenUsage {
@@ -488,7 +488,7 @@ export async function generateWebsiteForCompetitors(
 export async function generateChatCompletion(
   model: Model,
   prompt: string,
-  schema?: z.ZodType<any>,
+  schema?: z.ZodType<unknown>,
 ): Promise<{ content: string | null; usage: TokenUsage }> {
   const startTime = Date.now();
 
@@ -501,7 +501,7 @@ export async function generateChatCompletion(
 
     if (schema) {
       // Structured output with schema validation
-      const result = await pydanticLlmService.executeAgent<any>(
+      const result = await pydanticLlmService.executeAgent<unknown>(
         "question_agent.py",
         {
           prompt,
@@ -577,7 +577,7 @@ export async function generateAndValidate<T, U>(
   model: Model,
   task: ModelTask,
   transform?: (data: T) => U,
-  rescue?: (data: any) => any,
+  rescue?: (data: unknown) => unknown,
 ): Promise<{ data: U; usage: TokenUsage }> {
   const startTime = Date.now();
 
@@ -733,7 +733,7 @@ export async function getModelsByTaskWithUserPreferences(
  * CRITICAL: Extract actual token usage from PydanticAI metadata
  * This replaces the dangerous hardcoded percentage estimates
  */
-function extractActualTokenUsage(metadata: any): TokenUsage {
+function extractActualTokenUsage(metadata: Record<string, unknown>): TokenUsage {
   // Try to extract actual token counts from metadata
   if (metadata.usage && typeof metadata.usage === 'object') {
     const usage = metadata.usage;

@@ -12,6 +12,7 @@
  */
 
 import logger from "../utils/logger";
+import type { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 
 export interface DatabaseSecret {
   host: string;
@@ -113,7 +114,7 @@ export abstract class SecretsProvider {
  * AWS Secrets Manager Provider
  */
 export class AwsSecretsProvider extends SecretsProvider {
-  private client: unknown = null; // Lazy-loaded AWS client
+  private client: SecretsManagerClient | null = null; // Lazy-loaded AWS client
 
   constructor() {
     super("AWS_SECRETS_MANAGER");
@@ -122,8 +123,11 @@ export class AwsSecretsProvider extends SecretsProvider {
   async testConnection(): Promise<boolean> {
     try {
       await this.initializeClient();
+      if (!this.client) {
+        throw new Error("Failed to initialize AWS SecretsManager client");
+      }
       // Try to list secrets to test connection
-      const { SecretsManagerClient, ListSecretsCommand } = await import(
+      const { SecretsManagerClient: _SecretsManagerClient, ListSecretsCommand } = await import(
         "@aws-sdk/client-secrets-manager"
       );
       await this.client.send(new ListSecretsCommand({ MaxResults: 1 }));
@@ -134,8 +138,11 @@ export class AwsSecretsProvider extends SecretsProvider {
     }
   }
 
-  protected async fetchSecret(secretName: string): Promise<SecretResult> {
+  protected async fetchSecret(_secretName: string): Promise<SecretResult> {
     await this.initializeClient();
+    if (!this.client) {
+      throw new Error("Failed to initialize AWS SecretsManager client");
+    }
 
     const { GetSecretValueCommand } = await import(
       "@aws-sdk/client-secrets-manager"
@@ -143,14 +150,14 @@ export class AwsSecretsProvider extends SecretsProvider {
 
     const response = await this.client.send(
       new GetSecretValueCommand({
-        SecretId: secretName,
+        SecretId: _secretName,
         VersionStage: "AWSCURRENT",
       }),
     );
 
     if (!response.SecretString) {
       throw new Error(
-        `[AWS SecretsProvider] Secret ${secretName} has no value`,
+        `[AWS SecretsProvider] Secret ${_secretName} has no value`,
       );
     }
 
@@ -166,7 +173,7 @@ export class AwsSecretsProvider extends SecretsProvider {
       },
       metadata: {
         provider: this.providerName,
-        secretName,
+        secretName: _secretName,
         version: response.VersionId,
         lastUpdated: response.CreatedDate,
       },
@@ -212,7 +219,7 @@ export class AzureKeyVaultProvider extends SecretsProvider {
     throw new Error("[Azure KeyVault] Not implemented yet");
   }
 
-  protected async fetchSecret(secretName: string): Promise<SecretResult> {
+  protected async fetchSecret(_secretName: string): Promise<SecretResult> {
     // TODO: Implement Azure Key Vault secret retrieval
     // const { SecretClient } = await import('@azure/keyvault-secrets');
     throw new Error("[Azure KeyVault] Not implemented yet");
@@ -232,7 +239,7 @@ export class GcpSecretManagerProvider extends SecretsProvider {
     throw new Error("[GCP SecretManager] Not implemented yet");
   }
 
-  protected async fetchSecret(secretName: string): Promise<SecretResult> {
+  protected async fetchSecret(_secretName: string): Promise<SecretResult> {
     // TODO: Implement GCP Secret Manager secret retrieval
     // const { SecretManagerServiceClient } = await import('@google-cloud/secret-manager');
     throw new Error("[GCP SecretManager] Not implemented yet");
@@ -252,18 +259,18 @@ export class EnvironmentSecretsProvider extends SecretsProvider {
     return true;
   }
 
-  protected async fetchSecret(secretName: string): Promise<SecretResult> {
+  protected async fetchSecret(_secretName: string): Promise<SecretResult> {
     // Import environment configuration
     const env = (await import("../config/env")).default;
 
     let connectionUrl: string;
 
-    if (secretName === "database-primary") {
+    if (_secretName === "database-primary") {
       if (!env.DATABASE_URL) {
         throw new Error("[Environment SecretsProvider] DATABASE_URL not set");
       }
       connectionUrl = env.DATABASE_URL;
-    } else if (secretName === "database-replica") {
+    } else if (_secretName === "database-replica") {
       if (!env.READ_REPLICA_URL) {
         throw new Error(
           "[Environment SecretsProvider] READ_REPLICA_URL not set",
@@ -272,7 +279,7 @@ export class EnvironmentSecretsProvider extends SecretsProvider {
       connectionUrl = env.READ_REPLICA_URL;
     } else {
       throw new Error(
-        `[Environment SecretsProvider] Unknown secret: ${secretName}`,
+        `[Environment SecretsProvider] Unknown secret: ${_secretName}`,
       );
     }
 
@@ -282,7 +289,7 @@ export class EnvironmentSecretsProvider extends SecretsProvider {
       secret,
       metadata: {
         provider: this.providerName,
-        secretName,
+        secretName: _secretName,
         lastUpdated: new Date(),
       },
     };

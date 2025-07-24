@@ -53,22 +53,22 @@ const logger = {
   log: (...args: unknown[]) => {
     console.log(...args);
   },
-  info: (message: string, context?: any) => {
+  info: (message: string, context?: Record<string, unknown>) => {
     if (getCurrentLogLevel() <= LogLevel.INFO) {
       console.info(formatMessage("INFO", message, context));
     }
   },
-  warn: (message: string, context?: any) => {
+  warn: (message: string, context?: Record<string, unknown>) => {
     if (getCurrentLogLevel() <= LogLevel.WARN) {
       console.warn(formatMessage("WARN", message, context));
     }
   },
-  error: (message: string, context?: any) => {
+  error: (message: string, context?: Record<string, unknown>) => {
     if (getCurrentLogLevel() <= LogLevel.ERROR) {
       console.error(formatMessage("ERROR", message, context));
     }
   },
-  debug: (message: string, context?: any) => {
+  debug: (message: string, context?: Record<string, unknown>) => {
     if (getCurrentLogLevel() <= LogLevel.DEBUG) {
       console.debug(formatMessage("DEBUG", message, context));
     }

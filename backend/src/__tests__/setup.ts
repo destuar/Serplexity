@@ -88,7 +88,7 @@ async function cleanDatabaseWithRetry(maxRetries = 3) {
     try {
       await cleanDatabase();
       return;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.warn(
         `Database cleanup attempt ${attempt} failed:`,
         error.message,

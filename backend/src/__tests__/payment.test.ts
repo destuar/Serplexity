@@ -2,7 +2,7 @@ import request from "supertest";
 import Stripe from "stripe";
 
 // --- Stripe mock setup (must load before app and controllers) ---
-let mockStripeInstance: any;
+let mockStripeInstance: unknown;
 
 jest.mock("stripe", () => {
   return jest.fn().mockImplementation(() => {
@@ -53,9 +53,9 @@ describe("Payment Controller", () => {
         url: "https://checkout.stripe.com/pay/test123",
       };
 
-      getStripeMock().customers.create.mockResolvedValue(mockCustomer as any);
+      getStripeMock().customers.create.mockResolvedValue(mockCustomer as unknown);
       getStripeMock().checkout.sessions.create.mockResolvedValue(
-        mockSession as any,
+        mockSession as unknown,
       );
 
       const response = await request(app)
@@ -113,7 +113,7 @@ describe("Payment Controller", () => {
       };
 
       getStripeMock().checkout.sessions.create.mockResolvedValue(
-        mockSession as any,
+        mockSession as unknown,
       );
 
       const response = await request(app)
@@ -208,7 +208,7 @@ describe("Payment Controller", () => {
 
     it("should handle Stripe session creation error", async () => {
       const mockCustomer = { id: "cus_test123" };
-      getStripeMock().customers.create.mockResolvedValue(mockCustomer as any);
+      getStripeMock().customers.create.mockResolvedValue(mockCustomer as unknown);
       getStripeMock().checkout.sessions.create.mockRejectedValue(
         new Error("Session error"),
       );

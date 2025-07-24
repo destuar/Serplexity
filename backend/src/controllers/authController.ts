@@ -27,6 +27,7 @@ import jwt, { SignOptions } from "jsonwebtoken";
 import { Role } from "@prisma/client";
 import env from "../config/env";
 import { getPrismaClient } from "../config/dbCache";
+import logger from "../utils/logger";
 
 const { JWT_SECRET, JWT_REFRESH_SECRET } = env;
 
@@ -122,7 +123,7 @@ export const register = async (req: Request, res: Response) => {
       accessToken,
     });
   } catch (error) {
-    console.error("[REGISTER ERROR]", error);
+    logger.error("Registration failed", { error });
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors });
     }
@@ -193,7 +194,7 @@ export const login = async (req: Request, res: Response) => {
       accessToken,
     });
   } catch (error) {
-    console.error("[LOGIN ERROR]", error);
+    logger.error("Login failed", { error });
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors });
     }
@@ -218,7 +219,7 @@ export const logout = async (req: Request, res: Response) => {
       });
     } catch (error) {
       // Log error but don't prevent logout
-      console.error("Failed to increment token version on logout", error);
+      logger.error("Failed to increment token version on logout", { error });
     }
   }
 
@@ -302,13 +303,12 @@ export const refresh = async (req: Request, res: Response) => {
       },
       accessToken: newAccessToken,
     });
-  } catch (error) {
+  } catch {
     return res.status(401).json({ error: "Invalid refresh token" });
   }
 };
 
 export const getMe = async (req: Request, res: Response) => {
-  const prisma = await getPrismaClient();
   // The user object is attached to the request by the authenticate middleware
   if (req.user) {
     res.status(200).json({ user: req.user });

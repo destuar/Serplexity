@@ -78,7 +78,7 @@ describe("Company Management System", () => {
         await prisma.user.deleteMany({});
         await prisma.company.deleteMany({});
         return;
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (attempt === maxRetries) {
           throw error;
         }
@@ -105,19 +105,19 @@ describe("Company Management System", () => {
 
       // Verify competitors were created
       expect(company.competitors).toHaveLength(2);
-      expect(company.competitors.map((c: any) => c.name)).toEqual(
+      expect(company.competitors.map((c: unknown) => c.name)).toEqual(
         expect.arrayContaining(["Competitor A", "Competitor B"]),
       );
 
       // Verify benchmarking questions were created
       expect(company.benchmarkingQuestions).toHaveLength(2);
-      expect(company.benchmarkingQuestions.map((q: any) => q.text)).toEqual(
+      expect(company.benchmarkingQuestions.map((q: unknown) => q.text)).toEqual(
         expect.arrayContaining(validCompanyData.benchmarkingQuestions),
       );
 
       // Verify products were created
       expect(company.products).toHaveLength(2);
-      expect(company.products.map((p: any) => p.name)).toEqual(
+      expect(company.products.map((p: unknown) => p.name)).toEqual(
         expect.arrayContaining(["Product A", "Product B"]),
       );
     });
@@ -423,7 +423,7 @@ describe("Company Management System", () => {
         .expect(200);
 
       expect(response.body.companies).toHaveLength(2);
-      expect(response.body.companies.map((c: any) => c.id)).toEqual(
+      expect(response.body.companies.map((c: unknown) => c.id)).toEqual(
         expect.arrayContaining([company1.id, company2.id]),
       );
     });

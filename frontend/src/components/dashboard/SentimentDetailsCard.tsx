@@ -36,6 +36,7 @@ import {
   createModelFilterConfig,
   filterDetailedMetricsByModel 
 } from '../../utils/modelFiltering';
+import React from 'react';
 
 interface SentimentDetailsCardProps {
     selectedModel: string;
@@ -50,42 +51,85 @@ const categoryMapping: { [key: string]: string } = {
 };
 
 /**
- * Renders text containing <brand> tags and citation markers, highlighting brands
+ * Renders text containing <brand> tags and citation markers, highlighting brands/competitors
  * and replacing citation markers with clickable badges.
  * @param text The text to be parsed.
  * @param brandName The user's brand name to highlight.
+ * @param acceptedCompetitors List of accepted competitors to highlight.
  * @param citations Available citations for creating badges.
  * @returns A ReactNode with appropriate styling.
  */
 const renderBrandTextWithCitations = (
     text: string | undefined, 
     brandName: string | undefined,
+    acceptedCompetitors: Array<{name: string}>,
     citations: Array<{url: string, title: string, domain: string}>
 ): React.ReactNode => {
     if (!text) {
         return '';
     }
 
-    // First, handle brand tags
-    let processedText = text;
-    const brandElements: Array<{start: number, end: number, isUserBrand: boolean, content: string}> = [];
-    
-    if (brandName) {
-        const brandRegex = /<brand>(.*?)<\/brand>/g;
-        let match;
-        while ((match = brandRegex.exec(text)) !== null) {
-            const isUserBrand = match[1].toLowerCase() === brandName.toLowerCase();
-            brandElements.push({
-                start: match.index,
-                end: match.index + match[0].length,
-                isUserBrand,
-                content: match[1]
+    // Helper function to highlight companies in a text segment
+    const highlightCompaniesInText = (textSegment: string): React.ReactNode => {
+        if (!textSegment) return textSegment;
+
+        // Collect all company names to highlight
+        const companiesToHighlight: Array<{name: string, isUserBrand: boolean}> = [];
+        
+        // Add user's brand
+        if (brandName) {
+            companiesToHighlight.push({
+                name: brandName,
+                isUserBrand: true
             });
         }
-    }
+        
+        // Add accepted competitors
+        if (acceptedCompetitors && acceptedCompetitors.length > 0) {
+            acceptedCompetitors.forEach(competitor => {
+                companiesToHighlight.push({
+                    name: competitor.name,
+                    isUserBrand: false
+                });
+            });
+        }
 
-    // Remove brand tags from text for citation processing
-    processedText = processedText.replace(/<\/?brand>/g, '');
+        if (companiesToHighlight.length === 0) return textSegment;
+
+        // Create a combined regex for all companies (sorted by length descending to match longer names first)
+        const sortedCompanies = companiesToHighlight.sort((a, b) => b.name.length - a.name.length);
+        const companiesPattern = sortedCompanies.map(comp => 
+            comp.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        ).join('|');
+        
+        const companiesRegex = new RegExp(`(${companiesPattern})`, 'gi');
+        const textParts = textSegment.split(companiesRegex);
+
+        return textParts.map((part, index) => {
+            // Check if this part matches any of our companies
+            const matchedCompany = companiesToHighlight.find(comp => 
+                part.toLowerCase() === comp.name.toLowerCase()
+            );
+            
+            if (matchedCompany) {
+                return (
+                    <span 
+                        key={index} 
+                        className={matchedCompany.isUserBrand 
+                            ? "bg-blue-100 text-gray-900 px-1 py-0.5 rounded" 
+                            : "bg-yellow-100 text-gray-900 px-1 py-0.5 rounded"
+                        }
+                    >
+                        {part}
+                    </span>
+                );
+            }
+            return part;
+        });
+    };
+
+    // First process <brand> tags - replace them with plain text but track which companies were tagged
+    let processedText = text.replace(/<brand>(.*?)<\/brand>/g, '$1');
     
     // Now handle citation markers [1], [2], etc.
     const citationRegex = /\[(\d+)\]/g;
@@ -98,10 +142,11 @@ const renderBrandTextWithCitations = (
         const citationNum = parseInt(match[1], 10);
         const citation = citations[citationNum - 1]; // Convert to 0-based index
         
-        // Add text before citation
+        // Add text before citation with company highlighting
         if (match.index > lastIndex) {
             const textBefore = processedText.slice(lastIndex, match.index);
-            parts.push(<span key={key++}>{textBefore}</span>);
+            const highlightedText = highlightCompaniesInText(textBefore);
+            parts.push(<span key={key++}>{highlightedText}</span>);
         }
         
         // Add citation badge
@@ -122,13 +167,13 @@ const renderBrandTextWithCitations = (
         lastIndex = match.index + match[0].length;
     }
     
-    // Add remaining text
+    // Add remaining text with company highlighting
     if (lastIndex < processedText.length) {
-        parts.push(<span key={key++}>{processedText.slice(lastIndex)}</span>);
+        const remainingText = processedText.slice(lastIndex);
+        const highlightedText = highlightCompaniesInText(remainingText);
+        parts.push(<span key={key++}>{highlightedText}</span>);
     }
 
-    // Note: This simplified version handles citations but loses brand highlighting
-    // For full brand + citation support, we'd need more complex parsing
     return <>{parts}</>;
 };
 
@@ -150,7 +195,7 @@ const extractCitations = (metric: SentimentDetail | undefined): Array<{url: stri
 // Removed hardcoded engineMapping - now using centralized getModelDisplayName
 
 const SentimentDetailsCard: React.FC<SentimentDetailsCardProps> = ({ selectedModel }) => {
-    const { data } = useDashboard();
+    const { data, acceptedCompetitors } = useDashboard();
     
     const userBrandName = data?.competitorRankings?.userCompany?.name;
 
@@ -199,6 +244,7 @@ const SentimentDetailsCard: React.FC<SentimentDetailsCardProps> = ({ selectedMod
                                     {renderBrandTextWithCitations(
                                         (metricToShow.value.ratings[0] as { summaryDescription: string }).summaryDescription, 
                                         userBrandName,
+                                        acceptedCompetitors || [],
                                         citations
                                     )}
                                 </div>

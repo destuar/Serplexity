@@ -121,6 +121,7 @@ const envSchema = z.object({
 const parsedEnv = envSchema.safeParse(process.env);
 
 if (!parsedEnv.success) {
+  // Can't use logger here as env is needed to configure logger
   console.error("❌ Invalid environment variables:", parsedEnv.error.format());
   throw new Error("Invalid environment variables.");
 }
@@ -143,6 +144,7 @@ if (secretsProvider !== "environment") {
       `FATAL ERROR: DATABASE_SECRET_NAME is required when SECRETS_PROVIDER=${secretsProvider}`,
     );
   }
+  // Can't use logger here as env is needed to configure logger
   console.log(
     `✅ Using ${secretsProvider.toUpperCase()} secrets provider for database credentials`,
   );
@@ -153,6 +155,7 @@ if (secretsProvider !== "environment") {
       "FATAL ERROR: DATABASE_URL is required when SECRETS_PROVIDER=environment",
     );
   }
+  // Can't use logger here as env is needed to configure logger
   console.log("✅ Using environment variables for database credentials");
 }
 

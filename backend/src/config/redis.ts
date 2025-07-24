@@ -382,7 +382,7 @@ class RedisConnectionManager {
           // Close the dead connection properly
           try {
             await this.connections[index].quit();
-          } catch (_error) {
+          } catch {
             // Ignore errors when closing dead connections
           }
           
@@ -415,7 +415,7 @@ class RedisConnectionManager {
           await connection.ping();
           healthyCount++;
         }
-      } catch (_error) {
+      } catch {
         // Connection is unhealthy, skip
       }
     }

@@ -17,7 +17,7 @@
  * - router: The Express router instance for blog routes.
  */
 import { Router } from "express";
-import path from "path";
+import _path from "path";
 import { authenticate, authorize } from "../middleware/authMiddleware";
 import { Role } from "@prisma/client";
 import {
@@ -48,10 +48,10 @@ router.post(
         return res.status(400).json({ error: "No file uploaded" });
       }
 
-      const fileUrl = getFileUrl((req.file as any).key);
+      const fileUrl = getFileUrl((req.file as unknown).key);
       res.json({
         url: fileUrl,
-        filename: (req.file as any).key,
+        filename: (req.file as unknown).key,
         originalName: req.file.originalname,
         size: req.file.size,
         mimeType: req.file.mimetype,

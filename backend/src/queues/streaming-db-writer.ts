@@ -13,7 +13,7 @@
  * @exports
  * - StreamingDatabaseWriter: A class for streaming data to the database.
  */
-import { PrismaClient, Prisma } from "@prisma/client";
+import { PrismaClient, Prisma as _Prisma } from "@prisma/client";
 import { performance } from "perf_hooks";
 import { LLM_CONFIG } from "../config/models";
 
@@ -358,13 +358,13 @@ export class StreamingDatabaseWriter {
 
   private async processBatch(responses: StreamedResponse[]): Promise<void> {
     // Group responses by type for optimal batching
-    const visibilityResponses = responses.filter(
+    const _visibilityResponses = responses.filter(
       (r) => r.questionType === "visibility",
     );
-    const benchmarkResponses = responses.filter(
+    const _benchmarkResponses = responses.filter(
       (r) => r.questionType === "benchmark",
     );
-    const personalResponses = responses.filter(
+    const _personalResponses = responses.filter(
       (r) => r.questionType === "personal",
     );
 
@@ -403,7 +403,7 @@ export class StreamingDatabaseWriter {
       where: { id: { in: missingIds } },
       select: { id: true, query: true },
     });
-    const legacyMap = new Map(legacyQuestions.map((q: any) => [q.id, q.query]));
+    const legacyMap = new Map(legacyQuestions.map((q: { id: string; query: string }) => [q.id, q.query]));
 
     const stubData = missingIds.map((id) => ({
       id, // preserve the original id so downstream references remain valid

@@ -14,7 +14,7 @@
  * - scheduleDailyReportTrigger: Function to schedule the daily report trigger.
  */
 import { Queue } from "bullmq";
-import env from "../config/env";
+import _env from "../config/env";
 import { getBullMQOptions } from "../config/bullmq";
 
 export const masterSchedulerQueue = new Queue(

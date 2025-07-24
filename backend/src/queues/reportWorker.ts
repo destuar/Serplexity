@@ -20,7 +20,7 @@ import {
   generateOverallSentimentSummary,
   generateWebsiteForCompetitors,
   getModelsByTaskWithUserPreferences,
-  SentimentScores,
+  SentimentScores as _SentimentScores,
   CompetitorInfo,
 } from "../services/llmService";
 import { ModelTask, LLM_CONFIG } from "../config/models";
@@ -29,6 +29,20 @@ import { computeAndPersistMetrics } from "../services/metricsService";
 import { initializeLogfire } from "../config/logfire";
 import { checkRedisHealth } from "../config/redis";
 import { dbCache } from "../config/dbCache";
+
+// Type definitions for report worker
+interface CompanyData {
+  id: string;
+  name: string;
+  domain: string;
+  timezone?: string;
+}
+
+interface ProgressData {
+  stage: string;
+  progress: number;
+  message?: string;
+}
 
 /**
  * Critical dependency health checks - MUST pass before worker starts
@@ -67,7 +81,7 @@ async function validateWorkerDependencies(): Promise<void> {
         } else {
           console.warn("⚠️  No healthy PydanticAI providers available");
         }
-      } catch (error) {
+      } catch {
         console.warn("⚠️  PydanticAI service unavailable - first-time reports will fail");
         console.warn("   Make sure the Python service is running: cd src/pydantic_agents && python -m uvicorn main:app");
         // Don't throw - allow worker to start for existing reports that don't need Python
@@ -128,17 +142,17 @@ validateWorkerDependencies().then(() => {
     console.log(`🚀 Worker started processing job ${job.id} for ${company?.name} (runId: ${runId})`);
   });
 
-  worker.on("progress", (job: Job, progress: any) => {
+  worker.on("progress", (job: Job, progress: ProgressData) => {
     console.log(`📈 Job ${job.id} progress:`, progress);
   });
 
   worker.on("completed", (job: Job) => {
-    const { runId, company } = job.data;
+    const { runId: _runId, company } = job.data;
     console.log(`✅ Worker event: Job ${job.id} completed for ${company?.name}`);
   });
 
   worker.on("failed", async (job, err) => {
-    const { runId, company } = job?.data || {};
+    const { runId: _runId, company } = job?.data || {};
     console.error(
       `❌ Worker event: Job ${job?.id} failed for ${company?.name}:`,
       err,
@@ -391,7 +405,7 @@ class CompetitorPipeline {
 async function deduplicateCompetitors(
   competitors: CompetitorInfo[], 
   companyId: string, 
-  prisma: any
+  prisma: unknown
 ): Promise<CompetitorInfo[]> {
   if (competitors.length === 0) return competitors;
 
@@ -458,8 +472,8 @@ async function deduplicateCompetitors(
 
   // Sort by confidence score (highest first) to keep the best entries
   const sortedCompetitors = [...competitors].sort((a, b) => {
-    const confA = (a as any).confidence || 0.8; // Default confidence if missing
-    const confB = (b as any).confidence || 0.8;
+    const confA = (a as unknown).confidence || 0.8; // Default confidence if missing
+    const confB = (b as unknown).confidence || 0.8;
     return confB - confA;
   });
 
@@ -516,7 +530,7 @@ async function deduplicateCompetitors(
 /**
  * Main report processing function
  */
-async function processReport(runId: string, company: any): Promise<void> {
+async function processReport(runId: string, company: CompanyData): Promise<void> {
   console.log(
     `🚀 Starting report generation for ${company?.name || "Unknown"}`,
   );
@@ -639,7 +653,7 @@ async function processReport(runId: string, company: any): Promise<void> {
         
         // Store all 25 questions in database
         const questionsToCreate = [
-          ...generatedActive.map((q: any) => ({
+          ...generatedActive.map((q: { id?: string; text: string }) => ({
             query: q.query,
             type: q.type,
             intent: q.intent,
@@ -647,7 +661,7 @@ async function processReport(runId: string, company: any): Promise<void> {
             source: "ai",
             companyId: fullCompany.id,
           })),
-          ...suggestedQuestions.map((q: any) => ({
+          ...suggestedQuestions.map((q: { id?: string; text: string }) => ({
             query: q.query,
             type: q.type,
             intent: q.intent,
@@ -777,7 +791,7 @@ async function processReport(runId: string, company: any): Promise<void> {
               );
             }
 
-            const response = result.data as any;
+            const response = result.data as unknown;
             totalTokens += result.metadata?.tokensUsed || 0;
 
             // Count web searches - assume 1 search if web search was used
@@ -814,7 +828,7 @@ async function processReport(runId: string, company: any): Promise<void> {
                   question_type: question.type,
                   question_intent: question.intent,
                   question_source: question.source,
-                } as any,
+                } as unknown,
               },
             });
 
@@ -842,7 +856,7 @@ async function processReport(runId: string, company: any): Promise<void> {
                 const domain = urlObj.hostname.replace('www.', '');
                 const title = `${domain.charAt(0).toUpperCase() + domain.slice(1)} - Web Result`;
                 citations.add({ url, title, source: 'natural' });
-              } catch (error) {
+              } catch {
                 continue; // Skip invalid URLs
               }
             }
@@ -874,7 +888,7 @@ async function processReport(runId: string, company: any): Promise<void> {
                 });
 
                 citationPosition++;
-              } catch (error) {
+              } catch {
                 console.warn(`Invalid URL in citation: ${citation.url}`);
               }
             }
@@ -949,7 +963,7 @@ async function processReport(runId: string, company: any): Promise<void> {
                       },
                     });
                     console.log(`🆕 Created new competitor: ${brandName}`);
-                  } catch (error) {
+                  } catch {
                     // Handle duplicate creation race condition
                     competitor = await prisma.competitor.findFirst({
                       where: {
@@ -1031,7 +1045,7 @@ async function processReport(runId: string, company: any): Promise<void> {
     console.log(`📊 Total question-model combinations: ${questionPromises.length}`);
     console.log(`📊 Successful answers: ${successfulAnswers}/${questionPromises.length}`);
     
-    for (const [questionId, tracker] of questionTracker) {
+    for (const [_questionId, tracker] of questionTracker) {
       const { question, attempted, successful, failed, models } = tracker;
       console.log(`📊 Question: "${question.substring(0, 50)}..."`);
       console.log(`📊   - Attempted: ${attempted}, Successful: ${successful}, Failed: ${failed}`);
@@ -1104,7 +1118,7 @@ async function processReport(runId: string, company: any): Promise<void> {
     const sentimentResults = await Promise.allSettled(sentimentPromises);
     const successfulSentiments = sentimentResults
       .filter((r) => r.status === "fulfilled" && r.value.success)
-      .map((r) => (r as PromiseFulfilledResult<any>).value.data);
+      .map((r) => (r as PromiseFulfilledResult<{ success: boolean; data: unknown }>).value.data);
 
     // Generate overall sentiment summary
     if (successfulSentiments.length > 0) {
@@ -1215,7 +1229,7 @@ async function processReport(runId: string, company: any): Promise<void> {
     try {
       const { persistOptimizationTasks, PRESET_TASKS } = await import('../services/optimizationTaskService');
       console.log(`📋 Generating optimization tasks...`);
-      await persistOptimizationTasks(PRESET_TASKS as any, runId, fullCompany.id, prisma);
+      await persistOptimizationTasks(PRESET_TASKS as unknown, runId, fullCompany.id, prisma);
       console.log(`✅ Optimization tasks generated successfully`);
     } catch (error) {
       console.error(`❌ Failed to generate optimization tasks:`, error);
@@ -1247,7 +1261,7 @@ async function processReport(runId: string, company: any): Promise<void> {
  * Prevents cascade failures when database connections fail during error handling
  */
 async function safeUpdateReportStatus(
-  prisma: any,
+  prisma: unknown,
   runId: string, 
   updateData: {
     status: string;
@@ -1360,7 +1374,7 @@ async function reinitializeDatabaseConnection(): Promise<void> {
  */
 async function fallbackErrorReporting(
   runId: string, 
-  updateData: any, 
+  updateData: Record<string, unknown>, 
   error: Error | null
 ): Promise<void> {
   try {
@@ -1397,7 +1411,7 @@ const processJob = async (job: Job) => {
   try {
     console.log(`🔥 WORKER ENTRY POINT - Job ${job.id} starting...`);
     
-    const { runId, company, force } = job.data;
+    const { runId, company, force: _force } = job.data;
 
   console.log(
     `🎯 Processing job ${job.id} - Report generation for company '${company.name}'`,

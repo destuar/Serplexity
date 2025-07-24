@@ -94,7 +94,7 @@ export async function calculateCompetitorRankings(
   companyId: string,
   filters?: { aiModel?: string },
 ) {
-  const prisma = await getDbClient();
+  const _prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
   // Prefer pre-computed competitorRankings if present
   const metric = await prismaReadReplica.reportMetric.findFirst({
@@ -103,7 +103,7 @@ export async function calculateCompetitorRankings(
   });
 
   if (metric?.competitorRankings) {
-    return metric.competitorRankings as any;
+    return metric.competitorRankings as unknown;
   }
 
   // Fallback – compute simple SoV via Mention
@@ -172,7 +172,7 @@ export async function calculateCitationRankings(
   companyId: string,
   filters?: { aiModel?: string },
 ) {
-  const prisma = await getDbClient();
+  const _prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
 
   // Prefer pre-computed citationRankings if present
@@ -184,9 +184,9 @@ export async function calculateCitationRankings(
   // Check if citation rankings are already computed and stored in competitorRankings
   if (
     metric?.competitorRankings &&
-    (metric.competitorRankings as any).citationRankings
+    (metric.competitorRankings as unknown).citationRankings
   ) {
-    return (metric.competitorRankings as any).citationRankings;
+    return (metric.competitorRankings as unknown).citationRankings;
   }
 
   // Fallback – compute citation share of voice via Citation
@@ -281,7 +281,7 @@ export async function calculateTopQuestions(
   limit: number = 20,
   skip: number = 0,
 ) {
-  const prisma = await getDbClient();
+  const _prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
 
   if (!runId || !companyId) {
@@ -294,14 +294,14 @@ export async function calculateTopQuestions(
   );
 
   // Build where clauses
-  const whereResponse: any = {
+  const whereResponse: Record<string, unknown> = {
     runId,
     ...(filters?.aiModel && filters.aiModel !== "all"
       ? { model: filters.aiModel }
       : {}),
   };
 
-  const whereQuestion: any = {
+  const whereQuestion: Record<string, unknown> = {
     companyId,
     ...(filters?.questionType && filters.questionType !== "all"
       ? { type: filters.questionType }
@@ -443,7 +443,7 @@ export async function calculateTopResponses(
   limit: number = 1000,
   skip: number = 0,
 ) {
-  const prisma = await getDbClient();
+  const _prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
   if (!runId || !companyId) {
     return { responses: [], totalCount: 0 };
@@ -455,14 +455,14 @@ export async function calculateTopResponses(
   );
 
   // Build where clauses
-  const whereResponse: any = {
+  const whereResponse: Record<string, unknown> = {
     runId,
     ...(filters.aiModel && filters.aiModel !== "all"
       ? { model: filters.aiModel }
       : {}),
   };
 
-  const whereQuestion: any = {
+  const whereQuestion: Record<string, unknown> = {
     companyId,
     ...(filters.questionType && filters.questionType !== "all"
       ? { type: filters.questionType }
@@ -572,9 +572,9 @@ export async function calculateShareOfVoiceHistory(
   companyId: string,
   filters?: { aiModel?: string },
 ) {
-  const prisma = await getDbClient();
+  const _prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
-  const whereClause: any = { companyId };
+  const whereClause: Record<string, unknown> = { companyId };
 
   // Apply aiModel filter if provided
   if (filters?.aiModel && filters.aiModel !== "all") {
@@ -594,9 +594,9 @@ export async function calculateInclusionRateHistory(
   companyId: string,
   filters?: { aiModel?: string },
 ) {
-  const prisma = await getDbClient();
+  const _prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
-  const whereClause: any = { companyId };
+  const whereClause: Record<string, unknown> = { companyId };
 
   // Apply aiModel filter if provided
   if (filters?.aiModel && filters.aiModel !== "all") {
@@ -616,9 +616,9 @@ export async function calculateSentimentOverTime(
   companyId: string,
   filters?: { aiModel?: string },
 ) {
-  const prisma = await getDbClient();
+  const _prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
-  const whereClause: any = { companyId };
+  const whereClause: Record<string, unknown> = { companyId };
 
   // Apply aiModel filter if provided
   if (filters?.aiModel && filters.aiModel !== "all") {
@@ -642,7 +642,7 @@ export async function saveShareOfVoiceHistoryPoint(
   userTimezone?: string,
 ): Promise<void> {
   const prisma = await getDbClient();
-  const prismaReadReplica = await getReadDbClient();
+  const _prismaReadReplica = await getReadDbClient();
   if (!reportRunId) {
     console.warn(
       `[saveShareOfVoiceHistoryPoint] reportRunId is missing for company ${companyId}. Skipping save.`,
@@ -662,7 +662,7 @@ export async function saveShareOfVoiceHistoryPoint(
         userDate.getDate(),
         0, 0, 0, 0
       ));
-    } catch (error) {
+    } catch {
       console.warn(`[saveShareOfVoiceHistoryPoint] Invalid timezone ${userTimezone}, falling back to UTC`);
       normalizedDate = new Date(Date.UTC(
         date.getUTCFullYear(),
@@ -713,7 +713,7 @@ export async function saveInclusionRateHistoryPoint(
   userTimezone?: string,
 ): Promise<void> {
   const prisma = await getDbClient();
-  const prismaReadReplica = await getReadDbClient();
+  const _prismaReadReplica = await getReadDbClient();
   if (!reportRunId) {
     console.warn(
       `[saveInclusionRateHistoryPoint] reportRunId is missing for company ${companyId}. Skipping save.`,
@@ -733,7 +733,7 @@ export async function saveInclusionRateHistoryPoint(
         userDate.getDate(),
         0, 0, 0, 0
       ));
-    } catch (error) {
+    } catch {
       console.warn(`[saveInclusionRateHistoryPoint] Invalid timezone ${userTimezone}, falling back to UTC`);
       normalizedDate = new Date(Date.UTC(
         date.getUTCFullYear(),
@@ -784,7 +784,7 @@ export async function saveSentimentOverTimePoint(
   userTimezone?: string,
 ): Promise<void> {
   const prisma = await getDbClient();
-  const prismaReadReplica = await getReadDbClient();
+  const _prismaReadReplica = await getReadDbClient();
   if (!reportRunId) {
     console.warn(
       `[saveSentimentOverTimePoint] reportRunId is missing for company ${companyId}. Skipping save.`,
@@ -804,7 +804,7 @@ export async function saveSentimentOverTimePoint(
         userDate.getDate(),
         0, 0, 0, 0
       ));
-    } catch (error) {
+    } catch {
       console.warn(`[saveSentimentOverTimePoint] Invalid timezone ${userTimezone}, falling back to UTC`);
       normalizedDate = new Date(Date.UTC(
         date.getUTCFullYear(),

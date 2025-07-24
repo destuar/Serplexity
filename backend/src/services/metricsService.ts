@@ -15,7 +15,7 @@
  * - getFullReportMetrics: Retrieves all pre-computed metrics for dashboard display.
  */
 import { getDbClient, getReadDbClient } from "../config/database";
-import { Prisma, ReportMetric } from "@prisma/client";
+import { Prisma as _Prisma, ReportMetric } from "@prisma/client";
 import {
   calculateTopQuestions,
   calculateCompetitorRankings,
@@ -23,8 +23,34 @@ import {
   saveSentimentOverTimePoint,
   saveShareOfVoiceHistoryPoint,
   saveInclusionRateHistoryPoint,
-  calculateTopResponses,
+  calculateTopResponses as _calculateTopResponses,
 } from "./dashboardService";
+
+// Type definitions for metrics data structures
+interface SentimentRating {
+  ratings: Array<{ rating: number }>;
+}
+
+interface CompetitorData {
+  id: string;
+  shareOfVoice: number;
+  change?: number;
+  changeType?: 'increase' | 'decrease' | 'stable';
+}
+
+interface CompetitorRankings {
+  chartCompetitors: CompetitorData[];
+}
+
+interface MentionRecord {
+  id: string;
+  entityId: string;
+  entityType: string;
+  response?: {
+    id: string;
+    model: string;
+  };
+}
 
 // ===== UTILITY HELPERS FOR NEW FAN-OUT MODEL =====
 
@@ -43,7 +69,7 @@ async function getModelsUsedInReport(runId: string): Promise<string[]> {
 async function getMentions(
   runId: string,
   filters?: { aiModel?: string; companyId?: string; competitorId?: string },
-): Promise<any[]> {
+): Promise<MentionRecord[]> {
   const prismaReadReplica = await getReadDbClient();
   return await prismaReadReplica.mention.findMany({
     where: {
@@ -86,15 +112,15 @@ export interface DashboardMetrics {
   averageInclusionChange: number | null;
   averagePosition: number;
   averagePositionChange: number | null;
-  sentimentScore: any | null;
+  sentimentScore: SentimentRating | null;
   sentimentChange: number | null;
   topRankingsCount: number | null;
   rankingsChange: number | null;
-  competitorRankings: any;
-  citationRankings: any;
-  topQuestions: any;
-  sentimentOverTime: any;
-  shareOfVoiceHistory: any;
+  competitorRankings: CompetitorRankings;
+  citationRankings: unknown;
+  topQuestions: unknown;
+  sentimentOverTime: unknown;
+  shareOfVoiceHistory: unknown;
   sentimentDetails?: Array<{
     name: string;
     engine: string;
@@ -225,7 +251,7 @@ async function calculateTopRankings(
   return { count, change };
 }
 
-function getAverage(sentimentRating: any): number | null {
+function getAverage(sentimentRating: SentimentRating): number | null {
   if (
     !sentimentRating ||
     !sentimentRating.ratings ||
@@ -263,7 +289,7 @@ export async function computeAndPersistMetrics(
     // Get user timezone from company if not provided
     let timezone = userTimezone;
     if (!timezone) {
-      const company = await prismaReadReplica.company.findUnique({
+      const _company = await prismaReadReplica.company.findUnique({
         where: { id: companyId },
         include: { user: { select: { id: true } } }
       });
@@ -332,15 +358,15 @@ export async function computeAndPersistMetrics(
     // Enrich with change metric
     if (
       previousOverallMetric?.competitorRankings &&
-      (previousOverallMetric.competitorRankings as any).chartCompetitors
+      (previousOverallMetric.competitorRankings as CompetitorRankings).chartCompetitors
     ) {
       const previousCompetitors = (
-        previousOverallMetric.competitorRankings as any
+        previousOverallMetric.competitorRankings as CompetitorRankings
       ).chartCompetitors;
 
       for (const competitor of competitorRankings.chartCompetitors) {
         const prevCompData = previousCompetitors.find(
-          (pc: any) => pc.id === competitor.id,
+          (pc: CompetitorData) => pc.id === competitor.id,
         );
         if (prevCompData) {
           competitor.change =
@@ -378,7 +404,7 @@ export async function computeAndPersistMetrics(
     });
 
     // Compute overall sentimentScore using the summary engine if available, otherwise first entry
-    let overallSentimentScore: any | null = null;
+    let overallSentimentScore: SentimentRating | null = null;
     let overallSentimentChange: number | null = null;
 
     // Look for summary engine first
@@ -386,10 +412,10 @@ export async function computeAndPersistMetrics(
       (s) => s.engine === "serplexity-summary",
     );
     if (summaryEngineData) {
-      overallSentimentScore = summaryEngineData.value as any;
+      overallSentimentScore = summaryEngineData.value as SentimentRating;
     } else if (rawSentiments.length > 0) {
       // Fallback to first available engine
-      overallSentimentScore = rawSentiments[0].value as any;
+      overallSentimentScore = rawSentiments[0].value as SentimentRating;
     }
 
     // Calculate sentiment change based on average values for comparison
@@ -538,14 +564,14 @@ export async function computeAndPersistMetrics(
       );
       if (
         previousModelMetric?.competitorRankings &&
-        (previousModelMetric.competitorRankings as any).chartCompetitors
+        (previousModelMetric.competitorRankings as CompetitorRankings).chartCompetitors
       ) {
         const previousCompetitors = (
-          previousModelMetric.competitorRankings as any
+          previousModelMetric.competitorRankings as CompetitorRankings
         ).chartCompetitors;
         for (const competitor of compRankModel.chartCompetitors) {
           const prevCompData = previousCompetitors.find(
-            (pc: any) => pc.id === competitor.id,
+            (pc: CompetitorData) => pc.id === competitor.id,
           );
           if (prevCompData) {
             competitor.change =
@@ -681,8 +707,8 @@ export async function getFullReportMetrics(
 
   const citationRankings =
     metric.competitorRankings &&
-    (metric.competitorRankings as any).citationRankings
-      ? (metric.competitorRankings as any).citationRankings
+    (metric.competitorRankings as CompetitorRankings).citationRankings
+      ? (metric.competitorRankings as CompetitorRankings).citationRankings
       : null;
 
   return {
@@ -701,6 +727,6 @@ export async function getFullReportMetrics(
     topQuestions: metric.topQuestions,
     sentimentOverTime: null, // Historical data fetched separately
     shareOfVoiceHistory: null, // Historical data fetched separately
-    sentimentDetails: metric.sentimentDetails as any,
+    sentimentDetails: metric.sentimentDetails as unknown,
   };
 }

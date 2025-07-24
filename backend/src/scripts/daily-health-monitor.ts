@@ -37,7 +37,7 @@ interface HealthCheck {
  * Run this via cron daily to ensure system health
  */
 async function performDailyHealthCheck(): Promise<HealthReport> {
-  const prisma = await getDbClient();
+  const _prisma = await getDbClient();
   console.log("🩺 Starting daily health monitoring...\n");
   const startTime = Date.now();
 
@@ -351,7 +351,7 @@ async function checkSystemComponents(report: HealthReport): Promise<void> {
 }
 
 async function checkSchedulerHealth(report: HealthReport): Promise<void> {
-  const prisma = await getDbClient();
+  const _prisma = await getDbClient();
   try {
     // Check if scheduler has run today
     const today = new Date();
@@ -471,7 +471,7 @@ function determineOverallStatus(report: HealthReport): void {
 }
 
 async function displayReport(report: HealthReport): Promise<void> {
-  const prisma = await getDbClient();
+  const _prisma = await getDbClient();
   console.log("\n" + "=".repeat(60));
   console.log("📊 DAILY HEALTH REPORT");
   console.log("=".repeat(60));

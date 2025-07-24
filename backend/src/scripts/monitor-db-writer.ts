@@ -130,7 +130,7 @@ async function monitorActiveRuns(): Promise<void> {
 
       // Clean up completed runs
       const activeRunIds = activeRuns.map((r) => r.id);
-      for (const [runId, stats] of monitoredRuns.entries()) {
+      for (const [runId, _stats] of monitoredRuns.entries()) {
         if (!activeRunIds.includes(runId)) {
           console.log(`✅ Run completed: ${runId}`);
           monitoredRuns.delete(runId);
@@ -181,7 +181,7 @@ async function analyzeStuckRun(runId: string): Promise<void> {
 
     if (Array.isArray(longTransactions) && longTransactions.length > 0) {
       console.log("Long-running transactions:");
-      longTransactions.forEach((tx: any) => {
+      longTransactions.forEach((tx: Record<string, unknown>) => {
         console.log(
           `  PID ${tx.pid}: ${tx.duration_seconds}s - ${tx.query_preview}`,
         );
@@ -205,7 +205,7 @@ async function analyzeStuckRun(runId: string): Promise<void> {
 
     if (Array.isArray(locks) && locks.length > 0) {
       console.log("Blocked queries:");
-      locks.forEach((lock: any) => {
+      locks.forEach((lock: Record<string, unknown>) => {
         console.log(`  ${lock.locktype} ${lock.mode}: ${lock.query_preview}`);
       });
     }

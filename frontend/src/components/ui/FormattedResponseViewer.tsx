@@ -17,6 +17,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { formatResponseText, stripBrandTags } from '../../lib/responseFormatter';
 import { useCompany } from '../../contexts/CompanyContext';
+import { useDashboard } from '../../hooks/useDashboard';
 
 interface FormattedResponseViewerProps {
   text: string;
@@ -34,6 +35,7 @@ const FormattedResponseViewer: React.FC<FormattedResponseViewerProps> = ({
   compact = false 
 }) => {
   const { selectedCompany } = useCompany();
+  const { acceptedCompetitors } = useDashboard();
   
   // Process the text through our formatting pipeline
   const processedText = React.useMemo(() => {
@@ -52,20 +54,59 @@ const FormattedResponseViewer: React.FC<FormattedResponseViewerProps> = ({
     return formattedText;
   }, [text]);
 
-  // Brand name highlighting function for ReactMarkdown
-  const highlightBrandName = (text: string): React.ReactNode => {
-    if (!selectedCompany?.name || !text) return text;
+  // Company highlighting function for ReactMarkdown (user brand + accepted competitors)
+  const highlightCompanies = (text: string): React.ReactNode => {
+    if (!text) return text;
 
-    // Create case-insensitive regex for the brand name
-    const brandRegex = new RegExp(`(${selectedCompany.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-    const parts = text.split(brandRegex);
+    // Collect all company names to highlight
+    const companiesToHighlight: Array<{name: string, isUserBrand: boolean}> = [];
+    
+    // Add user's brand
+    if (selectedCompany?.name) {
+      companiesToHighlight.push({
+        name: selectedCompany.name,
+        isUserBrand: true
+      });
+    }
+    
+    // Add accepted competitors
+    if (acceptedCompetitors && acceptedCompetitors.length > 0) {
+      acceptedCompetitors.forEach(competitor => {
+        companiesToHighlight.push({
+          name: competitor.name,
+          isUserBrand: false
+        });
+      });
+    }
+
+    if (companiesToHighlight.length === 0) return text;
+
+    // Create a combined regex for all companies (sorted by length descending to match longer names first)
+    const sortedCompanies = companiesToHighlight.sort((a, b) => b.name.length - a.name.length);
+    const companiesPattern = sortedCompanies.map(comp => 
+      comp.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    ).join('|');
+    
+    const companiesRegex = new RegExp(`(${companiesPattern})`, 'gi');
+    const parts = text.split(companiesRegex);
 
     return (
       <>
         {parts.map((part, index) => {
-          if (part.toLowerCase() === selectedCompany.name.toLowerCase()) {
+          // Check if this part matches any of our companies
+          const matchedCompany = companiesToHighlight.find(comp => 
+            part.toLowerCase() === comp.name.toLowerCase()
+          );
+          
+          if (matchedCompany) {
             return (
-              <span key={index} className="font-bold text-[#7762ff] bg-[#7762ff]/10 px-1 py-0.5 rounded">
+              <span 
+                key={index} 
+                className={matchedCompany.isUserBrand 
+                  ? "bg-blue-100 text-gray-900 px-1 py-0.5 rounded" 
+                  : "bg-yellow-100 text-gray-900 px-1 py-0.5 rounded"
+                }
+              >
                 {part}
               </span>
             );
@@ -82,29 +123,29 @@ const FormattedResponseViewer: React.FC<FormattedResponseViewerProps> = ({
         <ReactMarkdown 
           remarkPlugins={[remarkGfm]}
           components={{
-            // Enhanced paragraph renderer with brand highlighting
+            // Enhanced paragraph renderer with company highlighting
             p: ({ children }) => (
               <p className="mb-4 leading-relaxed text-gray-800">
-                {typeof children === 'string' ? highlightBrandName(children) : children}
+                {typeof children === 'string' ? highlightCompanies(children) : children}
               </p>
             ),
             
-            // Enhanced text renderer with brand highlighting
+            // Enhanced text renderer with company highlighting
             text: ({ children }) => (
-              <>{typeof children === 'string' ? highlightBrandName(children) : children}</>
+              <>{typeof children === 'string' ? highlightCompanies(children) : children}</>
             ),
             
-            // Enhanced strong renderer with brand highlighting
+            // Enhanced strong renderer with company highlighting
             strong: ({ children }) => (
               <strong className="font-semibold text-gray-900">
-                {typeof children === 'string' ? highlightBrandName(children) : children}
+                {typeof children === 'string' ? highlightCompanies(children) : children}
               </strong>
             ),
             
-            // Enhanced list item renderer with brand highlighting
+            // Enhanced list item renderer with company highlighting
             li: ({ children }) => (
               <li className="text-gray-800 my-1">
-                {typeof children === 'string' ? highlightBrandName(children) : children}
+                {typeof children === 'string' ? highlightCompanies(children) : children}
               </li>
             ),
             
@@ -187,30 +228,30 @@ const FormattedResponseViewer: React.FC<FormattedResponseViewerProps> = ({
             
             th: ({ children }) => (
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 border-b border-gray-200">
-                {typeof children === 'string' ? highlightBrandName(children) : children}
+                {typeof children === 'string' ? highlightCompanies(children) : children}
               </th>
             ),
             
             td: ({ children }) => (
               <td className="px-4 py-3 text-sm text-gray-800 border-b border-gray-100">
-                {typeof children === 'string' ? highlightBrandName(children) : children}
+                {typeof children === 'string' ? highlightCompanies(children) : children}
               </td>
             ),
 
             // Enhanced heading styling
             h1: ({ children }) => (
               <h1 className="text-xl font-bold text-gray-900 mb-4 mt-6">
-                {typeof children === 'string' ? highlightBrandName(children) : children}
+                {typeof children === 'string' ? highlightCompanies(children) : children}
               </h1>
             ),
             h2: ({ children }) => (
               <h2 className="text-lg font-semibold text-gray-900 mb-3 mt-5">
-                {typeof children === 'string' ? highlightBrandName(children) : children}
+                {typeof children === 'string' ? highlightCompanies(children) : children}
               </h2>
             ),
             h3: ({ children }) => (
               <h3 className="text-md font-medium text-gray-900 mb-2 mt-4">
-                {typeof children === 'string' ? highlightBrandName(children) : children}
+                {typeof children === 'string' ? highlightCompanies(children) : children}
               </h3>
             ),
           }}

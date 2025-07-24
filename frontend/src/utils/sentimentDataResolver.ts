@@ -139,24 +139,24 @@ export function resolveCurrentSentimentValue(
   options: Partial<SentimentResolutionOptions> = {}
 ): SentimentValueResult {
   const _opts = { ...DEFAULT_RESOLUTION_OPTIONS, ...options };
-  const modelConfig = createModelFilterConfig(opts.selectedModel);
+  const modelConfig = createModelFilterConfig(_opts.selectedModel);
   const warnings: string[] = [];
 
   // Source 1: Most recent point from time series data (highest precedence)
-  const timeSeriesResult = resolveFromTimeSeries(data, modelConfig, opts, warnings);
-  if (timeSeriesResult.value !== null && timeSeriesResult.confidence >= opts.minConfidence) {
+  const timeSeriesResult = resolveFromTimeSeries(data, modelConfig, _opts, warnings);
+  if (timeSeriesResult.value !== null && timeSeriesResult.confidence >= _opts.minConfidence) {
     return timeSeriesResult;
   }
 
   // Source 2: Calculated from detailed metrics (fallback)
   const detailedMetricsResult = resolveFromDetailedMetrics(data, modelConfig, warnings);
-  if (detailedMetricsResult.value !== null && detailedMetricsResult.confidence >= opts.minConfidence) {
+  if (detailedMetricsResult.value !== null && detailedMetricsResult.confidence >= _opts.minConfidence) {
     return detailedMetricsResult;
   }
 
   // Source 3: Direct sentiment score field (legacy fallback)
   const directFieldResult = resolveFromDirectField(data, warnings);
-  if (directFieldResult.value !== null && directFieldResult.confidence >= opts.minConfidence) {
+  if (directFieldResult.value !== null && directFieldResult.confidence >= _opts.minConfidence) {
     return directFieldResult;
   }
 
