@@ -24,7 +24,7 @@ interface HealthCheckResult {
     healthy: number;
     degraded: number;
     unhealthy: number;
-    details: any[];
+    details: unknown[];
   };
   service: {
     activeExecutions: number;

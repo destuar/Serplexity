@@ -109,8 +109,8 @@ describe('chartDataProcessing', () => {
 
     it('should handle empty/null input', () => {
       expect(parseApiDate('')).toBeNull();
-      expect(parseApiDate(null as any)).toBeNull();
-      expect(parseApiDate(undefined as any)).toBeNull();
+      expect(parseApiDate(null as unknown as string)).toBeNull();
+      expect(parseApiDate(undefined as unknown as string)).toBeNull();
     });
   });
 
@@ -338,7 +338,7 @@ describe('chartDataProcessing', () => {
         { date: 'invalid-date', aiModel: 'gpt-4', shareOfVoice: 35.2 },
         { date: '2025-01-15', aiModel: null, shareOfVoice: 28.8 },
         { date: '2025-01-15', aiModel: 'claude', shareOfVoice: null }
-      ] as any[];
+      ] as Array<Record<string, unknown>>;
 
       const result = processTimeSeriesData(
         malformedData,

@@ -14,7 +14,7 @@
  * @version 2.0.0 - Comprehensive error handling for refactored architecture
  */
 
-import { ValidationResult, DataQualityMetrics } from '../types/dashboardData';
+import { DataQualityMetrics } from '../types/dashboardData';
 
 /**
  * Error severity levels for prioritizing user feedback
@@ -87,7 +87,7 @@ export interface DashboardError {
   /** Suggested recovery actions */
   recoveryActions?: RecoveryAction[];
   /** Additional context data */
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 /**
@@ -170,11 +170,11 @@ const DEFAULT_ERROR_OPTIONS: ErrorHandlingOptions = {
  * ```
  */
 export function createDashboardError(
-  error: Error | string | any,
+  error: Error | string | unknown,
   context: {
     source?: string;
     operation?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   } = {},
   options: Partial<ErrorHandlingOptions> = {}
 ): DashboardError {
@@ -249,8 +249,8 @@ export function createDashboardError(
  * Classifies an error by severity, category, and recoverability
  */
 function classifyError(
-  error: Error | any,
-  context: Record<string, any>
+  error: Error | unknown,
+  context: Record<string, unknown>
 ): {
   severity: ErrorSeverity;
   category: ErrorCategory;
@@ -321,7 +321,7 @@ function classifyError(
 function generateUserFriendlyMessage(
   originalMessage: string,
   category: ErrorCategory,
-  context: Record<string, any>
+  context: Record<string, unknown>
 ): string {
   const messageMap: Record<ErrorCategory, string> = {
     [ErrorCategory.NETWORK]: 'Unable to connect to the server. Please check your internet connection.',
@@ -351,7 +351,7 @@ function generateUserFriendlyMessage(
  */
 function generateRecoveryActions(
   category: ErrorCategory,
-  context: Record<string, any>
+  context: Record<string, unknown>
 ): RecoveryAction[] {
   const actions: RecoveryAction[] = [];
 
@@ -510,7 +510,7 @@ export function validateDataQuality(
 /**
  * Utility functions for error type detection
  */
-function isNetworkError(error: any): boolean {
+function isNetworkError(error: unknown): boolean {
   return (
     error &&
     (error.code === 'NETWORK_ERROR' ||
@@ -520,7 +520,7 @@ function isNetworkError(error: any): boolean {
   );
 }
 
-function isApiError(error: any): boolean {
+function isApiError(error: unknown): boolean {
   return (
     error &&
     (typeof error.status === 'number' ||
@@ -529,7 +529,7 @@ function isApiError(error: any): boolean {
   );
 }
 
-function isDataValidationError(error: any): boolean {
+function isDataValidationError(error: unknown): boolean {
   return (
     error &&
     (error.name === 'ValidationError' ||
@@ -542,9 +542,9 @@ function isDataValidationError(error: any): boolean {
  * Generates a unique error ID for tracking
  */
 function generateErrorId(
-  error: any,
-  context: Record<string, any>,
-  timestamp: string
+  error: unknown,
+  context: Record<string, unknown>,
+  _timestamp: string
 ): string {
   const source = context.source || 'unknown';
   const operation = context.operation || 'unknown';
@@ -591,7 +591,7 @@ function sendErrorToMonitoring(error: DashboardError): void {
  */
 export function createErrorHandler(componentName: string) {
   return {
-    handleError: (error: Error | string | any, context: Record<string, any> = {}) => {
+    handleError: (error: Error | string | unknown, context: Record<string, unknown> = {}) => {
       return createDashboardError(error, {
         ...context,
         source: componentName,
@@ -614,7 +614,7 @@ export function createErrorHandler(componentName: string) {
 export class DashboardErrorBoundary extends Error {
   public readonly dashboardError: DashboardError;
 
-  constructor(originalError: Error, context: Record<string, any> = {}) {
+  constructor(originalError: Error, context: Record<string, unknown> = {}) {
     super(originalError.message);
     this.name = 'DashboardErrorBoundary';
     this.dashboardError = createDashboardError(originalError, {

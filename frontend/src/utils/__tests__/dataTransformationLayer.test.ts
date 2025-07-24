@@ -207,7 +207,7 @@ describe('dataTransformationLayer', () => {
         shareOfVoice: 'should-be-number',
         shareOfVoiceHistory: 'should-be-array',
         dataQuality: null
-      } as any;
+      } as Record<string, unknown>;
 
       const result = validateNormalizedData(invalidData);
       
@@ -251,12 +251,12 @@ describe('dataTransformationLayer', () => {
   describe('error handling and edge cases', () => {
     it('should handle null input gracefully', () => {
       expect(() => {
-        transformDashboardData(null as any, defaultOptions);
+        transformDashboardData(null as unknown as RawDashboardApiResponse, defaultOptions);
       }).toThrow('Raw data is required');
     });
 
     it('should handle circular references', () => {
-      const circularData: any = { shareOfVoice: 35.2 };
+      const circularData: Record<string, unknown> = { shareOfVoice: 35.2 };
       circularData.self = circularData;
 
       // Should not throw or hang
@@ -272,13 +272,13 @@ describe('dataTransformationLayer', () => {
             value: {
               ratings: [
                 {
-                  quality: { invalid: 'nested-object' } as any,
+                  quality: { invalid: 'nested-object' } as Record<string, unknown>,
                   priceValue: 'not-a-number'
                 }
               ]
             }
           }
-        ] as any,
+        ] as Array<Record<string, unknown>>,
         lastUpdated: '2025-01-15T10:00:00Z'
       };
 

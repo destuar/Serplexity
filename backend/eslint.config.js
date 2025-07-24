@@ -14,6 +14,7 @@ module.exports = tseslint.config(
       'src/__tests__/**',
     ] 
   },
+  ...tseslint.configs.recommended,
   {
     files: ['src/**/*.ts'],
     languageOptions: {
@@ -26,16 +27,16 @@ module.exports = tseslint.config(
         'error',
         { 'argsIgnorePattern': '^_', 'varsIgnorePattern': '^_' }
       ],
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'error', // Strict: no any types allowed
+      '@typescript-eslint/no-require-imports': 'error',
       
-      // General ESLint rules
-      'no-console': 'warn',
+      // Critical rules
       'no-debugger': 'error',
       'prefer-const': 'error',
       
-      // Code style - more lenient for backend
+      // Allow console for backend logging but warn
+      'no-console': 'warn',
       'max-len': ['warn', { code: 120, ignoreUrls: true, ignoreStrings: true }],
     },
   },
-  ...tseslint.configs.recommended,
 );

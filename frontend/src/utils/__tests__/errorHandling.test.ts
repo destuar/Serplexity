@@ -14,8 +14,8 @@ import {
   categorizeError,
   shouldRetryError,
   DashboardError,
-  LoadingState,
-  ErrorCategory
+  type LoadingState as _LoadingState,
+  type ErrorCategory as _ErrorCategory
 } from '../errorHandling';
 
 describe('errorHandling', () => {
@@ -355,7 +355,7 @@ describe('errorHandling', () => {
 
   describe('edge cases and error boundaries', () => {
     it('should handle circular reference in context', () => {
-      const circularContext: any = { data: {} };
+      const circularContext: Record<string, unknown> = { data: {} };
       circularContext.data.parent = circularContext;
       
       expect(() => {
@@ -372,11 +372,11 @@ describe('errorHandling', () => {
 
     it('should handle null/undefined inputs gracefully', () => {
       expect(() => {
-        createDashboardError(null as any);
+        createDashboardError(null as unknown);
       }).not.toThrow();
       
       expect(() => {
-        createDashboardError(undefined as any);
+        createDashboardError(undefined as unknown);
       }).not.toThrow();
     });
 

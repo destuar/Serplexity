@@ -33,7 +33,7 @@ export interface BaseChartDataPoint {
  */
 export interface SentimentChartDataPoint extends BaseChartDataPoint {
   score: number;
-  [modelId: string]: any; // Dynamic model keys for breakdown mode
+  [modelId: string]: unknown; // Dynamic model keys for breakdown mode
 }
 
 /**
@@ -42,7 +42,7 @@ export interface SentimentChartDataPoint extends BaseChartDataPoint {
 export interface MetricsChartDataPoint extends BaseChartDataPoint {
   shareOfVoice: number;
   inclusionRate?: number;
-  [modelId: string]: any; // Dynamic model keys for breakdown mode
+  [modelId: string]: unknown; // Dynamic model keys for breakdown mode
 }
 
 /**
@@ -373,7 +373,7 @@ function processBreakdownMode<THistoryItem extends BaseHistoryItem, TChartPoint 
   dataTransformer: (item: THistoryItem) => TChartPoint | null,
   valueExtractor: (chartData: TChartPoint[], modelIds: string[]) => number[]
 ): ChartProcessingResult<TChartPoint> {
-  const historyAccumulator: Record<string, any> = {};
+  const historyAccumulator: Record<string, Record<string, TChartPoint>> = {};
   const models = new Set<string>();
 
   // Group data by date and model
@@ -389,7 +389,7 @@ function processBreakdownMode<THistoryItem extends BaseHistoryItem, TChartPoint 
       const transformedItem = dataTransformer(item);
       if (transformedItem) {
         // For breakdown mode, use the primaryValue if available, otherwise use the first numeric value
-        const itemData = transformedItem as any;
+        const itemData = transformedItem as TChartPoint & Record<string, unknown>;
         let valueToUse: number | undefined;
         
         if (itemData.primaryValue !== undefined) {
@@ -416,15 +416,15 @@ function processBreakdownMode<THistoryItem extends BaseHistoryItem, TChartPoint 
   });
 
   const processedData = Object.values(historyAccumulator)
-    .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()) as TChartPoint[];
+    .sort((a: TChartPoint, b: TChartPoint) => new Date(a.date).getTime() - new Date(b.date).getTime()) as TChartPoint[];
 
   // Add synthetic zero point if configured and we have data
   let finalData = processedData;
   if (options.includeZeroPoint && processedData.length > 0 && models.size > 0) {
     const firstDate = new Date(dateFilteredData[0].date);
-    const zeroDate = calculateZeroPointDate(firstDate, options.dateRange);
+    const _zeroDate = calculateZeroPointDate(firstDate, options.dateRange);
     
-    const zeroPoint: any = {
+    const zeroPoint: Partial<TChartPoint> = {
       date: '', // Empty string so no X-axis label appears
       isZeroPoint: true
     };
@@ -483,13 +483,13 @@ function processSingleLineMode<THistoryItem extends BaseHistoryItem, TChartPoint
       const dateB = b.fullDate ? new Date(b.fullDate) : new Date(b.date);
       return dateA.getTime() - dateB.getTime();
     })
-    .map(({ fullDate, ...rest }) => rest as TChartPoint);
+    .map(({ fullDate: _fullDate, ...rest }) => rest as TChartPoint);
 
   // Add synthetic zero point if configured and we have data
   let finalData = processedData;
   if (options.includeZeroPoint && processedData.length > 0) {
-    const firstDate = new Date(uniqueFilteredData[0].date);
-    const zeroPoint: any = {
+    const _firstDate = new Date(uniqueFilteredData[0].date);
+    const zeroPoint: Partial<TChartPoint> = {
       date: '', // Empty string so no X-axis label appears
       isZeroPoint: true
     };

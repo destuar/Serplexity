@@ -82,7 +82,7 @@ export const createCheckoutSession = async (req: Request, res: Response) => {
     });
 
     res.json({ sessionId: session.id, url: session.url });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error creating Stripe checkout session:", error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors });
@@ -91,7 +91,7 @@ export const createCheckoutSession = async (req: Request, res: Response) => {
       .status(500)
       .json({
         error: "Failed to create checkout session.",
-        details: error.message,
+        details: error instanceof Error ? error.message : String(error),
       });
   }
 };
@@ -114,9 +114,9 @@ export const stripeWebhook = async (req: Request, res: Response) => {
       sig,
       STRIPE_WEBHOOK_SECRET as string,
     );
-  } catch (err: any) {
-    console.error(`Error verifying webhook signature: ${err.message}`);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+  } catch (err: unknown) {
+    console.error(`Error verifying webhook signature: ${err instanceof Error ? err.message : String(err)}`);
+    return res.status(400).send(`Webhook Error: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   // Handle the event
@@ -159,10 +159,10 @@ export const stripeWebhook = async (req: Request, res: Response) => {
         console.log(`Unhandled event type ${event.type}`);
     }
     res.status(200).json({ received: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error handling Stripe webhook event:", error);
     res
       .status(500)
-      .json({ error: "Webhook handler failed.", details: error.message });
+      .json({ error: "Webhook handler failed.", details: error instanceof Error ? error.message : String(error) });
   }
 };

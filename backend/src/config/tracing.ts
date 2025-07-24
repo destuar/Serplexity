@@ -20,7 +20,7 @@ import { Resource } from "@opentelemetry/resources";
 
 // Configure tracing based on available observability platforms
 const logfireToken = process.env.LOGFIRE_TOKEN;
-const environment = process.env.NODE_ENV || "development";
+const _environment = process.env.NODE_ENV || "development";
 
 let traceExporter: OTLPTraceExporter;
 

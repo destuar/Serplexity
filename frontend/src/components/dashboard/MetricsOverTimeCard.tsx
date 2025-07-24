@@ -97,7 +97,7 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
     >(
       historyData,
       {
-        dateRange: (filters?.dateRange || '30d') as any,
+        dateRange: (filters?.dateRange || '30d') as DateRangeFilter,
         selectedModel,
         showModelBreakdown,
         includeZeroPoint: true,
@@ -121,11 +121,11 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
           chartPoint.shareOfVoice = item.shareOfVoice;
           chartPoint.inclusionRate = item.inclusionRate || 0;
           // For breakdown mode, set the primary metric that will be mapped to model keys
-          (chartPoint as any).primaryValue = selectedMetric === 'shareOfVoice' ? item.shareOfVoice : (item.inclusionRate || 0);
+          (chartPoint as MetricsChartDataPoint & { primaryValue: number }).primaryValue = selectedMetric === 'shareOfVoice' ? item.shareOfVoice : (item.inclusionRate || 0);
         } else if ('inclusionRate' in item) {
           chartPoint.inclusionRate = item.inclusionRate;
           // For inclusion rate data, we don't have shareOfVoice, so keep at 0
-          (chartPoint as any).primaryValue = item.inclusionRate;
+          (chartPoint as MetricsChartDataPoint & { primaryValue: number }).primaryValue = item.inclusionRate;
         }
 
         return chartPoint;
@@ -155,8 +155,8 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
     };
   }, [data?.shareOfVoiceHistory, data?.inclusionRateHistory, selectedModel, selectedMetric, showModelBreakdown, filters?.dateRange]);
 
-  const chartData = chartDataResult?.chartData || [];
-  const modelIds = chartDataResult?.modelIds || [];
+  const chartData = useMemo(() => chartDataResult?.chartData || [], [chartDataResult?.chartData]);
+  const modelIds = useMemo(() => chartDataResult?.modelIds || [], [chartDataResult?.modelIds]);
 
   /**
    * Calculate Y-axis and X-axis configuration using shared utilities
@@ -169,15 +169,15 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
     // Extract values for Y-axis scaling using shared logic
     let values: number[] = [];
     if (showModelBreakdown && modelIds.length > 0) {
-      values = chartData.flatMap((d: any) => 
+      values = chartData.flatMap((d: MetricsChartDataPoint & Record<string, unknown>) => 
         modelIds.map((modelId: string) => d[modelId] as number)
-          .filter((val: any) => typeof val === 'number' && !isNaN(val))
+          .filter((val: unknown) => typeof val === 'number' && !isNaN(val))
       );
     } else {
       const metricKey = selectedMetric === 'shareOfVoice' ? 'shareOfVoice' : 'inclusionRate';
       values = chartData
-        .map((d: any) => d[metricKey])
-        .filter((val: any) => typeof val === 'number' && !isNaN(val));
+        .map((d: MetricsChartDataPoint) => d[metricKey as keyof MetricsChartDataPoint])
+        .filter((val: unknown) => typeof val === 'number' && !isNaN(val));
     }
     
     // Use centralized Y-axis scaling (metrics are percentages, 0-100 range)
@@ -406,7 +406,7 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
                      fill={color}
                      fillOpacity={0.2}
                      strokeWidth={chartData.length > 1 ? 2 : 0}
-                     dot={(props: any) => {
+                     dot={(props: { cx?: number; cy?: number; payload?: { isZeroPoint?: boolean } }) => {
                        if (props.payload?.isZeroPoint) return <g />;
                        return (
                          <circle 
@@ -418,7 +418,7 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
                          />
                        );
                      }}
-                     activeDot={(props: any) => {
+                     activeDot={(props: { cx?: number; cy?: number; payload?: { isZeroPoint?: boolean } }) => {
                        if (props.payload?.isZeroPoint) return <g />;
                        return (
                          <circle 
@@ -447,7 +447,7 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
                  fill="#2563eb"
                  fillOpacity={0.1}
                  strokeWidth={chartData.length > 1 ? 2 : 0}
-                 dot={(props: any) => {
+                 dot={(props: { cx?: number; cy?: number; payload?: { isZeroPoint?: boolean } }) => {
                    if (props.payload?.isZeroPoint) return <g />;
                    const r = chartData.length === 1 ? 6 : 4;
                    const strokeWidth = chartData.length === 1 ? 2 : 0;
@@ -463,7 +463,7 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
                      />
                    );
                  }}
-                 activeDot={(props: any) => {
+                 activeDot={(props: { cx?: number; cy?: number; payload?: { isZeroPoint?: boolean } }) => {
                    if (props.payload?.isZeroPoint) return <g />;
                    return (
                      <circle 

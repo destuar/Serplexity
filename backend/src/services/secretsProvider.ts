@@ -113,7 +113,7 @@ export abstract class SecretsProvider {
  * AWS Secrets Manager Provider
  */
 export class AwsSecretsProvider extends SecretsProvider {
-  private client: any = null; // Lazy-loaded AWS client
+  private client: unknown = null; // Lazy-loaded AWS client
 
   constructor() {
     super("AWS_SECRETS_MANAGER");
@@ -183,7 +183,7 @@ export class AwsSecretsProvider extends SecretsProvider {
     // Import environment configuration
     const env = (await import("../config/env")).default;
 
-    const config: any = {
+    const config: Record<string, unknown> = {
       region: env.AWS_REGION,
     };
 

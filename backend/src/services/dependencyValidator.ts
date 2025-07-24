@@ -20,7 +20,7 @@ export interface DependencyCheck {
 export interface DependencyResult {
   success: boolean;
   message: string;
-  details?: any;
+  details?: Record<string, unknown>;
   remediation?: string;
 }
 
@@ -315,7 +315,7 @@ export class DependencyValidator {
               
               for (const [expectedName, expectedVersion] of expectedPackages) {
                 // Handle both underscore and hyphen naming conventions
-                const installed = installedPackages.find((pkg: any) => {
+                const installed = installedPackages.find((pkg: { name: string; version: string }) => {
                   const pkgNameNormalized = pkg.name.toLowerCase().replace(/_/g, '-');
                   const expectedNameNormalized = expectedName.replace(/_/g, '-');
                   return pkgNameNormalized === expectedNameNormalized || 

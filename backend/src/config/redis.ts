@@ -146,7 +146,7 @@ class RedisConnectionManager {
     }
   }
 
-  private onConnectionError(error: Error): void {
+  private onConnectionError(_error: Error): void {
     this.failureCount++;
     this.lastFailureTime = Date.now();
 
@@ -382,7 +382,7 @@ class RedisConnectionManager {
           // Close the dead connection properly
           try {
             await this.connections[index].quit();
-          } catch (error) {
+          } catch (_error) {
             // Ignore errors when closing dead connections
           }
           
@@ -415,7 +415,7 @@ class RedisConnectionManager {
           await connection.ping();
           healthyCount++;
         }
-      } catch (error) {
+      } catch (_error) {
         // Connection is unhealthy, skip
       }
     }
@@ -474,7 +474,12 @@ class RedisConnectionManager {
     status: string;
     latency?: number;
     error?: string;
-    poolStatus: any;
+    poolStatus: {
+      totalConnections: number;
+      readyConnections: number;
+      circuitState: CircuitState;
+      failureCount: number;
+    };
   }> {
     try {
       const start = Date.now();

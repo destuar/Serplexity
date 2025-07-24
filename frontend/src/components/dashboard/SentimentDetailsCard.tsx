@@ -139,7 +139,7 @@ const extractCitations = (metric: SentimentDetail | undefined): Array<{url: stri
     if (!metric?.value) return [];
     
     // Check if the metric value has webSearchMetadata
-    const value = metric.value as any;
+    const value = metric.value as { webSearchMetadata?: { sources_found?: Array<{ url: string; title: string; domain: string }> } };
     if (value.webSearchMetadata?.sources_found) {
         return value.webSearchMetadata.sources_found.slice(0, 5); // Limit to 5 citations
     }
@@ -197,7 +197,7 @@ const SentimentDetailsCard: React.FC<SentimentDetailsCardProps> = ({ selectedMod
                             <div className="pl-4 pr-2">
                                 <div className="text-base text-gray-700 leading-relaxed break-words">
                                     {renderBrandTextWithCitations(
-                                        (metricToShow.value.ratings[0] as any).summaryDescription, 
+                                        (metricToShow.value.ratings[0] as { summaryDescription: string }).summaryDescription, 
                                         userBrandName,
                                         citations
                                     )}

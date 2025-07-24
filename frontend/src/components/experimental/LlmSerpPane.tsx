@@ -17,7 +17,7 @@
  * @exports
  * - LlmSerpPane: React functional component for displaying LLM-generated search results.
  */
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Zap, ExternalLink, Settings, X, ArrowRight, User } from 'lucide-react'; // Globe removed as unused
 import ReactMarkdown from 'react-markdown';
 import { useNavigate } from 'react-router-dom';
@@ -154,7 +154,7 @@ const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
   };
 
   // Function to execute search with current settings
-  const executeSearch = async (searchQuery: string, searchModelId: string) => {
+  const executeSearch = useCallback(async (searchQuery: string, searchModelId: string) => {
     if (!searchQuery.trim()) return;
     
     console.log('Executing search with settings:', settings);
@@ -189,7 +189,7 @@ const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [settings]);
 
   // Only run search when query or modelId changes (NOT when settings change)
   useEffect(() => {
@@ -199,7 +199,7 @@ const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
     }
     
     executeSearch(query, modelId);
-  }, [query, modelId]); // Removed settings from dependency array
+  }, [query, modelId, executeSearch]); // Include executeSearch in dependencies
 
   // Auto-scroll to bottom when a new answer arrives
   useEffect(() => {

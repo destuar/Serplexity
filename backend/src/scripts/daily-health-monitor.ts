@@ -29,7 +29,7 @@ interface HealthReport {
 interface HealthCheck {
   status: "PASS" | "WARN" | "FAIL";
   message: string;
-  details?: any;
+  details?: Record<string, unknown>;
 }
 
 /**
@@ -290,8 +290,8 @@ async function checkSystemComponents(report: HealthReport): Promise<void> {
   const prisma = await getDbClient();
   try {
     const componentChecks = {
-      database: { healthy: false, isHealthy: false, details: {} as any },
-      redis: { healthy: false, isHealthy: false, details: {} as any },
+      database: { healthy: false, isHealthy: false, details: {} },
+      redis: { healthy: false, isHealthy: false, details: {} },
     };
 
     // Check database

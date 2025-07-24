@@ -27,7 +27,6 @@ import {
   SentimentHistoryItem,
   applyDateRangeFilter,
   deduplicateByDate,
-  parseApiDate,
   DateRangeFilter
 } from './chartDataProcessing';
 
@@ -139,7 +138,7 @@ export function resolveCurrentSentimentValue(
   data: SentimentDataContext,
   options: Partial<SentimentResolutionOptions> = {}
 ): SentimentValueResult {
-  const opts = { ...DEFAULT_RESOLUTION_OPTIONS, ...options };
+  const _opts = { ...DEFAULT_RESOLUTION_OPTIONS, ...options };
   const modelConfig = createModelFilterConfig(opts.selectedModel);
   const warnings: string[] = [];
 
@@ -183,7 +182,7 @@ export function resolveCurrentSentimentChange(
   data: SentimentDataContext,
   options: Partial<SentimentResolutionOptions> = {}
 ): SentimentChangeResult {
-  const opts = { ...DEFAULT_RESOLUTION_OPTIONS, ...options };
+  const _opts = { ...DEFAULT_RESOLUTION_OPTIONS, ...options };
 
   // First try direct API-provided change
   if (typeof data.sentimentChange === 'number' && !isNaN(data.sentimentChange)) {

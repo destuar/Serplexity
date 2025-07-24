@@ -13,22 +13,21 @@
  */
 import React from 'react';
 import { Sparkles, Loader } from 'lucide-react';
-import { useCompany } from '../../contexts/CompanyContext';
 
 
 interface WelcomePromptProps {
   onGenerateReport: () => void;
   isGenerating: boolean;
-  generationStatus?: string | null;
+  _generationStatus?: string | null;
   progress?: number;
   isButtonDisabled?: boolean;
-  generationState?: string;
+  _generationState?: string;
 }
 
 const WelcomePrompt: React.FC<WelcomePromptProps> = ({
   onGenerateReport,
   isGenerating,
-  generationStatus,
+  _generationStatus,
   progress = 0,
   isButtonDisabled = false
 }) => {

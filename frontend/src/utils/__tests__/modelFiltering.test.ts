@@ -14,8 +14,8 @@ import {
   aggregateModelData,
   validateModelSelection
 } from '../modelFiltering';
-import { 
-  ModelFilterConfig,
+import type { 
+  ModelFilterConfig as _ModelFilterConfig,
   ShareOfVoiceHistoryItem,
   SentimentDetail 
 } from '../../types/dashboardData';
@@ -281,7 +281,7 @@ describe('modelFiltering', () => {
     it('should handle null/undefined values', () => {
       const dataWithNulls = [
         { ...mockHistoricalData[0], shareOfVoice: 30.0 },
-        { ...mockHistoricalData[1], shareOfVoice: null as any },
+        { ...mockHistoricalData[1], shareOfVoice: null as unknown },
         { ...mockHistoricalData[2], shareOfVoice: 25.0 }
       ];
       
@@ -344,7 +344,7 @@ describe('modelFiltering', () => {
         { date: '2025-01-15', aiModel: null, shareOfVoice: 35.2 },
         { date: '2025-01-15', shareOfVoice: 28.8 }, // Missing aiModel
         { date: '2025-01-15', aiModel: 'gpt-4' } // Missing shareOfVoice
-      ] as any[];
+      ] as Array<Record<string, unknown>>;
 
       const config = createModelFilterConfig('gpt-4');
       const filtered = filterHistoricalDataByModel(malformedData, config);
@@ -355,7 +355,7 @@ describe('modelFiltering', () => {
 
     it('should handle undefined/null config', () => {
       expect(() => {
-        filterHistoricalDataByModel(mockHistoricalData, null as any);
+        filterHistoricalDataByModel(mockHistoricalData, null as unknown as string);
       }).not.toThrow();
     });
 

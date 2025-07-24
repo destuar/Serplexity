@@ -32,7 +32,7 @@ export class CacheService {
     }
   }
 
-  async set(key: string, value: any, ttlSeconds?: number): Promise<boolean> {
+  async set(key: string, value: unknown, ttlSeconds?: number): Promise<boolean> {
     try {
       const ttl = ttlSeconds || this.defaultTTL;
       await redis.setex(key, ttl, JSON.stringify(value));

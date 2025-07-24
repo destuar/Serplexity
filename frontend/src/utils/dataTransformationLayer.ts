@@ -32,12 +32,12 @@ export interface RawDashboardApiResponse {
   averagePosition?: number | string | null;
   sentimentScore?: number | string | null;
   sentimentChange?: number | string | null;
-  shareOfVoiceHistory?: any[];
-  sentimentOverTime?: any[];
-  sentimentDetails?: any[];
-  topQuestions?: any[];
-  competitorRankings?: any[];
-  [key: string]: any; // Allow for additional fields
+  shareOfVoiceHistory?: Array<Record<string, unknown>>;
+  sentimentOverTime?: Array<Record<string, unknown>>;
+  sentimentDetails?: Array<Record<string, unknown>>;
+  topQuestions?: Array<Record<string, unknown>>;
+  competitorRankings?: Array<Record<string, unknown>>;
+  [key: string]: unknown; // Allow for additional fields
 }
 
 /**
@@ -253,7 +253,7 @@ function transformCoreMetrics(
     'sentimentChange'
   ] as const;
 
-  const result: any = {};
+  const result: Record<string, number | null> = {};
 
   for (const field of coreFields) {
     const rawValue = rawData[field];
@@ -348,7 +348,7 @@ function transformComplexStructures(
  * Normalizes a numeric value with comprehensive validation
  */
 function normalizeNumericValue(
-  rawValue: any,
+  rawValue: unknown,
   fieldName: string,
   warnings: string[],
   missingFields: string[],
@@ -402,9 +402,9 @@ function normalizeNumericValue(
  * Normalizes historical data arrays with item-level validation
  */
 function normalizeHistoricalArray<T>(
-  rawArray: any,
+  rawArray: unknown,
   fieldName: string,
-  transformer: (item: any, index: number) => T | null,
+  transformer: (item: Record<string, unknown>, index: number) => T | null,
   warnings: string[],
   invalidFields: string[]
 ): T[] {
@@ -444,9 +444,9 @@ function normalizeHistoricalArray<T>(
  * Normalizes complex structure arrays with item-level validation
  */
 function normalizeComplexArray<T>(
-  rawArray: any,
+  rawArray: unknown,
   fieldName: string,
-  transformer: (item: any, index: number) => T | null,
+  transformer: (item: Record<string, unknown>, index: number) => T | null,
   warnings: string[],
   invalidFields: string[]
 ): T[] {
@@ -456,7 +456,7 @@ function normalizeComplexArray<T>(
 /**
  * Transforms a single share of voice history item
  */
-function transformShareOfVoiceHistoryItem(item: any, index: number): ShareOfVoiceHistoryItem | null {
+function transformShareOfVoiceHistoryItem(item: Record<string, unknown>, index: number): ShareOfVoiceHistoryItem | null {
   if (!item || typeof item !== 'object') {
     return null;
   }
@@ -485,7 +485,7 @@ function transformShareOfVoiceHistoryItem(item: any, index: number): ShareOfVoic
 /**
  * Transforms a single sentiment history item
  */
-function transformSentimentHistoryItem(item: any, index: number): SentimentHistoryItem | null {
+function transformSentimentHistoryItem(item: Record<string, unknown>, index: number): SentimentHistoryItem | null {
   if (!item || typeof item !== 'object') {
     return null;
   }
@@ -512,7 +512,7 @@ function transformSentimentHistoryItem(item: any, index: number): SentimentHisto
 /**
  * Transforms a single sentiment detail item
  */
-function transformSentimentDetail(item: any, index: number): NormalizedSentimentDetail | null {
+function transformSentimentDetail(item: Record<string, unknown>, index: number): NormalizedSentimentDetail | null {
   if (!item || typeof item !== 'object') {
     return null;
   }
@@ -528,7 +528,7 @@ function transformSentimentDetail(item: any, index: number): NormalizedSentiment
   
   // Transform ratings array
   const ratings = Array.isArray(value.ratings) ? value.ratings : [{}];
-  const normalizedRatings = ratings.map((rating: any) => ({
+  const normalizedRatings = ratings.map((rating: Record<string, unknown>) => ({
     quality: normalizeNumericValue(rating?.quality, `rating.quality[${index}]`, [], [], []) ?? 0,
     priceValue: normalizeNumericValue(rating?.priceValue, `rating.priceValue[${index}]`, [], [], []) ?? 0,
     brandReputation: normalizeNumericValue(rating?.brandReputation, `rating.brandReputation[${index}]`, [], [], []) ?? 0,
@@ -555,7 +555,7 @@ function transformSentimentDetail(item: any, index: number): NormalizedSentiment
 /**
  * Transforms a single question item
  */
-function transformQuestion(item: any, index: number): NormalizedQuestion | null {
+function transformQuestion(item: Record<string, unknown>, index: number): NormalizedQuestion | null {
   if (!item || typeof item !== 'object') {
     return null;
   }
@@ -584,7 +584,7 @@ function transformQuestion(item: any, index: number): NormalizedQuestion | null 
 /**
  * Transforms a single competitor ranking item
  */
-function transformCompetitorRanking(item: any, index: number): NormalizedCompetitorRanking | null {
+function transformCompetitorRanking(item: Record<string, unknown>, index: number): NormalizedCompetitorRanking | null {
   if (!item || typeof item !== 'object') {
     return null;
   }

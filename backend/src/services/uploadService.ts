@@ -18,7 +18,7 @@
 import multer from "multer";
 import path from "path";
 import { S3Client } from "@aws-sdk/client-s3";
-const multerS3 = require("multer-s3");
+import multerS3 from "multer-s3";
 
 const s3 = new S3Client({
   credentials: {
@@ -31,7 +31,7 @@ const s3 = new S3Client({
 const storage = multerS3({
   s3: s3,
   bucket: process.env.AWS_BUCKET_NAME!,
-  key: (req: any, file: Express.Multer.File, cb: any) => {
+  key: (req: unknown, file: Express.Multer.File, cb: (error: Error | null, key?: string) => void) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     const extension = path.extname(file.originalname);
     cb(null, `blog/${uniqueSuffix}${extension}`);
@@ -40,7 +40,7 @@ const storage = multerS3({
 });
 
 const fileFilter = (
-  req: any,
+  req: unknown,
   file: Express.Multer.File,
   cb: multer.FileFilterCallback,
 ) => {

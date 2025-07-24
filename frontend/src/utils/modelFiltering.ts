@@ -16,6 +16,8 @@
  * @version 2.0.0 - Unified from scattered component logic
  */
 
+import { getModelDisplayName as getDashboardModelDisplayName } from '../types/dashboard';
+
 /**
  * Model query parameters for different API endpoints
  * Handles the inconsistency between APIs that expect different field names
@@ -245,15 +247,11 @@ export function validateModelSelection(
  * Currently using the existing getModelDisplayName function for compatibility
  */
 export function getModelDisplayName(modelId: string): string {
-  // Import the existing function to maintain compatibility
-  // This prevents breaking changes while we refactor
+  // Use the imported function to maintain compatibility
   try {
-    const { getModelDisplayName: existingFunction } = require('../types/dashboard');
-    return existingFunction(modelId);
-  } catch (error) {
-    console.warn('[modelFiltering] Could not import getModelDisplayName, using fallback');
-    
-    // Fallback display name mapping
+    return getDashboardModelDisplayName(modelId);
+  } catch {
+    // Fallback display name mapping if the import fails
     const displayNames: Record<string, string> = {
       'gpt-4': 'GPT-4',
       'gpt-3.5': 'GPT-3.5',
@@ -297,14 +295,14 @@ export function debugModelFiltering(
  * Type guard to check if data item has aiModel field
  * Useful for generic filtering functions
  */
-export function hasAiModelField(item: any): item is { aiModel: string } {
-  return item && typeof item.aiModel === 'string';
+export function hasAiModelField(item: unknown): item is { aiModel: string } {
+  return item !== null && typeof item === 'object' && 'aiModel' in item && typeof (item as { aiModel: unknown }).aiModel === 'string';
 }
 
 /**
  * Type guard to check if metric has engine field
  * Useful for generic filtering functions
  */
-export function hasEngineField(item: any): item is { engine: string } {
-  return item && typeof item.engine === 'string';
+export function hasEngineField(item: unknown): item is { engine: string } {
+  return item !== null && typeof item === 'object' && 'engine' in item && typeof (item as { engine: unknown }).engine === 'string';
 }

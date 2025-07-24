@@ -368,7 +368,7 @@ export class PydanticProviderManager {
     tokensUsed: number,
     duration: number,
     success: boolean,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, unknown>,
   ): void {
     try {
       const provider = this.getProvider(providerId);
@@ -419,7 +419,7 @@ export class PydanticProviderManager {
     searchCount: number,
     duration: number,
     success: boolean,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, unknown>,
   ): void {
     try {
       const provider = this.getProvider(providerId);

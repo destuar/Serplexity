@@ -31,9 +31,10 @@
  * - trackPerformance: Performance monitoring
  */
 
-import { trace, context, SpanStatusCode, SpanKind } from "@opentelemetry/api";
+import { trace, context, SpanStatusCode, SpanKind, Span } from "@opentelemetry/api";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+import express from "express";
 import logger from "../utils/logger";
 
 // --- Configuration Interface ---
@@ -150,8 +151,8 @@ export async function initializeLogfire(
  */
 export function createSpan<T>(
   spanName: string,
-  operation: (span: any) => Promise<T> | T,
-  attributes?: Record<string, any>,
+  operation: (span: Span) => Promise<T> | T,
+  attributes?: Record<string, unknown>,
   spanKind: SpanKind = SpanKind.INTERNAL,
 ): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -197,7 +198,7 @@ export function trackLLMUsage(
   costEstimate?: number,
   duration?: number,
   success?: boolean,
-  metadata?: Record<string, any>,
+  metadata?: Record<string, unknown>,
 ): void {
   const span = tracer.startSpan("llm.usage", {
     attributes: {
@@ -234,7 +235,7 @@ export function trackPerformance(
   operationName: string,
   duration: number,
   success: boolean,
-  metadata?: Record<string, any>,
+  metadata?: Record<string, unknown>,
 ): void {
   const span = tracer.startSpan("performance.metric", {
     attributes: {
@@ -266,7 +267,7 @@ export function trackBusinessEvent(
   eventName: string,
   userId?: string,
   companyId?: string,
-  metadata?: Record<string, any>,
+  metadata?: Record<string, unknown>,
 ): void {
   const span = tracer.startSpan("business.event", {
     attributes: {
@@ -296,7 +297,7 @@ export function trackError(
   context: string,
   userId?: string,
   companyId?: string,
-  metadata?: Record<string, any>,
+  metadata?: Record<string, unknown>,
 ): void {
   const span = tracer.startSpan("error.tracked", {
     attributes: {
@@ -328,7 +329,7 @@ export function trackError(
  * Express.js middleware for automatic request tracking
  */
 export function logfireMiddleware() {
-  return (req: any, res: any, next: any) => {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const startTime = Date.now();
     const requestId =
       req.headers["x-request-id"] ||
@@ -349,14 +350,14 @@ export function logfireMiddleware() {
           "http.user_agent": req.get("User-Agent") || "",
           "http.request_id": requestId,
           "user.id": req.user?.id || "",
-          "company.id": req.user?.companyId || "",
+          "company.id": (req.user as any)?.companyId || "",
         },
       },
     );
 
     // Track response
     const originalSend = res.send;
-    res.send = function (data: any) {
+    res.send = function (data: unknown) {
       const duration = Date.now() - startTime;
 
       span.setAttributes({
@@ -377,7 +378,7 @@ export function logfireMiddleware() {
         duration,
         success: res.statusCode < 400,
         userId: req.user?.id,
-        companyId: req.user?.companyId,
+        companyId: (req.user as any)?.companyId,
       });
 
       span.end();

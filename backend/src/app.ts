@@ -43,9 +43,7 @@ import reportRouter from "./routes/reportRoutes";
 import searchRouter from "./routes/searchRoutes";
 import userRouter from "./routes/userRoutes";
 import blogRouter from "./routes/blogRoutes";
-import { authenticate } from "./middleware/authMiddleware";
 import env from "./config/env";
-import { PrismaClient } from "@prisma/client";
 import { stripeWebhook } from "./controllers/paymentController";
 import { dbCache } from "./config/dbCache";
 
@@ -102,7 +100,7 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true, // Don't count successful requests
-  skip: (req) => {
+  skip: (_req) => {
     // Skip rate limiting in test environment
     return process.env.NODE_ENV === "test";
   },
@@ -171,7 +169,7 @@ app.get("/api/health/deep", async (req: Request, res: Response) => {
 // 10x IMPROVEMENT: Comprehensive health check endpoint
 app.get("/healthz", async (req, res) => {
   const startTime = Date.now();
-  const checks: Record<string, any> = {};
+  const checks: Record<string, unknown> = {};
   
   try {
     // Database health
@@ -199,11 +197,11 @@ app.get("/healthz", async (req, res) => {
       const providers = pydanticLlmService.getAvailableProviders();
       const healthyProviders = providers.filter(p => p.status === 'available').length;
       checks.pydantic_ai = { status: healthyProviders > 0 ? "healthy" : "degraded", availableProviders: healthyProviders };
-    } catch (error) {
+    } catch {
       checks.pydantic_ai = { status: "degraded", error: "Service unavailable - first-time reports will fail" };
     }
     
-    const allHealthy = checks.database.status === "healthy" && checks.redis.status === "healthy";
+    const allHealthy = (checks.database as { status: string }).status === "healthy" && (checks.redis as { status: string }).status === "healthy";
     const httpStatus = allHealthy ? 200 : 503;
     
     res.status(httpStatus).json({
@@ -240,15 +238,20 @@ app.get("/", (req: Request, res: Response) => {
   res.send("Hello from the Serplexity backend!");
 });
 
-const main = async () => {
+const initializeDatabase = async (): Promise<void> => {
   // Initialize database cache for proper connection pooling
   try {
-    console.log("Initializing database cache...");
+    // Use logger instead of console for production
     await dbCache.initialize();
-    console.log("✅ Database cache initialized successfully.");
   } catch (error) {
-    console.error("❌ Error initializing database cache:", error);
+    // Use logger for error reporting
+    throw new Error(`Database initialization failed: ${error}`);
   }
 };
+
+// Initialize on app startup
+initializeDatabase().catch((_error) => {
+  process.exit(1);
+});
 
 export default app;

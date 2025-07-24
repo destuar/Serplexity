@@ -143,7 +143,7 @@ export class SystemValidator {
    */
   public async getSystemHealth(): Promise<{
     status: 'healthy' | 'degraded' | 'unhealthy';
-    dependencies: any;
+    dependencies: Record<string, unknown>;
     timestamp: string;
   }> {
     const validator = DependencyValidator.getInstance();

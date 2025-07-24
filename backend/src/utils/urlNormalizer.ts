@@ -53,7 +53,7 @@ export const flexibleUrlSchema = z.string()
   .transform((val) => {
     try {
       return normalizeUrl(val);
-    } catch (error) {
+    } catch (_error) {
       // If normalization fails, return original value for further validation
       return val;
     }

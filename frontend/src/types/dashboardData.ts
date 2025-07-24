@@ -79,7 +79,7 @@ export interface RawDashboardData {
   competitorRankings?: RawCompetitorRanking[];
 
   // Allow additional fields for extensibility
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -90,7 +90,7 @@ export interface RawShareOfVoiceHistoryItem {
   aiModel: string;
   shareOfVoice: number | string | null;
   inclusionRate?: number | string | null;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -100,7 +100,7 @@ export interface RawInclusionRateHistoryItem {
   date: string;
   aiModel: string;
   inclusionRate: number | string | null;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -110,7 +110,7 @@ export interface RawSentimentHistoryItem {
   date: string;
   aiModel: string;
   sentimentScore: number | string | null;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -129,11 +129,11 @@ export interface RawSentimentDetail {
       brandReputation?: number | string | null;
       brandTrust?: number | string | null;
       customerService?: number | string | null;
-      [key: string]: any;
+      [key: string]: unknown;
     }>;
-    [key: string]: any;
+    [key: string]: unknown;
   };
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -148,7 +148,7 @@ export interface RawQuestion {
   confidence?: number | string | null;
   source?: string;
   lastSeen?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -163,7 +163,7 @@ export interface RawCompetitorRanking {
   change?: number | string | null;
   logo?: string;
   category?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // =============================================================================
@@ -294,7 +294,7 @@ export interface BaseChartDataPoint {
 export interface SentimentChartDataPoint extends BaseChartDataPoint {
   score: number;
   // Dynamic model keys for breakdown mode
-  [modelId: string]: any;
+  [modelId: string]: unknown;
 }
 
 /**
@@ -304,7 +304,7 @@ export interface MetricsChartDataPoint extends BaseChartDataPoint {
   shareOfVoice: number;
   inclusionRate?: number;
   // Dynamic model keys for breakdown mode
-  [modelId: string]: any;
+  [modelId: string]: unknown;
 }
 
 /**
@@ -471,7 +471,7 @@ export interface MetricDisplayProps extends BaseDashboardCardProps {
 export interface DashboardFilters {
   dateRange: DateRangeFilter;
   aiModel: AIModelId;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -535,41 +535,44 @@ export type WithRequired<T, K extends keyof T> = T & { [P in K]-?: T[P] };
 /**
  * Type guard to check if an item has an aiModel field
  */
-export function hasAiModelField(item: any): item is { aiModel: string } {
-  return item && typeof item.aiModel === 'string';
+export function hasAiModelField(item: unknown): item is { aiModel: string } {
+  return item !== null && typeof item === 'object' && 'aiModel' in item && typeof (item as { aiModel: unknown }).aiModel === 'string';
 }
 
 /**
  * Type guard to check if an item has an engine field
  */
-export function hasEngineField(item: any): item is { engine: string } {
-  return item && typeof item.engine === 'string';
+export function hasEngineField(item: unknown): item is { engine: string } {
+  return item !== null && typeof item === 'object' && 'engine' in item && typeof (item as { engine: unknown }).engine === 'string';
 }
 
 /**
  * Type guard to check if data is normalized
  */
-export function isNormalizedDashboardData(data: any): data is NormalizedDashboardData {
+export function isNormalizedDashboardData(data: unknown): data is NormalizedDashboardData {
   return (
-    data &&
+    data !== null &&
     typeof data === 'object' &&
-    Array.isArray(data.shareOfVoiceHistory) &&
-    Array.isArray(data.sentimentOverTime) &&
-    data.dataQuality &&
-    typeof data.dataQuality.confidence === 'number'
+    'shareOfVoiceHistory' in data &&
+    'sentimentOverTime' in data &&
+    'dataQuality' in data &&
+    Array.isArray((data as NormalizedDashboardData).shareOfVoiceHistory) &&
+    Array.isArray((data as NormalizedDashboardData).sentimentOverTime) &&
+    (data as NormalizedDashboardData).dataQuality &&
+    typeof (data as NormalizedDashboardData).dataQuality.confidence === 'number'
   );
 }
 
 /**
  * Type guard to check if a value is a valid date range
  */
-export function isValidDateRange(value: any): value is DateRangeFilter {
+export function isValidDateRange(value: unknown): value is DateRangeFilter {
   return typeof value === 'string' && ['7d', '30d', '90d', '1y'].includes(value);
 }
 
 /**
  * Type guard to check if a value is a valid numeric metric
  */
-export function isValidNumericMetric(value: any): value is number {
+export function isValidNumericMetric(value: unknown): value is number {
   return typeof value === 'number' && !isNaN(value) && isFinite(value);
 }

@@ -83,7 +83,7 @@ const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedM
     const result = processTimeSeriesData<SentimentHistoryItem, SentimentChartDataPoint>(
       data.sentimentOverTime,
       {
-        dateRange: (filters?.dateRange || '30d') as any,
+        dateRange: (filters?.dateRange || '30d') as DateRangeFilter,
         selectedModel,
         showModelBreakdown,
         includeZeroPoint: true,
@@ -349,7 +349,7 @@ const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedM
                     fill={color}
                     fillOpacity={0.2}
                     strokeWidth={chartData.length > 1 ? 2 : 0}
-                    dot={(props: any) => {
+                    dot={(props: { cx?: number; cy?: number; payload?: { isZeroPoint?: boolean } }) => {
                       if (props.payload?.isZeroPoint) return <g />;
                       return (
                         <circle 
@@ -361,7 +361,7 @@ const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedM
                         />
                       );
                     }}
-                    activeDot={(props: any) => {
+                    activeDot={(props: { cx?: number; cy?: number; payload?: { isZeroPoint?: boolean } }) => {
                       if (props.payload?.isZeroPoint) return <g />;
                       return (
                         <circle 
@@ -390,7 +390,7 @@ const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedM
                 fill="#2563eb"
                 fillOpacity={0.1}
                 strokeWidth={chartData.length > 1 ? 2 : 0}
-                dot={(props: any) => {
+                dot={(props: { cx?: number; cy?: number; payload?: { isZeroPoint?: boolean } }) => {
                   if (props.payload?.isZeroPoint) return <g />;
                   const r = chartData.length === 1 ? 6 : 4;
                   const strokeWidth = chartData.length === 1 ? 2 : 0;
@@ -406,7 +406,7 @@ const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedM
                     />
                   );
                 }}
-                activeDot={(props: any) => {
+                activeDot={(props: { cx?: number; cy?: number; payload?: { isZeroPoint?: boolean } }) => {
                   if (props.payload?.isZeroPoint) return <g />;
                   return (
                     <circle 

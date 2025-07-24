@@ -20,7 +20,7 @@ import { getBullMQOptions } from "../config/bullmq";
 const queueLog = (
   message: string,
   level: "INFO" | "WARN" | "ERROR" | "DEBUG" = "INFO",
-  metadata?: Record<string, any>,
+  metadata?: Record<string, unknown>,
 ) => {
   const timestamp = new Date().toISOString();
   let logLine = `[${timestamp}][ReportGenerationQueue][${level}] ${message}`;
@@ -55,7 +55,7 @@ if (reportGenerationQueue) {
     });
   });
 
-  reportGenerationQueue.on("waiting", (job: any) => {
+  reportGenerationQueue.on("waiting", (job: { id: string; name: string; data?: { runId?: string; company?: { id: string } } }) => {
     queueLog("Job added to queue and waiting", "INFO", {
       jobId: job.id,
       jobName: job.name,

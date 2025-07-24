@@ -29,7 +29,7 @@ const getCurrentLogLevel = (): LogLevel => {
 const formatMessage = (
   level: string,
   message: string,
-  context?: any,
+  context?: Record<string, unknown>,
 ): string => {
   const timestamp = new Date().toISOString();
   let formatted = `[${timestamp}] [${level}] ${message}`;
@@ -50,7 +50,7 @@ const formatMessage = (
 };
 
 const logger = {
-  log: (...args: any[]) => {
+  log: (...args: unknown[]) => {
     console.log(...args);
   },
   info: (message: string, context?: any) => {
