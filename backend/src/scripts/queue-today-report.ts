@@ -33,8 +33,8 @@ async function main() {
         return;
       }
       
-      companies.forEach((company: { id: string; name: string }) => {
-        console.log(`ID: ${company.id} | Name: ${company.name} | Website: ${company.website}`);
+      companies.forEach((company: { id: string; name: string; website?: string }) => {
+        console.log(`ID: ${company.id} | Name: ${company.name} | Website: ${company.website || 'N/A'}`);
       });
       
       console.log('\nUsage: npm run queue-report [companyId]');

@@ -13,11 +13,14 @@
  * - SettingsModal: The main settings modal component.
  */
 import React, { useState } from 'react';
-import { X, Building, HelpCircle, Trash2, Edit, Mail, ArrowLeft, AlertTriangle } from 'lucide-react';
+import { X, Building, HelpCircle, Trash2, Edit, Mail, ArrowLeft, AlertTriangle, FileText } from 'lucide-react';
 // Note: buttonClasses and formClasses imports removed as they're unused
 import { useCompany } from '../../contexts/CompanyContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
 import CompanyProfileForm from '../company/CompanyProfileForm';
+import { Role } from '../../types/schemas';
+import { triggerReportGeneration } from '../../services/reportService';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -26,12 +29,14 @@ interface SettingsModalProps {
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const { companies, deleteCompany } = useCompany();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('companies');
   const [editingCompany, setEditingCompany] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [feedbackText, setFeedbackText] = useState('');
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
+  const [generatingReport, setGeneratingReport] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -71,6 +76,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const handleCancelSaveConfirmation = () => {
     setShowSaveConfirmation(false);
   };
+
+  const handleGenerateReport = async (companyId: string) => {
+    try {
+      setGeneratingReport(companyId);
+      await triggerReportGeneration(companyId, true); // Force generation
+      // Show success message or notification here if needed
+    } catch (error) {
+      console.error('Failed to generate report:', error);
+      // Show error message if needed
+    } finally {
+      setGeneratingReport(null);
+    }
+  };
+
+  const isAdmin = user?.role === Role.ADMIN;
 
   const tabs = [
     { id: 'companies', label: 'Company Profiles', icon: Building },
@@ -146,6 +166,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                           <Edit className="w-4 h-4 mr-1" />
                           Edit
                         </Button>
+                        {isAdmin && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleGenerateReport(company.id)}
+                            disabled={generatingReport === company.id}
+                            className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                          >
+                            <FileText className="w-4 h-4 mr-1" />
+                            {generatingReport === company.id ? 'Generating...' : 'Generate Report'}
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"

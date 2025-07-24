@@ -570,7 +570,7 @@ export async function calculateTopResponses(
 export async function calculateShareOfVoiceHistory(
   _runId: string,
   companyId: string,
-  filters?: { aiModel?: string },
+  filters?: { aiModel?: string; granularity?: 'hour' | 'day' | 'week' },
 ) {
   const _prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
@@ -581,10 +581,13 @@ export async function calculateShareOfVoiceHistory(
     whereClause.aiModel = filters.aiModel;
   }
 
+  // Always return individual report points - let the frontend handle aggregation
+  // This ensures each report run shows as a separate point on the chart
   const history = await prismaReadReplica.shareOfVoiceHistory.findMany({
     where: whereClause,
     orderBy: { date: "asc" },
   });
+  
   return history;
 }
 
@@ -592,7 +595,7 @@ export async function calculateShareOfVoiceHistory(
 export async function calculateInclusionRateHistory(
   _runId: string,
   companyId: string,
-  filters?: { aiModel?: string },
+  filters?: { aiModel?: string; granularity?: 'hour' | 'day' | 'week' },
 ) {
   const _prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
@@ -603,10 +606,13 @@ export async function calculateInclusionRateHistory(
     whereClause.aiModel = filters.aiModel;
   }
 
+  // Always return individual report points - let the frontend handle aggregation
+  // This ensures each report run shows as a separate point on the chart
   const history = await prismaReadReplica.inclusionRateHistory.findMany({
     where: whereClause,
     orderBy: { date: "asc" },
   });
+  
   return history;
 }
 
@@ -614,7 +620,7 @@ export async function calculateInclusionRateHistory(
 export async function calculateSentimentOverTime(
   _runId: string,
   companyId: string,
-  filters?: { aiModel?: string },
+  filters?: { aiModel?: string; granularity?: 'hour' | 'day' | 'week' },
 ) {
   const _prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
@@ -625,10 +631,13 @@ export async function calculateSentimentOverTime(
     whereClause.aiModel = filters.aiModel;
   }
 
+  // Always return individual report points - let the frontend handle aggregation
+  // This ensures each report run shows as a separate point on the chart
   const history = await prismaReadReplica.sentimentOverTime.findMany({
     where: whereClause,
     orderBy: { date: "asc" },
   });
+  
   return history;
 }
 
@@ -649,54 +658,25 @@ export async function saveShareOfVoiceHistoryPoint(
     );
     return;
   }
-  
-  // Normalize date to day precision using user's timezone or UTC as fallback
-  let normalizedDate: Date;
-  if (userTimezone) {
-    try {
-      // Get the date in user's timezone and normalize to midnight
-      const userDate = new Date(date.toLocaleString("sv-SE", { timeZone: userTimezone }));
-      normalizedDate = new Date(Date.UTC(
-        userDate.getFullYear(),
-        userDate.getMonth(),
-        userDate.getDate(),
-        0, 0, 0, 0
-      ));
-    } catch {
-      console.warn(`[saveShareOfVoiceHistoryPoint] Invalid timezone ${userTimezone}, falling back to UTC`);
-      normalizedDate = new Date(Date.UTC(
-        date.getUTCFullYear(),
-        date.getUTCMonth(),
-        date.getUTCDate(),
-        0, 0, 0, 0
-      ));
-    }
-  } else {
-    // Fallback to UTC normalization
-    normalizedDate = new Date(Date.UTC(
-      date.getUTCFullYear(),
-      date.getUTCMonth(),
-      date.getUTCDate(),
-      0, 0, 0, 0
-    ));
-  }
 
+  // Store with full timestamp precision - no date normalization
+  // This preserves all data points for flexible aggregation at query time
   await prisma.shareOfVoiceHistory.upsert({
     where: {
-      companyId_date_aiModel: {
+      companyId_reportRunId_aiModel: {
         companyId,
-        date: normalizedDate,
+        reportRunId,
         aiModel,
       },
     },
     update: {
       shareOfVoice,
-      reportRunId,
+      date,
       updatedAt: new Date(),
     },
     create: {
       companyId,
-      date: normalizedDate,
+      date,
       aiModel,
       shareOfVoice,
       reportRunId,
@@ -720,54 +700,25 @@ export async function saveInclusionRateHistoryPoint(
     );
     return;
   }
-  
-  // Normalize date to day precision using user's timezone or UTC as fallback
-  let normalizedDate: Date;
-  if (userTimezone) {
-    try {
-      // Get the date in user's timezone and normalize to midnight
-      const userDate = new Date(date.toLocaleString("sv-SE", { timeZone: userTimezone }));
-      normalizedDate = new Date(Date.UTC(
-        userDate.getFullYear(),
-        userDate.getMonth(),
-        userDate.getDate(),
-        0, 0, 0, 0
-      ));
-    } catch {
-      console.warn(`[saveInclusionRateHistoryPoint] Invalid timezone ${userTimezone}, falling back to UTC`);
-      normalizedDate = new Date(Date.UTC(
-        date.getUTCFullYear(),
-        date.getUTCMonth(),
-        date.getUTCDate(),
-        0, 0, 0, 0
-      ));
-    }
-  } else {
-    // Fallback to UTC normalization
-    normalizedDate = new Date(Date.UTC(
-      date.getUTCFullYear(),
-      date.getUTCMonth(),
-      date.getUTCDate(),
-      0, 0, 0, 0
-    ));
-  }
 
+  // Store with full timestamp precision - no date normalization
+  // This preserves all data points for flexible aggregation at query time
   await prisma.inclusionRateHistory.upsert({
     where: {
-      companyId_date_aiModel: {
+      companyId_reportRunId_aiModel: {
         companyId,
-        date: normalizedDate,
+        reportRunId,
         aiModel,
       },
     },
     update: {
       inclusionRate,
-      reportRunId,
+      date,
       updatedAt: new Date(),
     },
     create: {
       companyId,
-      date: normalizedDate,
+      date,
       aiModel,
       inclusionRate,
       reportRunId,
@@ -791,54 +742,25 @@ export async function saveSentimentOverTimePoint(
     );
     return;
   }
-  
-  // Normalize date to day precision using user's timezone or UTC as fallback
-  let normalizedDate: Date;
-  if (userTimezone) {
-    try {
-      // Get the date in user's timezone and normalize to midnight
-      const userDate = new Date(date.toLocaleString("sv-SE", { timeZone: userTimezone }));
-      normalizedDate = new Date(Date.UTC(
-        userDate.getFullYear(),
-        userDate.getMonth(),
-        userDate.getDate(),
-        0, 0, 0, 0
-      ));
-    } catch {
-      console.warn(`[saveSentimentOverTimePoint] Invalid timezone ${userTimezone}, falling back to UTC`);
-      normalizedDate = new Date(Date.UTC(
-        date.getUTCFullYear(),
-        date.getUTCMonth(),
-        date.getUTCDate(),
-        0, 0, 0, 0
-      ));
-    }
-  } else {
-    // Fallback to UTC normalization
-    normalizedDate = new Date(Date.UTC(
-      date.getUTCFullYear(),
-      date.getUTCMonth(),
-      date.getUTCDate(),
-      0, 0, 0, 0
-    ));
-  }
 
+  // Store with full timestamp precision - no date normalization
+  // This preserves all data points for flexible aggregation at query time
   await prisma.sentimentOverTime.upsert({
     where: {
-      companyId_date_aiModel: {
+      companyId_reportRunId_aiModel: {
         companyId,
-        date: normalizedDate,
+        reportRunId,
         aiModel,
       },
     },
     update: {
       sentimentScore,
-      reportRunId,
+      date,
       updatedAt: new Date(),
     },
     create: {
       companyId,
-      date: normalizedDate,
+      date,
       aiModel,
       sentimentScore,
       reportRunId,

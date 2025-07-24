@@ -1208,6 +1208,20 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
     // === FINALIZATION ===
     const duration = Date.now() - startTime;
 
+    // Check if any questions generated successful responses
+    if (successfulAnswers === 0) {
+      await prisma.reportRun.update({
+        where: { id: runId },
+        data: {
+          status: "FAILED",
+          stepStatus: "Report failed: No questions generated successful responses",
+          tokensUsed: totalTokens,
+          usdCost: totalCost,
+        },
+      });
+      throw new Error("Report failed: No questions generated successful responses");
+    }
+
     await prisma.reportRun.update({
       where: { id: runId },
       data: {

@@ -31,9 +31,13 @@ const MOCK_COMPANY_PROFILE = {
 };
 
 const getScoreColor = (score: number) => {
-    if (score >= 8.5) return 'text-green-700 bg-green-50 shadow-md';
-    if (score >= 7.0) return 'text-yellow-700 bg-yellow-50 shadow-md';
-    return 'text-red-700 bg-red-50 shadow-md';
+    return 'text-black bg-white shadow-md';
+};
+
+const getScoreTextColor = (score: number) => {
+    if (score >= 8.5) return 'text-green-700';
+    if (score >= 7.0) return 'text-yellow-700';
+    return 'text-red-700';
 };
 
 const MockSentimentDetailsCard: React.FC = () => {
@@ -63,16 +67,16 @@ const MockSentimentDetailsCard: React.FC = () => {
                     <div key={name} className={`flex-[0_0_calc(50%-6px)] rounded-lg p-2 ${getScoreColor(score)}`}>
                         <div className="text-xs font-semibold mb-1 leading-tight uppercase tracking-wide">{name}</div>
                         <div className="text-sm font-bold flex items-center">
-                            {score.toFixed(1)}
-                            <span className="text-xs font-medium opacity-70">/10</span>
+                            <span className={getScoreTextColor(score)}>{score.toFixed(1)}</span>
+                            <span className="text-xs font-medium opacity-70 text-black">/10</span>
                         </div>
                     </div>
                 ))}
                 <div className={`flex-[0_0_calc(50%-6px)] rounded-lg p-2 ${getScoreColor(averageScore)}`}>
                     <div className="text-xs font-semibold mb-1 leading-tight uppercase tracking-wide">Average Score</div>
                     <div className="text-sm font-bold flex items-center">
-                        {averageScore.toFixed(1)}
-                        <span className="text-xs font-medium opacity-70">/10</span>
+                        <span className={getScoreTextColor(averageScore)}>{averageScore.toFixed(1)}</span>
+                        <span className="text-xs font-medium opacity-70 text-black">/10</span>
                     </div>
                 </div>
             </div>

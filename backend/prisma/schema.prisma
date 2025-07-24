@@ -215,7 +215,7 @@ model ReportMetric {
 model ShareOfVoiceHistory {
   id           String    @id @default(cuid())
   companyId    String
-  date         DateTime  @db.Date
+  date         DateTime
   aiModel      String
   shareOfVoice Float
   reportRunId  String
@@ -224,14 +224,15 @@ model ShareOfVoiceHistory {
   company      Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   reportRun    ReportRun @relation(fields: [reportRunId], references: [id], onDelete: Cascade)
 
-  @@unique([companyId, date, aiModel])
+  @@unique([companyId, reportRunId, aiModel])
   @@index([companyId, aiModel])
+  @@index([companyId, date])
 }
 
 model InclusionRateHistory {
   id            String    @id @default(cuid())
   companyId     String
-  date          DateTime  @db.Date
+  date          DateTime
   aiModel       String
   inclusionRate Float
   reportRunId   String
@@ -240,14 +241,15 @@ model InclusionRateHistory {
   company       Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   reportRun     ReportRun @relation(fields: [reportRunId], references: [id], onDelete: Cascade)
 
-  @@unique([companyId, date, aiModel])
+  @@unique([companyId, reportRunId, aiModel])
   @@index([companyId, aiModel])
+  @@index([companyId, date])
 }
 
 model SentimentOverTime {
   id             String    @id @default(cuid())
   companyId      String
-  date           DateTime  @db.Date
+  date           DateTime
   aiModel        String
   sentimentScore Float
   reportRunId    String
@@ -256,8 +258,9 @@ model SentimentOverTime {
   company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   reportRun      ReportRun @relation(fields: [reportRunId], references: [id], onDelete: Cascade)
 
-  @@unique([companyId, date, aiModel])
+  @@unique([companyId, reportRunId, aiModel])
   @@index([companyId, aiModel])
+  @@index([companyId, date])
 }
 
 model VisibilityOptimizationTask {

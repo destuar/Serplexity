@@ -152,6 +152,8 @@ interface ResponseItemData {
   brands: string[];
   citations: string[];
   createdAt: string;
+  runId: string;
+  runDate: string;
 }
 
 const ResponseListItem: React.FC<{ 
@@ -293,11 +295,11 @@ const ResponseListItem: React.FC<{
       {/* Expanded Chat Conversation */}
       {isExpanded && (
         <div className="border-t border-gray-100 px-6 py-6 bg-gray-50">
-          {/* Date Header */}
+          {/* Report Date Header */}
           <div className="text-center mb-6">
             <div className="inline-block bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg shadow-sm px-3 py-1">
               <span className="text-xs text-gray-600 font-medium">
-                {formatDateDisplay(response.createdAt)} at {formatTimeDisplay(response.createdAt)}
+                {formatDateDisplay(response.runDate)} at {formatTimeDisplay(response.runDate)}
               </span>
             </div>
           </div>
@@ -490,7 +492,9 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
                 position: resp.position,
                 brands: resp.brands || [],
                 citations: resp.citations || [],
-                createdAt: resp.createdAt || new Date().toISOString()
+                createdAt: resp.createdAt || new Date().toISOString(),
+                runId: resp.runId || 'unknown',
+                runDate: resp.runDate || resp.createdAt || new Date().toISOString()
               };
             });
             
@@ -531,22 +535,8 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
     });
   };
 
-  // Utility function to format date and time as key for grouping
-  const getDateTimeKey = (dateString: string): string => {
-    const date = new Date(dateString);
-    // Group by date + hour + minute for multiple reports per day
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hour = String(date.getHours()).padStart(2, '0');
-    const minute = String(date.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}-${hour}-${minute}`;
-  };
-
-
-
-  // Filter and group responses by date
-  const { filteredResponses, responsesByDate } = useMemo(() => {
+  // Filter and group responses by report ID
+  const { filteredResponses, responsesByReport } = useMemo(() => {
     let filtered = [...responses];
 
     // Apply search filter
@@ -597,32 +587,32 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
       
       if (timeFilter !== 'all') {
         filtered = filtered.filter(response => 
-          new Date(response.createdAt) >= cutoff
+          new Date(response.runDate) >= cutoff
         );
       }
     }
 
-    // Group responses by date and time
+    // Group responses by report ID
     const grouped = filtered.reduce((acc, response) => {
-      const dateTimeKey = getDateTimeKey(response.createdAt);
-      if (!acc[dateTimeKey]) {
-        acc[dateTimeKey] = [];
+      const reportKey = response.runId;
+      if (!acc[reportKey]) {
+        acc[reportKey] = [];
       }
-      acc[dateTimeKey].push(response);
+      acc[reportKey].push(response);
       return acc;
     }, {} as Record<string, ResponseItemData[]>);
 
-    // Sort date-time groups (most recent first) and sort responses within each group
-    const sortedDateTimeKeys = Object.keys(grouped).sort((a, b) => {
-      // Convert keys back to dates for proper chronological sorting
-      const dateA = grouped[a][0]?.createdAt;
-      const dateB = grouped[b][0]?.createdAt;
+    // Sort report groups (most recent first) and sort responses within each group
+    const sortedReportKeys = Object.keys(grouped).sort((a, b) => {
+      // Sort by report date (runDate) for proper chronological sorting
+      const dateA = grouped[a][0]?.runDate;
+      const dateB = grouped[b][0]?.runDate;
       return new Date(dateB || 0).getTime() - new Date(dateA || 0).getTime();
     });
 
-    const sortedGrouped = sortedDateTimeKeys.reduce((acc, dateTimeKey) => {
-      // Sort responses within each date-time group by position (lower is better), null positions go to end
-      acc[dateTimeKey] = grouped[dateTimeKey].sort((a, b) => {
+    const sortedGrouped = sortedReportKeys.reduce((acc, reportKey) => {
+      // Sort responses within each report group by position (lower is better), null positions go to end
+      acc[reportKey] = grouped[reportKey].sort((a, b) => {
         if (a.position === null && b.position === null) return 0;
         if (a.position === null) return 1;
         if (b.position === null) return -1;
@@ -633,7 +623,7 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
 
     return {
       filteredResponses: filtered,
-      responsesByDate: sortedGrouped
+      responsesByReport: sortedGrouped
     };
   }, [responses, timeFilter, modelFilter, searchTerm, citations]);
 
@@ -726,7 +716,7 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
           </div>
         ) : (
           <div className="p-2">
-            {Object.keys(responsesByDate).length === 0 ? (
+            {Object.keys(responsesByReport).length === 0 ? (
               <div className="flex items-center justify-center h-64">
                 <div className="text-center">
                   <MessageSquare size={48} className="mx-auto text-gray-300 mb-4" />
@@ -738,17 +728,17 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
               </div>
             ) : (
               <div className="space-y-8">
-                {Object.entries(responsesByDate).map(([dateKey, dateResponses]) => {
-                  const firstResponse = dateResponses[0];
+                {Object.entries(responsesByReport).map(([reportKey, reportResponses]) => {
+                  const firstResponse = reportResponses[0];
                   if (!firstResponse) return null;
                   
                   return (
-                    <div key={dateKey} className="space-y-3">
-                      {/* Date and Mentions Header for this date group */}
+                    <div key={reportKey} className="space-y-3">
+                      {/* Report Date and Mentions Header for this report group */}
                       <div className="ml-6">
                         <div className="flex items-center">
                           <div className="text-sm text-gray-600 font-medium">
-                            {formatDateDisplay(firstResponse.createdAt)} at {formatTimeDisplay(firstResponse.createdAt)}
+                            {formatDateDisplay(firstResponse.runDate)} at {formatTimeDisplay(firstResponse.runDate)}
                           </div>
                           
                           <div className="flex-1"></div>
@@ -765,9 +755,9 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
                         </div>
                       </div>
 
-                      {/* Responses for this date */}
+                      {/* Responses for this report */}
                       <div className="space-y-3">
-                        {dateResponses.map((response, index) => (
+                        {reportResponses.map((response, index) => (
                           <ResponseListItem
                             key={response.id}
                             response={response}

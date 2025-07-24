@@ -533,7 +533,9 @@ const RankingsCard = () => {
         </div>
         <div className="w-full lg:w-1/2 pl-0 lg:pl-4 flex flex-col">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">Rankings</h3>
+            <h3 className="text-lg font-semibold text-gray-800">
+              {activeTab === 'mentions' ? 'Mentions' : 'Citations'}
+            </h3>
             {renderIconTabs()}
           </div>
           {renderTabContent()}

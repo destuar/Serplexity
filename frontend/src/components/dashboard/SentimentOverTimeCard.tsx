@@ -30,9 +30,9 @@
  * @author Dashboard Team
  * @version 2.0.0 - Refactored to use centralized utilities
  */
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Layers } from 'lucide-react';
+import { Sparkles, ChevronDown } from 'lucide-react';
 import LiquidGlassCard from '../ui/LiquidGlassCard';
 import { useDashboard } from '../../hooks/useDashboard';
 import { chartColorArrays } from '../../utils/colorClasses';
@@ -63,12 +63,29 @@ interface SentimentOverTimeCardProps {
 const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedModel = 'all' }) => {
   const { data, error, filters } = useDashboard();
   const [showModelBreakdown, setShowModelBreakdown] = useState<boolean>(false);
+  const [granularity, setGranularity] = useState<'hour' | 'day' | 'week'>('day');
+  const [granularityDropdownOpen, setGranularityDropdownOpen] = useState<boolean>(false);
   const [animationKey, setAnimationKey] = useState<number>(0);
+  const granularityDropdownRef = useRef<HTMLDivElement>(null);
 
   const handleToggleBreakdown = () => {
     setShowModelBreakdown(!showModelBreakdown);
     setAnimationKey(prev => prev + 1); // Force re-render with new animation
   };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (granularityDropdownRef.current && !granularityDropdownRef.current.contains(event.target as Node)) {
+        setGranularityDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   /**
    * Process chart data using centralized utilities
@@ -534,24 +551,72 @@ const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedM
         </div>
         
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex space-x-1">
             <button
               onClick={handleToggleBreakdown}
-              className={`relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-                showModelBreakdown 
-                  ? 'bg-blue-600' 
-                  : 'bg-gray-300 hover:bg-gray-400'
+              className={`w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation ${
+                showModelBreakdown
+                  ? 'bg-white/60 backdrop-blur-sm border border-white/30 shadow-inner text-gray-900'
+                  : 'bg-white/80 backdrop-blur-sm border border-white/20 shadow-md text-gray-500 hover:text-gray-700 hover:bg-white/85'
               }`}
               title={showModelBreakdown ? "Show aggregated view" : "Break down by model"}
+              style={{ 
+                WebkitTapHighlightColor: 'transparent',
+                WebkitUserSelect: 'none',
+                userSelect: 'none'
+              }}
             >
-              <div
-                className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-200 flex items-center justify-center ${
-                  showModelBreakdown ? 'translate-x-5' : 'translate-x-0.5'
-                }`}
-              >
-                <Layers size={10} className={showModelBreakdown ? 'text-blue-600' : 'text-gray-400'} />
-              </div>
+              <Sparkles size={14} />
             </button>
+            
+            {/* Granularity Selector */}
+            <div className="relative" ref={granularityDropdownRef}>
+              <button
+                onClick={() => setGranularityDropdownOpen(!granularityDropdownOpen)}
+                className="flex items-center justify-between w-16 h-8 gap-1 px-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md text-xs transition-colors hover:bg-white/85 focus:outline-none select-none touch-manipulation"
+                title="Time granularity"
+                style={{ 
+                  WebkitTapHighlightColor: 'transparent',
+                  WebkitUserSelect: 'none',
+                  userSelect: 'none'
+                }}
+              >
+                <span className="text-xs">{granularity === 'day' ? 'Daily' : granularity === 'hour' ? 'Hourly' : 'Weekly'}</span>
+                <ChevronDown 
+                  size={10} 
+                  className={`transition-transform duration-200 ${granularityDropdownOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+              
+              {granularityDropdownOpen && (
+                <div className="absolute top-full left-0 w-full min-w-20 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md z-50 py-1">
+                  {[
+                    { value: 'hour', label: 'Hourly' },
+                    { value: 'day', label: 'Daily' },
+                    { value: 'week', label: 'Weekly' }
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => {
+                        setGranularity(option.value as 'hour' | 'day' | 'week');
+                        setGranularityDropdownOpen(false);
+                      }}
+                      className="w-full px-2 py-2 text-left text-xs hover:bg-white/20 transition-colors flex items-center justify-between group focus:outline-none select-none touch-manipulation"
+                      style={{ 
+                        WebkitTapHighlightColor: 'transparent',
+                        WebkitUserSelect: 'none',
+                        userSelect: 'none'
+                      }}
+                    >
+                      <span>{option.label}</span>
+                      {granularity === option.value && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-gray-400"></div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

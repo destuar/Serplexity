@@ -226,9 +226,13 @@ const SentimentDetailsCard: React.FC<SentimentDetailsCardProps> = ({ selectedMod
     const citations = extractCitations(metricToShow);
 
     const getScoreColor = (score: number) => {
-        if (score >= 8) return 'text-green-700 bg-green-50 shadow-md';
-        if (score >= 6) return 'text-yellow-700 bg-yellow-50 shadow-md';
-        return 'text-red-700 bg-red-50 shadow-md';
+        return 'text-black bg-white shadow-md';
+    };
+
+    const getScoreTextColor = (score: number) => {
+        if (score >= 8) return 'text-green-700';
+        if (score >= 6) return 'text-yellow-700';
+        return 'text-red-700';
     };
 
     return (
@@ -273,7 +277,7 @@ const SentimentDetailsCard: React.FC<SentimentDetailsCardProps> = ({ selectedMod
                                         <div key={key} className={`flex-[0_0_calc(50%-6px)] rounded-lg p-2 ${getScoreColor(score)}`}>
                                             <div className="text-xs font-semibold mb-1 leading-tight uppercase tracking-wide">{categoryMapping[key]}</div>
                                             <div className="text-sm font-bold">
-                                                {(score as number).toFixed(1)}<span className="text-xs font-medium opacity-70">/10</span>
+                                                <span className={getScoreTextColor(score)}>{(score as number).toFixed(1)}</span><span className="text-xs font-medium opacity-70 text-black">/10</span>
                                             </div>
                                         </div>
                                     );
@@ -292,7 +296,15 @@ const SentimentDetailsCard: React.FC<SentimentDetailsCardProps> = ({ selectedMod
                             })()}`}>
                                 <div className="text-xs font-semibold mb-1 leading-tight uppercase tracking-wide">Average Score</div>
                                 <div className="text-sm font-bold">
-                                    {(() => {
+                                    <span className={(() => {
+                                        const categoryScores = Object.entries(metricToShow.value.ratings[0])
+                                            .filter(([, score]) => typeof score === 'number')
+                                            .map(([, score]) => score as number);
+                                        const averageScore = categoryScores.length > 0 
+                                            ? categoryScores.reduce((sum, score) => sum + score, 0) / categoryScores.length 
+                                            : 0;
+                                        return getScoreTextColor(averageScore);
+                                    })()}>{(() => {
                                         const categoryScores = Object.entries(metricToShow.value.ratings[0])
                                             .filter(([, score]) => typeof score === 'number')
                                             .map(([, score]) => score as number);
@@ -300,7 +312,7 @@ const SentimentDetailsCard: React.FC<SentimentDetailsCardProps> = ({ selectedMod
                                             ? categoryScores.reduce((sum, score) => sum + score, 0) / categoryScores.length 
                                             : 0;
                                         return averageScore.toFixed(1);
-                                    })()}<span className="text-xs font-medium opacity-70">/10</span>
+                                    })()}</span><span className="text-xs font-medium opacity-70 text-black">/10</span>
                                 </div>
                             </div>
                         </div>
