@@ -14,7 +14,7 @@
  * - ResponsesPage: The responses page component for a specific prompt.
  */
 import React, { useState, useMemo, useEffect } from 'react';
-import { MessageSquare, ChevronDown, ChevronUp, Calendar, Sparkles, Search, User } from 'lucide-react';
+import { ChevronDown, ChevronUp, Calendar, Sparkles, Search, User } from 'lucide-react';
 import { useCompany } from '../contexts/CompanyContext';
 import { getPromptsWithResponses, PromptQuestion, getAcceptedCompetitors, CompetitorData, getCitations, CitationData } from '../services/companyService';
 import BlankLoadingState from '../components/ui/BlankLoadingState';
@@ -717,15 +717,7 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
         ) : (
           <div className="p-2">
             {Object.keys(responsesByReport).length === 0 ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="text-center">
-                  <MessageSquare size={48} className="mx-auto text-gray-300 mb-4" />
-                  <p className="text-gray-500 text-lg">No responses found</p>
-                  <p className="text-gray-400 text-sm mt-2">
-                    This prompt may not have generated any model responses yet
-                  </p>
-                </div>
-              </div>
+              <div></div>
             ) : (
               <div className="space-y-8">
                 {Object.entries(responsesByReport).map(([reportKey, reportResponses]) => {

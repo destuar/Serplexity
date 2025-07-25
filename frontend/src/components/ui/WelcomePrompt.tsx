@@ -12,7 +12,8 @@
  * - WelcomePrompt: The main welcome prompt component.
  */
 import React from 'react';
-import { Sparkles, Loader } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
+import { InlineSpinner } from './InlineSpinner';
 
 
 interface WelcomePromptProps {
@@ -63,7 +64,7 @@ const WelcomePrompt: React.FC<WelcomePromptProps> = ({
           )}
           <div className="relative z-10 flex items-center gap-3">
             {isGenerating ? (
-              <Loader size={16} className="animate-spin" />
+              <InlineSpinner size={16} />
             ) : (
               <>
                 <Sparkles size={16} />

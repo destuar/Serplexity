@@ -35,7 +35,7 @@
  */
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { MessageSquare, Eye, Sparkles, Clock, ChevronDown } from 'lucide-react';
+import { MessageSquare, Eye, Sparkles, ChevronDown } from 'lucide-react';
 import LiquidGlassCard from '../ui/LiquidGlassCard';
 import { useDashboard } from '../../hooks/useDashboard';
 import { chartColorArrays } from '../../utils/colorClasses';
@@ -359,6 +359,13 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
                   
                   if (payload.length === 0) return null;
                   
+                  // Sort payload by value in descending order
+                  const sortedPayload = [...payload].sort((a, b) => {
+                    const valueA = typeof a.value === 'number' ? a.value : 0;
+                    const valueB = typeof b.value === 'number' ? b.value : 0;
+                    return valueB - valueA;
+                  });
+                  
                   return (
                     <div style={{
                       backgroundColor: '#ffffff',
@@ -369,9 +376,9 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
                       padding: '8px'
                     }}>
                       <p style={{ margin: '0 0 4px 0', fontWeight: 'bold' }}>{label && `Date: ${label}`}</p>
-                      {payload.map((entry, index) => (
+                      {sortedPayload.map((entry, index) => (
                         <p key={index} style={{ 
-                          margin: index === payload.length - 1 ? 0 : '0 0 2px 0', 
+                          margin: index === sortedPayload.length - 1 ? 0 : '0 0 2px 0', 
                           color: entry.color || entry.stroke || '#2563eb' 
                         }}>
                           {getModelDisplayName(entry.dataKey as string) || entry.dataKey}: {typeof entry.value === 'number' ? entry.value.toFixed(1) : '0.0'}%

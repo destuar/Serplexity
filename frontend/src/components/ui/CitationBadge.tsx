@@ -13,7 +13,7 @@ interface CitationBadgeProps {
   compact?: boolean;
 }
 
-const CitationBadge: React.FC<CitationBadgeProps> = ({ citation, index, compact = false }) => {
+const CitationBadge: React.FC<CitationBadgeProps> = ({ citation, index: _index, compact = false }) => {
   const [imageError, setImageError] = useState(false);
   
   // Get favicon URL from domain
@@ -31,17 +31,8 @@ const CitationBadge: React.FC<CitationBadgeProps> = ({ citation, index, compact 
     return domain.replace(/^www\./, '');
   };
 
-  // Truncate title to reasonable length
-  const truncateTitle = (title: string, maxLength: number): string => {
-    if (title.length <= maxLength) return title;
-    return title.substring(0, maxLength) + '...';
-  };
-
   const faviconUrl = getFaviconUrl(citation.domain);
   const displayDomain = cleanDomain(citation.domain);
-  const displayTitle = compact 
-    ? truncateTitle(citation.title, 20) 
-    : truncateTitle(citation.title, 30);
 
   return (
     <a 

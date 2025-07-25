@@ -302,6 +302,13 @@ const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedM
                   
                   if (payload.length === 0) return null;
                   
+                  // Sort payload by value in descending order
+                  const sortedPayload = [...payload].sort((a, b) => {
+                    const valueA = typeof a.value === 'number' ? a.value : 0;
+                    const valueB = typeof b.value === 'number' ? b.value : 0;
+                    return valueB - valueA;
+                  });
+                  
                   return (
                     <div style={{
                       backgroundColor: '#ffffff',
@@ -312,9 +319,9 @@ const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedM
                       padding: '8px'
                     }}>
                       <p style={{ margin: '0 0 4px 0', fontWeight: 'bold' }}>{label && `Date: ${label}`}</p>
-                      {payload.map((entry, index) => (
+                      {sortedPayload.map((entry, index) => (
                         <p key={index} style={{ 
-                          margin: index === payload.length - 1 ? 0 : '0 0 2px 0', 
+                          margin: index === sortedPayload.length - 1 ? 0 : '0 0 2px 0', 
                           color: entry.color || entry.stroke || '#2563eb' 
                         }}>
                           {getModelDisplayName(entry.dataKey as string) || entry.dataKey}: {typeof entry.value === 'number' ? entry.value.toFixed(1) : '0.0'}/10

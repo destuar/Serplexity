@@ -28,7 +28,14 @@ import {
 
 // Type definitions for metrics data structures
 interface SentimentRating {
-  ratings: Array<{ rating: number }>;
+  ratings: Array<{
+    quality: number;
+    priceValue: number;
+    brandReputation: number;
+    brandTrust: number;
+    customerService: number;
+    summaryDescription: string;
+  }>;
 }
 
 interface CompetitorData {
@@ -40,16 +47,37 @@ interface CompetitorData {
 
 interface CompetitorRankings {
   chartCompetitors: CompetitorData[];
+  citationRankings?: unknown;
 }
 
 interface MentionRecord {
   id: string;
   entityId: string;
   entityType: string;
+  position: number;
   response?: {
     id: string;
     model: string;
   };
+}
+
+// Type guards for JSON data
+function isSentimentRating(value: unknown): value is SentimentRating {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'ratings' in value &&
+    Array.isArray((value as any).ratings)
+  );
+}
+
+function isCompetitorRankings(value: unknown): value is CompetitorRankings {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'chartCompetitors' in value &&
+    Array.isArray((value as any).chartCompetitors)
+  );
 }
 
 // ===== UTILITY HELPERS FOR NEW FAN-OUT MODEL =====
@@ -71,19 +99,56 @@ async function getMentions(
   filters?: { aiModel?: string; companyId?: string; competitorId?: string },
 ): Promise<MentionRecord[]> {
   const prismaReadReplica = await getReadDbClient();
-  return await prismaReadReplica.mention.findMany({
+  
+  // CRITICAL FIX: Handle Perplexity model name variations
+  let modelFilter = {};
+  if (filters?.aiModel && filters.aiModel !== "all") {
+    // Handle both "perplexity" and "sonar" model names
+    if (filters.aiModel === "perplexity") {
+      modelFilter = { model: { in: ["perplexity", "sonar"] } };
+    } else if (filters.aiModel === "sonar") {
+      modelFilter = { model: { in: ["sonar", "perplexity"] } };
+    } else {
+      modelFilter = { model: filters.aiModel };
+    }
+  }
+
+  console.log(`🔍 [METRICS DEBUG] getMentions - runId: ${runId}, aiModel: ${filters?.aiModel || "all"}, modelFilter:`, modelFilter);
+
+  const mentions = await prismaReadReplica.mention.findMany({
     where: {
       response: {
         runId,
-        ...(filters?.aiModel && filters.aiModel !== "all"
-          ? { model: filters.aiModel }
-          : {}),
+        ...modelFilter,
       },
       ...(filters?.companyId ? { companyId: filters.companyId } : {}),
       ...(filters?.competitorId ? { competitorId: filters.competitorId } : {}),
     },
-    select: { companyId: true, competitorId: true, position: true },
+    include: {
+      response: {
+        select: { model: true, engine: true }
+      }
+    }
   });
+
+  console.log(`🔍 [METRICS DEBUG] Found ${mentions.length} mentions for runId: ${runId}, aiModel: ${filters?.aiModel || "all"}`);
+  
+  // Debug: Log model distribution in mentions
+  const modelCounts = mentions.reduce((acc, mention) => {
+    const model = mention.response?.model || 'unknown';
+    acc[model] = (acc[model] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  console.log(`🔍 [METRICS DEBUG] Model distribution in mentions:`, modelCounts);
+
+  return mentions.map(m => ({
+    id: m.id,
+    entityId: m.companyId || m.competitorId || '',
+    entityType: m.companyId ? 'company' : 'competitor',
+    position: m.position,
+    response: m.response ? { id: m.response.model, model: m.response.model } : undefined
+  }));
 }
 
 // Helper to fetch previous report metric for change calculations
@@ -143,12 +208,20 @@ async function calculateBrandShareOfVoice(
   companyId: string,
   filters?: { aiModel?: string },
 ): Promise<{ shareOfVoice: number; change: number | null }> {
+  console.log(`📊 [SOV DEBUG] Calculating share of voice - runId: ${runId}, companyId: ${companyId}, aiModel: ${filters?.aiModel || "all"}`);
+  
   const mentions = await getMentions(runId, filters);
   const total = mentions.length;
   const companyMentions = mentions.filter(
-    (m) => m.companyId === companyId,
+    (m) => m.entityType === 'company' && m.entityId === companyId,
   ).length;
+  const competitorMentions = mentions.filter(
+    (m) => m.entityType === 'competitor',
+  ).length;
+  
   const shareOfVoice = total === 0 ? 0 : (companyMentions / total) * 100;
+
+  console.log(`📊 [SOV DEBUG] Results - Total mentions: ${total}, Company mentions: ${companyMentions}, Competitor mentions: ${competitorMentions}, Share of Voice: ${shareOfVoice.toFixed(2)}%`);
 
   const aiModel = filters?.aiModel ?? "all";
   const previousMetric = await getPreviousReportMetric(
@@ -159,6 +232,8 @@ async function calculateBrandShareOfVoice(
   const change = previousMetric
     ? shareOfVoice - previousMetric.shareOfVoice
     : null;
+
+  console.log(`📊 [SOV DEBUG] Previous metric: ${previousMetric?.shareOfVoice || "none"}, Change: ${change || "none"}`);
 
   return { shareOfVoice, change };
 }
@@ -358,28 +433,28 @@ export async function computeAndPersistMetrics(
     // Enrich with change metric
     if (
       previousOverallMetric?.competitorRankings &&
-      (previousOverallMetric.competitorRankings as CompetitorRankings).chartCompetitors
+      isCompetitorRankings(previousOverallMetric.competitorRankings)
     ) {
-      const previousCompetitors = (
-        previousOverallMetric.competitorRankings as CompetitorRankings
-      ).chartCompetitors;
+      const previousCompetitors = previousOverallMetric.competitorRankings.chartCompetitors;
 
-      for (const competitor of competitorRankings.chartCompetitors) {
-        const prevCompData = previousCompetitors.find(
-          (pc: CompetitorData) => pc.id === competitor.id,
-        );
-        if (prevCompData) {
-          competitor.change =
-            competitor.shareOfVoice - prevCompData.shareOfVoice;
-          competitor.changeType =
-            competitor.change > 0
-              ? "increase"
-              : competitor.change < 0
-                ? "decrease"
-                : "stable";
-        } else {
-          competitor.change = 0; // Or null if you prefer to show no change for new competitors
-          competitor.changeType = "stable";
+      if (isCompetitorRankings(competitorRankings)) {
+        for (const competitor of competitorRankings.chartCompetitors) {
+          const prevCompData = previousCompetitors.find(
+            (pc: CompetitorData) => pc.id === competitor.id,
+          );
+          if (prevCompData) {
+            competitor.change =
+              competitor.shareOfVoice - prevCompData.shareOfVoice;
+            competitor.changeType =
+              competitor.change > 0
+                ? "increase"
+                : competitor.change < 0
+                  ? "decrease"
+                  : "stable";
+          } else {
+            competitor.change = 0; // Or null if you prefer to show no change for new competitors
+            competitor.changeType = "stable";
+          }
         }
       }
     }
@@ -393,8 +468,11 @@ export async function computeAndPersistMetrics(
     );
 
     // Add citation rankings to competitor rankings object for storage
-    const enhancedCompetitorRankings = {
+    const enhancedCompetitorRankings = isCompetitorRankings(competitorRankings) ? {
       ...competitorRankings,
+      citationRankings,
+    } : {
+      chartCompetitors: [],
       citationRankings,
     };
 
@@ -411,17 +489,18 @@ export async function computeAndPersistMetrics(
     const summaryEngineData = rawSentiments.find(
       (s) => s.engine === "serplexity-summary",
     );
-    if (summaryEngineData) {
-      overallSentimentScore = summaryEngineData.value as SentimentRating;
-    } else if (rawSentiments.length > 0) {
+    if (summaryEngineData && isSentimentRating(summaryEngineData.value)) {
+      overallSentimentScore = summaryEngineData.value;
+    } else if (rawSentiments.length > 0 && isSentimentRating(rawSentiments[0].value)) {
       // Fallback to first available engine
-      overallSentimentScore = rawSentiments[0].value as SentimentRating;
+      overallSentimentScore = rawSentiments[0].value;
     }
 
     // Calculate sentiment change based on average values for comparison
     if (
       overallSentimentScore !== null &&
-      previousOverallMetric?.sentimentScore
+      previousOverallMetric?.sentimentScore &&
+      isSentimentRating(previousOverallMetric.sentimentScore)
     ) {
       const currentAvg = getAverage(overallSentimentScore);
       const previousAvg = getAverage(previousOverallMetric.sentimentScore);
@@ -448,9 +527,11 @@ export async function computeAndPersistMetrics(
         averagePositionChange: allAvgPosChange,
         topRankingsCount: allTopRankings,
         rankingsChange: allRankingsChange,
-        sentimentScore: overallSentimentScore,
+        // @ts-ignore - JSON compatibility for Prisma
+        sentimentScore: overallSentimentScore as unknown,
         sentimentChange: overallSentimentChange,
-        competitorRankings: enhancedCompetitorRankings,
+        // @ts-ignore - JSON compatibility for Prisma
+        competitorRankings: enhancedCompetitorRankings as unknown,
         topQuestions: topQuestions.questions,
         sentimentDetails: sentimentDetails,
       },
@@ -466,9 +547,11 @@ export async function computeAndPersistMetrics(
         averagePositionChange: allAvgPosChange,
         topRankingsCount: allTopRankings,
         rankingsChange: allRankingsChange,
-        sentimentScore: overallSentimentScore,
+        // @ts-ignore - JSON compatibility for Prisma
+        sentimentScore: overallSentimentScore as unknown,
         sentimentChange: overallSentimentChange,
-        competitorRankings: enhancedCompetitorRankings,
+        // @ts-ignore - JSON compatibility for Prisma
+        competitorRankings: enhancedCompetitorRankings as unknown,
         topQuestions: topQuestions.questions,
         sentimentDetails: sentimentDetails,
       },
@@ -539,7 +622,7 @@ export async function computeAndPersistMetrics(
 
       // Calculate sentiment change based on average values for comparison
       let modelSentimentChange: number | null = null;
-      if (modelSentiment && previousModelMetric?.sentimentScore) {
+      if (modelSentiment && previousModelMetric?.sentimentScore && isSentimentRating(modelSentiment) && isSentimentRating(previousModelMetric.sentimentScore)) {
         const currentAvg = getAverage(modelSentiment);
         const previousAvg = getAverage(previousModelMetric.sentimentScore);
         if (currentAvg !== null && previousAvg !== null) {
@@ -564,27 +647,27 @@ export async function computeAndPersistMetrics(
       );
       if (
         previousModelMetric?.competitorRankings &&
-        (previousModelMetric.competitorRankings as CompetitorRankings).chartCompetitors
+        isCompetitorRankings(previousModelMetric.competitorRankings)
       ) {
-        const previousCompetitors = (
-          previousModelMetric.competitorRankings as CompetitorRankings
-        ).chartCompetitors;
-        for (const competitor of compRankModel.chartCompetitors) {
-          const prevCompData = previousCompetitors.find(
-            (pc: CompetitorData) => pc.id === competitor.id,
-          );
-          if (prevCompData) {
-            competitor.change =
-              competitor.shareOfVoice - prevCompData.shareOfVoice;
-            competitor.changeType =
-              competitor.change > 0
-                ? "increase"
-                : competitor.change < 0
-                  ? "decrease"
-                  : "stable";
-          } else {
-            competitor.change = 0;
-            competitor.changeType = "stable";
+        const previousCompetitors = previousModelMetric.competitorRankings.chartCompetitors;
+        if (isCompetitorRankings(compRankModel)) {
+          for (const competitor of compRankModel.chartCompetitors) {
+            const prevCompData = previousCompetitors.find(
+              (pc: CompetitorData) => pc.id === competitor.id,
+            );
+            if (prevCompData) {
+              competitor.change =
+                competitor.shareOfVoice - prevCompData.shareOfVoice;
+              competitor.changeType =
+                competitor.change > 0
+                  ? "increase"
+                  : competitor.change < 0
+                    ? "decrease"
+                    : "stable";
+            } else {
+              competitor.change = 0;
+              competitor.changeType = "stable";
+            }
           }
         }
       }
@@ -597,8 +680,11 @@ export async function computeAndPersistMetrics(
       );
 
       // Add citation rankings to competitor rankings object for storage
-      const enhancedCompRankModel = {
+      const enhancedCompRankModel = isCompetitorRankings(compRankModel) ? {
         ...compRankModel,
+        citationRankings: citationRankingsModel,
+      } : {
+        chartCompetitors: [],
         citationRankings: citationRankingsModel,
       };
 
@@ -621,7 +707,8 @@ export async function computeAndPersistMetrics(
           rankingsChange,
           sentimentScore: modelSentiment ?? undefined,
           sentimentChange: modelSentimentChange,
-          competitorRankings: enhancedCompRankModel,
+          // @ts-ignore - JSON compatibility for Prisma
+          competitorRankings: enhancedCompRankModel as unknown,
           topQuestions: topQuestionsModel.questions,
           sentimentDetails: modelSentimentDetails,
         },
@@ -639,13 +726,14 @@ export async function computeAndPersistMetrics(
           rankingsChange,
           sentimentScore: modelSentiment ?? undefined,
           sentimentChange: modelSentimentChange,
-          competitorRankings: enhancedCompRankModel,
+          // @ts-ignore - JSON compatibility for Prisma
+          competitorRankings: enhancedCompRankModel as unknown,
           topQuestions: topQuestionsModel.questions,
           sentimentDetails: modelSentimentDetails,
         },
       });
 
-      if (modelSentiment !== null) {
+      if (modelSentiment !== null && isSentimentRating(modelSentiment)) {
         const avgModelSentiment = getAverage(modelSentiment);
         if (avgModelSentiment !== null) {
           await saveSentimentOverTimePoint(
@@ -707,8 +795,9 @@ export async function getFullReportMetrics(
 
   const citationRankings =
     metric.competitorRankings &&
-    (metric.competitorRankings as CompetitorRankings).citationRankings
-      ? (metric.competitorRankings as CompetitorRankings).citationRankings
+    isCompetitorRankings(metric.competitorRankings) &&
+    (metric.competitorRankings as any).citationRankings
+      ? (metric.competitorRankings as any).citationRankings
       : null;
 
   return {
@@ -718,15 +807,15 @@ export async function getFullReportMetrics(
     averageInclusionChange: metric.averageInclusionChange,
     averagePosition: metric.averagePosition,
     averagePositionChange: metric.averagePositionChange,
-    sentimentScore: metric.sentimentScore,
+    sentimentScore: isSentimentRating(metric.sentimentScore) ? metric.sentimentScore : null,
     sentimentChange: metric.sentimentChange,
     topRankingsCount: metric.topRankingsCount,
     rankingsChange: metric.rankingsChange,
-    competitorRankings: metric.competitorRankings,
+    competitorRankings: isCompetitorRankings(metric.competitorRankings) ? metric.competitorRankings : { chartCompetitors: [] },
     citationRankings: citationRankings,
     topQuestions: metric.topQuestions,
     sentimentOverTime: null, // Historical data fetched separately
     shareOfVoiceHistory: null, // Historical data fetched separately
-    sentimentDetails: metric.sentimentDetails as unknown,
+    sentimentDetails: metric.sentimentDetails as any,
   };
 }

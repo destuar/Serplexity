@@ -30,7 +30,7 @@ const MOCK_COMPANY_PROFILE = {
     name: 'Serplexity'
 };
 
-const getScoreColor = (score: number) => {
+const getScoreColor = (_score: number) => {
     return 'text-black bg-white shadow-md';
 };
 

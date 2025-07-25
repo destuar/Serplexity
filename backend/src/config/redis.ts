@@ -23,7 +23,7 @@ import logger from "../utils/logger";
 const POOL_SIZE = 5;
 const MAX_RETRIES = 5; // More retries for unstable networks
 const RETRY_DELAY_MS = 2000; // Longer retry delay
-const HEALTH_CHECK_INTERVAL = 60000; // 60 seconds - less aggressive
+const HEALTH_CHECK_INTERVAL = 30000; // 30 seconds - more frequent for idle connection management
 const CIRCUIT_BREAKER_THRESHOLD = 10; // Higher threshold before opening circuit
 const CIRCUIT_BREAKER_TIMEOUT = 120000; // 2 minutes - longer recovery time
 const MAINTENANCE_INTERVAL = 3600000; // 1 hour - cleanup old data
@@ -46,7 +46,7 @@ class RedisConnectionManager {
   private isShuttingDown = false;
   private lastHealthyCount: number = POOL_SIZE;
 
-  private readonly baseConfig: RedisOptions = {
+  private readonly baseConfig: RedisOptions & { detectOpenHandles?: boolean; tcp?: any } = {
     host: env.REDIS_HOST,
     port: env.REDIS_PORT,
     password: env.REDIS_PASSWORD,
@@ -70,12 +70,21 @@ class RedisConnectionManager {
     },
 
     // Keep-alive and TCP settings - more resilient
-    keepAlive: 60000, // 60 seconds keep-alive
+    keepAlive: 30000, // 30 seconds keep-alive - more frequent for idle detection
     family: 4, // Force IPv4
     
     // Additional stability settings
     enableOfflineQueue: true, // Queue commands when disconnected
     // maxLoadingTimeout: 10000, // 10 seconds for LOADING responses - not available in this Redis version
+    
+    // Idle connection prevention
+    detectOpenHandles: false, // Prevent Node.js warnings about open handles
+    
+    // TCP keep-alive options for better idle detection
+    tcp: {
+      keepAlive: true,
+      keepAliveInitialDelay: 30000, // 30 seconds before first keep-alive probe
+    },
     
     // TLS configuration
     tls: env.REDIS_USE_TLS

@@ -489,6 +489,8 @@ export const getPromptsWithResponses = async (req: Request, res: Response) => {
       question: string;
       type: string;
       isActive: boolean;
+      createdAt: string;
+      source: string;
       responses: Array<{
         id: string;
         model: string;
@@ -511,6 +513,8 @@ export const getPromptsWithResponses = async (req: Request, res: Response) => {
           question: questionText,
           type: question.type || "unknown",
           isActive: question.isActive,
+          createdAt: question.createdAt.toISOString(),
+          source: question.source,
           responses: [],
         });
       }
@@ -651,11 +655,22 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
     );
 
     // Transform to expected frontend format (backwards compatibility)
-    const questions = responses.map((r: { question: { text: string }; id: string }) => ({
+    const questions = responses.map((r: {
+      id: string;
+      questionId: string;
+      question: string;
+      questionType: string | null;
+      model: string;
+      response: string;
+      position: number | null;
+      totalMentions: number;
+      questionBestPosition: number | null;
+      createdAt: string;
+    }) => ({
       id: r.id,
       question: r.question,
-      type: r.type,
-      bestPosition: r.bestPosition,
+      type: r.questionType,
+      bestPosition: r.questionBestPosition,
       totalMentions: r.position !== null ? 1 : 0, // Simplified for response-level
       averagePosition: r.position,
       bestResponse: r.response,
@@ -1327,7 +1342,7 @@ export const addQuestion = async (req: Request, res: Response) => {
 export const updateQuestion = async (req: Request, res: Response) => {
   try {
     const updateQuestionSchema = z.object({
-      query: z.string().min(1, "Question is required").max(500),
+      query: z.string().min(1, "Question is required").max(500).optional(),
       isActive: z.boolean().optional(),
     });
 
@@ -1349,17 +1364,38 @@ export const updateQuestion = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Company not found" });
     }
 
-    // Update question (only allow updating user-added questions)
+    // Find the question first to check what we can update
+    const existingQuestion = await prisma.question.findFirst({
+      where: {
+        id: questionId,
+        companyId,
+      },
+    });
+
+    if (!existingQuestion) {
+      return res.status(404).json({ error: "Question not found" });
+    }
+
+    // Only allow updating query text for user questions, but allow isActive updates for all questions
+    const updateData: any = {};
+    
+    if (validatedData.query !== undefined) {
+      if (existingQuestion.source !== "user") {
+        return res.status(403).json({ error: "Cannot edit query text for AI-generated questions" });
+      }
+      updateData.query = validatedData.query;
+    }
+    
+    if (validatedData.isActive !== undefined) {
+      updateData.isActive = validatedData.isActive;
+    }
+
     const updatedQuestion = await prisma.question.update({
       where: {
         id: questionId,
         companyId,
-        source: "user", // Only allow updating user questions, not AI-generated ones
       },
-      data: {
-        query: validatedData.query,
-        ...(validatedData.isActive !== undefined && { isActive: validatedData.isActive }),
-      },
+      data: updateData,
     });
 
     res.json(updatedQuestion);
@@ -1441,12 +1477,11 @@ export const deleteQuestion = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Company not found" });
     }
 
-    // Delete question (only allow deleting user-added questions)
+    // Delete question (allow deleting both user and AI-generated questions)
     await prisma.question.delete({
       where: {
         id: questionId,
         companyId,
-        source: "user", // Only allow deleting user questions, not AI-generated ones
       },
     });
 

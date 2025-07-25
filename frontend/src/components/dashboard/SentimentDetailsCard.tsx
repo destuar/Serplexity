@@ -129,7 +129,7 @@ const renderBrandTextWithCitations = (
     };
 
     // First process <brand> tags - replace them with plain text but track which companies were tagged
-    let processedText = text.replace(/<brand>(.*?)<\/brand>/g, '$1');
+    const processedText = text.replace(/<brand>(.*?)<\/brand>/g, '$1');
     
     // Now handle citation markers [1], [2], etc.
     const citationRegex = /\[(\d+)\]/g;
@@ -225,7 +225,7 @@ const SentimentDetailsCard: React.FC<SentimentDetailsCardProps> = ({ selectedMod
 
     const citations = extractCitations(metricToShow);
 
-    const getScoreColor = (score: number) => {
+    const getScoreColor = (_score: number) => {
         return 'text-black bg-white shadow-md';
     };
 

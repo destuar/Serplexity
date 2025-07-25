@@ -313,11 +313,14 @@ class QuestionAnsweringAgent(BaseAgent):
             if not answer_content or answer_content.strip() == "":
                 answer_content = "Error: Perplexity returned empty response"
             
+            # CRITICAL FIX: Extract citations from Perplexity's numbered citation format
+            perplexity_citations = self._extract_perplexity_citations(answer_content)
+            
             # Post-process the natural response
             processed_result = await self._post_process_response(
                 question=input_data.get('question', ''),
                 answer=answer_content,
-                raw_citations=[],  # Perplexity naturally includes URLs in text
+                raw_citations=perplexity_citations,  # Use extracted citations instead of empty array
                 has_web_search=True,
                 company_name=input_data.get('company_name'),
                 competitors=input_data.get('competitors', [])
@@ -337,8 +340,8 @@ class QuestionAnsweringAgent(BaseAgent):
                 "agent_id": self.agent_id,
                 "tokens_used": tokens_used,
                 "tokensUsed": tokens_used,
-                "model_used": "sonar",
-                "modelUsed": "sonar"
+                "model_used": "sonar",  # CONSISTENT MODEL NAME
+                "modelUsed": "sonar"   # CONSISTENT MODEL NAME
             }
             
         except Exception as e:
@@ -349,6 +352,53 @@ class QuestionAnsweringAgent(BaseAgent):
                 "attempt_count": 1,
                 "agent_id": self.agent_id
             }
+    
+    def _extract_perplexity_citations(self, text: str) -> List[Dict]:
+        """Extract citations from Perplexity's numbered citation format like [1] [2] etc."""
+        import re
+        citations = []
+        
+        # Pattern 1: Extract numbered citations with URLs that appear later in text
+        # Look for patterns like "according to [1]" and match with URLs
+        citation_refs = re.findall(r'\[(\d+)\]', text)
+        
+        # Pattern 2: Extract URLs that appear in the text
+        url_pattern = r'https?://[^\s\]\)\,\;]+(?:[^\s\]\)\,\;\.]|$)'
+        urls = re.findall(url_pattern, text)
+        
+        # Pattern 3: Try to extract citation-style patterns like "[1] Domain.com"
+        citation_with_domain = re.findall(r'\[(\d+)\]\s*([A-Za-z0-9\-\.]+\.[A-Za-z]{2,})', text)
+        
+        print(f"[PERPLEXITY CITATIONS] Found {len(citation_refs)} citation refs, {len(urls)} URLs, {len(citation_with_domain)} domain citations")
+        
+        # Create citations from extracted URLs
+        for i, url in enumerate(urls[:10]):  # Limit to 10 citations
+            try:
+                # Clean up URL
+                url = re.sub(r'[.,;:!?]*$', '', url)
+                domain = self._extract_domain(url)
+                title = f"Perplexity Source {i+1} - {domain}"
+                
+                citations.append({
+                    'url': url,
+                    'title': title,
+                    'domain': domain
+                })
+            except Exception as e:
+                print(f"[PERPLEXITY CITATIONS] Error processing URL {url}: {e}")
+                continue
+        
+        # If no URLs found but we have citation numbers, create placeholder citations
+        if not citations and citation_refs:
+            for ref_num in citation_refs[:5]:  # Limit to 5 placeholders
+                citations.append({
+                    'url': f"https://perplexity.ai/search?q=citation_{ref_num}",
+                    'title': f"Perplexity Citation [{ref_num}]",
+                    'domain': "perplexity.ai"
+                })
+        
+        print(f"[PERPLEXITY CITATIONS] Extracted {len(citations)} citations")
+        return citations
     
     async def _execute_gemini_natural(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Execute Gemini with natural grounding responses"""

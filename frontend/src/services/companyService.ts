@@ -145,6 +145,8 @@ export interface PromptQuestion {
   question: string;
   type: string;
   isActive: boolean;
+  source?: string; // 'ai' or 'user'
+  createdAt?: string;
   responses: PromptResponse[];
 }
 
@@ -165,6 +167,24 @@ export const updateQuestionStatus = async (
   await apiClient.put(`/companies/${companyId}/questions/${questionId}`, {
     isActive
   });
+};
+
+export const addQuestion = async (
+  companyId: string,
+  question: string,
+  isActive: boolean = true
+): Promise<void> => {
+  await apiClient.post(`/companies/${companyId}/questions`, {
+    query: question,
+    isActive
+  });
+};
+
+export const deleteQuestion = async (
+  companyId: string,
+  questionId: string
+): Promise<void> => {
+  await apiClient.delete(`/companies/${companyId}/questions/${questionId}`);
 };
 
 export const getCompetitorRankings = async (companyId: string, filters?: { dateRange?: string; aiModel?: string }): Promise<CompetitorRankingsResponse> => {

@@ -648,7 +648,7 @@ export async function saveShareOfVoiceHistoryPoint(
   aiModel: string,
   shareOfVoice: number,
   reportRunId?: string,
-  userTimezone?: string,
+  _userTimezone?: string,
 ): Promise<void> {
   const prisma = await getDbClient();
   const _prismaReadReplica = await getReadDbClient();
@@ -690,7 +690,7 @@ export async function saveInclusionRateHistoryPoint(
   aiModel: string,
   inclusionRate: number,
   reportRunId?: string,
-  userTimezone?: string,
+  _userTimezone?: string,
 ): Promise<void> {
   const prisma = await getDbClient();
   const _prismaReadReplica = await getReadDbClient();
@@ -732,7 +732,7 @@ export async function saveSentimentOverTimePoint(
   aiModel: string,
   sentimentScore: number,
   reportRunId?: string,
-  userTimezone?: string,
+  _userTimezone?: string,
 ): Promise<void> {
   const prisma = await getDbClient();
   const _prismaReadReplica = await getReadDbClient();

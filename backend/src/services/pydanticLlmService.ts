@@ -746,6 +746,19 @@ export class PydanticLlmService {
               executionTime,
             );
 
+            // Check if the Python agent returned an error even with exit code 0
+            if (result.error && !result.result && !result.data) {
+              logger.warn(`Python agent returned error with exit code 0: ${result.error}`);
+              resolve({
+                success: false,
+                error: result.error || "Python agent returned error",
+                executionTime,
+                providerId,
+                tokensUsed: result.tokensUsed || result.tokens_used || 0,
+              });
+              return;
+            }
+
             resolve({
               success: true,
               data: result.result || result.data, // Support both 'result' and 'data' properties

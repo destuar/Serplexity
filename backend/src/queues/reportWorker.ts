@@ -642,18 +642,39 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
         }
       );
 
-      if (questionResult.data && 
-          typeof questionResult.data === 'object' && 
-          'activeQuestions' in questionResult.data && 
-          'suggestedQuestions' in questionResult.data) {
-        const { activeQuestions: generatedActive, suggestedQuestions } = questionResult.data as {
-          activeQuestions: Array<{ query: string; type: string; intent: string }>;
-          suggestedQuestions: Array<{ query: string; type: string; intent: string }>;
-        };
+      // Handle both the Python response format and the expected format
+      const resultData = questionResult.data;
+      let generatedActive: Array<{ query: string; type: string; intent: string }> = [];
+      let suggestedQuestions: Array<{ query: string; type: string; intent: string }> = [];
+
+      if (resultData && typeof resultData === 'object') {
+        console.log(`🔍 Question result data keys: ${Object.keys(resultData)}`);
+        
+        // Check for nested result structure first (Python agent format)
+        if ('result' in resultData && resultData.result) {
+          const nestedResult = resultData.result;
+          generatedActive = nestedResult.activeQuestions || [];
+          suggestedQuestions = nestedResult.suggestedQuestions || [];
+        }
+        // Check for direct structure (expected format)
+        else if ('activeQuestions' in resultData && 'suggestedQuestions' in resultData) {
+          generatedActive = resultData.activeQuestions || [];
+          suggestedQuestions = resultData.suggestedQuestions || [];
+        }
+        // Handle Python snake_case format
+        else if ('active_questions' in resultData && 'suggested_questions' in resultData) {
+          generatedActive = resultData.active_questions || [];
+          suggestedQuestions = resultData.suggested_questions || [];
+        }
+      }
+
+      if (generatedActive.length > 0 && suggestedQuestions.length > 0) {
+        
+        console.log(`✅ Found ${generatedActive.length} active questions and ${suggestedQuestions.length} suggested questions`);
         
         // Store all 25 questions in database
         const questionsToCreate = [
-          ...generatedActive.map((q: { id?: string; text: string }) => ({
+          ...generatedActive.map((q: { query: string; type: string; intent: string }) => ({
             query: q.query,
             type: q.type,
             intent: q.intent,
@@ -661,7 +682,7 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
             source: "ai",
             companyId: fullCompany.id,
           })),
-          ...suggestedQuestions.map((q: { id?: string; text: string }) => ({
+          ...suggestedQuestions.map((q: { query: string; type: string; intent: string }) => ({
             query: q.query,
             type: q.type,
             intent: q.intent,
@@ -692,7 +713,12 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
 
         console.log(`✅ Generated and stored ${questionsToCreate.length} questions for ${fullCompany.name}`);
       } else {
-        throw new Error("Question generation failed - unexpected response format");
+        console.log(`❌ Question generation failed - no valid questions found`);
+        console.log(`🔍 Active questions count: ${generatedActive.length}`);
+        console.log(`🔍 Suggested questions count: ${suggestedQuestions.length}`);
+        console.log(`🔍 Raw questionResult.data:`, JSON.stringify(questionResult.data, null, 2));
+        
+        throw new Error(`Question generation failed - no valid questions found. Active: ${generatedActive.length}, Suggested: ${suggestedQuestions.length}`);
       }
     } else {
       // Subsequent reports - use existing active questions
@@ -832,6 +858,8 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
               },
             });
 
+            console.log(`📊 [PERPLEXITY DEBUG] Saved response with model: "${model.id}" for question: "${question.query.substring(0, 50)}..."`);
+
             // Extract and save citations - handle both markdown links and natural URLs
             const citations = new Set(); // Avoid duplicates
             let citationPosition = 1;
@@ -870,6 +898,8 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
               }
             }
 
+            console.log(`📊 [PERPLEXITY DEBUG] Found ${citations.size} citations from ${model.id} response`);
+
             // 4. Save all unique citations to database
             for (const citation of Array.from(citations) as Array<{url: string; title: string; source: string}>) {
               try {
@@ -899,7 +929,9 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
             let mentionMatch;
             let fallbackPosition = 1;
 
-            console.log(`🔍 Processing brand mentions for response to: "${question.query.substring(0, 50)}..."`);
+            console.log(`🔍 [PERPLEXITY DEBUG] Processing brand mentions for ${model.id} response to: "${question.query.substring(0, 50)}..."`);
+
+            const mentionsFound: Array<{brandName: string; position: number; isCompany: boolean}> = [];
 
             while (
               (mentionMatch = brandMentionRegex.exec(response.answer)) !== null
@@ -909,7 +941,7 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
                 : fallbackPosition++;
               const brandName = mentionMatch[2].trim();
 
-              console.log(`🏢 Found brand mention: "${brandName}" at position ${position}`);
+              console.log(`🏢 [PERPLEXITY DEBUG] Found brand mention: "${brandName}" at position ${position} in ${model.id} response`);
 
               // Intelligent brand matching - check various forms of the company name
               // Also check if brandName is a domain-like version (e.g., "nordstrom" for "Nordstrom")
@@ -935,7 +967,8 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
                     companyId: fullCompany.id,
                   },
                 });
-                console.log(`✅ Saved company mention: ${brandName}`);
+                mentionsFound.push({brandName, position, isCompany: true});
+                console.log(`✅ [PERPLEXITY DEBUG] Saved company mention: ${brandName} for ${model.id}`);
               } else {
                 // First check if it's a known competitor with fuzzy matching
                 let competitor = await prisma.competitor.findFirst({
@@ -962,7 +995,7 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
                         isGenerated: true,
                       },
                     });
-                    console.log(`🆕 Created new competitor: ${brandName}`);
+                    console.log(`🆕 [PERPLEXITY DEBUG] Created new competitor: ${brandName} for ${model.id}`);
                   } catch {
                     // Handle duplicate creation race condition
                     competitor = await prisma.competitor.findFirst({
@@ -973,7 +1006,7 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
                     });
                   }
                 } else if (isCompanyMention) {
-                  console.log(`🚫 Skipping competitor creation for company brand: ${brandName}`);
+                  console.log(`🚫 [PERPLEXITY DEBUG] Skipping competitor creation for company brand: ${brandName}`);
                 }
 
                 // Save mention for competitor
@@ -985,10 +1018,13 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
                       competitorId: competitor.id,
                     },
                   });
-                  console.log(`✅ Saved competitor mention: ${brandName}`);
+                  mentionsFound.push({brandName, position, isCompany: false});
+                  console.log(`✅ [PERPLEXITY DEBUG] Saved competitor mention: ${brandName} for ${model.id}`);
                 }
               }
             }
+
+            console.log(`📊 [PERPLEXITY DEBUG] ${model.id} mention summary - Total: ${mentionsFound.length}, Company: ${mentionsFound.filter(m => m.isCompany).length}, Competitors: ${mentionsFound.filter(m => !m.isCompany).length}`);
 
             tracker.successful++;
             console.log(

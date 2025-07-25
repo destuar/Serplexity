@@ -12,11 +12,11 @@
  * @exports
  * - PromptsPage: The main prompts management page component.
  */
-import React, { useState, useMemo, useEffect } from 'react';
-import { RefreshCw, MessageSquare, ListFilter, Plus, Search, Edit2, Trash2, Check, X } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { RefreshCw, ListFilter, Plus, Search, Edit2, Trash2, Check, X } from 'lucide-react';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';
-import { getPromptsWithResponses, PromptQuestion, getAcceptedCompetitors, CompetitorData, updateQuestionStatus } from '../services/companyService';
+import { getPromptsWithResponses, PromptQuestion, getAcceptedCompetitors, CompetitorData, updateQuestionStatus, addQuestion, deleteQuestion } from '../services/companyService';
 import { getCompanyLogo } from '../lib/logoService';
 import FilterDropdown from '../components/dashboard/FilterDropdown';
 import WelcomePrompt from '../components/ui/WelcomePrompt';
@@ -28,10 +28,14 @@ import ResponsesPage from './ResponsesPage';
 
 // Utility function to format relative time
 const formatRelativeTime = (dateString: string | undefined): string => {
-  if (!dateString) return 'Unknown';
+  if (!dateString || dateString === 'Unknown') return 'Unknown';
   
   const now = new Date();
   const date = new Date(dateString);
+  
+  // Check if the date is valid
+  if (isNaN(date.getTime())) return 'Unknown';
+  
   const diffInMs = now.getTime() - date.getTime();
   const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
   const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
@@ -212,8 +216,13 @@ const PromptListItem: React.FC<{
                   e.stopPropagation();
                   onStatusChange?.(prompt, 'active');
                 }}
-                className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+                className="w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-500 hover:text-gray-700 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner"
                 title="Mark as Active"
+                style={{ 
+                  WebkitTapHighlightColor: 'transparent',
+                  WebkitUserSelect: 'none',
+                  userSelect: 'none'
+                }}
               >
                 <Check size={16} />
               </button>
@@ -224,8 +233,13 @@ const PromptListItem: React.FC<{
                   e.stopPropagation();
                   onStatusChange?.(prompt, 'inactive');
                 }}
-                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                className="w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-500 hover:text-gray-700 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner"
                 title="Mark as Inactive"
+                style={{ 
+                  WebkitTapHighlightColor: 'transparent',
+                  WebkitUserSelect: 'none',
+                  userSelect: 'none'
+                }}
               >
                 <X size={16} />
               </button>
@@ -236,37 +250,35 @@ const PromptListItem: React.FC<{
                   e.stopPropagation();
                   onStatusChange?.(prompt, 'active');
                 }}
-                className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+                className="w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-500 hover:text-gray-700 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner"
                 title="Mark as Active"
+                style={{ 
+                  WebkitTapHighlightColor: 'transparent',
+                  WebkitUserSelect: 'none',
+                  userSelect: 'none'
+                }}
               >
                 <Check size={16} />
               </button>
             )}
             
-            {/* Edit/Delete for custom prompts */}
-            {prompt.isCustom && (
-              <>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEdit?.(prompt);
-                  }}
-                  className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                  title="Edit prompt"
-                >
-                  <Edit2 size={16} />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete?.(prompt);
-                  }}
-                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                  title="Delete prompt"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </>
+            {/* Delete button for all prompts when inactive */}
+            {prompt.status === 'inactive' && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete?.(prompt);
+                }}
+                className="w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-500 hover:text-gray-700 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner"
+                title="Delete prompt"
+                style={{ 
+                  WebkitTapHighlightColor: 'transparent',
+                  WebkitUserSelect: 'none',
+                  userSelect: 'none'
+                }}
+              >
+                <Trash2 size={16} />
+              </button>
             )}
           </div>
         </div>
@@ -361,7 +373,6 @@ const PromptsPage: React.FC = () => {
   
   // Local state
   const [promptQuestions, setPromptQuestions] = useState<PromptQuestion[]>([]);
-  const [customPrompts, setCustomPrompts] = useState<PromptItem[]>([]);
   const [acceptedCompetitors, setAcceptedCompetitors] = useState<CompetitorData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -416,25 +427,25 @@ const PromptsPage: React.FC = () => {
   }, [selectedCompany?.id]);
 
   // Fetch prompts with responses
-  useEffect(() => {
-    if (selectedCompany?.id) {
-      const fetchPrompts = async () => {
-        try {
-          setIsLoading(true);
-          const data = await getPromptsWithResponses(selectedCompany.id);
-          setPromptQuestions(data.questions || []);
-          setError(null);
-        } catch (err) {
-          console.error('Error fetching prompts:', err);
-          setError('Failed to load prompts data');
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      
-      fetchPrompts();
+  const fetchPrompts = useCallback(async () => {
+    if (!selectedCompany?.id) return;
+    
+    try {
+      setIsLoading(true);
+      const data = await getPromptsWithResponses(selectedCompany.id);
+      setPromptQuestions(data.questions || []);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching prompts:', err);
+      setError('Failed to load prompts data');
+    } finally {
+      setIsLoading(false);
     }
   }, [selectedCompany?.id]);
+
+  useEffect(() => {
+    fetchPrompts();
+  }, [fetchPrompts]);
 
   // Transform prompt questions to prompt format
   const allPrompts = useMemo(() => {
@@ -465,14 +476,14 @@ const PromptsPage: React.FC = () => {
         id: q.id,
         question: q.question,
         type: q.type || 'research',
-        isCustom: false,
+        isCustom: q.source === 'user', // Questions created by users vs AI-generated
         usageCount: q.responses.length,
-        lastUsed: q.responses[0]?.createdAt || new Date().toISOString(),
+        lastUsed: q.responses[0]?.createdAt || q.createdAt || 'Unknown',
         status: status
       };
     });
 
-    const combined = [...generatedPrompts, ...customPrompts];
+    const combined = [...generatedPrompts];
 
     // Apply search filter
     let filtered = searchTerm
@@ -487,7 +498,7 @@ const PromptsPage: React.FC = () => {
 
     // Apply limit if needed
     return showLimit === 'all' ? filtered : filtered.slice(0, parseInt(showLimit, 10));
-  }, [promptQuestions, customPrompts, promptStatusOverrides, searchTerm, showLimit, statusFilter]);
+  }, [promptQuestions, promptStatusOverrides, searchTerm, showLimit, statusFilter]);
 
   // Create a mapping of prompt IDs to prompt questions for logo extraction
   const promptToQuestionMap = useMemo(() => {
@@ -514,16 +525,19 @@ const PromptsPage: React.FC = () => {
     }
   };
 
-  const handleAddPrompt = (promptData: { question: string; type: string }) => {
-    const newPrompt: PromptItem = {
-      id: `custom_${Date.now()}`,
-      question: promptData.question,
-      type: promptData.type,
-      isCustom: true,
-      usageCount: 0,
-      status: 'suggested' // New custom prompts start as suggested
-    };
-    setCustomPrompts(prev => [newPrompt, ...prev]);
+  const handleAddPrompt = async (promptData: { question: string; type: string }) => {
+    if (!selectedCompany) return;
+    
+    try {
+      // Call API to create the question as active
+      await addQuestion(selectedCompany.id, promptData.question, true);
+      
+      // Refresh the prompts data to get the new question from backend
+      await fetchPrompts();
+    } catch (error) {
+      console.error('Failed to add question:', error);
+      // Could add error handling UI here
+    }
   };
 
   const handleEditPrompt = (prompt: PromptItem) => {
@@ -531,14 +545,36 @@ const PromptsPage: React.FC = () => {
     console.log('Edit prompt:', prompt);
   };
 
-  const handleDeletePrompt = (prompt: PromptItem) => {
-    if (prompt.isCustom) {
-      setCustomPrompts(prev => prev.filter(p => p.id !== prompt.id));
+  const handleDeletePrompt = async (prompt: PromptItem) => {
+    if (!selectedCompany) return;
+    
+    // Immediate UI feedback - remove from local state
+    setPromptQuestions(prev => prev.filter(q => q.id !== prompt.id));
+    
+    try {
+      // Call API to delete the question
+      await deleteQuestion(selectedCompany.id, prompt.id);
+      
+      // Success - the item is already removed from UI
+      
+    } catch (error) {
+      console.error('Failed to delete question:', error);
+      
+      // On error, restore the item by refreshing data
+      await fetchPrompts();
+      
+      alert('Failed to delete prompt. Please try again.');
     }
   };
 
   const handleStatusChange = async (prompt: PromptItem, newStatus: 'active' | 'inactive' | 'suggested') => {
     if (!selectedCompany) return;
+    
+    // Immediate UI feedback - update status override first
+    setPromptStatusOverrides(prev => ({
+      ...prev,
+      [prompt.id]: newStatus
+    }));
     
     try {
       // Convert status to isActive boolean
@@ -547,28 +583,19 @@ const PromptsPage: React.FC = () => {
       // Call API to persist the change
       await updateQuestionStatus(selectedCompany.id, prompt.id, isActive);
       
-      if (prompt.isCustom) {
-        // Update custom prompts
-        setCustomPrompts(prev => 
-          prev.map(p => p.id === prompt.id ? { ...p, status: newStatus } : p)
-        );
-      } else {
-        // For generated prompts, store the status override
-        setPromptStatusOverrides(prev => ({
-          ...prev,
-          [prompt.id]: newStatus
-        }));
-      }
-      
-      // Refresh the prompts data to reflect the change
-      if (selectedCompany?.id) {
-        const data = await getPromptsWithResponses(selectedCompany.id);
-        setPromptQuestions(data.questions);
-      }
+      // On success, we can optionally refresh to sync with backend
+      // but the UI is already updated via the override above
       
     } catch (error) {
       console.error('Failed to update question status:', error);
-      // Could add a toast notification here
+      
+      // On error, revert the optimistic update
+      setPromptStatusOverrides(prev => {
+        const newOverrides = { ...prev };
+        delete newOverrides[prompt.id];
+        return newOverrides;
+      });
+      
       alert('Failed to update question status. Please try again.');
     }
   };
@@ -592,10 +619,10 @@ const PromptsPage: React.FC = () => {
         <WelcomePrompt
           onGenerateReport={generateReport}
           isGenerating={isGenerating}
-          generationStatus={generationStatus}
+          _generationStatus={generationStatus}
           progress={progress}
           isButtonDisabled={isButtonDisabled}
-          generationState={generationState}
+          _generationState={generationState}
         />
       ) : (
         <>
@@ -657,17 +684,7 @@ const PromptsPage: React.FC = () => {
               <div className="h-full w-full">
                 <div className="h-full overflow-y-auto p-2">
                   {allPrompts.length === 0 ? (
-                    <div className="flex items-center justify-center h-64">
-                      <div className="text-center">
-                        <MessageSquare size={48} className="mx-auto text-gray-300 mb-4" />
-                        <p className="text-gray-500 text-lg">
-                          {searchTerm ? 'No prompts found matching your search' : 'No prompts generated yet'}
-                        </p>
-                        <p className="text-gray-400 text-sm mt-2">
-                          {searchTerm ? 'Try adjusting your search terms' : 'Generated prompts will appear here after creating a report'}
-                        </p>
-                      </div>
-                    </div>
+                    <div></div>
                   ) : (
                     <div>
                       {/* Floating Headers */}

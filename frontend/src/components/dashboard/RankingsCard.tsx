@@ -25,25 +25,115 @@ import { useDashboard } from '../../hooks/useDashboard';
 import { getCompanyLogo } from '../../lib/logoService';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useCompany } from '../../contexts/CompanyContext';
+import { CompetitorData } from '../../services/companyService';
 
 type TabType = 'mentions' | 'citations';
 
+// Enhanced competitor type that merges report metrics with live data
+interface EnhancedCompetitor {
+  name: string;
+  website?: string;
+  shareOfVoice: number;
+  change?: number;
+  changeType?: 'increase' | 'decrease' | 'stable';
+  isUserCompany: boolean;
+  // Additional metadata for debugging and validation
+  dataSource: 'report' | 'hybrid' | 'live';
+  lastUpdated?: string;
+}
+
 const RankingsCard = () => {
-  const { data, loading: _loading, error, acceptedCompetitors } = useDashboard();
+  const { data, loading: dashboardLoading, error, acceptedCompetitors } = useDashboard();
   const { selectedCompany } = useCompany();
   const navigate = useNavigate();
   const isTallerScreen = useMediaQuery('(min-height: 900px)');
   const [activeTab, setActiveTab] = useState<TabType>('mentions');
 
+  // Create enhanced competitors using the live data already available from DashboardContext
+  const liveCompetitors = useMemo((): CompetitorData[] => {
+    if (!selectedCompany?.id) {
+      return [];
+    }
 
+    // Add user's company to the live data for completeness
+    const userCompanyAsCompetitor: CompetitorData = {
+      id: selectedCompany.id,
+      name: selectedCompany.name,
+      website: selectedCompany.website || undefined,
+      isGenerated: false,
+      isAccepted: true,
+    };
+    
+    const allCompetitors = [userCompanyAsCompetitor, ...acceptedCompetitors];
+    
+    // Debug logging in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[RankingsCard] Using live competitor data from context:', allCompetitors.length, 'competitors');
+    }
+    
+    return allCompetitors;
+  }, [selectedCompany?.id, selectedCompany?.name, selectedCompany?.website, acceptedCompetitors]);
 
   // Data is now pre-calculated on the backend
   const rankingsData = data?.competitorRankings;
   const citationData = data?.citationRankings;
 
-  // Filter competitor rankings to only show accepted competitors
+  // Enhanced competitor merger: combines report metrics with live data
+  const enhancedCompetitors = useMemo((): EnhancedCompetitor[] => {
+    if (!rankingsData?.chartCompetitors) {
+      return [];
+    }
+
+    // Create a lookup map for live competitor data by normalized name
+    const liveCompetitorMap = new Map<string, CompetitorData>();
+    liveCompetitors.forEach(competitor => {
+      const normalizedName = competitor.name.toLowerCase().trim();
+      liveCompetitorMap.set(normalizedName, competitor);
+    });
+
+    // Merge report data with live data, prioritizing live data for name/website
+    const enhanced = rankingsData.chartCompetitors.map((reportCompetitor): EnhancedCompetitor => {
+      const normalizedReportName = reportCompetitor.name.toLowerCase().trim();
+      const liveData = liveCompetitorMap.get(normalizedReportName);
+
+      if (liveData) {
+        // Hybrid: Use live data for identity, report data for metrics
+        const hybridCompetitor = {
+          ...reportCompetitor,
+          name: liveData.name, // Use live name (handles any case/formatting updates)
+          website: liveData.website, // Use live website (this is the key fix!)
+          dataSource: 'hybrid' as const,
+          lastUpdated: new Date().toISOString(),
+        };
+        
+        // Debug logging for website changes in development
+        if (process.env.NODE_ENV === 'development' && reportCompetitor.website !== liveData.website) {
+          console.log(`[RankingsCard] Website updated for ${liveData.name}: ${reportCompetitor.website} -> ${liveData.website}`);
+        }
+        
+        return hybridCompetitor;
+      } else {
+        // Report-only: Live data not available, use report data as-is
+        return {
+          ...reportCompetitor,
+          dataSource: 'report' as const,
+        } as EnhancedCompetitor;
+      }
+    });
+
+    // Performance logging in development
+    if (process.env.NODE_ENV === 'development') {
+      const hybridCount = enhanced.filter(c => c.dataSource === 'hybrid').length;
+      const reportOnlyCount = enhanced.filter(c => c.dataSource === 'report').length;
+      console.log(`[RankingsCard] Enhanced competitors: ${hybridCount} hybrid, ${reportOnlyCount} report-only`);
+    }
+
+    return enhanced;
+  }, [rankingsData?.chartCompetitors, liveCompetitors]);
+
+  // Filter enhanced competitors to only show accepted ones
   const filteredRankingsData = useMemo(() => {
-    if (!rankingsData) {
+    if (!rankingsData || enhancedCompetitors.length === 0) {
       return null;
     }
     
@@ -61,43 +151,34 @@ const RankingsCard = () => {
       acceptedCompetitors.map(comp => comp.name.toLowerCase().trim())
     );
 
-    // Filter competitors to only include accepted ones
-    const filteredCompetitors = rankingsData.competitors?.filter(competitor => 
+    // Filter enhanced competitors to only include accepted ones
+    const filteredCompetitors = enhancedCompetitors.filter(competitor => 
       competitor.isUserCompany || acceptedNames.has(competitor.name.toLowerCase().trim())
-    ) || [];
-
-    const filteredChartCompetitors = rankingsData.chartCompetitors?.filter(competitor => 
-      competitor.isUserCompany || acceptedNames.has(competitor.name.toLowerCase().trim())
-    ) || [];
+    );
 
     return {
       ...rankingsData,
       competitors: filteredCompetitors,
-      chartCompetitors: filteredChartCompetitors,
+      chartCompetitors: filteredCompetitors,
     };
-  }, [rankingsData, acceptedCompetitors, selectedCompany?.id]);
+  }, [rankingsData, enhancedCompetitors, acceptedCompetitors, selectedCompany?.id]);
 
-    // Define the competitor type based on companyService structure
-    type Competitor = {
-      name: string;
-      website?: string;
-      shareOfVoice: number;
-      change?: number;
-      changeType?: 'increase' | 'decrease' | 'stable';
-      isUserCompany: boolean;
-    };
+  // Loading state: use dashboard loading since competitor data is fetched with it
+  const isLoading = dashboardLoading;
 
-    // Define the citation type for source domains
-    type Citation = {
-      domain: string;
-      name: string;
-      shareOfVoice: number;
-      citationCount: number;
-      uniqueUrls: number;
-      sampleTitle: string;
-    };
+  // Note: Using EnhancedCompetitor type instead of basic Competitor for fresh data
 
-    const getOrdinalSuffix = (num: number): string => {
+  // Define the citation type for source domains
+  type Citation = {
+    domain: string;
+    name: string;
+    shareOfVoice: number;
+    citationCount: number;
+    uniqueUrls: number;
+    sampleTitle: string;
+  };
+
+  const getOrdinalSuffix = (num: number): string => {
     const j = num % 10;
     const k = num % 100;
     if (j === 1 && k !== 11) {
@@ -121,9 +202,9 @@ const RankingsCard = () => {
       );
     }
 
-    // If company has no ranking (not mentioned), show N/A
+    // If company has no ranking (not mentioned), show N/A with enhanced data
     if (!rankingsData?.industryRanking) {
-      const chartData = rankingsData?.chartCompetitors || [];
+      const chartData = filteredRankingsData?.chartCompetitors as EnhancedCompetitor[] || [];
       const displayedChartData = chartData.slice(0, Math.min(12, chartData.length));
       
       return (
@@ -133,8 +214,8 @@ const RankingsCard = () => {
           </div>
           <div className="flex items-end justify-center space-x-1 h-16 w-full max-w-64">
             {displayedChartData.length > 0 ? (
-              displayedChartData.map((competitor: Competitor, index: number) => {
-                const maxShareOfVoice = Math.max(...displayedChartData.map((c: Competitor) => c.shareOfVoice));
+              displayedChartData.map((competitor: EnhancedCompetitor, index: number) => {
+                const maxShareOfVoice = Math.max(...displayedChartData.map((c: EnhancedCompetitor) => c.shareOfVoice));
                 const heightPercent = maxShareOfVoice > 0 ? (competitor.shareOfVoice / maxShareOfVoice) * 100 : 0;
                 const heightPx = Math.max(8, Math.round((heightPercent / 100) * 64));
                 const isUserCompany = competitor.isUserCompany;
@@ -147,7 +228,7 @@ const RankingsCard = () => {
                       ${isUserCompany ? 'bg-blue-600' : 'bg-gray-300'}
                     `}
                     style={{ height: `${heightPx}px` }}
-                    title={`${competitor.name}: ${competitor.shareOfVoice.toFixed(1)}%`}
+                    title={`${competitor.name}: ${competitor.shareOfVoice.toFixed(1)}% (${competitor.dataSource})`}
                   />
                 );
               })
@@ -165,11 +246,11 @@ const RankingsCard = () => {
       );
     }
 
-    // Chart logic is now simplified as data is pre-calculated.
-    const chartData = filteredRankingsData?.chartCompetitors || [];
+    // Chart logic using enhanced competitors for fresh data
+    const chartData = filteredRankingsData?.chartCompetitors as EnhancedCompetitor[] || [];
     // Show up to 12 competitors, or all available if fewer than 12
     const displayedChartData = chartData.slice(0, Math.min(12, chartData.length));
-    const maxShareOfVoice = displayedChartData.length > 0 ? Math.max(...displayedChartData.map((c: Competitor) => c.shareOfVoice)) : 0;
+    const maxShareOfVoice = displayedChartData.length > 0 ? Math.max(...displayedChartData.map((c: EnhancedCompetitor) => c.shareOfVoice)) : 0;
     
     return (
       <div className="flex-1 flex flex-col items-center justify-center">
@@ -178,7 +259,7 @@ const RankingsCard = () => {
         <span className="text-xl font-normal text-gray-500">{getOrdinalSuffix(filteredRankingsData?.industryRanking || 0)}</span>
       </div>
         <div className="flex items-end justify-center space-x-1 h-16 w-full max-w-64">
-          {displayedChartData.map((competitor: Competitor, index: number) => {
+          {displayedChartData.map((competitor: EnhancedCompetitor, index: number) => {
             const isUserCompany = competitor.isUserCompany;
             // Calculate height based on share of voice percentage (minimum 8px, maximum 64px)
             const heightPercent = maxShareOfVoice > 0 ? (competitor.shareOfVoice / maxShareOfVoice) * 100 : 0;
@@ -192,7 +273,7 @@ const RankingsCard = () => {
                   height: `${heightPx}px`,
                   backgroundColor: isUserCompany ? chartColorArrays.primary[0] : '#d1d5db' // blue-600 : gray-300
                 }}
-                title={`${competitor.name}: ${competitor.shareOfVoice.toFixed(1)}%`}
+                title={`${competitor.name}: ${competitor.shareOfVoice.toFixed(1)}% (${competitor.dataSource})`}
               />
             );
           })}
@@ -203,7 +284,8 @@ const RankingsCard = () => {
   };
 
   const renderMentionsView = () => {
-    if (error) {
+    // Enhanced error handling: show loading state or error with context
+    if (error && !isLoading) {
       return (
         <div className="flex-1 flex items-center justify-center">
           <p className="text-gray-400 text-sm">Error loading data</p>
@@ -211,7 +293,16 @@ const RankingsCard = () => {
       );
     }
 
-    // Use chartCompetitors to include the user's company
+    // Show loading state while data is being fetched
+    if (isLoading) {
+      return (
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-gray-400 text-sm">Loading competitor rankings...</p>
+        </div>
+      );
+    }
+
+    // Use enhanced competitors (with fresh website data) instead of raw report data
     if (!filteredRankingsData || !filteredRankingsData.chartCompetitors || filteredRankingsData.chartCompetitors.length === 0) {
       return (
         <div className="flex-1 flex items-center justify-center">
@@ -222,17 +313,17 @@ const RankingsCard = () => {
 
     const numCompetitorsToShow = isTallerScreen ? 5 : 4;
 
-    // Show only top 3 entities (including user company), then "X+ others" if there are more
-    const allCompetitors = filteredRankingsData.chartCompetitors;
+    // Use enhanced competitors (these have fresh website data from live API)
+    const allCompetitors = filteredRankingsData.chartCompetitors as EnhancedCompetitor[];
     const topCompetitors = allCompetitors.slice(0, numCompetitorsToShow);
     const remainingCompetitors = allCompetitors.slice(numCompetitorsToShow);
     const remainingCount = remainingCompetitors.length;
     
     // Calculate combined share of voice for remaining competitors
-    const remainingShareOfVoice = remainingCompetitors.reduce((total: number, competitor: Competitor) => total + competitor.shareOfVoice, 0);
+    const remainingShareOfVoice = remainingCompetitors.reduce((total: number, competitor: EnhancedCompetitor) => total + competitor.shareOfVoice, 0);
     
-    // Create the display list
-    const displayCompetitors = [...topCompetitors];
+    // Create the display list with enhanced competitors
+    const displayCompetitors: (EnhancedCompetitor | { name: string; shareOfVoice: number; change: number; changeType: 'stable'; isUserCompany: boolean; website?: string; dataSource?: string })[] = [...topCompetitors];
     if (remainingCount > 0) {
       // Add "X+ others" entry with combined percentage
       displayCompetitors.push({
@@ -241,13 +332,14 @@ const RankingsCard = () => {
         change: 0,
         changeType: 'stable' as const,
         isUserCompany: false,
-        website: undefined
+        website: undefined,
+        dataSource: 'aggregated'
       });
     }
 
     return (
       <div className="flex-1 space-y-1">
-        {displayCompetitors.map((competitor: Competitor | { name: string; shareOfVoice: number; change: number; changeType: 'stable'; isUserCompany: boolean; website?: string }, index: number) => {
+        {displayCompetitors.map((competitor, index: number) => {
           const logoResult = competitor.website ? getCompanyLogo(competitor.website) : null;
           const isOthers = competitor.name.includes('others');
           
