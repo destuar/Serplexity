@@ -1310,7 +1310,9 @@ export const addQuestion = async (req: Request, res: Response) => {
       const isInActiveTrial = user?.subscriptionStatus === "trialing" && 
         user?.trialEndsAt && new Date() < new Date(user.trialEndsAt);
       
-      if (!hasActiveSubscription && !isInActiveTrial && activeQuestions >= 5) {
+      // Admins have unlimited access
+      const isAdmin = user?.role === "ADMIN";
+      if (!isAdmin && !hasActiveSubscription && !isInActiveTrial && activeQuestions >= 5) {
         return res.status(403).json({ 
           error: "Free accounts are limited to 5 active questions",
           message: "Upgrade to add more active questions",

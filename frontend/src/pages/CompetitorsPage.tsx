@@ -148,21 +148,38 @@ const CompetitorListItem: React.FC<{
           <div className="flex items-center gap-1 flex-shrink-0">
             {isEditing ? (
               <>
-                <button
-                  onClick={() => onCancelEdit?.()}
-                  disabled={isUpdating}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50"
-                  title="Cancel edit"
-                >
-                  <X size={16} />
-                </button>
+                {/* Save button (check) - replaces edit button position */}
                 <button
                   onClick={() => onSaveEdit?.(competitor.id, editName.trim(), editWebsite.trim())}
                   disabled={!editName.trim() || !editWebsite.trim() || isUpdating}
-                  className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-500 hover:text-gray-700 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Save changes"
+                  style={{ 
+                    WebkitTapHighlightColor: 'transparent',
+                    WebkitUserSelect: 'none',
+                    userSelect: 'none'
+                  }}
                 >
-                  {isUpdating ? <InlineSpinner size={16} /> : <Check size={16} />}
+                  {isUpdating ? (
+                    <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <Check size={16} />
+                  )}
+                </button>
+                
+                {/* Cancel button (X) - stays in remove/decline position */}
+                <button
+                  onClick={() => onCancelEdit?.()}
+                  disabled={isUpdating}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-500 hover:text-gray-700 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner disabled:opacity-50"
+                  title="Cancel edit"
+                  style={{ 
+                    WebkitTapHighlightColor: 'transparent',
+                    WebkitUserSelect: 'none',
+                    userSelect: 'none'
+                  }}
+                >
+                  <X size={16} />
                 </button>
               </>
             ) : (
@@ -171,8 +188,13 @@ const CompetitorListItem: React.FC<{
                 {!isUserCompany && (
                   <button
                     onClick={() => onEdit?.(competitor)}
-                    className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-500 hover:text-gray-700 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner"
                     title="Edit competitor"
+                    style={{ 
+                      WebkitTapHighlightColor: 'transparent',
+                      WebkitUserSelect: 'none',
+                      userSelect: 'none'
+                    }}
                   >
                     <Edit2 size={16} />
                   </button>
@@ -182,8 +204,13 @@ const CompetitorListItem: React.FC<{
                 {!isUserCompany && !isSuggested && (
                   <button
                     onClick={() => onRemove?.(competitor.id)}
-                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-500 hover:text-gray-700 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner"
                     title="Remove competitor"
+                    style={{ 
+                      WebkitTapHighlightColor: 'transparent',
+                      WebkitUserSelect: 'none',
+                      userSelect: 'none'
+                    }}
                   >
                     <X size={16} />
                   </button>
@@ -194,15 +221,25 @@ const CompetitorListItem: React.FC<{
                   <>
                     <button
                       onClick={() => onDecline?.(competitor.id)}
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      className="w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-500 hover:text-gray-700 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner"
                       title="Decline competitor"
+                      style={{ 
+                        WebkitTapHighlightColor: 'transparent',
+                        WebkitUserSelect: 'none',
+                        userSelect: 'none'
+                      }}
                     >
                       <X size={16} />
                     </button>
                     <button
                       onClick={() => onAccept?.(competitor.id)}
-                      className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                      className="w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-500 hover:text-gray-700 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner"
                       title="Accept competitor"
+                      style={{ 
+                        WebkitTapHighlightColor: 'transparent',
+                        WebkitUserSelect: 'none',
+                        userSelect: 'none'
+                      }}
                     >
                       <Check size={16} />
                     </button>
@@ -227,7 +264,8 @@ const CompetitorCard: React.FC<{
   onSaveEdit?: (id: string, name: string, website: string) => void;
   onCancelEdit?: () => void;
   isUpdating?: boolean;
-}> = ({ competitor, onAccept, onDecline, onEdit, isEditing, onSaveEdit, onCancelEdit, isUpdating }) => {
+  isAcceptingOrDeclining?: boolean;
+}> = ({ competitor, onAccept, onDecline, onEdit, isEditing, onSaveEdit, onCancelEdit, isUpdating, isAcceptingOrDeclining }) => {
   const logoResult = competitor.website ? getCompanyLogo(competitor.website) : null;
   
   const [editName, setEditName] = React.useState(competitor.name);
@@ -266,7 +304,7 @@ const CompetitorCard: React.FC<{
         {/* Company Info - Editable when in edit mode */}
         <div className="flex-1 min-w-0">
           {isEditing ? (
-            <div className="space-y-2 pb-1">
+            <div className="space-y-2 pb-1 pt-2">
               <input
                 type="text"
                 value={editName}
@@ -281,6 +319,7 @@ const CompetitorCard: React.FC<{
                 className="w-full px-2 py-1 text-xs text-gray-600 bg-gray-50 border-none rounded shadow-inner focus:outline-none focus:bg-white focus:shadow-sm transition-all"
                 placeholder="https://company.com"
               />
+              <div className="pt-1"></div>
             </div>
           ) : (
             <div className="py-2">
@@ -314,10 +353,15 @@ const CompetitorCard: React.FC<{
         <div className="flex-shrink-0">
           <button
             onClick={() => onEdit?.(competitor)}
-            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+            className="w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-500 hover:text-gray-700 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner"
             title="Edit competitor"
+            style={{ 
+              WebkitTapHighlightColor: 'transparent',
+              WebkitUserSelect: 'none',
+              userSelect: 'none'
+            }}
           >
-            <Edit2 size={14} />
+            <Edit2 size={16} />
           </button>
         </div>
       </div>
@@ -329,33 +373,48 @@ const CompetitorCard: React.FC<{
             <button
               onClick={() => onCancelEdit?.()}
               disabled={isUpdating}
-              className="flex-1 px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:shadow-sm transition-all rounded flex items-center justify-center gap-1 disabled:opacity-50"
+              className="flex-1 px-3 py-1.5 text-xs bg-white/80 backdrop-blur-sm border border-white/20 text-gray-500 hover:text-gray-700 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner transition-colors rounded flex items-center justify-center gap-1 disabled:opacity-50"
             >
+              <X size={12} />
               Cancel
             </button>
             <button
               onClick={() => onSaveEdit?.(competitor.id, editName.trim(), editWebsite.trim())}
               disabled={!editName.trim() || !editWebsite.trim() || isUpdating}
-              className="flex-1 px-3 py-1.5 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-600/5 hover:shadow-sm transition-all rounded flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-3 py-1.5 text-xs bg-white/80 backdrop-blur-sm border border-white/20 text-gray-500 hover:text-gray-700 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner transition-colors rounded flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isUpdating ? <InlineSpinner size={12} /> : 'Save'}
+              {isUpdating ? (
+                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <>
+                  <Check size={12} />
+                  Save
+                </>
+              )}
             </button>
           </>
         ) : (
           <>
             <button
               onClick={() => onDecline?.(competitor.id)}
-              className="flex-1 px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:shadow-sm transition-all rounded flex items-center justify-center gap-1"
+              className="flex-1 px-3 py-1.5 text-xs bg-white/80 backdrop-blur-sm border border-white/20 text-gray-500 hover:text-gray-700 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner transition-colors rounded flex items-center justify-center gap-1"
             >
               <X size={12} />
               Decline
             </button>
             <button
               onClick={() => onAccept?.(competitor.id)}
-              className="flex-1 px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:shadow-sm transition-all rounded flex items-center justify-center gap-1"
+              disabled={isAcceptingOrDeclining}
+              className="flex-1 px-3 py-1.5 text-xs bg-white/80 backdrop-blur-sm border border-white/20 text-gray-500 hover:text-gray-700 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner transition-colors rounded flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Check size={12} />
-              Accept
+              {isAcceptingOrDeclining ? (
+                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <>
+                  <Check size={12} />
+                  Accept
+                </>
+              )}
             </button>
           </>
         )}
@@ -377,6 +436,7 @@ const CompetitorsPage = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingCompetitorId, setEditingCompetitorId] = useState<string | null>(null);
   const [isUpdatingCompetitor, setIsUpdatingCompetitor] = useState(false);
+  const [acceptingDeclineingId, setAcceptingDeclineingId] = useState<string | null>(null);
 
   // Report generation logic
   const { 
@@ -445,6 +505,7 @@ const CompetitorsPage = () => {
   const handleAcceptCompetitor = async (competitorId: string) => {
     if (!selectedCompany?.id) return;
     
+    setAcceptingDeclineingId(competitorId);
     try {
       await acceptCompetitor(selectedCompany.id, competitorId);
       
@@ -458,12 +519,15 @@ const CompetitorsPage = () => {
       );
     } catch (error) {
       console.error('Failed to accept competitor:', error);
+    } finally {
+      setAcceptingDeclineingId(null);
     }
   };
 
   const handleDeclineCompetitor = async (competitorId: string) => {
     if (!selectedCompany?.id) return;
     
+    setAcceptingDeclineingId(competitorId);
     try {
       await declineCompetitor(selectedCompany.id, competitorId);
       
@@ -471,6 +535,8 @@ const CompetitorsPage = () => {
       setCompetitors(prev => prev.filter(comp => comp.id !== competitorId));
     } catch (error) {
       console.error('Failed to decline competitor:', error);
+    } finally {
+      setAcceptingDeclineingId(null);
     }
   };
 
@@ -611,6 +677,7 @@ const CompetitorsPage = () => {
                             onSaveEdit={handleSaveEdit}
                             onCancelEdit={handleCancelEdit}
                             isUpdating={isUpdatingCompetitor && editingCompetitorId === competitor.id}
+                            isAcceptingOrDeclining={acceptingDeclineingId === competitor.id}
                           />
                         ))}
                       </div>
@@ -640,7 +707,7 @@ const CompetitorsPage = () => {
                     {/* Add Competitor Form */}
                     {showAddForm && (
                       <div className="flex-shrink-0 bg-white border-b border-gray-100 px-4 py-3">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
                           <div>
                             <label className="block text-xs font-medium text-gray-700 mb-1">Company Name</label>
                             <input
@@ -651,41 +718,35 @@ const CompetitorsPage = () => {
                               className="w-full px-2 py-1.5 border border-gray-200 rounded shadow-sm focus:ring-1 focus:ring-blue-600 focus:border-transparent text-xs"
                             />
                           </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">Website URL</label>
-                            <input
-                              type="text"
-                              value={newCompetitorWebsite}
-                              onChange={(e) => setNewCompetitorWebsite(e.target.value)}
-                              placeholder="company.com"
-                              className="w-full px-2 py-1.5 border border-gray-200 rounded shadow-sm focus:ring-1 focus:ring-blue-600 focus:border-transparent text-xs"
-                            />
+                          <div className="flex gap-3 items-end">
+                            <div className="flex-1">
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Website URL</label>
+                              <input
+                                type="text"
+                                value={newCompetitorWebsite}
+                                onChange={(e) => setNewCompetitorWebsite(e.target.value)}
+                                placeholder="company.com"
+                                className="w-full px-2 py-1.5 border border-gray-200 rounded shadow-sm focus:ring-1 focus:ring-blue-600 focus:border-transparent text-xs"
+                              />
+                            </div>
+                            <button
+                              onClick={handleAddCompetitor}
+                              disabled={!newCompetitorName.trim() || !newCompetitorWebsite.trim() || isAddingCompetitor}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-800 hover:text-gray-900 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Add competitor"
+                              style={{ 
+                                WebkitTapHighlightColor: 'transparent',
+                                WebkitUserSelect: 'none',
+                                userSelect: 'none'
+                              }}
+                            >
+                              {isAddingCompetitor ? (
+                                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                              ) : (
+                                <Check size={16} />
+                              )}
+                            </button>
                           </div>
-                        </div>
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={handleAddCompetitor}
-                            disabled={!newCompetitorName.trim() || !newCompetitorWebsite.trim() || isAddingCompetitor}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-black transition-colors text-xs"
-                          >
-                            {isAddingCompetitor ? (
-                              <>
-                                <Loader size={12} className="animate-spin" />
-                                Adding...
-                              </>
-                            ) : (
-                              <>
-                                <Plus size={12} />
-                                Add
-                              </>
-                            )}
-                          </button>
-                          <button
-                            onClick={() => setShowAddForm(false)}
-                            className="px-3 py-1.5 text-gray-500 hover:text-gray-700 transition-colors text-xs"
-                          >
-                            Cancel
-                          </button>
                         </div>
                       </div>
                     )}

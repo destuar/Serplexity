@@ -135,7 +135,7 @@ const IndustryAutocomplete: React.FC<{
     }
   };
 
-  const inputClassName = "w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:hover]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:hover]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:focus]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:focus]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:active]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:active]:[-webkit-text-fill-color:rgb(17_24_39)!important]";
+  const inputClassName = "w-full px-4 py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600/30 transition-all text-gray-900 placeholder:text-gray-500 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_rgb(255_255_255)] [&:-webkit-autofill]:[-webkit-text-fill-color:rgb(17_24_39)!important]";
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -153,7 +153,7 @@ const IndustryAutocomplete: React.FC<{
       
       {isOpen && (
         <div
-          className="absolute z-[9999] w-full mt-1 max-h-60 overflow-auto rounded-lg shadow-lg border bg-white/95 backdrop-blur-xl border-gray-200"
+          className="absolute z-[9999] w-full mt-2 max-h-60 overflow-auto rounded-xl shadow-2xl border bg-white/95 backdrop-blur-xl border-gray-200"
           style={{ position: 'absolute', top: '100%', left: 0 }}
         >
           {filteredOptions.length > 0 ? (
@@ -162,13 +162,13 @@ const IndustryAutocomplete: React.FC<{
                 key={option}
                 type="button"
                 onClick={() => handleOptionClick(option)}
-                className="w-full text-left px-4 py-2 text-sm transition-colors text-gray-900 hover:bg-gray-100"
+                className="w-full text-left px-4 py-3 text-sm transition-all text-gray-900 hover:bg-gray-50/80 first:rounded-t-xl last:rounded-b-xl"
               >
                 {option}
               </button>
             ))
           ) : (
-            <div className="px-4 py-2 text-sm text-gray-500">
+            <div className="px-4 py-3 text-sm text-gray-500 rounded-xl">
               No matches found. Press Enter to use "{value}" as custom industry.
             </div>
           )}
@@ -251,52 +251,67 @@ const MultiStepCompanyForm: React.FC<MultiStepCompanyFormProps> = ({
   }
 
   return (
-    <div className="max-w-md mx-auto bg-white/80 backdrop-blur-xl rounded-2xl p-8 shadow-lg">
+    <div className="max-w-lg mx-auto bg-white/95 backdrop-blur-xl border border-white/20 rounded-2xl p-8 shadow-2xl">
       {/* Header */}
       <div className="text-center mb-8">
+        <div className="w-12 h-12 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl flex items-center justify-center mx-auto mb-4">
+          <Building className="w-6 h-6 text-purple-600" />
+        </div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Your Company Profile</h2>
-        <p className="text-gray-600">Tell us about your company to get started</p>
+        <p className="text-gray-600">Tell us about your company to get started with AI visibility tracking</p>
       </div>
 
       {/* Form */}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Company Name */}
         <div>
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-            <Building className="w-4 h-4" />
-            Company Name *
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-3">
+            <span className="w-1.5 h-1.5 bg-purple-600 rounded-full"></span>
+            Company Name
           </label>
           <input
             type="text"
             {...register('name')}
-            className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:hover]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:hover]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:focus]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:focus]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:active]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:active]:[-webkit-text-fill-color:rgb(17_24_39)!important]"
+            className="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600/30 transition-all text-gray-900 placeholder:text-gray-500 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_rgb(255_255_255)] [&:-webkit-autofill]:[-webkit-text-fill-color:rgb(17_24_39)!important]"
             placeholder="Enter your company name"
             required
+            autoFocus
           />
-          {errors.name && <p className="text-sm text-red-500 mt-1">{errors.name.message}</p>}
+          {errors.name && <p className="text-sm text-red-500 mt-2 flex items-center gap-1">
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            {errors.name.message}
+          </p>}
         </div>
 
         {/* Website */}
         <div>
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-            <Globe className="w-4 h-4" />
-            Website URL *
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-3">
+            <span className="w-1.5 h-1.5 bg-blue-600 rounded-full"></span>
+            Website URL
           </label>
           <input
             type="text"
             {...register('website')}
-            className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:hover]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:hover]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:focus]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:focus]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:active]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:active]:[-webkit-text-fill-color:rgb(17_24_39)!important]"
+            className="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600/30 transition-all text-gray-900 placeholder:text-gray-500 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_rgb(255_255_255)] [&:-webkit-autofill]:[-webkit-text-fill-color:rgb(17_24_39)!important]"
             placeholder="https://example.com"
             required
           />
-          {errors.website && <p className="text-sm text-red-500 mt-1">{errors.website.message}</p>}
+          <p className="text-xs text-gray-500 mt-2">We'll use this to fetch your company logo and branding</p>
+          {errors.website && <p className="text-sm text-red-500 mt-2 flex items-center gap-1">
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            {errors.website.message}
+          </p>}
         </div>
 
         {/* Industry */}
         <div>
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-            <Factory className="w-4 h-4" />
-            Industry *
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-3">
+            <span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>
+            Industry
           </label>
           <IndustryAutocomplete
             value={industryValue}
@@ -307,29 +322,37 @@ const MultiStepCompanyForm: React.FC<MultiStepCompanyFormProps> = ({
               }
             }}
           />
-          {errors.industry && <p className="text-sm text-red-500 mt-1">{errors.industry.message}</p>}
+          <p className="text-xs text-gray-500 mt-2">Helps us provide industry-specific insights and benchmarks</p>
+          {errors.industry && <p className="text-sm text-red-500 mt-2 flex items-center gap-1">
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            {errors.industry.message}
+          </p>}
         </div>
 
-        {/* Submit Button */}
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {submitting && <InlineSpinner size={16} />}
-          {submitting ? 'Creating Company...' : 'Create Company'}
-        </button>
-
-        {/* Cancel Button */}
-        {onCancel && (
+        {/* Action Buttons */}
+        <div className="space-y-3 pt-4">
           <button
-            type="button"
-            onClick={onCancel}
-            className="w-full px-6 py-3 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            type="submit"
+            disabled={submitting}
+            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-black text-white rounded-xl hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-black/20 transition-all font-medium shadow-lg disabled:shadow-none"
           >
-            Cancel
+            {submitting && <InlineSpinner size={16} />}
+            {submitting ? 'Creating Company...' : 'Create Company'}
           </button>
-        )}
+
+          {/* Cancel Button */}
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="w-full px-6 py-3 text-gray-600 hover:text-gray-800 hover:bg-gray-50/50 transition-all rounded-xl font-medium"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
       </form>
     </div>
   );

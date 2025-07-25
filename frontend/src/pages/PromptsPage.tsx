@@ -13,10 +13,12 @@
  * - PromptsPage: The main prompts management page component.
  */
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { RefreshCw, ListFilter, Plus, Search, Edit2, Trash2, Check, X } from 'lucide-react';
+import { RefreshCw, ListFilter, Search, Trash2, Check, X, Plus } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';
+import { useAuth } from '../contexts/AuthContext';
+import apiClient from '../lib/apiClient';
 import { getPromptsWithResponses, PromptQuestion, getAcceptedCompetitors, CompetitorData, updateQuestionStatus, addQuestion, deleteQuestion } from '../services/companyService';
 import { getCompanyLogo } from '../lib/logoService';
 import FilterDropdown from '../components/dashboard/FilterDropdown';
@@ -294,75 +296,120 @@ const PromptListItem: React.FC<{
 };
 
 
-const AddPromptModal: React.FC<{
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (prompt: { question: string; type: string }) => void;
-}> = ({ isOpen, onClose, onSave }) => {
+const AddPromptInline: React.FC<{
+  onSave: (prompt: { question: string }) => void;
+  onCancel: () => void;
+  canModifyPrompts: boolean;
+  isAdmin: boolean;
+}> = ({ onSave, onCancel, canModifyPrompts, isAdmin }) => {
   const [question, setQuestion] = useState('');
-  const [type, setType] = useState('research');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  if (!isOpen) return null;
+  // Count words in the question
+  const wordCount = question.trim() ? question.trim().split(/\s+/).length : 0;
+  const isOverLimit = wordCount > 20;
 
-  const handleSave = () => {
-    if (question.trim()) {
-      onSave({ question: question.trim(), type });
+  const handleSave = async () => {
+    if (!question.trim() || isOverLimit || isSubmitting) return;
+
+    // Check if user has permission to add prompts
+    if (!canModifyPrompts && !isAdmin) {
+      alert('Adding custom prompts requires a subscription. Please upgrade your plan to add custom prompts.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onSave({ question: question.trim() });
       setQuestion('');
-      setType('research');
-      onClose();
+      onCancel(); // Hide the input after saving
+    } catch (error) {
+      console.error('Failed to add prompt:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      handleSave();
+    } else if (e.key === 'Escape') {
+      onCancel();
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white border border-gray-200 rounded-lg shadow-lg w-full max-w-md mx-4">
-        <div className="p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Add New Prompt</h2>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Question/Prompt
-              </label>
-              <textarea
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                placeholder="Enter your question or prompt..."
-                className="w-full px-3 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent resize-none"
-                rows={3}
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Type
-              </label>
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-              >
-                <option value="research">Research</option>
-                <option value="comparison">Comparison</option>
-                <option value="specific">Specific</option>
-                <option value="general">General</option>
-              </select>
-            </div>
+    <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 transition-all mb-3">
+      <div className="px-4 py-3">
+        <div className="grid grid-cols-[auto_1fr_8rem_6rem_6rem_5rem] gap-3 items-center">
+          {/* Number placeholder */}
+          <div className="text-xs font-medium text-gray-500">
+            1
           </div>
           
-          <div className="flex justify-end gap-3 mt-6">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-            >
-              Cancel
-            </button>
+          {/* Question Input */}
+          <div className="min-w-0 flex items-center">
+            <textarea
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Type your custom prompt here..."
+              className="w-full px-0 py-0 bg-transparent border-none focus:outline-none resize-none text-sm text-gray-900 font-medium leading-relaxed placeholder:text-gray-500"
+              rows={1}
+              style={{
+                minHeight: '1.25rem',
+                height: 'auto',
+                overflow: 'hidden'
+              }}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = 'auto';
+                target.style.height = Math.min(target.scrollHeight, 120) + 'px';
+              }}
+              autoFocus
+            />
+          </div>
+          
+          {/* Empty space for Mentions */}
+          <div className="pl-6"></div>
+          
+          {/* Empty space for Citations */}
+          <div className="pl-6"></div>
+          
+          {/* Empty space for Created */}
+          <div className="pl-6"></div>
+          
+          {/* Actions - Check and X buttons */}
+          <div className="flex items-center gap-2 justify-end">
             <button
               onClick={handleSave}
-              disabled={!question.trim()}
-              className="px-4 py-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-black transition-colors"
+              disabled={!question.trim() || isOverLimit || isSubmitting}
+              className="w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-800 hover:text-gray-900 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Add prompt"
+              style={{ 
+                WebkitTapHighlightColor: 'transparent',
+                WebkitUserSelect: 'none',
+                userSelect: 'none'
+              }}
             >
-              Add Prompt
+              {isSubmitting ? (
+                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <Check size={16} />
+              )}
+            </button>
+            <button
+              onClick={onCancel}
+              className="w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-500 hover:text-gray-700 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner"
+              title="Cancel"
+              style={{ 
+                WebkitTapHighlightColor: 'transparent',
+                WebkitUserSelect: 'none',
+                userSelect: 'none'
+              }}
+            >
+              <Trash2 size={16} />
             </button>
           </div>
         </div>
@@ -377,6 +424,7 @@ const PromptsPage: React.FC = () => {
   const { setBreadcrumbs, registerEmbeddedPageCloser, unregisterEmbeddedPageCloser } = useNavigation();
   const { embeddedPage, openEmbeddedPage, closeEmbeddedPage, isEmbedded } = useEmbeddedPage('Prompts');
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth();
   
   // Local state
   const [promptQuestions, setPromptQuestions] = useState<PromptQuestion[]>([]);
@@ -384,8 +432,10 @@ const PromptsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showAddModal, setShowAddModal] = useState(false);
   const [selectedPrompt, setSelectedPrompt] = useState<PromptItem | null>(null);
+  const [showAddPrompt, setShowAddPrompt] = useState(false);
+  const [canModifyPrompts, setCanModifyPrompts] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Show limit dropdown (10, 20, 50, all)
   const [showLimit] = useState<'10' | '20' | '50' | 'all'>('20');
@@ -411,6 +461,26 @@ const PromptsPage: React.FC = () => {
       setBreadcrumbs([{ label: 'Prompts' }]);
     }
   }, [isEmbedded, setBreadcrumbs]);
+
+  // Fetch trial status to check if user can modify prompts
+  useEffect(() => {
+    const fetchTrialStatus = async () => {
+      if (!user) return;
+      
+      try {
+        const response = await apiClient.get('/users/me/trial-status');
+        const { canModifyPrompts: canModify, isAdmin: adminStatus } = response.data;
+        setCanModifyPrompts(canModify || false);
+        setIsAdmin(adminStatus || false);
+      } catch (error) {
+        console.error('Failed to fetch trial status:', error);
+        setCanModifyPrompts(false);
+        setIsAdmin(false);
+      }
+    };
+
+    fetchTrialStatus();
+  }, [user]);
 
   // Register/unregister embedded page closer
   useEffect(() => {
@@ -513,7 +583,7 @@ const PromptsPage: React.FC = () => {
         type: q.type || 'research',
         isCustom: q.source === 'user', // Questions created by users vs AI-generated
         usageCount: q.responses.length,
-        lastUsed: q.responses[0]?.createdAt || q.createdAt || 'Unknown',
+        lastUsed: q.createdAt || q.responses[0]?.createdAt || 'Unknown',
         status: status
       };
     });
@@ -530,6 +600,19 @@ const PromptsPage: React.FC = () => {
 
     // Apply status filter
     filtered = filtered.filter(p => p.status === statusFilter);
+
+    // Sort by newest to oldest (prioritize creation date for recently added prompts)
+    filtered.sort((a, b) => {
+      // For newly created prompts, use the most recent date between creation and last response
+      const getEffectiveDate = (prompt: PromptItem) => {
+        if (prompt.lastUsed === 'Unknown') return new Date(0);
+        return new Date(prompt.lastUsed);
+      };
+      
+      const dateA = getEffectiveDate(a);
+      const dateB = getEffectiveDate(b);
+      return dateB.getTime() - dateA.getTime(); // Newest first
+    });
 
     // Apply limit if needed
     return showLimit === 'all' ? filtered : filtered.slice(0, parseInt(showLimit, 10));
@@ -560,18 +643,30 @@ const PromptsPage: React.FC = () => {
     }
   };
 
-  const handleAddPrompt = async (promptData: { question: string; type: string }) => {
+  const handleAddPrompt = async (promptData: { question: string }) => {
     if (!selectedCompany) return;
     
     try {
-      // Call API to create the question as active
+      // Call API to create the question as active (no type needed)
       await addQuestion(selectedCompany.id, promptData.question, true);
       
       // Refresh the prompts data to get the new question from backend
       await fetchPrompts();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to add question:', error);
-      // Could add error handling UI here
+      
+      // Handle subscription-related errors gracefully
+      if (error?.response?.status === 403) {
+        if (isAdmin) {
+          alert('Access denied. Please check your admin permissions.');
+        } else {
+          alert('Adding custom prompts requires a subscription. Please upgrade your plan to add custom prompts.');
+        }
+      } else {
+        alert('Failed to add prompt. Please try again.');
+      }
+      
+      throw error; // Re-throw to handle in the inline component
     }
   };
 
@@ -663,7 +758,8 @@ const PromptsPage: React.FC = () => {
         <>
 
           {/* Filter, Search and Add Bar */}
-          <div className="flex-shrink-0 flex gap-4 mb-4 items-center">
+          <div className="flex-shrink-0 flex gap-4 mb-4 items-center justify-between">
+            <div className="flex gap-4 items-center">
             <FilterDropdown
               label="Status"
               value={statusFilter}
@@ -687,13 +783,38 @@ const PromptsPage: React.FC = () => {
               />
             </div>
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={() => setShowAddPrompt(true)}
               className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-black transition-colors text-sm"
             >
               <Plus size={16} />
               Add Prompt
             </button>
+            </div>
+            
+            {/* Prompt Counter */}
+            <div className="px-3 py-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md">
+              <div className="text-sm text-gray-700">
+                {(() => {
+                  // Count all active prompts from raw data, not filtered by UI
+                  const allActivePrompts = promptQuestions.filter(q => {
+                    const overrideStatus = promptStatusOverrides[q.id];
+                    const status = overrideStatus || (q.isActive ? 'active' : 'suggested');
+                    return status === 'active';
+                  }).length;
+                  
+                  
+                  if (isAdmin) {
+                    return `${allActivePrompts}/∞ Active`;
+                  } else if (canModifyPrompts) {
+                    return `${allActivePrompts}/∞ Active`;
+                  } else {
+                    return `${allActivePrompts}/5 Active`;
+                  }
+                })()}
+              </div>
+            </div>
           </div>
+
 
           {/* Content Area */}
           {!dashboardData || (isLoading && promptQuestions.length === 0) ? (
@@ -745,11 +866,21 @@ const PromptsPage: React.FC = () => {
                         </div>
                       </div>
                       
+                      {/* Conditional Inline Add Prompt - appears as position 0 */}
+                      {showAddPrompt && (
+                        <AddPromptInline 
+                          onSave={handleAddPrompt} 
+                          onCancel={() => setShowAddPrompt(false)}
+                          canModifyPrompts={canModifyPrompts}
+                          isAdmin={isAdmin}
+                        />
+                      )}
+                      
                       {allPrompts.map((prompt, index) => (
                         <PromptListItem
                           key={prompt.id}
                           prompt={prompt}
-                          index={index}
+                          index={showAddPrompt ? index + 1 : index}
                           promptQuestion={promptToQuestionMap.get(prompt.id)}
                           acceptedCompetitors={acceptedCompetitors}
                           onEdit={handleEditPrompt}
@@ -766,13 +897,6 @@ const PromptsPage: React.FC = () => {
           )}
         </>
       )}
-
-      {/* Add Prompt Modal */}
-      <AddPromptModal
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onSave={handleAddPrompt}
-      />
     </div>
   );
 };
