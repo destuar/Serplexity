@@ -46,6 +46,10 @@ import {
   transformDashboardData,
   validateNormalizedData 
 } from '../utils/dataTransformationLayer';
+import { 
+  DataPipelineMonitor, 
+  validateDataPipeline 
+} from '../utils/dataConsistencyDebugger';
 // Error handling simplified for production readiness
 
 interface ApiError {
@@ -203,7 +207,13 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
         return;
       }
 
-      // If we have dashboard data, fetch additional data
+      // If we have dashboard data, fetch additional data with enterprise monitoring
+      console.group('🔄 [DashboardContext] Fetching dashboard data');
+      console.log('🎯 Current Filters:', currentFilters);
+      console.log('🏢 Company:', selectedCompany.name);
+      console.log('⚠️ NOTE: currentFilters does NOT include granularity - this returns RAW data');
+      console.log('🔍 DashboardContext fetches data without granularity parameter');
+      
       const [sovHistory, inclusionHistory, detailedQuestionsData, acceptedCompetitorsData] = await Promise.all([
         getShareOfVoiceHistory(selectedCompany.id, currentFilters).catch(err => {
           console.warn('[DashboardContext] Failed to fetch share of voice history:', err);
@@ -227,6 +237,46 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
           })
       ]);
 
+      // Enterprise-grade data monitoring for DashboardContext
+      DataPipelineMonitor.recordData(
+        `${selectedCompany.id}-sov-context-${currentFilters.dateRange}`,
+        sovHistory,
+        {
+          component: 'DashboardContext',
+          operation: 'fetchShareOfVoiceHistory_RAW',
+          filters: { ...currentFilters, granularity: 'RAW' },
+          companyId: selectedCompany.id
+        }
+      );
+
+      DataPipelineMonitor.recordData(
+        `${selectedCompany.id}-inclusion-context-${currentFilters.dateRange}`,
+        inclusionHistory,
+        {
+          component: 'DashboardContext', 
+          operation: 'fetchInclusionRateHistory_RAW',
+          filters: { ...currentFilters, granularity: 'RAW' },
+          companyId: selectedCompany.id
+        }
+      );
+
+      // Validate the RAW data from DashboardContext
+      validateDataPipeline(sovHistory, {
+        component: 'DashboardContext',
+        operation: 'shareOfVoiceValidation_RAW',
+        filters: currentFilters,
+        companyId: selectedCompany.id
+      });
+
+      validateDataPipeline(inclusionHistory, {
+        component: 'DashboardContext',
+        operation: 'inclusionRateValidation_RAW', 
+        filters: currentFilters,
+        companyId: selectedCompany.id
+      });
+
+      console.groupEnd();
+
       const fullHistory = sovHistory.map(({ date, shareOfVoice, aiModel }) => ({
         date, // Keep original date format for filtering
         shareOfVoice,
@@ -246,6 +296,9 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
       };
 
       console.log('[DashboardContext] Data received from service:', mergedData);
+      console.log(`[DashboardContext] ShareOfVoiceHistory count: ${mergedData.shareOfVoiceHistory?.length || 0}`);
+      console.log(`[DashboardContext] InclusionRateHistory count: ${mergedData.inclusionRateHistory?.length || 0}`);
+      console.log('[DashboardContext] SOV History sample:', mergedData.shareOfVoiceHistory?.slice(0, 3));
       console.log('[DashboardContext] Detailed questions received:', detailedQuestionsData);
       console.log('[DashboardContext] Accepted competitors received:', acceptedCompetitorsData);
 

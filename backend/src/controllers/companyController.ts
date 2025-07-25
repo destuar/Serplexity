@@ -705,7 +705,7 @@ export const getShareOfVoiceHistory = async (req: Request, res: Response) => {
   try {
     const prismaReadReplica = await getReadPrismaClient();
     const { id: companyId } = req.params;
-    const { aiModel, timezone: _timezone } = req.query;
+    const { aiModel, timezone: _timezone, granularity, dateRange } = req.query;
     const userId = req.user?.id;
 
     if (!userId)
@@ -725,6 +725,8 @@ export const getShareOfVoiceHistory = async (req: Request, res: Response) => {
     );
     const history = await calculateShareOfVoiceHistory("", companyId, {
       aiModel: aiModel as string,
+      granularity: granularity as 'hour' | 'day' | 'week' | undefined,
+      dateRange: dateRange as string,
     });
 
     return res.json(history);
@@ -738,7 +740,7 @@ export const getInclusionRateHistory = async (req: Request, res: Response) => {
   try {
     const prismaReadReplica = await getReadPrismaClient();
     const { id: companyId } = req.params;
-    const { aiModel, timezone: _timezone } = req.query;
+    const { aiModel, timezone: _timezone, granularity, dateRange } = req.query;
     const userId = req.user?.id;
 
     if (!userId)
@@ -758,6 +760,8 @@ export const getInclusionRateHistory = async (req: Request, res: Response) => {
     );
     const history = await calculateInclusionRateHistory("", companyId, {
       aiModel: aiModel as string,
+      granularity: granularity as 'hour' | 'day' | 'week' | undefined,
+      dateRange: dateRange as string,
     });
 
     return res.json(history);

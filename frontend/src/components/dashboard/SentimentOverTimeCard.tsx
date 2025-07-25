@@ -49,7 +49,8 @@ import {
   calculateYAxisScaling,
   calculateXAxisInterval,
   parseApiDate,
-  formatChartDate
+  formatChartDate,
+  DateRangeFilter
 } from '../../utils/chartDataProcessing';
 
 interface SentimentOverTimeCardProps {

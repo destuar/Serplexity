@@ -133,7 +133,7 @@ export interface ConceptSourceData {
 }
 
 export interface DashboardFilters {
-  dateRange: '7d' | '30d' | '90d' | '1y';
+  dateRange: '24h' | '7d' | '30d' | '90d' | '1y';
   aiModel: 'all' | 'gpt-4.1-mini' | 'claude-3-5-haiku-20241022' | 'gemini-2.5-flash' | 'sonar';
   company: string;
   competitors: string[];

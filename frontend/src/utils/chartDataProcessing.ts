@@ -17,7 +17,12 @@
 /**
  * Supported date range filters for chart data
  */
-export type DateRangeFilter = '7d' | '30d' | '90d' | '1y';
+export type DateRangeFilter = '24h' | '7d' | '30d' | '90d' | '1y';
+
+/**
+ * Supported granularity options for time-based aggregation
+ */
+export type GranularityFilter = 'hour' | 'day' | 'week';
 
 /**
  * Base interface for chart data points with synthetic zero-point support
@@ -26,6 +31,8 @@ export interface BaseChartDataPoint {
   date: string;
   fullDate?: string;
   isZeroPoint?: boolean;
+  aggregationType?: GranularityFilter | 'raw';
+  reportCount?: number; // Number of reports aggregated (for granular data)
 }
 
 /**
@@ -83,6 +90,7 @@ export interface ChartProcessingOptions {
   selectedModel: string;
   showModelBreakdown: boolean;
   includeZeroPoint: boolean;
+  granularity?: GranularityFilter;
 }
 
 /**
@@ -112,6 +120,9 @@ export function applyDateRangeFilter<T extends BaseHistoryItem>(
   const cutoffDate = new Date(now);
   
   switch (dateRange) {
+    case '24h':
+      cutoffDate.setDate(now.getDate() - 1);
+      break;
     case '7d':
       cutoffDate.setDate(now.getDate() - 7);
       break;
@@ -144,6 +155,9 @@ export function calculateZeroPointDate(firstDataDate: Date, dateRange: DateRange
   const zeroDate = new Date(firstDataDate);
   
   switch (dateRange) {
+    case '24h':
+      zeroDate.setHours(firstDataDate.getHours() - 1);
+      break;
     case '7d':
       zeroDate.setDate(firstDataDate.getDate() - 1);
       break;
@@ -164,18 +178,43 @@ export function calculateZeroPointDate(firstDataDate: Date, dateRange: DateRange
 }
 
 /**
- * Formats date for consistent chart display
+ * Formats date for consistent chart display with granularity awareness
  * Centralizes date formatting logic to ensure consistency
  * 
  * @param date - Date to format
+ * @param granularity - Time granularity for appropriate formatting
  * @returns Formatted date string for chart display
  */
-export function formatChartDate(date: Date): string {
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'UTC'
-  });
+export function formatChartDate(date: Date, granularity?: GranularityFilter | 'raw'): string {
+  switch (granularity) {
+    case 'hour':
+      // Show precise time including minutes for actual report execution times
+      return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'UTC'
+      });
+    case 'week':
+      // For weekly data, show "Week of Jan 15"
+      const weekStart = new Date(date);
+      weekStart.setDate(date.getDate() - date.getDay()); // Start of week (Sunday)
+      return `Week of ${weekStart.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        timeZone: 'UTC'
+      })}`;
+    case 'day':
+    case 'raw':
+    default:
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        timeZone: 'UTC'
+      });
+  }
 }
 
 /**
@@ -379,10 +418,38 @@ function processBreakdownMode<THistoryItem extends BaseHistoryItem, TChartPoint 
   // Group data by date and model
   dateFilteredData.forEach(item => {
     if (item.aiModel !== 'all') { // Exclude aggregated 'all' data
-      const dateKey = formatChartDate(new Date(item.date));
+      // For breakdown mode, group models by report run time (models from same report should align vertically)
+      const isSameDayData = dateFilteredData.length > 1 && 
+                           dateFilteredData.every(d => new Date(d.date).toDateString() === new Date(dateFilteredData[0].date).toDateString());
+      
+      let dateKey: string;
+      if (options.granularity === 'hour' || isSameDayData) {
+        // For individual reports, use reportRunId if available, otherwise round to nearest 5 minutes
+        // This groups models from the same report run together vertically
+        const itemWithReportId = item as typeof item & { reportRunId?: string };
+        if (itemWithReportId.reportRunId) {
+          // Use reportRunId + approximate time for perfect grouping
+          const date = new Date(item.date);
+          const timeSlot = Math.floor(date.getTime() / (5 * 60 * 1000)) * (5 * 60 * 1000); // 5-minute slots
+          dateKey = `${itemWithReportId.reportRunId}-${timeSlot}`;
+        } else {
+          // Fallback: round to nearest 5 minutes to group models from same report
+          const date = new Date(item.date);
+          const timeSlot = Math.floor(date.getTime() / (5 * 60 * 1000)) * (5 * 60 * 1000);
+          dateKey = new Date(timeSlot).toISOString();
+        }
+      } else {
+        dateKey = formatChartDate(new Date(item.date), options.granularity);
+      }
       
       if (!historyAccumulator[dateKey]) {
-        historyAccumulator[dateKey] = { date: dateKey };
+        historyAccumulator[dateKey] = {};
+      }
+      
+      // Set the display date for this group
+      if (!historyAccumulator[dateKey].date) {
+        const displayFormat = (options.granularity === 'hour' || isSameDayData) ? 'hour' : options.granularity;
+        historyAccumulator[dateKey].date = formatChartDate(new Date(item.date), displayFormat);
       }
       
       // Transform the item and extract the relevant value
@@ -471,8 +538,12 @@ function processSingleLineMode<THistoryItem extends BaseHistoryItem, TChartPoint
     filteredData = dateFilteredData.filter(item => item.aiModel === firstModel);
   }
 
-  // Remove duplicates by date (keep most recent)
-  const uniqueFilteredData = deduplicateByDate(filteredData);
+  // For individual reports (same day), don't deduplicate. For aggregated data, deduplicate by date.
+  const isIndividualReportMode = options.granularity === 'hour' || 
+                                (options.granularity === 'day' && filteredData.length > 1 && 
+                                 filteredData.every(d => new Date(d.date).toDateString() === new Date(filteredData[0].date).toDateString()));
+                                 
+  const uniqueFilteredData = isIndividualReportMode ? filteredData : deduplicateByDate(filteredData);
 
   // Transform and sort the data
   const processedData = uniqueFilteredData
@@ -517,4 +588,51 @@ function processSingleLineMode<THistoryItem extends BaseHistoryItem, TChartPoint
     ticks,
     xAxisInterval
   };
+}
+
+/**
+ * Determines optimal granularity based on date range for best user experience
+ * Provides intelligent defaults to prevent analysis paralysis
+ * 
+ * @param dateRange - Selected date range filter
+ * @returns Optimal granularity for the date range
+ */
+export function getOptimalGranularity(dateRange: DateRangeFilter): GranularityFilter {
+  switch (dateRange) {
+    case '24h': 
+      return 'hour';   // Hourly granularity for 24 hour view
+    case '7d': 
+      return 'day';    // Daily granularity for week view
+    case '30d': 
+      return 'day';    // Daily granularity for month view  
+    case '90d': 
+      return 'week';   // Weekly granularity for quarter view
+    case '1y': 
+      return 'week';   // Weekly granularity for year view
+    default: 
+      return 'day';    // Default to daily granularity
+  }
+}
+
+/**
+ * Checks if granularity makes sense for the given date range
+ * Prevents inappropriate granularity selections (e.g., hourly for yearly data)
+ * 
+ * @param granularity - Selected granularity
+ * @param dateRange - Selected date range
+ * @returns Whether the combination is recommended
+ */
+export function isGranularityRecommended(
+  granularity: GranularityFilter, 
+  dateRange: DateRangeFilter
+): boolean {
+  const recommendations = {
+    '24h': ['hour'],
+    '7d': ['hour', 'day'],
+    '30d': ['hour', 'day'], // Allow hourly for multiple daily reports
+    '90d': ['day', 'week'],
+    '1y': ['week']
+  };
+  
+  return recommendations[dateRange]?.includes(granularity) ?? false;
 }

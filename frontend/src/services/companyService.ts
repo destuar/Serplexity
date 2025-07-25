@@ -44,10 +44,11 @@ export const getShareOfVoice = async (companyId: string, filters?: { dateRange?:
   return data;
 };
 
-export const getShareOfVoiceHistory = async (companyId: string, filters?: { dateRange?: string; aiModel?: string }): Promise<ShareOfVoiceHistoryResponse> => {
+export const getShareOfVoiceHistory = async (companyId: string, filters?: { dateRange?: string; aiModel?: string; granularity?: 'hour' | 'day' | 'week' }): Promise<ShareOfVoiceHistoryResponse> => {
   const params = new URLSearchParams();
   if (filters?.dateRange) params.append('dateRange', filters.dateRange);
   if (filters?.aiModel) params.append('aiModel', filters.aiModel);
+  if (filters?.granularity) params.append('granularity', filters.granularity);
   
   // Add user's timezone
   const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -57,10 +58,11 @@ export const getShareOfVoiceHistory = async (companyId: string, filters?: { date
   return data;
 };
 
-export const getInclusionRateHistory = async (companyId: string, filters?: { dateRange?: string; aiModel?: string }): Promise<InclusionRateHistoryResponse> => {
+export const getInclusionRateHistory = async (companyId: string, filters?: { dateRange?: string; aiModel?: string; granularity?: 'hour' | 'day' | 'week' }): Promise<InclusionRateHistoryResponse> => {
   const params = new URLSearchParams();
   if (filters?.dateRange) params.append('dateRange', filters.dateRange);
   if (filters?.aiModel) params.append('aiModel', filters.aiModel);
+  if (filters?.granularity) params.append('granularity', filters.granularity);
   
   // Add user's timezone
   const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -214,10 +216,11 @@ export const getAveragePosition = async (companyId: string, filters?: { dateRang
   return data;
 };
 
-export const getSentimentOverTime = async (companyId: string, filters?: { dateRange?: string; aiModel?: string }): Promise<{ history: { date: string; score: number }[] }> => {
+export const getSentimentOverTime = async (companyId: string, filters?: { dateRange?: string; aiModel?: string; granularity?: 'hour' | 'day' | 'week' }): Promise<{ history: { date: string; score: number }[] }> => {
   const params = new URLSearchParams();
   if (filters?.dateRange) params.append('dateRange', filters.dateRange);
   if (filters?.aiModel) params.append('aiModel', filters.aiModel);
+  if (filters?.granularity) params.append('granularity', filters.granularity);
 
   const { data } = await apiClient.get(`/companies/${companyId}/metrics/sentiment-over-time?${params.toString()}`);
   return data;

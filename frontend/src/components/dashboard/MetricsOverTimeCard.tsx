@@ -37,8 +37,11 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { MessageSquare, Eye, Sparkles, ChevronDown } from 'lucide-react';
 import LiquidGlassCard from '../ui/LiquidGlassCard';
+import { LiquidGlassSpinner } from '../ui/LiquidGlassSpinner';
 import { useDashboard } from '../../hooks/useDashboard';
+import { useCompany } from '../../hooks/useCompany';
 import { chartColorArrays } from '../../utils/colorClasses';
+import { getShareOfVoiceHistory, getInclusionRateHistory } from '../../services/companyService';
 import { MODEL_CONFIGS, getModelDisplayName } from '../../types/dashboard';
 import {
   processTimeSeriesData,
@@ -49,8 +52,16 @@ import {
   calculateYAxisScaling,
   calculateXAxisInterval,
   parseApiDate,
-  formatChartDate
+  formatChartDate,
+  getOptimalGranularity,
+  GranularityFilter,
+  DateRangeFilter
 } from '../../utils/chartDataProcessing';
+import { 
+  DataPipelineMonitor, 
+  validateDataPipeline,
+  compareDataSources 
+} from '../../utils/dataConsistencyDebugger';
 // Model filtering handled within processTimeSeriesData
 
 interface MetricsOverTimeCardProps {
@@ -64,12 +75,148 @@ type MetricType = 'shareOfVoice' | 'inclusionRate';
 
 const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel = 'all' }) => {
   const { data, error, filters } = useDashboard();
+  const { selectedCompany } = useCompany();
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('shareOfVoice');
   const [showModelBreakdown, setShowModelBreakdown] = useState<boolean>(false);
-  const [granularity, setGranularity] = useState<'hour' | 'day' | 'week'>('day');
+  
+  // Smart granularity defaults based on date range
+  const optimalGranularity = useMemo(() => 
+    getOptimalGranularity((filters?.dateRange || '30d') as DateRangeFilter), 
+    [filters?.dateRange]
+  );
+  
+  const [granularity, setGranularity] = useState<GranularityFilter>(optimalGranularity);
   const [granularityDropdownOpen, setGranularityDropdownOpen] = useState<boolean>(false);
   const [animationKey, setAnimationKey] = useState<number>(0);
   const granularityDropdownRef = useRef<HTMLDivElement>(null);
+  
+  // State for component-level granularity data
+  const [granularityData, setGranularityData] = useState<{
+    shareOfVoiceHistory: ShareOfVoiceHistoryItem[];
+    inclusionRateHistory: InclusionRateHistoryItem[];
+    loading: boolean;
+  }>({
+    shareOfVoiceHistory: [],
+    inclusionRateHistory: [],
+    loading: false,
+  });
+
+  // Update granularity when date range changes for optimal user experience
+  useEffect(() => {
+    const newOptimalGranularity = getOptimalGranularity((filters?.dateRange || '30d') as DateRangeFilter);
+    setGranularity(newOptimalGranularity);
+  }, [filters?.dateRange]);
+
+  // Fetch granularity-specific data when granularity changes
+  useEffect(() => {
+    if (!selectedCompany) {
+      setGranularityData({
+        shareOfVoiceHistory: [],
+        inclusionRateHistory: [],
+        loading: false,
+      });
+      return;
+    }
+
+    // Fetch granularity-specific data with enterprise-grade monitoring
+    const fetchGranularityData = async () => {
+      setGranularityData(prev => ({ ...prev, loading: true }));
+      
+      try {
+        // Fetch aggregated data based on granularity
+        const currentFilters = {
+          dateRange: filters?.dateRange,
+          aiModel: selectedModel !== 'all' ? selectedModel : filters?.aiModel,
+          granularity,
+        };
+
+        console.group(`🔄 [MetricsOverTimeCard] Fetching granularity data`);
+        console.log('🎯 Filters:', currentFilters);
+        console.log('🏢 Company:', selectedCompany.name);
+        console.log('🔧 MetricsOverTimeCard fetches data WITH granularity parameter');
+        
+        const [sovHistory, inclusionHistory] = await Promise.all([
+          getShareOfVoiceHistory(selectedCompany.id, currentFilters),
+          getInclusionRateHistory(selectedCompany.id, currentFilters),
+        ]);
+
+        // Enterprise-grade data consistency monitoring
+        const sovReport = DataPipelineMonitor.recordData(
+          `${selectedCompany.id}-sov-${granularity}-${filters?.dateRange}`,
+          sovHistory,
+          {
+            component: 'MetricsOverTimeCard',
+            operation: 'fetchShareOfVoiceHistory',
+            filters: currentFilters,
+            companyId: selectedCompany.id
+          }
+        );
+
+        DataPipelineMonitor.recordData(
+          `${selectedCompany.id}-inclusion-${granularity}-${filters?.dateRange}`,
+          inclusionHistory,
+          {
+            component: 'MetricsOverTimeCard',
+            operation: 'fetchInclusionRateHistory',
+            filters: currentFilters,
+            companyId: selectedCompany.id
+          }
+        );
+
+        // Validate data pipeline integrity
+        const sovValid = validateDataPipeline(sovHistory, {
+          component: 'MetricsOverTimeCard',
+          operation: 'shareOfVoiceValidation',
+          filters: currentFilters,
+          companyId: selectedCompany.id
+        });
+
+        const inclusionValid = validateDataPipeline(inclusionHistory, {
+          component: 'MetricsOverTimeCard', 
+          operation: 'inclusionRateValidation',
+          filters: currentFilters,
+          companyId: selectedCompany.id
+        });
+
+        // Compare with dashboard context data if available
+        if (data?.shareOfVoiceHistory && data.shareOfVoiceHistory.length > 0) {
+          const contextReport = DataPipelineMonitor.recordData(
+            `${selectedCompany.id}-sov-context-${filters?.dateRange}`,
+            data.shareOfVoiceHistory,
+            {
+              component: 'DashboardContext',
+              operation: 'shareOfVoiceHistory',
+              filters: { dateRange: filters?.dateRange, aiModel: filters?.aiModel },
+              companyId: selectedCompany.id
+            }
+          );
+          
+          compareDataSources(sovReport, contextReport);
+        }
+
+        if (!sovValid || !inclusionValid) {
+          console.error('🚨 [MetricsOverTimeCard] Data pipeline validation failed');
+        }
+
+        console.groupEnd();
+
+        console.log(`[MetricsOverTimeCard] Received SOV history: ${sovHistory.length} points`);
+        console.log(`[MetricsOverTimeCard] Received inclusion history: ${inclusionHistory.length} points`);
+        console.log('[MetricsOverTimeCard] SOV History sample:', sovHistory.slice(0, 3));
+
+        setGranularityData({
+          shareOfVoiceHistory: sovHistory,
+          inclusionRateHistory: inclusionHistory,
+          loading: false,
+        });
+      } catch (error) {
+        console.error('🚨 [MetricsOverTimeCard] Failed to fetch granularity data:', error);
+        setGranularityData(prev => ({ ...prev, loading: false }));
+      }
+    };
+
+    fetchGranularityData();
+  }, [granularity, selectedModel, filters?.dateRange, filters?.aiModel, selectedCompany, data?.shareOfVoiceHistory, data?.inclusionRateHistory]);
 
   const handleToggleBreakdown = () => {
     setShowModelBreakdown(!showModelBreakdown);
@@ -98,10 +245,10 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
    * Handles both Share of Voice and Inclusion Rate with consistent logic
    */
   const chartDataResult = useMemo(() => {
-    // Get the appropriate history data based on selected metric
+    // Get the appropriate history data based on selected metric from granularity-aware data
     const historyData = selectedMetric === 'inclusionRate' 
-      ? data?.inclusionRateHistory 
-      : data?.shareOfVoiceHistory;
+      ? granularityData.inclusionRateHistory 
+      : granularityData.shareOfVoiceHistory;
 
     if (!historyData || !Array.isArray(historyData)) {
       return { chartData: [], modelIds: [] };
@@ -118,6 +265,7 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
         selectedModel,
         showModelBreakdown,
         includeZeroPoint: true,
+        granularity,
       },
       // Data transformer function
       (item: ShareOfVoiceHistoryItem | InclusionRateHistoryItem) => {
@@ -127,10 +275,12 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
         // Create chart data point with the selected metric value
         // For breakdown mode, we need to set the primary metric value that will be used for model keys
         const chartPoint: MetricsChartDataPoint = {
-          date: formatChartDate(parsedDate),
+          date: formatChartDate(parsedDate, granularity),
           fullDate: item.date,
           shareOfVoice: 0,
           inclusionRate: 0,
+          aggregationType: granularity,
+          reportCount: (item as ShareOfVoiceHistoryItem & { reportCount?: number }).reportCount, // Include report count for aggregated data
         };
 
         // Set the appropriate values based on data type and selected metric
@@ -170,7 +320,7 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
       chartData: result.chartData,  
       modelIds: result.modelIds,
     };
-  }, [data?.shareOfVoiceHistory, data?.inclusionRateHistory, selectedModel, selectedMetric, showModelBreakdown, filters?.dateRange]);
+  }, [granularityData.shareOfVoiceHistory, granularityData.inclusionRateHistory, selectedModel, selectedMetric, showModelBreakdown, filters?.dateRange, granularity]);
 
   const chartData = useMemo(() => chartDataResult?.chartData || [], [chartDataResult?.chartData]);
   const modelIds = useMemo(() => chartDataResult?.modelIds || [], [chartDataResult?.modelIds]);
@@ -194,7 +344,7 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
       const metricKey = selectedMetric === 'shareOfVoice' ? 'shareOfVoice' : 'inclusionRate';
       values = chartData
         .map((d: MetricsChartDataPoint) => d[metricKey as keyof MetricsChartDataPoint])
-        .filter((val: unknown) => typeof val === 'number' && !isNaN(val));
+        .filter((val: unknown) => typeof val === 'number' && !isNaN(val)) as number[];
     }
     
     // Use centralized Y-axis scaling (metrics are percentages, 0-100 range)
@@ -275,18 +425,20 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
       );
     }
 
-    if (!chartData || chartData.length === 0) {
+    // Show loading state when fetching granularity data
+    if (granularityData.loading) {
       return (
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <div className="text-gray-400 mb-2">
-              <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M7 12l3-3 3 3 4-4" />
-              </svg>
-            </div>
-            <p className="text-gray-500 text-sm font-medium">No historical data available</p>
-            <p className="text-gray-400 text-xs mt-1">Run more reports to see trends</p>
-          </div>
+          <LiquidGlassSpinner size="lg" />
+        </div>
+      );
+    }
+
+    if (!chartData || chartData.length === 0) {
+      // Show blank state instead of "No data available" message
+      return (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="h-64"></div>
         </div>
       );
     }
@@ -691,26 +843,31 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
                     { value: 'hour', label: 'Hourly' },
                     { value: 'day', label: 'Daily' },
                     { value: 'week', label: 'Weekly' }
-                  ].map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => {
-                        setGranularity(option.value as 'hour' | 'day' | 'week');
-                        setGranularityDropdownOpen(false);
-                      }}
-                      className="w-full px-2 py-2 text-left text-xs hover:bg-white/20 transition-colors flex items-center justify-between group focus:outline-none select-none touch-manipulation"
-                      style={{ 
-                        WebkitTapHighlightColor: 'transparent',
-                        WebkitUserSelect: 'none',
-                        userSelect: 'none'
-                      }}
-                    >
-                      <span>{option.label}</span>
-                      {granularity === option.value && (
-                        <div className="w-1.5 h-1.5 rounded-full bg-gray-400"></div>
-                      )}
-                    </button>
-                  ))}
+                  ].map((option) => {
+                    return (
+                      <button
+                        key={option.value}
+                        onClick={() => {
+                          setGranularity(option.value as GranularityFilter);
+                          setGranularityDropdownOpen(false);
+                        }}
+                        disabled={granularityData.loading}
+                        className="w-full px-2 py-2 text-left text-xs transition-colors flex items-center justify-between group focus:outline-none select-none touch-manipulation hover:bg-white/20 text-gray-800"
+                        style={{ 
+                          WebkitTapHighlightColor: 'transparent',
+                          WebkitUserSelect: 'none',
+                          userSelect: 'none'
+                        }}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>{option.label}</span>
+                        </div>
+                        {granularity === option.value && (
+                          <div className="w-1.5 h-1.5 rounded-full bg-gray-400"></div>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
