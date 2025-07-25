@@ -27,7 +27,7 @@ const TopRankingQuestionsCard = () => {
   const questions = data?.topQuestions || [];
 
   const handleQuestionClick = (id: string) => {
-    navigate(`/response-details?questionId=${id}`);
+    navigate(`/prompts?openQuestion=${id}`);
   };
 
   if (error) {

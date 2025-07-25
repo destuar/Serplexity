@@ -34,7 +34,6 @@ import OverviewPage from './pages/OverviewPage';
 
 import VisibilityTasksPage from './pages/VisibilityTasksPage';
 import PromptsPage from './pages/PromptsPage';
-import CompetitorRankingsPage from './pages/CompetitorRankingsPage';
 import CompetitorsPage from './pages/CompetitorsPage';
 
 import LandingPage from './pages/LandingPage';
@@ -62,7 +61,6 @@ const DashboardRoutes: React.FC = () => (
         <Route path="/visibility-tasks" element={<VisibilityTasksPage />} />
         <Route path="/response-details" element={<PromptsPage />} />
         <Route path="/prompts" element={<PromptsPage />} />
-        <Route path="/competitor-rankings" element={<CompetitorRankingsPage />} />
         <Route path="/competitors" element={<CompetitorsPage />} />
 
         <Route path="/experimental-search" element={<ExperimentalSearchPage />} />

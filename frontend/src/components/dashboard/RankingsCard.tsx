@@ -349,7 +349,7 @@ const RankingsCard = () => {
               className={`flex items-center justify-between rounded-lg px-2 py-1 transition-colors hover:bg-gray-50 ${
                 isOthers ? 'cursor-pointer' : ''
               }`}
-              onClick={isOthers ? () => navigate('/competitor-rankings') : undefined}
+              onClick={isOthers ? () => navigate('/competitors') : undefined}
             >
               <div className="flex items-center space-x-3 flex-1 min-w-0">
                 <span className="text-sm font-medium w-4 flex-shrink-0 text-gray-600">{index + 1}.</span>

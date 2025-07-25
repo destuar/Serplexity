@@ -150,7 +150,6 @@ interface ResponseItemData {
   response: string;
   position: number | null;
   brands: string[];
-  citations: string[];
   createdAt: string;
   runId: string;
   runDate: string;
@@ -166,37 +165,36 @@ const ResponseListItem: React.FC<{
   question: string;
 }> = ({ response, index: _index, acceptedCompetitors, citations, isExpanded, onToggle, question }) => {
   const companyLogos = getCompetitorLogos(response.brands || [], acceptedCompetitors || [], 4);
-  const citationIcons = getCitationIcons(response.citations || [], citations || [], 4);
+  // Use brands length as citation count since citations field doesn't exist in PromptResponse
+  const citationCount = response.brands?.length || 0;
   const modelConfig = MODEL_CONFIGS[response.model];
 
   return (
     <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 transition-all cursor-pointer mb-3 ml-12" onClick={onToggle}>
       <div className="px-4 py-3">
-        <div className="flex items-center">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            {/* Model */}
-            <div className="flex-1 min-w-0 flex items-center gap-2">
-              {modelConfig?.logoUrl && (
-                <img 
-                  src={modelConfig.logoUrl} 
-                  alt={getModelDisplayName(response.model)} 
-                  className="h-5 w-5 rounded object-contain flex-shrink-0"
-                />
-              )}
-              <span className="text-sm text-gray-900 font-medium">
-                {getModelDisplayName(response.model)}
+        <div className="grid grid-cols-[1fr_8rem_6rem_3rem] gap-3 items-center">
+          {/* Model */}
+          <div className="min-w-0 flex items-center gap-2">
+            {modelConfig?.logoUrl && (
+              <img 
+                src={modelConfig.logoUrl} 
+                alt={getModelDisplayName(response.model)} 
+                className="h-5 w-5 rounded object-contain flex-shrink-0"
+              />
+            )}
+            <span className="text-sm text-gray-900 font-medium">
+              {getModelDisplayName(response.model)}
+            </span>
+            {response.position && (
+              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                Rank #{response.position}
               </span>
-              {response.position && (
-                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                  Rank #{response.position}
-                </span>
-              )}
-            </div>
+            )}
           </div>
           
-          {/* Company Logos */}
-          <div className="w-32 flex justify-start">
-            {companyLogos.length > 0 ? (
+          {/* Mentions (Company Logos) */}
+          <div className="pl-2">
+            {companyLogos.length > 0 && (
               <div className="flex items-center gap-1">
                 {companyLogos.map((competitor, logoIndex) => (
                   competitor.isOverflow ? (
@@ -239,50 +237,18 @@ const ResponseListItem: React.FC<{
                   )
                 ))}
               </div>
-            ) : null}
-          </div>
-          
-          {/* Citations */}
-          <div className="w-32 flex justify-start">
-            {citationIcons.length > 0 && (
-              <div className="flex items-center gap-1">
-                {citationIcons.map((citation, citationIndex) => (
-                  citation.isOverflow ? (
-                    <div
-                      key={`citation-overflow-${citationIndex}`}
-                      className="w-6 h-6 rounded bg-gray-100 flex items-center justify-center text-xs font-medium text-gray-600 shadow-md"
-                      title={citation.name}
-                      style={{
-                        marginLeft: citationIndex > 0 ? '-14px' : '0',
-                        zIndex: citationIcons.length - citationIndex
-                      }}
-                    >
-                      +{citation.count}
-                    </div>
-                  ) : (
-                    <a
-                      key={`citation-${citation.name}-${citationIndex}`}
-                      href={citation.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-6 h-6 rounded bg-blue-50 flex items-center justify-center text-xs font-medium text-blue-600 shadow-md hover:bg-blue-100 transition-colors"
-                      title={`${citation.name} - ${citation.domain}`}
-                      style={{
-                        marginLeft: citationIndex > 0 ? '-14px' : '0',
-                        zIndex: citationIcons.length - citationIndex
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      🔗
-                    </a>
-                  )
-                ))}
-              </div>
             )}
           </div>
           
+          {/* Citations */}
+          <div className="pl-2">
+            <div className="text-xs text-gray-500">
+              {citationCount > 0 ? citationCount : '-'}
+            </div>
+          </div>
+          
           {/* Expand Toggle */}
-          <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="flex items-center justify-center">
             {isExpanded ? (
               <ChevronUp size={16} className="text-gray-400" />
             ) : (
@@ -352,7 +318,7 @@ const ResponseListItem: React.FC<{
                   </div>
                   
                   {/* Mentions and Citations - below the chat bubble */}
-                  {(companyLogos.length > 0 || citationIcons.length > 0) && (
+                  {(companyLogos.length > 0 || citationCount > 0) && (
                     <div className="mt-2 flex items-center gap-4 px-4">
                       {/* Company Mentions */}
                       {companyLogos.length > 0 && (
@@ -396,33 +362,10 @@ const ResponseListItem: React.FC<{
                       )}
                       
                       {/* Citations */}
-                      {citationIcons.length > 0 && (
+                      {citationCount > 0 && (
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-gray-500 font-medium">Citations:</span>
-                          <div className="flex items-center gap-1">
-                            {citationIcons.map((citation, citationIndex) => (
-                              citation.isOverflow ? (
-                                <div
-                                  key={`citation-overflow-${citationIndex}`}
-                                  className="w-5 h-5 rounded bg-gray-100 flex items-center justify-center text-xs font-medium text-gray-600"
-                                  title={citation.name}
-                                >
-                                  +{citation.count}
-                                </div>
-                              ) : (
-                                <a
-                                  key={`citation-${citation.name}-${citationIndex}`}
-                                  href={citation.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="w-5 h-5 rounded bg-blue-50 flex items-center justify-center text-xs text-blue-600 hover:bg-blue-100 transition-colors"
-                                  title={`${citation.name} - ${citation.domain}`}
-                                >
-                                  🔗
-                                </a>
-                              )
-                            ))}
-                          </div>
+                          <span className="text-xs text-gray-500">{citationCount}</span>
                         </div>
                       )}
                     </div>
@@ -491,7 +434,6 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
                 response: resp.response,
                 position: resp.position,
                 brands: resp.brands || [],
-                citations: resp.citations || [],
                 createdAt: resp.createdAt || new Date().toISOString(),
                 runId: resp.runId || 'unknown',
                 runDate: resp.runDate || resp.createdAt || new Date().toISOString()
@@ -507,6 +449,11 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
             });
             
             setResponses(transformedResponses);
+            
+            // Auto-expand the first response if this was navigated from top ranking questions
+            if (transformedResponses.length > 0) {
+              setExpandedItems(new Set([transformedResponses[0].id]));
+            }
           } else {
             setResponses([]);
           }
@@ -547,17 +494,7 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
           getModelDisplayName(response.model).toLowerCase().includes(searchTerm.toLowerCase()) ||
           response.brands.some(brand => brand.toLowerCase().includes(searchTerm.toLowerCase()));
         
-        // Search in citation data
-        const citationMatch = response.citations.some(citationId => {
-          const citation = citations.find(c => c.id === citationId);
-          return citation && (
-            citation.url.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            citation.domain.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (citation.title && citation.title.toLowerCase().includes(searchTerm.toLowerCase()))
-          );
-        });
-        
-        return basicMatch || citationMatch;
+        return basicMatch;
       });
     }
 
@@ -690,7 +627,7 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
               <div className="flex items-center justify-between">
                 {/* Question */}
                 <div className="flex-1 min-w-0 mr-4">
-                  <p className="text-sm text-gray-900 font-medium leading-relaxed truncate">
+                  <p className="text-sm text-gray-900 font-medium leading-relaxed">
                     {prompt.question}
                   </p>
                 </div>
@@ -726,24 +663,18 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
                   
                   return (
                     <div key={reportKey} className="space-y-3">
-                      {/* Report Date and Mentions Header for this report group */}
-                      <div className="ml-6">
-                        <div className="flex items-center">
+                      {/* Report Date and Headers for this report group */}
+                      <div className="px-4 mb-3">
+                        <div className="grid grid-cols-[1fr_8rem_6rem_3rem] gap-3 items-center ml-12">
                           <div className="text-sm text-gray-600 font-medium">
                             {formatDateDisplay(firstResponse.runDate)} at {formatTimeDisplay(firstResponse.runDate)}
                           </div>
                           
-                          <div className="flex-1"></div>
+                          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide pl-2">Mentions</div>
                           
-                          <div className="w-32 flex justify-start mr-6">
-                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">MENTIONS</span>
-                          </div>
+                          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide pl-2">Citations</div>
                           
-                          <div className="w-32 flex justify-start mr-6">
-                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">CITATIONS</span>
-                          </div>
-                          
-                          <div className="w-5"></div>
+                          <div></div>
                         </div>
                       </div>
 

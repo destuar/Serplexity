@@ -14,6 +14,7 @@
  */
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { RefreshCw, ListFilter, Plus, Search, Edit2, Trash2, Check, X } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';
 import { getPromptsWithResponses, PromptQuestion, getAcceptedCompetitors, CompetitorData, updateQuestionStatus, addQuestion, deleteQuestion } from '../services/companyService';
@@ -134,26 +135,28 @@ const PromptListItem: React.FC<{
 }> = ({ prompt, index, promptQuestion, acceptedCompetitors, onEdit, onDelete, onClick, onStatusChange }) => {
   const companyLogos = promptQuestion ? getPromptCompanyLogos(promptQuestion, acceptedCompetitors || []) : [];
 
+  // Calculate total citations from all responses (using brands as proxy for citations)
+  const totalCitations = promptQuestion ? 
+    promptQuestion.responses.reduce((total, response) => total + (response.brands?.length || 0), 0) : 0;
+
   return (
     <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 transition-all cursor-pointer mb-3" onClick={() => onClick?.(prompt)}>
       <div className="px-4 py-3">
-        <div className="flex items-center">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            {/* Number */}
-            <div className="flex-shrink-0 w-6 flex items-center justify-center text-xs font-medium text-gray-500">
-              {index + 1}
-            </div>
-            
-            {/* Question */}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-gray-900 font-medium leading-relaxed">
-                {prompt.question}
-              </p>
-            </div>
+        <div className="grid grid-cols-[auto_1fr_8rem_6rem_6rem_5rem] gap-3 items-center">
+          {/* Number */}
+          <div className="text-xs font-medium text-gray-500">
+            {index + 1}
           </div>
           
-          {/* Company Logos */}
-          <div className="w-32 flex justify-start">
+          {/* Question */}
+          <div className="min-w-0">
+            <p className="text-sm text-gray-900 font-medium leading-relaxed truncate">
+              {prompt.question}
+            </p>
+          </div>
+          
+          {/* Mentions (Company Logos) */}
+          <div className="pl-6">
             {companyLogos.length > 0 && (
               <div className="flex items-center gap-1">
                 {companyLogos.map((competitor, logoIndex) => (
@@ -200,15 +203,18 @@ const PromptListItem: React.FC<{
             )}
           </div>
           
+          {/* Citations */}
+          <div className="text-xs text-gray-500 pl-6">
+            {totalCitations > 0 ? totalCitations : '-'}
+          </div>
+          
           {/* Created Time */}
-          <div className="flex-shrink-0 mr-8">
-            <div className="text-xs text-gray-500">
-              {formatRelativeTime(prompt.lastUsed)}
-            </div>
+          <div className="text-xs text-gray-500 pl-6">
+            {formatRelativeTime(prompt.lastUsed)}
           </div>
           
           {/* Actions */}
-          <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="flex items-center gap-1 justify-end">
             {/* Status change buttons */}
             {prompt.status === 'suggested' && (
               <button
@@ -370,6 +376,7 @@ const PromptsPage: React.FC = () => {
   const { data: dashboardData, loading: dashboardLoading, hasReport } = useDashboard();
   const { setBreadcrumbs, registerEmbeddedPageCloser, unregisterEmbeddedPageCloser } = useNavigation();
   const { embeddedPage, openEmbeddedPage, closeEmbeddedPage, isEmbedded } = useEmbeddedPage('Prompts');
+  const [searchParams, setSearchParams] = useSearchParams();
   
   // Local state
   const [promptQuestions, setPromptQuestions] = useState<PromptQuestion[]>([]);
@@ -446,6 +453,34 @@ const PromptsPage: React.FC = () => {
   useEffect(() => {
     fetchPrompts();
   }, [fetchPrompts]);
+
+  // Handle URL parameter to auto-open a specific question's responses
+  useEffect(() => {
+    const openQuestionId = searchParams.get('openQuestion');
+    if (openQuestionId && promptQuestions.length > 0) {
+      // Find the question by ID
+      const question = promptQuestions.find(q => q.id === openQuestionId);
+      if (question) {
+        // Convert PromptQuestion to PromptItem format
+        const promptItem: PromptItem = {
+          id: question.id,
+          question: question.question,
+          type: question.type || 'research',
+          isCustom: question.source === 'user',
+          usageCount: question.responses.length,
+          lastUsed: question.responses[0]?.createdAt || question.createdAt || 'Unknown',
+          status: question.isActive ? 'active' : 'suggested'
+        };
+        
+        // Set as selected prompt and open responses
+        setSelectedPrompt(promptItem);
+        openEmbeddedPage('responses', 'Responses');
+        
+        // Clear the URL parameter
+        setSearchParams({});
+      }
+    }
+  }, [promptQuestions, searchParams, setSearchParams, openEmbeddedPage]);
 
   // Transform prompt questions to prompt format
   const allPrompts = useMemo(() => {
@@ -689,30 +724,24 @@ const PromptsPage: React.FC = () => {
                     <div>
                       {/* Floating Headers */}
                       <div className="px-4 mb-3">
-                        <div className="flex items-center">
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <div className="flex-shrink-0 w-6 flex items-center justify-center">
-                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">#</span>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Prompt</span>
-                            </div>
-                          </div>
+                        <div className="grid grid-cols-[auto_1fr_8rem_6rem_6rem_5rem] gap-3 items-center">
+                          {/* # Header */}
+                          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">#</div>
                           
-                          {/* Company Logos Header - aligned with content */}
-                          <div className="w-32 flex justify-start mr-6">
-                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">MENTIONS</span>
-                          </div>
+                          {/* Prompt Header */}
+                          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Prompt</div>
                           
-                          {/* Created Time Header - aligned with content */}
-                          <div className="flex-shrink-0 mr-8">
-                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">CREATED</span>
-                          </div>
+                          {/* Mentions Header - shifted right */}
+                          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide pl-6">Mentions</div>
                           
-                          {/* Actions placeholder */}
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <div className="w-20"></div>
-                          </div>
+                          {/* Citations Header - shifted right */}
+                          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide pl-6">Citations</div>
+                          
+                          {/* Created Header - shifted right */}
+                          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide pl-6">Created</div>
+                          
+                          {/* Actions space - no header */}
+                          <div></div>
                         </div>
                       </div>
                       

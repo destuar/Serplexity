@@ -194,8 +194,7 @@ export function formatChartDate(date: Date, granularity?: GranularityFilter | 'r
         day: 'numeric',
         hour: 'numeric',
         minute: '2-digit',
-        hour12: true,
-        timeZone: 'UTC'
+        hour12: true
       });
     case 'week':
       // For weekly data, show "Week of Jan 15"
@@ -203,16 +202,14 @@ export function formatChartDate(date: Date, granularity?: GranularityFilter | 'r
       weekStart.setDate(date.getDate() - date.getDay()); // Start of week (Sunday)
       return `Week of ${weekStart.toLocaleDateString('en-US', {
         month: 'short',
-        day: 'numeric',
-        timeZone: 'UTC'
+        day: 'numeric'
       })}`;
     case 'day':
     case 'raw':
     default:
       return date.toLocaleDateString('en-US', {
         month: 'short',
-        day: 'numeric',
-        timeZone: 'UTC'
+        day: 'numeric'
       });
   }
 }
