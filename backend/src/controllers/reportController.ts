@@ -692,7 +692,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
         value: score.value,
       }));
 
-      console.log('[DEBUG] Transformed sentimentDetails:', sentimentDetails.map(s => ({ name: s.name, engine: s.engine })));
+      console.log('[DEBUG] Transformed sentimentDetails:', sentimentDetails.map((s: any) => ({ name: s.name, engine: s.engine })));
       console.log('🚀 [DEBUG] About to send sentimentDetails with length:', sentimentDetails.length);
 
       controllerLog(
@@ -721,7 +721,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
     }
 
     // If shareOfVoiceHistory is missing (which it is for individual models), fetch it on demand
-    let shareOfVoiceHistory = (metrics as Record<string, unknown>)?.shareOfVoiceHistory;
+    let shareOfVoiceHistory = (metrics as unknown as Record<string, unknown>)?.shareOfVoiceHistory;
     if (
       !shareOfVoiceHistory ||
       (Array.isArray(shareOfVoiceHistory) && shareOfVoiceHistory.length === 0)
@@ -734,7 +734,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
     }
 
     // Similarly, fetch inclusionRateHistory if it's not on the main metrics object
-    let inclusionRateHistory = (metrics as Record<string, unknown>)?.inclusionRateHistory;
+    let inclusionRateHistory = (metrics as unknown as Record<string, unknown>)?.inclusionRateHistory;
     if (
       !inclusionRateHistory ||
       (Array.isArray(inclusionRateHistory) && inclusionRateHistory.length === 0)
@@ -747,7 +747,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
     }
 
     // Similarly, fetch sentimentOverTime if it's not on the main metrics object
-    let sentimentOverTime = (metrics as Record<string, unknown>)?.sentimentOverTime;
+    let sentimentOverTime = (metrics as unknown as Record<string, unknown>)?.sentimentOverTime;
     if (
       !sentimentOverTime ||
       (Array.isArray(sentimentOverTime) && sentimentOverTime.length === 0)
@@ -789,7 +789,9 @@ export const getLatestReport = async (req: Request, res: Response) => {
     }
 
     console.log('🔥 [DEBUG] metrics object has sentimentDetails?', 'sentimentDetails' in (metrics || {}));
-    console.log('🔥 [DEBUG] metrics.sentimentDetails length:', (metrics as Record<string, unknown>)?.sentimentDetails?.length);
+    const metricsObj = metrics as unknown as Record<string, unknown>;
+    const metricsSentimentDetails = metricsObj?.sentimentDetails;
+    console.log('🔥 [DEBUG] metrics.sentimentDetails length:', Array.isArray(metricsSentimentDetails) ? metricsSentimentDetails.length : 'not an array');
 
     const responseData = {
       id: latestRun.id,
@@ -1308,10 +1310,10 @@ export const getSystemHealth = async (req: Request, res: Response) => {
 
     // Determine overall system status
     const allHealthy = Object.values(checks).every(
-      (check) => check.status === "healthy",
+      (check: any) => check.status === "healthy",
     );
     const anyUnhealthy = Object.values(checks).some(
-      (check) => check.status === "unhealthy",
+      (check: any) => check.status === "unhealthy",
     );
 
     const overallStatus = allHealthy

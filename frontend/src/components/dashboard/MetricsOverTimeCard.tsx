@@ -35,7 +35,7 @@
  */
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { MessageSquare, Eye, Sparkles, ChevronDown } from 'lucide-react';
+import { MessageSquare, Eye, Sparkles } from 'lucide-react';
 import LiquidGlassCard from '../ui/LiquidGlassCard';
 import { LiquidGlassSpinner } from '../ui/LiquidGlassSpinner';
 import { useDashboard } from '../../hooks/useDashboard';
@@ -822,7 +822,7 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
             <div className="relative ml-2" ref={granularityDropdownRef}>
               <button
                 onClick={() => setGranularityDropdownOpen(!granularityDropdownOpen)}
-                className="flex items-center justify-between w-16 h-8 gap-1 px-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md text-xs transition-colors hover:bg-white/85 focus:outline-none select-none touch-manipulation"
+                className="flex items-center justify-center w-16 h-8 px-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md text-xs transition-colors hover:bg-white/85 focus:outline-none select-none touch-manipulation"
                 title="Time granularity"
                 style={{ 
                   WebkitTapHighlightColor: 'transparent',
@@ -831,10 +831,6 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
                 }}
               >
                 <span className="text-xs">{granularity === 'day' ? 'Daily' : granularity === 'hour' ? 'Hourly' : 'Weekly'}</span>
-                <ChevronDown 
-                  size={10} 
-                  className={`transition-transform duration-200 ${granularityDropdownOpen ? 'rotate-180' : ''}`}
-                />
               </button>
               
               {granularityDropdownOpen && (

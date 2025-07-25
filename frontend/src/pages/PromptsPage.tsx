@@ -315,7 +315,7 @@ const AddPromptModal: React.FC<{
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md w-full max-w-md mx-4">
+      <div className="bg-white border border-gray-200 rounded-lg shadow-lg w-full max-w-md mx-4">
         <div className="p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Add New Prompt</h2>
           
@@ -688,7 +688,7 @@ const PromptsPage: React.FC = () => {
             </div>
             <button
               onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-black transition-colors text-sm font-medium"
+              className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-black transition-colors text-sm"
             >
               <Plus size={16} />
               Add Prompt
