@@ -197,13 +197,11 @@ export function formatChartDate(date: Date, granularity?: GranularityFilter | 'r
         hour12: true
       });
     case 'week':
-      // For weekly data, show "Week of Jan 15"
-      const weekStart = new Date(date);
-      weekStart.setDate(date.getDate() - date.getDay()); // Start of week (Sunday)
-      return `Week of ${weekStart.toLocaleDateString('en-US', {
+      // For weekly data, show just the date like "Jul 20" (same as day format)
+      return date.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric'
-      })}`;
+      });
     case 'day':
     case 'raw':
     default:
