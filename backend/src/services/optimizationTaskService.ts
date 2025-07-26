@@ -19,7 +19,6 @@
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 // NOTE: LLM imports removed - now using hardcoded preset tasks
-import { ModelTask as _ModelTask, ModelEngine as _ModelEngine, getModelsByTask as _getModelsByTask } from "../config/models";
 
 // NOTE: Now using hardcoded preset tasks for reliability and consistency
 
@@ -102,7 +101,7 @@ const ImpactMetricEnum = z.enum([
   "inclusionRate",
 ]);
 
-const _TaskSchema = z.object({
+const __TaskSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(5).max(100),
   description: z.string().min(20).max(1000),
@@ -112,7 +111,7 @@ const _TaskSchema = z.object({
 });
 
 export interface OptimizationTasksResult {
-  tasks: z.infer<typeof TaskSchema>[];
+  tasks: z.infer<typeof _TaskSchema>[];
   summary: string;
   tokenUsage: {
     promptTokens: number;
@@ -142,7 +141,7 @@ export async function generateOptimizationTasksAndSummary(
 // ===== TASK PERSISTENCE FUNCTIONS (STILL USED) =====
 
 export async function persistOptimizationTasks(
-  tasks: z.infer<typeof TaskSchema>[],
+  tasks: z.infer<typeof _TaskSchema>[],
   runId: string,
   companyId: string,
   prisma: PrismaClient,

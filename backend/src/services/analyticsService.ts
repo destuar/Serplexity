@@ -17,7 +17,6 @@
  */
 import { redis } from "../config/redis";
 import logger from "../utils/logger";
-import { z as _z } from "zod";
 
 export interface UserEvent {
   userId?: string;

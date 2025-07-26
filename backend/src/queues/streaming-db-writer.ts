@@ -13,7 +13,7 @@
  * @exports
  * - StreamingDatabaseWriter: A class for streaming data to the database.
  */
-import { PrismaClient, Prisma as _Prisma } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { performance } from "perf_hooks";
 import { LLM_CONFIG } from "../config/models";
 

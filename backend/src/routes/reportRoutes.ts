@@ -33,7 +33,6 @@ import {
   updateOptimizationTaskStatus,
 } from "../controllers/optimizationController";
 import { authenticate } from "../middleware/authMiddleware";
-import { paymentGuard as _paymentGuard } from "../middleware/paymentGuard";
 import { freemiumGuard } from "../middleware/freemiumGuard";
 
 const router = Router();

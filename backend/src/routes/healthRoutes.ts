@@ -24,7 +24,6 @@
 import { Router, Request, Response } from "express";
 import { getServiceStatistics, getServiceHealth } from "../services/llmService";
 import { providerManager } from "../config/pydanticProviders";
-import { pydanticLlmService as _pydanticLlmService } from "../services/pydanticLlmService";
 import SystemValidator from "../startup/systemValidator";
 import DependencyValidator from "../services/dependencyValidator";
 // Modern PydanticAI uses embedded system prompts, not external prompt management

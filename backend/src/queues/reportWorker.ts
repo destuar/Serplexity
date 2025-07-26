@@ -20,7 +20,6 @@ import {
   generateOverallSentimentSummary,
   generateWebsiteForCompetitors,
   getModelsByTaskWithUserPreferences,
-  SentimentScores as _SentimentScores,
   CompetitorInfo,
 } from "../services/llmService";
 import { ModelTask, LLM_CONFIG } from "../config/models";
@@ -147,12 +146,12 @@ validateWorkerDependencies().then(() => {
   });
 
   worker.on("completed", (job: Job) => {
-    const { runId: _runId, company } = job.data;
+    const { company } = job.data;
     console.log(`✅ Worker event: Job ${job.id} completed for ${company?.name}`);
   });
 
   worker.on("failed", async (job, err) => {
-    const { runId: _runId, company } = job?.data || {};
+    const { company } = job?.data || {};
     console.error(
       `❌ Worker event: Job ${job?.id} failed for ${company?.name}:`,
       err,
@@ -1081,7 +1080,7 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
     console.log(`📊 Total question-model combinations: ${questionPromises.length}`);
     console.log(`📊 Successful answers: ${successfulAnswers}/${questionPromises.length}`);
     
-    for (const [_questionId, tracker] of questionTracker) {
+    for (const [, tracker] of questionTracker) {
       const { question, attempted, successful, failed, models } = tracker;
       console.log(`📊 Question: "${question.substring(0, 50)}..."`);
       console.log(`📊   - Attempted: ${attempted}, Successful: ${successful}, Failed: ${failed}`);
@@ -1461,7 +1460,7 @@ const processJob = async (job: Job) => {
   try {
     console.log(`🔥 WORKER ENTRY POINT - Job ${job.id} starting...`);
     
-    const { runId, company, force: _force } = job.data;
+    const { runId, company } = job.data;
 
   console.log(
     `🎯 Processing job ${job.id} - Report generation for company '${company.name}'`,

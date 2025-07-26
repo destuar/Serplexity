@@ -15,7 +15,7 @@
  * - getFullReportMetrics: Retrieves all pre-computed metrics for dashboard display.
  */
 import { getDbClient, getReadDbClient } from "../config/database";
-import { Prisma as _Prisma, ReportMetric } from "@prisma/client";
+import { ReportMetric, Prisma } from "@prisma/client";
 import {
   calculateTopQuestions,
   calculateCompetitorRankings,
@@ -23,7 +23,6 @@ import {
   saveSentimentOverTimePoint,
   saveShareOfVoiceHistoryPoint,
   saveInclusionRateHistoryPoint,
-  calculateTopResponses as _calculateTopResponses,
 } from "./dashboardService";
 
 // Type definitions for metrics data structures
@@ -364,10 +363,6 @@ export async function computeAndPersistMetrics(
     // Get user timezone from company if not provided
     let timezone = userTimezone;
     if (!timezone) {
-      const _company = await prismaReadReplica.company.findUnique({
-        where: { id: companyId },
-        include: { user: { select: { id: true } } }
-      });
       // For now, default to UTC. Later we can add timezone to user profile
       timezone = 'UTC';
     }
@@ -527,11 +522,9 @@ export async function computeAndPersistMetrics(
         averagePositionChange: allAvgPosChange,
         topRankingsCount: allTopRankings,
         rankingsChange: allRankingsChange,
-        // @ts-ignore - JSON compatibility for Prisma
-        sentimentScore: overallSentimentScore as unknown,
+        sentimentScore: overallSentimentScore as Prisma.InputJsonValue,
         sentimentChange: overallSentimentChange,
-        // @ts-ignore - JSON compatibility for Prisma
-        competitorRankings: enhancedCompetitorRankings as unknown,
+        competitorRankings: JSON.parse(JSON.stringify(enhancedCompetitorRankings)) as Prisma.InputJsonValue,
         topQuestions: topQuestions.questions,
         sentimentDetails: sentimentDetails,
       },
@@ -547,11 +540,9 @@ export async function computeAndPersistMetrics(
         averagePositionChange: allAvgPosChange,
         topRankingsCount: allTopRankings,
         rankingsChange: allRankingsChange,
-        // @ts-ignore - JSON compatibility for Prisma
-        sentimentScore: overallSentimentScore as unknown,
+        sentimentScore: overallSentimentScore as Prisma.InputJsonValue,
         sentimentChange: overallSentimentChange,
-        // @ts-ignore - JSON compatibility for Prisma
-        competitorRankings: enhancedCompetitorRankings as unknown,
+        competitorRankings: JSON.parse(JSON.stringify(enhancedCompetitorRankings)) as Prisma.InputJsonValue,
         topQuestions: topQuestions.questions,
         sentimentDetails: sentimentDetails,
       },
@@ -707,8 +698,7 @@ export async function computeAndPersistMetrics(
           rankingsChange,
           sentimentScore: modelSentiment ?? undefined,
           sentimentChange: modelSentimentChange,
-          // @ts-ignore - JSON compatibility for Prisma
-          competitorRankings: enhancedCompRankModel as unknown,
+          competitorRankings: JSON.parse(JSON.stringify(enhancedCompRankModel)) as Prisma.InputJsonValue,
           topQuestions: topQuestionsModel.questions,
           sentimentDetails: modelSentimentDetails,
         },
@@ -726,8 +716,7 @@ export async function computeAndPersistMetrics(
           rankingsChange,
           sentimentScore: modelSentiment ?? undefined,
           sentimentChange: modelSentimentChange,
-          // @ts-ignore - JSON compatibility for Prisma
-          competitorRankings: enhancedCompRankModel as unknown,
+          competitorRankings: JSON.parse(JSON.stringify(enhancedCompRankModel)) as Prisma.InputJsonValue,
           topQuestions: topQuestionsModel.questions,
           sentimentDetails: modelSentimentDetails,
         },

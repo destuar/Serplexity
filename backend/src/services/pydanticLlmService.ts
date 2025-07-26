@@ -34,7 +34,6 @@ import env from "../config/env";
 import {
   PydanticProviderConfig,
   providerManager,
-  getDefaultModelString as _getDefaultModelString,
 } from "../config/pydanticProviders";
 import path from "path";
 import fs from "fs/promises";

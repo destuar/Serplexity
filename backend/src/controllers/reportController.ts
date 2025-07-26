@@ -31,11 +31,9 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { getPrismaClient, getReadPrismaClient } from "../config/dbCache";
-import { redis as _redis } from "../config/redis";
 import { queueReport } from "../services/reportSchedulingService";
 import { scheduleEmergencyReportTrigger } from "../queues/backupScheduler";
 import { alertingService } from "../services/alertingService";
-import { MODELS as _MODELS } from "../config/models";
 import { getFullReportMetrics } from "../services/metricsService";
 import {
   calculateCompetitorRankings,

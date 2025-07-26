@@ -28,18 +28,14 @@ import { z } from "zod";
 import logger from "../utils/logger";
 import {
   pydanticLlmService,
-  PydanticAgentOptions as _PydanticAgentOptions,
-  PydanticResponse as _PydanticResponse,
 } from "./pydanticLlmService";
 import { providerManager } from "../config/pydanticProviders";
 import {
   Model,
-  ModelEngine as _ModelEngine,
   ModelTask,
   getModelsByTask,
 } from "../config/models";
 import { getDbClient } from "../config/database";
-import { TokenUsageDetail as _TokenUsageDetail } from "../interfaces/TokenUsageDetail";
 
 // --- Enhanced Type Definitions ---
 export interface TokenUsage {

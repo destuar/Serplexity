@@ -16,7 +16,6 @@
  */
 import { reportGenerationQueue } from "../queues/reportGenerationQueue";
 import { getDbClient } from "../config/database";
-import { ReportRun as _ReportRun } from ".prisma/client";
 
 // Enhanced logging for the report scheduling service
 interface SchedulingLogContext {

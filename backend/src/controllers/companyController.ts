@@ -33,21 +33,8 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { getPrismaClient, getReadPrismaClient } from "../config/dbCache";
 import { getFullReportMetrics } from "../services/metricsService";
-import { calculateTopQuestions as _calculateTopQuestions } from "../services/dashboardService";
-import { pydanticLlmService as _pydanticLlmService } from "../services/pydanticLlmService";
 import { flexibleUrlSchema } from "../utils/urlNormalizer";
 
-// Type for sentiment score values
-interface _SentimentScoreValue {
-  ratings: Array<{
-    quality: number;
-    priceValue: number;
-    brandReputation: number;
-    brandTrust: number;
-    customerService: number;
-    summaryDescription: string;
-  }>;
-}
 
 // Validation schemas
 const createCompanySchema = z.object({
