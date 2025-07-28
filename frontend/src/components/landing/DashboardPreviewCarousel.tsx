@@ -15,14 +15,20 @@
  * @exports
  * - DashboardPreviewCarousel: The main React functional component for the dashboard preview carousel.
  */
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import MockOverviewPage from './mock-dashboard/pages/MockOverviewPage';
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import MockOverviewPage from "./mock-dashboard/pages/MockOverviewPage";
 
-import MockSentimentAnalysisPage from './mock-dashboard/pages/MockSentimentAnalysisPage';
-import MockResponseDetailsPage from './mock-dashboard/pages/MockResponseDetailsPage';
-import MockCompetitorRankingsPage from './mock-dashboard/pages/MockCompetitorRankingsPage';
-import MockModelComparisonPage from './mock-dashboard/pages/MockModelComparisonPage';
+import MockCompetitorRankingsPage from "./mock-dashboard/pages/MockCompetitorRankingsPage";
+import MockModelComparisonPage from "./mock-dashboard/pages/MockModelComparisonPage";
+import MockResponseDetailsPage from "./mock-dashboard/pages/MockResponseDetailsPage";
+import MockSentimentAnalysisPage from "./mock-dashboard/pages/MockSentimentAnalysisPage";
 
 // Memoized page components for performance
 const MemoizedOverviewPage = React.memo(MockOverviewPage);
@@ -38,11 +44,14 @@ const MemoizedModelComparisonPage = React.memo(MockModelComparisonPage);
  * @type {Array<{ name: string; component: JSX.Element }>}
  */
 const pages = [
-  { name: 'Overview', component: <MemoizedOverviewPage /> },
-  { name: 'Sentiment Analysis', component: <MemoizedSentimentAnalysisPage /> },
-  { name: 'Response Details', component: <MemoizedResponseDetailsPage /> },
-  { name: 'Competitor Rankings', component: <MemoizedCompetitorRankingsPage /> },
-  { name: 'Model Comparison', component: <MemoizedModelComparisonPage /> },
+  { name: "Overview", component: <MemoizedOverviewPage /> },
+  { name: "Sentiment Analysis", component: <MemoizedSentimentAnalysisPage /> },
+  { name: "Response Details", component: <MemoizedResponseDetailsPage /> },
+  {
+    name: "Competitor Rankings",
+    component: <MemoizedCompetitorRankingsPage />,
+  },
+  { name: "Model Comparison", component: <MemoizedModelComparisonPage /> },
 ];
 
 /**
@@ -70,8 +79,8 @@ const DashboardPreviewCarousel: React.FC = () => {
     const firstSlide = pages[0];
     return [
       { ...lastSlide, isClone: true }, // Clone of last slide at beginning
-      ...pages.map(page => ({ ...page, isClone: false })),
-      { ...firstSlide, isClone: true } // Clone of first slide at end
+      ...pages.map((page) => ({ ...page, isClone: false })),
+      { ...firstSlide, isClone: true }, // Clone of first slide at end
     ];
   }, []);
 
@@ -90,7 +99,8 @@ const DashboardPreviewCarousel: React.FC = () => {
     } else {
       // Normal previous navigation
       const newDisplayIndex = displayIndex - 1;
-      const newCurrentIndex = currentIndex === 0 ? pages.length - 1 : currentIndex - 1;
+      const newCurrentIndex =
+        currentIndex === 0 ? pages.length - 1 : currentIndex - 1;
       setDisplayIndex(newDisplayIndex);
       setCurrentIndex(newCurrentIndex);
       setTimeout(() => setIsTransitioning(false), 500);
@@ -112,20 +122,24 @@ const DashboardPreviewCarousel: React.FC = () => {
     } else {
       // Normal next navigation
       const newDisplayIndex = displayIndex + 1;
-      const newCurrentIndex = currentIndex === pages.length - 1 ? 0 : currentIndex + 1;
+      const newCurrentIndex =
+        currentIndex === pages.length - 1 ? 0 : currentIndex + 1;
       setDisplayIndex(newDisplayIndex);
       setCurrentIndex(newCurrentIndex);
       setTimeout(() => setIsTransitioning(false), 500);
     }
   }, [currentIndex, displayIndex, isTransitioning]);
 
-  const goToSlide = useCallback((index: number) => {
-    if (isTransitioning || index === currentIndex) return;
-    setIsTransitioning(true);
-    setDisplayIndex(index + 1); // +1 because of cloned slide at beginning
-    setCurrentIndex(index);
-    setTimeout(() => setIsTransitioning(false), 500);
-  }, [currentIndex, isTransitioning]);
+  const goToSlide = useCallback(
+    (index: number) => {
+      if (isTransitioning || index === currentIndex) return;
+      setIsTransitioning(true);
+      setDisplayIndex(index + 1); // +1 because of cloned slide at beginning
+      setCurrentIndex(index);
+      setTimeout(() => setIsTransitioning(false), 500);
+    },
+    [currentIndex, isTransitioning]
+  );
 
   // Touch handlers for mobile swipe support
   const onTouchStart = useCallback((e: React.TouchEvent) => {
@@ -153,13 +167,13 @@ const DashboardPreviewCarousel: React.FC = () => {
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'ArrowLeft') {
+      if (event.key === "ArrowLeft") {
         event.preventDefault();
         goToPrevious();
-      } else if (event.key === 'ArrowRight') {
+      } else if (event.key === "ArrowRight") {
         event.preventDefault();
         goToNext();
-      } else if (event.key >= '1' && event.key <= '6') {
+      } else if (event.key >= "1" && event.key <= "6") {
         event.preventDefault();
         const index = parseInt(event.key) - 1;
         if (index < pages.length) {
@@ -168,8 +182,8 @@ const DashboardPreviewCarousel: React.FC = () => {
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [goToPrevious, goToNext, goToSlide]);
 
   // Auto-advance functionality (paused on hover)
@@ -195,7 +209,7 @@ const DashboardPreviewCarousel: React.FC = () => {
       },
       {
         root: null,
-        rootMargin: '0px',
+        rootMargin: "0px",
         threshold: 0.1,
       }
     );
@@ -213,10 +227,15 @@ const DashboardPreviewCarousel: React.FC = () => {
   }, []);
 
   // Memoized transform style for performance
-  const transformStyle = useMemo(() => ({
-    transform: `translateX(-${displayIndex * 100}%)`,
-    transition: isTransitioning ? 'transform 500ms cubic-bezier(0.4, 0, 0.2, 1)' : 'none'
-  }), [displayIndex, isTransitioning]);
+  const transformStyle = useMemo(
+    () => ({
+      transform: `translateX(-${displayIndex * 100}%)`,
+      transition: isTransitioning
+        ? "transform 500ms cubic-bezier(0.4, 0, 0.2, 1)"
+        : "none",
+    }),
+    [displayIndex, isTransitioning]
+  );
 
   return (
     <div ref={carouselRef} className="w-full max-w-6xl mx-auto mb-16 px-4">
@@ -228,11 +247,9 @@ const DashboardPreviewCarousel: React.FC = () => {
         aria-label="Dashboard Preview Carousel"
         tabIndex={0}
       >
-        {/* Subtle rectangular glow effect */}
-        <div className="absolute -inset-6 bg-gradient-to-r from-[#7762ff]/20 to-purple-600/20 rounded-2xl blur-[60px] animate-glow pointer-events-none"></div>
-        <div className="absolute -inset-4 bg-gradient-to-r from-[#7762ff]/15 to-purple-600/15 rounded-xl blur-[40px] animate-glow pointer-events-none" style={{ animationDelay: '1s' }}></div>
-        <div 
-          className="relative bg-black backdrop-blur-xl rounded-lg md:rounded-xl aspect-[32/17] overflow-hidden shadow-2xl drop-shadow-2xl focus:outline-none focus:ring-2 focus:ring-[#7762ff] focus:ring-offset-2"
+        {/* Removed glow effect */}
+        <div
+          className="relative bg-black backdrop-blur-xl rounded-lg md:rounded-xl aspect-[32/17] overflow-hidden shadow-2xl drop-shadow-2xl focus:outline-none"
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
@@ -244,20 +261,18 @@ const DashboardPreviewCarousel: React.FC = () => {
             aria-atomic="true"
           >
             {infiniteSlides.map((slide, index) => (
-              <div 
-                key={`${slide.isClone ? 'clone' : 'original'}-${index}`}
+              <div
+                key={`${slide.isClone ? "clone" : "original"}-${index}`}
                 className="w-full flex-shrink-0 h-full bg-gray-50 overflow-hidden"
                 aria-hidden={index !== displayIndex}
               >
-                <div 
-                  className="w-full h-full transform scale-[0.7] origin-top-left flex flex-col" 
-                  style={{ width: '143%', height: '143%' }}
+                <div
+                  className="w-full h-full transform scale-[0.7] origin-top-left flex flex-col"
+                  style={{ width: "143%", height: "143%" }}
                 >
                   {/* Only render current and adjacent slides for performance */}
                   {Math.abs(index - displayIndex) <= 1 ? (
-                    <div className="flex-grow h-full">
-                      {slide.component}
-                    </div>
+                    <div className="flex-grow h-full">{slide.component}</div>
                   ) : null}
                 </div>
               </div>
@@ -269,7 +284,7 @@ const DashboardPreviewCarousel: React.FC = () => {
         <button
           onClick={goToPrevious}
           disabled={isTransitioning}
-          className="absolute top-1/2 -left-4 md:-left-12 transform -translate-y-1/2 group-hover:-translate-x-2 text-white/70 hover:text-white z-20 transition-all duration-300 ease-in-out hover:scale-110 opacity-0 group-hover:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[#7762ff] focus:ring-offset-2 rounded-full p-2"
+          className="absolute top-1/2 -left-4 md:-left-12 transform -translate-y-1/2 group-hover:-translate-x-2 text-black/70 hover:text-black z-20 transition-all duration-300 ease-in-out hover:scale-110 opacity-0 group-hover:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none rounded-full p-2"
           aria-label="Previous slide"
         >
           <ChevronLeft className="h-12 w-12" />
@@ -277,7 +292,7 @@ const DashboardPreviewCarousel: React.FC = () => {
         <button
           onClick={goToNext}
           disabled={isTransitioning}
-          className="absolute top-1/2 -right-4 md:-right-12 transform -translate-y-1/2 group-hover:translate-x-2 text-white/70 hover:text-white z-20 transition-all duration-300 ease-in-out hover:scale-110 opacity-0 group-hover:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[#7762ff] focus:ring-offset-2 rounded-full p-2"
+          className="absolute top-1/2 -right-4 md:-right-12 transform -translate-y-1/2 group-hover:translate-x-2 text-black/70 hover:text-black z-20 transition-all duration-300 ease-in-out hover:scale-110 opacity-0 group-hover:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none rounded-full p-2"
           aria-label="Next slide"
         >
           <ChevronRight className="h-12 w-12" />
@@ -291,10 +306,10 @@ const DashboardPreviewCarousel: React.FC = () => {
             key={index}
             onClick={() => goToSlide(index)}
             disabled={isTransitioning}
-            className={`rounded-full transition-all duration-500 ease-in-out focus:outline-none ring-offset-black/50 focus:ring-2 focus:ring-white/70 focus:ring-offset-2 ${
-              index === currentIndex 
-                ? 'w-5 h-2 bg-white/90' 
-                : 'w-2 h-2 bg-white/40 hover:bg-white/60'
+            className={`rounded-full transition-all duration-500 ease-in-out focus:outline-none ${
+              index === currentIndex
+                ? "w-5 h-2 bg-black/90"
+                : "w-2 h-2 bg-black/40 hover:bg-black/60"
             }`}
             aria-label={`Go to slide ${index + 1}: ${pages[index].name}`}
           />

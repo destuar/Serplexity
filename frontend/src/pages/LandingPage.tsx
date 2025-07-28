@@ -1531,7 +1531,7 @@ const LandingPage: React.FC = () => {
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="text-3xl md:text-4xl font-bold text-white mb-4"
+                className="text-3xl md:text-4xl font-bold text-black mb-4"
               >
                 Your Brand Visibility Metrics, All In One Place
               </motion.h2>
@@ -1540,7 +1540,7 @@ const LandingPage: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.1 }}
-                className="text-lg md:text-xl text-gray-300"
+                className="text-lg md:text-xl text-black"
               >
                 Understand what AI is saying to millions of customers
               </motion.p>
@@ -1570,145 +1570,15 @@ const LandingPage: React.FC = () => {
           </div>
         </motion.section>
 
-        {/* Company Logos Section - Enhanced */}
-        <motion.section
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8 }}
-          className="py-16 md:py-20"
-        >
-          <div className="w-full max-w-7xl mx-auto px-4">
-            <div className="text-center mb-12">
-              <motion.h2
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                className="text-lg font-semibold text-gray-400 uppercase tracking-wide mb-2"
-              >
-                Optimizing for AI search across leading engines
-              </motion.h2>
-            </div>
-            {/* Marquee for mobile/medium */}
-            <div className="block lg:hidden marquee-container">
-              <div className="marquee-track">
-                {[...companyLogos, ...companyLogos].map((logo, i) => (
-                  <img
-                    key={i}
-                    src={`/${logo.file}`}
-                    alt={`${logo.name} logo`}
-                    className="marquee-logo"
-                    style={{
-                      height:
-                        logo.file === "Anthropic-Logo.wine.svg"
-                          ? "128px"
-                          : logo.file === "logo-perplexity-1024x258.png"
-                            ? "42px"
-                            : logo.file === "Google_Gemini_logo.svg.png"
-                              ? "32px"
-                              : logo.file === "OpenAI_Logo.svg.png"
-                                ? "32px"
-                                : logo.file === "DeepSeek_logo.svg.png"
-                                  ? "72px"
-                                  : "48px",
-                      filter: "brightness(0)",
-                      marginTop:
-                        logo.file === "OpenAI_Logo.svg.png"
-                          ? "4px"
-                          : logo.file === "Google_Gemini_logo.svg.png"
-                            ? "-8px"
-                            : undefined,
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-            {/* Grid for large screens */}
-            <div className="hidden lg:block max-w-6xl mx-auto">
-              {/* Top row - 4 logos */}
-              <div className="grid grid-cols-4 gap-x-8 gap-y-8 items-center justify-items-center mb-8">
-                {topRowLogos.map((logo, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.6, delay: i * 0.1 }}
-                    className={
-                      logo.file === "Anthropic-Logo.wine.svg"
-                        ? "w-48 h-48 flex items-center justify-center"
-                        : logo.file === "logo-perplexity-1024x258.png"
-                          ? "w-44 h-36 flex items-center justify-center"
-                          : "w-32 h-32 flex items-center justify-center"
-                    }
-                  >
-                    <img
-                      src={`/${logo.file}`}
-                      alt={`${logo.name} logo`}
-                      className="w-auto object-contain transition-all duration-300 hover:scale-110 hover:brightness-125"
-                      style={{
-                        height:
-                          logo.file === "Anthropic-Logo.wine.svg"
-                            ? "160px"
-                            : logo.file === "logo-perplexity-1024x258.png"
-                              ? "110px"
-                              : logo.file === "Google_Gemini_logo.svg.png"
-                                ? "36px"
-                                : "48px",
-                        filter: "brightness(0)",
-                      }}
-                    />
-                  </motion.div>
-                ))}
-              </div>
-
-              {/* Bottom row - 3 logos centered */}
-              <div className="grid grid-cols-3 gap-x-8 gap-y-8 items-center justify-items-center max-w-3xl mx-auto">
-                {bottomRowLogos.map((logo, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.6, delay: (i + 4) * 0.1 }}
-                    className={
-                      logo.file === "DeepSeek_logo.svg.png"
-                        ? "w-40 h-40 flex items-center justify-center"
-                        : "w-32 h-32 flex items-center justify-center"
-                    }
-                  >
-                    <img
-                      src={`/${logo.file}`}
-                      alt={`${logo.name} logo`}
-                      className="w-auto object-contain transition-all duration-300 hover:scale-110 hover:brightness-125"
-                      style={{
-                        height:
-                          logo.file === "copilot-logo.png"
-                            ? "48px"
-                            : logo.file === "Grok-feb-2025-logo.svg.png"
-                              ? "42px"
-                              : logo.file === "DeepSeek_logo.svg.png"
-                                ? "72px"
-                                : "48px",
-                        filter: "brightness(0)",
-                      }}
-                    />
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </motion.section>
-
         {/* Research Section */}
         <SlideIn>
           <section id="research" className="pt-12 md:pt-16 pb-12 md:pb-16">
             <div className="max-w-6xl mx-auto px-6 lg:px-8">
               <div className="text-center mb-16">
-                <h2 className="text-4xl font-bold tracking-tight text-white mb-4">
+                <h2 className="text-4xl font-bold tracking-tight text-black mb-4">
                   Latest Research & Insights
                 </h2>
-                <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto">
+                <p className="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto">
                   Access state of the industry reports and leading research on
                   AI search.
                 </p>
@@ -1718,57 +1588,11 @@ const LandingPage: React.FC = () => {
               {postsLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#7762ff] mx-auto mb-4"></div>
-                    <p className="text-gray-300">Loading latest research...</p>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading latest research...</p>
                   </div>
                 </div>
-              ) : postsError ? (
-                <div className="text-center py-12">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-red-500/20 rounded-full flex items-center justify-center">
-                    <svg
-                      className="h-6 w-6 text-red-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-medium text-white mb-2">
-                    Unable to load articles
-                  </h3>
-                  <p className="text-gray-400">{postsError}</p>
-                </div>
-              ) : blogPosts.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-white/10 rounded-full flex items-center justify-center">
-                    <svg
-                      className="w-8 h-8 text-white/50"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                      />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-medium text-white mb-2">
-                    No articles yet
-                  </h3>
-                  <p className="text-gray-400">
-                    Check back soon for insights and research from our team.
-                  </p>
-                </div>
-              ) : (
+              ) : postsError ? null : blogPosts.length === 0 ? null : (
                 <>
                   {/* Mobile: Horizontal scrollable */}
                   <div className="md:hidden">
@@ -1783,10 +1607,10 @@ const LandingPage: React.FC = () => {
                         <article
                           key={post.id}
                           onClick={() => navigate(`/research/${post.slug}`)}
-                          className="bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-6 hover:bg-black/10 transition-all duration-200 group cursor-pointer flex-shrink-0 w-80"
+                          className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-200 group cursor-pointer flex-shrink-0 w-80"
                         >
                           {/* Blog Post Image */}
-                          <div className="w-full h-48 bg-gradient-to-br from-[#5271ff]/20 to-[#9e52ff]/20 rounded-xl mb-6 overflow-hidden">
+                          <div className="w-full h-48 bg-gray-100 rounded-xl mb-6 overflow-hidden">
                             {post.coverImage ? (
                               <img
                                 src={post.coverImage}
@@ -1795,9 +1619,9 @@ const LandingPage: React.FC = () => {
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">
-                                <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center">
+                                <div className="w-16 h-16 bg-black/10 rounded-full flex items-center justify-center">
                                   <svg
-                                    className="w-8 h-8 text-white/50"
+                                    className="w-8 h-8 text-black/50"
                                     fill="none"
                                     stroke="currentColor"
                                     viewBox="0 0 24 24"
@@ -1818,10 +1642,10 @@ const LandingPage: React.FC = () => {
                           <div className="space-y-4">
                             {/* Category Tag & Date */}
                             <div className="flex items-center gap-2">
-                              <span className="px-3 py-1 bg-[#5271ff]/20 text-[#5271ff] rounded-full text-xs font-medium">
+                              <span className="px-3 py-1 bg-black/10 text-black rounded-full text-xs font-medium">
                                 {extractFirstCategory(post.tags)}
                               </span>
-                              <span className="text-gray-400 text-xs flex items-center gap-1">
+                              <span className="text-gray-600 text-xs flex items-center gap-1">
                                 <Calendar className="w-3 h-3" />
                                 {formatBlogDate(
                                   post.publishedAt || post.createdAt
@@ -1830,12 +1654,12 @@ const LandingPage: React.FC = () => {
                             </div>
 
                             {/* Title */}
-                            <h3 className="text-xl font-semibold text-white group-hover:text-gray-100 transition-colors line-clamp-2">
+                            <h3 className="text-xl font-semibold text-black group-hover:text-gray-800 transition-colors line-clamp-2">
                               {post.title}
                             </h3>
 
                             {/* Description */}
-                            <p className="text-gray-300 text-sm line-clamp-3">
+                            <p className="text-gray-600 text-sm line-clamp-3">
                               {post.excerpt
                                 ? truncateText(stripHtmlTags(post.excerpt), 120)
                                 : truncateText(
@@ -1846,11 +1670,11 @@ const LandingPage: React.FC = () => {
 
                             {/* Read More Link & Read Time */}
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center text-[#5271ff] text-sm font-medium group-hover:text-[#7662ff] transition-colors">
+                              <div className="flex items-center text-black text-sm font-medium group-hover:text-gray-700 transition-colors">
                                 <span>Read more</span>
                                 <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
                               </div>
-                              <div className="flex items-center text-gray-400 text-xs gap-1">
+                              <div className="flex items-center text-gray-600 text-xs gap-1">
                                 <Clock className="w-3 h-3" />
                                 <span>
                                   {estimateReadTime(post.content)} min read
@@ -1869,10 +1693,10 @@ const LandingPage: React.FC = () => {
                       <article
                         key={post.id}
                         onClick={() => navigate(`/research/${post.slug}`)}
-                        className="bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-6 hover:bg-black/10 transition-all duration-200 group cursor-pointer"
+                        className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-200 group cursor-pointer"
                       >
                         {/* Blog Post Image */}
-                        <div className="w-full h-48 bg-gradient-to-br from-[#5271ff]/20 to-[#9e52ff]/20 rounded-xl mb-6 overflow-hidden">
+                        <div className="w-full h-48 bg-gray-100 rounded-xl mb-6 overflow-hidden">
                           {post.coverImage ? (
                             <img
                               src={post.coverImage}
@@ -1881,9 +1705,9 @@ const LandingPage: React.FC = () => {
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                              <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center">
+                              <div className="w-16 h-16 bg-black/10 rounded-full flex items-center justify-center">
                                 <svg
-                                  className="w-8 h-8 text-white/50"
+                                  className="w-8 h-8 text-black/50"
                                   fill="none"
                                   stroke="currentColor"
                                   viewBox="0 0 24 24"
@@ -1904,10 +1728,10 @@ const LandingPage: React.FC = () => {
                         <div className="space-y-4">
                           {/* Category Tag & Date */}
                           <div className="flex items-center gap-2">
-                            <span className="px-3 py-1 bg-[#5271ff]/20 text-[#5271ff] rounded-full text-xs font-medium">
+                            <span className="px-3 py-1 bg-black/10 text-black rounded-full text-xs font-medium">
                               {extractFirstCategory(post.tags)}
                             </span>
-                            <span className="text-gray-400 text-xs flex items-center gap-1">
+                            <span className="text-gray-600 text-xs flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
                               {formatBlogDate(
                                 post.publishedAt || post.createdAt
@@ -1916,12 +1740,12 @@ const LandingPage: React.FC = () => {
                           </div>
 
                           {/* Title */}
-                          <h3 className="text-xl font-semibold text-white group-hover:text-gray-100 transition-colors line-clamp-2">
+                          <h3 className="text-xl font-semibold text-black group-hover:text-gray-800 transition-colors line-clamp-2">
                             {post.title}
                           </h3>
 
                           {/* Description */}
-                          <p className="text-gray-300 text-sm line-clamp-3">
+                          <p className="text-gray-600 text-sm line-clamp-3">
                             {post.excerpt
                               ? truncateText(stripHtmlTags(post.excerpt), 120)
                               : truncateText(stripHtmlTags(post.content), 120)}
@@ -1929,11 +1753,11 @@ const LandingPage: React.FC = () => {
 
                           {/* Read More Link & Read Time */}
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center text-[#5271ff] text-sm font-medium group-hover:text-[#7662ff] transition-colors">
+                            <div className="flex items-center text-black text-sm font-medium group-hover:text-gray-700 transition-colors">
                               <span>Read more</span>
                               <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
                             </div>
-                            <div className="flex items-center text-gray-400 text-xs gap-1">
+                            <div className="flex items-center text-gray-600 text-xs gap-1">
                               <Clock className="w-3 h-3" />
                               <span>
                                 {estimateReadTime(post.content)} min read
@@ -1951,7 +1775,7 @@ const LandingPage: React.FC = () => {
               <div className="text-center mt-6 md:mt-12">
                 <button
                   onClick={() => navigate("/research")}
-                  className="bg-white/10 text-white hover:bg-white/20 px-8 py-3 rounded-full font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2 mx-auto"
+                  className="bg-black text-white hover:bg-gray-800 px-8 py-3 rounded-full font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2 mx-auto"
                 >
                   See More
                   <ArrowRight className="w-4 h-4" />
@@ -1969,64 +1793,59 @@ const LandingPage: React.FC = () => {
           >
             <div className="max-w-6xl mx-auto px-6 lg:px-8">
               <div className="text-center mb-20">
-                <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-white mb-6">
+                <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-black mb-6">
                   Why Traditional SEO{" "}
-                  <span className="bg-gradient-to-r from-[#5271ff] via-[#7662ff] to-[#9e52ff] bg-clip-text text-transparent">
-                    Isn't Enough
-                  </span>
+                  <span className="text-black">Isn't Enough</span>
                 </h2>
-                <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto">
+                <p className="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto">
                   As generative engines reshape search, brands need a new
                   playbook
                 </p>
               </div>
 
               <div className="relative">
-                {/* Enhanced glass morphism container */}
-                <div className="bg-black/5 backdrop-blur-xl rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] overflow-hidden relative">
-                  {/* Subtle gradient border glow */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-[#5271ff]/5 via-[#7662ff]/5 to-[#9e52ff]/5 rounded-3xl blur-xl"></div>
-
+                {/* Enhanced white container */}
+                <div className="bg-white rounded-3xl shadow-lg border border-gray-200 overflow-hidden relative">
                   {/* Responsive table wrapper */}
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[640px]">
-                      <thead className="bg-gradient-to-r from-black/20 to-black/10 backdrop-blur-sm border-b border-white/10">
+                      <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
-                          <th className="px-6 md:px-8 py-6 text-left text-base md:text-lg font-semibold text-white">
+                          <th className="px-6 md:px-8 py-6 text-left text-base md:text-lg font-semibold text-black">
                             <div className="flex items-center gap-2">
-                              <Target className="w-5 h-5 text-gray-400" />
+                              <Target className="w-5 h-5 text-gray-600" />
                               Capabilities
                             </div>
                           </th>
                           <th className="px-6 md:px-8 py-6 text-center">
                             <div className="flex flex-col items-center gap-1">
-                              <span className="text-base md:text-lg font-semibold bg-gradient-to-r from-[#5271ff] to-[#9e52ff] bg-clip-text text-transparent">
+                              <span className="text-base md:text-lg font-semibold text-black">
                                 Serplexity Pro
                               </span>
-                              <span className="text-xs text-gray-500 font-normal">
+                              <span className="text-xs text-gray-600 font-normal">
                                 Subscription
                               </span>
                             </div>
                           </th>
-                          <th className="px-6 md:px-8 py-6 text-center text-base md:text-lg font-semibold text-gray-300">
+                          <th className="px-6 md:px-8 py-6 text-center text-base md:text-lg font-semibold text-black">
                             <div className="flex flex-col items-center gap-1">
                               <span>Traditional SEO</span>
-                              <span className="text-xs text-gray-500 font-normal">
+                              <span className="text-xs text-gray-600 font-normal">
                                 Legacy Approach
                               </span>
                             </div>
                           </th>
-                          <th className="px-6 md:px-8 py-6 text-center text-base md:text-lg font-semibold text-gray-300">
+                          <th className="px-6 md:px-8 py-6 text-center text-base md:text-lg font-semibold text-black">
                             <div className="flex flex-col items-center gap-1">
                               <span>Content Agencies</span>
-                              <span className="text-xs text-gray-500 font-normal">
+                              <span className="text-xs text-gray-600 font-normal">
                                 Standard Service
                               </span>
                             </div>
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-white/5">
+                      <tbody className="divide-y divide-gray-200">
                         {[
                           {
                             name: "Track AI Search Mentions",
@@ -2052,14 +1871,14 @@ const LandingPage: React.FC = () => {
                         ].map((feature, i) => (
                           <tr
                             key={i}
-                            className="hover:bg-white/3 transition-all duration-300 group"
+                            className="hover:bg-gray-50 transition-all duration-300 group"
                           >
                             <td className="px-6 md:px-8 py-6">
                               <div>
-                                <div className="text-base font-semibold text-white group-hover:text-gray-100 transition-colors">
+                                <div className="text-base font-semibold text-black group-hover:text-gray-900 transition-colors">
                                   {feature.name}
                                 </div>
-                                <div className="text-sm text-gray-400 mt-1">
+                                <div className="text-sm text-gray-600 mt-1">
                                   {feature.description}
                                 </div>
                               </div>
@@ -2098,13 +1917,13 @@ const LandingPage: React.FC = () => {
                   </div>
 
                   {/* Call-to-action footer */}
-                  <div className="bg-gradient-to-r from-[#5271ff]/5 to-[#9e52ff]/5 border-t border-white/10 px-6 md:px-8 py-6">
+                  <div className="bg-gray-50 border-t border-gray-200 px-6 md:px-8 py-6">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                       <div className="text-center md:text-left">
-                        <p className="text-white font-semibold">
+                        <p className="text-black font-semibold">
                           Ready to enhance your visibility?
                         </p>
-                        <p className="text-gray-300 text-sm">
+                        <p className="text-gray-600 text-sm">
                           Join the brands already leveraging GEO for competitive
                           advantage
                         </p>
@@ -2112,7 +1931,7 @@ const LandingPage: React.FC = () => {
                       <div className="relative z-10">
                         <button
                           onClick={user ? handleDashboard : handleGetStarted}
-                          className="bg-[#7762ff] hover:bg-[#6650e6] text-white px-6 py-3 rounded-full font-semibold transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2"
+                          className="bg-black hover:bg-gray-800 text-white px-6 py-3 rounded-full font-semibold transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2"
                         >
                           {user ? "View Dashboard" : "Get Started Today"}
                           <ArrowRight className="w-4 h-4" />
@@ -2131,22 +1950,18 @@ const LandingPage: React.FC = () => {
           <section id="pricing" className="py-20 md:py-24 hidden md:block">
             <div className="max-w-6xl mx-auto px-6 lg:px-8">
               <div className="text-center mb-16">
-                <h2 className="text-4xl font-bold tracking-tight text-white mb-4">
+                <h2 className="text-4xl font-bold tracking-tight text-black mb-4">
                   Simple, Transparent Pricing
                 </h2>
-                <p className="text-lg md:text-xl text-gray-300">
+                <p className="text-lg md:text-xl text-gray-600">
                   Choose the plan that's right for your brand's growth.
                 </p>
               </div>
 
-              {/* Enhanced Liquid Glass Container */}
-              <div className="relative bg-black/5 backdrop-blur-xl rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-6 md:p-8 overflow-hidden">
-                {/* Glass morphism border glow */}
-                <div className="absolute inset-0 bg-gradient-to-r from-[#5271ff]/10 via-[#7662ff]/10 to-[#9e52ff]/10 rounded-3xl blur-xl"></div>
-                <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/5 rounded-3xl"></div>
-
-                {/* Inner content with relative positioning */}
-                <div className="relative z-10">
+              {/* Enhanced White Container */}
+              <div className="relative bg-white rounded-3xl shadow-lg border border-gray-200 p-6 md:p-8 overflow-hidden">
+                {/* Inner content */}
+                <div className="relative">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {[
                       {
@@ -2194,28 +2009,28 @@ const LandingPage: React.FC = () => {
                     ].map((plan, i) => (
                       <div
                         key={i}
-                        className={`bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] p-8 group flex flex-col ${plan.popular ? "shadow-[0_0_20px_rgba(119,98,255,0.5)] relative" : ""}`}
+                        className={`bg-white rounded-2xl shadow-lg border border-gray-200 p-8 group flex flex-col ${plan.popular ? "border-black shadow-xl relative" : ""}`}
                       >
                         {plan.popular && (
                           <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                            <span className="bg-gradient-to-r from-[#5271ff] to-[#9e52ff] text-white px-3 py-1 rounded-full text-xs font-medium">
+                            <span className="bg-black text-white px-3 py-1 rounded-full text-xs font-medium">
                               Most Popular
                             </span>
                           </div>
                         )}
                         <div className="text-center mb-6">
-                          <h3 className="text-lg font-semibold text-white mb-2">
+                          <h3 className="text-lg font-semibold text-black mb-2">
                             {plan.name}
                           </h3>
-                          <div className="text-3xl font-bold text-white mb-2">
+                          <div className="text-3xl font-bold text-black mb-2">
                             {plan.price}
                             {plan.pricePeriod && (
-                              <span className="text-sm font-medium text-gray-400">
+                              <span className="text-sm font-medium text-gray-600">
                                 {plan.pricePeriod}
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-gray-400">
+                          <p className="text-xs text-gray-600">
                             {plan.description}
                           </p>
                         </div>
@@ -2223,9 +2038,9 @@ const LandingPage: React.FC = () => {
                           {plan.features.map((feature, j) => (
                             <li
                               key={j}
-                              className="flex items-start text-gray-300 text-sm"
+                              className="flex items-start text-gray-600 text-sm"
                             >
-                              <Check className="w-4 h-4 text-green-400 mr-2 mt-0.5 flex-shrink-0" />
+                              <Check className="w-4 h-4 text-green-600 mr-2 mt-0.5 flex-shrink-0" />
                               <span>{feature}</span>
                             </li>
                           ))}
@@ -2234,8 +2049,8 @@ const LandingPage: React.FC = () => {
                           onClick={() => handleCheckout(plan.priceId as string)}
                           className={`w-full py-3 px-6 rounded-full font-semibold transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer ${
                             plan.popular
-                              ? "bg-[#7762ff] hover:bg-[#6650e6] text-white shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]"
-                              : "bg-white/10 text-white hover:bg-white/20 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
+                              ? "bg-black hover:bg-gray-800 text-white shadow-md active:shadow-inner"
+                              : "bg-gray-100 text-black hover:text-gray-900 shadow-md active:shadow-inner"
                           }`}
                         >
                           {plan.price === "By Request"
@@ -2257,10 +2072,10 @@ const LandingPage: React.FC = () => {
           <section id="faq" className="pt-12 md:pt-16 pb-12 md:pb-16">
             <div className="max-w-4xl mx-auto px-6 lg:px-8">
               <div className="text-center mb-16">
-                <h2 className="text-4xl font-bold tracking-tight text-white mb-4">
+                <h2 className="text-4xl font-bold tracking-tight text-black mb-4">
                   Frequently Asked Questions
                 </h2>
-                <p className="text-lg md:text-xl text-gray-300">
+                <p className="text-lg md:text-xl text-gray-600">
                   Everything you need to know about Generative Engine
                   Optimization
                 </p>
@@ -2301,7 +2116,7 @@ const LandingPage: React.FC = () => {
                   },
                 ].map((column, i) => (
                   <div key={i}>
-                    <h3 className="font-semibold text-white mb-4">
+                    <h3 className="font-semibold text-black mb-4">
                       {column.title}
                     </h3>
                     <ul className="space-y-2">
@@ -2309,7 +2124,7 @@ const LandingPage: React.FC = () => {
                         <li key={link.label}>
                           <a
                             href={link.href}
-                            className="text-gray-400 hover:text-white transition-colors"
+                            className="text-gray-600 hover:text-black transition-colors"
                           >
                             {link.label}
                           </a>
@@ -2325,20 +2140,20 @@ const LandingPage: React.FC = () => {
                       {
                         href: "https://www.linkedin.com/company/serplexity",
                         icon: (
-                          <FaLinkedin className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
+                          <FaLinkedin className="w-5 h-5 text-gray-600 group-hover:text-black transition-colors" />
                         ),
                       },
                       {
                         href: "#",
                         icon: (
-                          <FaXTwitter className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
+                          <FaXTwitter className="w-5 h-5 text-gray-600 group-hover:text-black transition-colors" />
                         ),
                       },
                     ].map((social, i) => (
                       <a
                         href={social.href}
                         key={i}
-                        className="group w-8 h-8 bg-white/5 backdrop-blur-xl rounded-full flex items-center justify-center hover:bg-white/10 transition-all duration-200 cursor-pointer"
+                        className="group w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-all duration-200 cursor-pointer"
                       >
                         {social.icon}
                       </a>
@@ -2347,7 +2162,7 @@ const LandingPage: React.FC = () => {
                 </div>
               </div>
             </div>
-            <div className="border-t border-white/10 mt-12 pt-8 text-gray-400">
+            <div className="border-t border-gray-200 mt-12 pt-8 text-gray-600">
               {/* Desktop Footer */}
               <div className="hidden md:flex items-center justify-between">
                 <p className="text-sm">
@@ -2360,7 +2175,7 @@ const LandingPage: React.FC = () => {
                     alt="Serplexity"
                     className="w-6 h-6 mr-2"
                   />
-                  <span className="text-lg font-bold text-white">
+                  <span className="text-lg font-bold text-black">
                     Serplexity
                   </span>
                 </div>
@@ -2370,12 +2185,11 @@ const LandingPage: React.FC = () => {
                 <div className="flex items-center justify-center gap-x-6">
                   <div className="flex items-center">
                     <img
-                      src="/Serplexity.
-                    png"
+                      src="/Serplexity.png"
                       alt="Serplexity"
                       className="w-6 h-6 mr-2"
                     />
-                    <span className="text-lg font-bold text-white">
+                    <span className="text-lg font-bold text-black">
                       Serplexity
                     </span>
                   </div>
@@ -2384,20 +2198,20 @@ const LandingPage: React.FC = () => {
                       {
                         href: "https://www.linkedin.com/company/serplexity",
                         icon: (
-                          <FaLinkedin className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
+                          <FaLinkedin className="w-5 h-5 text-gray-600 group-hover:text-black transition-colors" />
                         ),
                       },
                       {
                         href: "#",
                         icon: (
-                          <FaXTwitter className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
+                          <FaXTwitter className="w-5 h-5 text-gray-600 group-hover:text-black transition-colors" />
                         ),
                       },
                     ].map((social, i) => (
                       <a
                         href={social.href}
                         key={i}
-                        className="group w-8 h-8 bg-white/5 backdrop-blur-xl rounded-full flex items-center justify-center hover:bg-white/10 transition-all duration-200 cursor-pointer"
+                        className="group w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-all duration-200 cursor-pointer"
                       >
                         {social.icon}
                       </a>

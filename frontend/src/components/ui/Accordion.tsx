@@ -14,9 +14,9 @@
  * - AccordionTrigger: Trigger component for expanding/collapsing.
  * - AccordionContent: Content component for accordion items.
  */
-import React, { useState, ReactNode } from 'react';
-import { cn } from '../../lib/utils';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown } from "lucide-react";
+import React, { ReactNode, useState } from "react";
+import { cn } from "../../lib/utils";
 
 interface AccordionItemProps {
   question: string;
@@ -25,29 +25,34 @@ interface AccordionItemProps {
   onClick: () => void;
 }
 
-const AccordionItem: React.FC<AccordionItemProps> = ({ question, children, isOpen, onClick }) => {
+const AccordionItem: React.FC<AccordionItemProps> = ({
+  question,
+  children,
+  isOpen,
+  onClick,
+}) => {
   return (
-    <div className="bg-white/5 backdrop-blur-xl rounded-3xl overflow-hidden transition-all duration-300">
+    <div className="bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden transition-all duration-300">
       <button
         onClick={onClick}
-        className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-white/10 transition-colors duration-200"
+        className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 transition-colors duration-200"
       >
-        <span className="font-medium text-white text-lg">{question}</span>
-        <ChevronDown 
+        <span className="font-medium text-black text-lg">{question}</span>
+        <ChevronDown
           className={cn(
-            "h-5 w-5 text-gray-400 transition-transform duration-300 flex-shrink-0",
+            "h-5 w-5 text-gray-600 transition-transform duration-300 flex-shrink-0",
             { "transform rotate-180": isOpen }
-          )} 
+          )}
         />
       </button>
       <div
         style={{
-          maxHeight: isOpen ? '1000px' : '0px',
-          transition: 'max-height 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
+          maxHeight: isOpen ? "1000px" : "0px",
+          transition: "max-height 0.7s cubic-bezier(0.4, 0, 0.2, 1)",
         }}
         className="overflow-hidden"
       >
-        <div className="px-6 pb-6 pt-2 text-gray-300 leading-relaxed">
+        <div className="px-6 pb-6 pt-2 text-gray-600 leading-relaxed">
           {children}
         </div>
       </div>
@@ -83,4 +88,4 @@ export const Accordion: React.FC<AccordionProps> = ({ items }) => {
       ))}
     </div>
   );
-}; 
+};
