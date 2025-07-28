@@ -270,7 +270,7 @@ export function Navbar() {
                       className={cn(
                         "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 flex-shrink-0",
                         isLandingStylePage
-                          ? "bg-white/10 backdrop-blur-sm hover:bg-white/20 text-gray-600"
+                          ? "bg-gray-200 hover:bg-gray-300 text-gray-600"
                           : "bg-gray-200 hover:bg-gray-300 text-gray-600"
                       )}
                     >
@@ -290,39 +290,28 @@ export function Navbar() {
                           onClick={(e) => e.stopPropagation()}
                         >
                           {isLandingStylePage ? (
-                            // Liquid Glass Design for Landing Page
-                            <div className="relative bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] overflow-hidden">
-                              {/* Glass morphism border glow */}
-                              <div className="absolute inset-0 bg-gradient-to-r from-[#5271ff]/10 via-[#7662ff]/10 to-[#9e52ff]/10 rounded-2xl blur-xl"></div>
-                              <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/5 rounded-2xl"></div>
-
-                              {/* Inner content */}
-                              <div className="relative z-10 p-2">
+                            // Clean Design for Landing Page
+                            <div className="bg-white rounded-lg shadow-lg border border-gray-200">
+                              <div className="py-1">
                                 <button
                                   onClick={() => {
                                     setShowProfileModal(true);
                                     setIsProfileDropdownOpen(false);
                                   }}
-                                  className="w-full text-left px-4 py-3 text-sm flex items-center gap-3 transition-all duration-200 text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-xl group"
+                                  className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors text-gray-700 hover:bg-gray-100"
                                 >
-                                  <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-gradient-to-r from-[#5271ff]/20 to-[#9e52ff]/20 group-hover:from-[#5271ff]/30 group-hover:to-[#9e52ff]/30 transition-all duration-200">
-                                    <Settings size={16} />
-                                  </div>
-                                  <span className="font-medium">
-                                    Edit Profile
-                                  </span>
+                                  <Settings size={16} />
+                                  Edit Profile
                                 </button>
                                 <button
                                   onClick={() => {
                                     logout();
                                     setIsProfileDropdownOpen(false);
                                   }}
-                                  className="w-full text-left px-4 py-3 text-sm flex items-center gap-3 transition-all duration-200 text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-xl group"
+                                  className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors text-gray-700 hover:bg-gray-100"
                                 >
-                                  <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-gradient-to-r from-[#5271ff]/20 to-[#9e52ff]/20 group-hover:from-[#5271ff]/30 group-hover:to-[#9e52ff]/30 transition-all duration-200">
-                                    <LogOut size={16} />
-                                  </div>
-                                  <span className="font-medium">Logout</span>
+                                  <LogOut size={16} />
+                                  Logout
                                 </button>
                               </div>
                             </div>
@@ -375,8 +364,8 @@ export function Navbar() {
                         className={cn(
                           "text-base rounded-lg px-5 py-2",
                           isLandingStylePage
-                            ? "bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200"
-                            : "bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200"
+                            ? "bg-black hover:bg-gray-800 text-white shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200"
+                            : "bg-black hover:bg-gray-800 text-white shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200"
                         )}
                       >
                         Sign up
@@ -533,14 +522,14 @@ export function Navbar() {
                 <>
                   <Link
                     to="/"
-                    className="block text-base font-medium text-gray-300 hover:text-white py-2"
+                    className="block text-base font-medium text-gray-700 hover:text-gray-900 py-2"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     Home
                   </Link>
                   <Link
                     to="/research"
-                    className="block text-base font-medium text-gray-300 hover:text-white py-2"
+                    className="block text-base font-medium text-gray-700 hover:text-gray-900 py-2"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     Research
@@ -549,12 +538,12 @@ export function Navbar() {
                     href="/dashboard"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block text-base font-medium text-gray-300 hover:text-white py-2"
+                    className="block text-base font-medium text-gray-700 hover:text-gray-900 py-2"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     Dashboard
                   </a>
-                  <div className="border-t border-white/10 pt-4 space-y-4">
+                  <div className="border-t border-gray-200 pt-4 space-y-4">
                     {user ? (
                       <>
                         <button
@@ -562,7 +551,7 @@ export function Navbar() {
                             setShowProfileModal(true);
                             setIsMobileMenuOpen(false);
                           }}
-                          className="block w-full text-left text-base font-medium text-gray-300 hover:text-white py-2 flex items-center gap-2"
+                          className="block w-full text-left text-base font-medium text-gray-700 hover:text-gray-900 py-2 flex items-center gap-2"
                         >
                           <Settings size={16} />
                           Edit Profile
@@ -572,7 +561,7 @@ export function Navbar() {
                             logout();
                             setIsMobileMenuOpen(false);
                           }}
-                          className="block w-full text-left text-base font-medium text-gray-300 hover:text-white py-2 flex items-center gap-2"
+                          className="block w-full text-left text-base font-medium text-gray-700 hover:text-gray-900 py-2 flex items-center gap-2"
                         >
                           <LogOut size={16} />
                           Logout
@@ -582,7 +571,7 @@ export function Navbar() {
                       <>
                         <Link
                           to="/login"
-                          className="block text-base font-medium text-gray-300 hover:text-white py-2"
+                          className="block text-base font-medium text-gray-700 hover:text-gray-900 py-2"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
                           Login
@@ -591,7 +580,7 @@ export function Navbar() {
                           to="/register"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
-                          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white text-base rounded-lg px-4 py-2 font-medium shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200">
+                          <button className="w-full bg-black hover:bg-gray-800 text-white text-base rounded-lg px-4 py-2 font-medium shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200">
                             Sign up
                           </button>
                         </Link>
@@ -604,12 +593,12 @@ export function Navbar() {
                 <>
                   <Link
                     to="/"
-                    className="block text-base font-medium text-gray-300 hover:text-white py-2"
+                    className="block text-base font-medium text-gray-700 hover:text-gray-900 py-2"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     Home
                   </Link>
-                  <div className="border-t border-white/10 pt-4 space-y-4">
+                  <div className="border-t border-gray-200 pt-4 space-y-4">
                     {user ? (
                       <>
                         <button
@@ -617,7 +606,7 @@ export function Navbar() {
                             setShowProfileModal(true);
                             setIsMobileMenuOpen(false);
                           }}
-                          className="block w-full text-left text-base font-medium text-gray-300 hover:text-white py-2 flex items-center gap-2"
+                          className="block w-full text-left text-base font-medium text-gray-700 hover:text-gray-900 py-2 flex items-center gap-2"
                         >
                           <Settings size={16} />
                           Edit Profile
@@ -627,7 +616,7 @@ export function Navbar() {
                             logout();
                             setIsMobileMenuOpen(false);
                           }}
-                          className="block w-full text-left text-base font-medium text-gray-300 hover:text-white py-2 flex items-center gap-2"
+                          className="block w-full text-left text-base font-medium text-gray-700 hover:text-gray-900 py-2 flex items-center gap-2"
                         >
                           <LogOut size={16} />
                           Logout
@@ -637,7 +626,7 @@ export function Navbar() {
                       <>
                         <Link
                           to="/login"
-                          className="block text-base font-medium text-gray-300 hover:text-white py-2"
+                          className="block text-base font-medium text-gray-700 hover:text-gray-900 py-2"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
                           Login
@@ -646,7 +635,7 @@ export function Navbar() {
                           to="/register"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
-                          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white text-base rounded-lg px-4 py-2 font-medium shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200">
+                          <button className="w-full bg-black hover:bg-gray-800 text-white text-base rounded-lg px-4 py-2 font-medium shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200">
                             Sign up
                           </button>
                         </Link>
@@ -701,7 +690,7 @@ export function Navbar() {
                           to="/register"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
-                          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white text-base rounded-lg px-4 py-2 font-medium shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200">
+                          <button className="w-full bg-black hover:bg-gray-800 text-white text-base rounded-lg px-4 py-2 font-medium shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200">
                             Sign up
                           </button>
                         </Link>

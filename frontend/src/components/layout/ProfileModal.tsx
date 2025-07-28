@@ -12,16 +12,28 @@
  * @exports
  * - ProfileModal: The main profile modal component.
  */
-import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { X, User, Mail, Lock, Eye, EyeOff, AlertCircle, LogOut, CreditCard, Cpu } from 'lucide-react';
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  AlertCircle,
+  CreditCard,
+  Eye,
+  EyeOff,
+  Lock,
+  LogOut,
+  Mail,
+  Stars,
+  User,
+  X,
+} from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 // Note: buttonClasses and formClasses imports removed as they're unused
-import { useAuth } from '../../contexts/AuthContext';
-import { Button } from '../ui/Button';
-import { useNavigate } from 'react-router-dom';
-import apiClient from '../../lib/apiClient';
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
+import apiClient from "../../lib/apiClient";
+import { MODEL_CONFIGS, getModelDisplayName } from "../../types/dashboard";
+import { Button } from "../ui/Button";
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -30,18 +42,22 @@ interface ProfileModalProps {
 
 // Validation schemas
 const profileUpdateSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
-  email: z.string().email('Invalid email address'),
+  name: z.string().min(1, "Name is required").max(100, "Name too long"),
+  email: z.string().email("Invalid email address"),
 });
 
-const passwordChangeSchema = z.object({
-  currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: z.string().min(8, 'New password must be at least 8 characters'),
-  confirmPassword: z.string().min(1, 'Please confirm your new password'),
-}).refine((data) => data.newPassword === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-});
+const passwordChangeSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    newPassword: z
+      .string()
+      .min(8, "New password must be at least 8 characters"),
+    confirmPassword: z.string().min(1, "Please confirm your new password"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
 
 interface ApiError {
   response?: {
@@ -58,7 +74,7 @@ type PasswordFormData = z.infer<typeof passwordChangeSchema>;
 const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const { user, updateUser, logout } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState("profile");
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -69,25 +85,27 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [modelsError, setModelsError] = useState<string | null>(null);
-  const [profileSuccess, setProfileSuccess] = useState(false);
+
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [modelsSuccess, setModelsSuccess] = useState(false);
 
   // Model preferences state
-  const [modelPreferences, setModelPreferences] = useState<Record<string, boolean>>({
-    'gpt-4.1-mini': true,
-    'claude-3-5-haiku-20241022': true,
-    'gemini-2.5-flash': true,
-    'sonar': true
+  const [modelPreferences, setModelPreferences] = useState<
+    Record<string, boolean>
+  >({
+    "gpt-4.1-mini": true,
+    "claude-3-5-haiku-20241022": true,
+    "gemini-2.5-flash": true,
+    sonar: true,
   });
 
   // Load model preferences when modal opens
   const loadModelPreferences = async () => {
     try {
-      const response = await apiClient.get('/users/me/model-preferences');
+      const response = await apiClient.get("/users/me/model-preferences");
       setModelPreferences(response.data.modelPreferences);
     } catch (error) {
-      console.error('Failed to load model preferences:', error);
+      console.error("Failed to load model preferences:", error);
       // Keep default preferences on error
     }
   };
@@ -101,8 +119,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   } = useForm<ProfileFormData>({
     resolver: zodResolver(profileUpdateSchema),
     defaultValues: {
-      name: user?.name || '',
-      email: user?.email || '',
+      name: user?.name || "",
+      email: user?.email || "",
     },
   });
 
@@ -128,18 +146,17 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const onUpdateProfile = async (data: ProfileFormData) => {
     setIsUpdatingProfile(true);
     setProfileError(null);
-    setProfileSuccess(false);
 
     try {
-      const response = await apiClient.put('/users/me/profile', data);
-      
+      const response = await apiClient.put("/users/me/profile", data);
+
       // Update the user context with new data
       updateUser(response.data.user);
-      setProfileSuccess(true);
-      setTimeout(() => setProfileSuccess(false), 3000);
     } catch (error) {
       const apiError = error as ApiError;
-      setProfileError(apiError.response?.data?.error || 'Failed to update profile');
+      setProfileError(
+        apiError.response?.data?.error || "Failed to update profile"
+      );
     } finally {
       setIsUpdatingProfile(false);
     }
@@ -151,17 +168,19 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     setPasswordSuccess(false);
 
     try {
-      await apiClient.put('/users/me/password', {
+      await apiClient.put("/users/me/password", {
         currentPassword: data.currentPassword,
         newPassword: data.newPassword,
       });
-      
+
       setPasswordSuccess(true);
       resetPassword();
       setTimeout(() => setPasswordSuccess(false), 3000);
     } catch (error) {
       const apiError = error as ApiError;
-      setPasswordError(apiError.response?.data?.error || 'Failed to change password');
+      setPasswordError(
+        apiError.response?.data?.error || "Failed to change password"
+      );
     } finally {
       setIsChangingPassword(false);
     }
@@ -173,7 +192,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
       await logout();
       onClose(); // Close the modal after successful logout
     } catch (error) {
-      console.error('Sign out failed:', error);
+      console.error("Sign out failed:", error);
       // Even if logout fails, we should still close the modal
       // as the logout function in AuthContext handles clearing local state
       onClose();
@@ -184,22 +203,22 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
   const handleManageSubscription = () => {
     // If user has active subscription, redirect to customer portal
-    if (user?.subscriptionStatus === 'active') {
+    if (user?.subscriptionStatus === "active") {
       // This would typically be a customer portal link from Stripe
-      const billingUrl = process.env.VITE_STRIPE_BILLING_PORTAL_URL || '#';
-      if (billingUrl !== '#') {
-        window.open(billingUrl, '_blank');
+      const billingUrl = process.env.VITE_STRIPE_BILLING_PORTAL_URL || "#";
+      if (billingUrl !== "#") {
+        window.open(billingUrl, "_blank");
       }
     } else {
       // Navigate to the payment page to choose a plan
-      navigate('/payment');
+      navigate("/payment");
     }
   };
 
   const handleModelToggle = (modelId: string) => {
-    setModelPreferences(prev => ({
+    setModelPreferences((prev) => ({
       ...prev,
-      [modelId]: !prev[modelId]
+      [modelId]: !prev[modelId],
     }));
   };
 
@@ -209,15 +228,17 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     setModelsSuccess(false);
 
     try {
-      await apiClient.put('/users/me/model-preferences', {
-        modelPreferences
+      await apiClient.put("/users/me/model-preferences", {
+        modelPreferences,
       });
-      
+
       setModelsSuccess(true);
       setTimeout(() => setModelsSuccess(false), 3000);
     } catch (error) {
       const apiError = error as ApiError;
-      setModelsError(apiError.response?.data?.error || 'Failed to update model preferences');
+      setModelsError(
+        apiError.response?.data?.error || "Failed to update model preferences"
+      );
     } finally {
       setIsUpdatingModels(false);
     }
@@ -225,27 +246,31 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
   const handleClose = () => {
     resetProfile({
-      name: user?.name || '',
-      email: user?.email || '',
+      name: user?.name || "",
+      email: user?.email || "",
     });
     resetPassword();
     setProfileError(null);
     setPasswordError(null);
     setModelsError(null);
-    setProfileSuccess(false);
     setPasswordSuccess(false);
     setModelsSuccess(false);
-    setActiveTab('profile');
+    setActiveTab("profile");
     onClose();
   };
 
-  const isOAuthUser = user?.provider !== 'credentials';
+  const isOAuthUser = user?.provider !== "credentials";
 
   const tabs = [
-    { id: 'profile', label: 'Profile Info', icon: User },
-    { id: 'models', label: 'Models', icon: Cpu },
-    { id: 'subscription', label: 'Subscription', icon: CreditCard },
-    { id: 'password', label: 'Change Password', icon: Lock, disabled: isOAuthUser },
+    { id: "profile", label: "Profile Info", icon: User },
+    { id: "models", label: "Models", icon: Stars },
+    { id: "subscription", label: "Subscription", icon: CreditCard },
+    {
+      id: "password",
+      label: "Change Password",
+      icon: Lock,
+      disabled: isOAuthUser,
+    },
   ];
 
   return (
@@ -273,18 +298,20 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                     key={tab.id}
                     onClick={() => !tab.disabled && setActiveTab(tab.id)}
                     disabled={tab.disabled}
-                    className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+                    className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors focus:outline-none ${
                       activeTab === tab.id
-                        ? 'bg-black text-white'
+                        ? "bg-black text-white"
                         : tab.disabled
-                        ? 'text-gray-400 cursor-not-allowed'
-                        : 'text-gray-700 hover:bg-gray-100'
+                          ? "text-gray-400 cursor-not-allowed"
+                          : "text-gray-700 hover:bg-gray-100"
                     }`}
                   >
                     <Icon className="w-5 h-5 mr-3" />
                     {tab.label}
                     {tab.disabled && (
-                      <span className="ml-auto text-xs text-gray-400">OAuth</span>
+                      <span className="ml-auto text-xs text-gray-400">
+                        OAuth
+                      </span>
                     )}
                   </button>
                 );
@@ -294,47 +321,76 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
           {/* Main Content */}
           <div className="flex-1 overflow-y-auto p-6">
-            {activeTab === 'profile' && (
+            {activeTab === "profile" && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Profile Information</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Profile Information
+                  </h3>
                   <p className="text-gray-600 mb-4">
                     Update your account details below.
                   </p>
                 </div>
 
-                <form onSubmit={handleSubmitProfile(onUpdateProfile)} className="space-y-4">
+                <form
+                  onSubmit={handleSubmitProfile(onUpdateProfile)}
+                  className="space-y-4"
+                >
                   <div>
-                    <label htmlFor="name" className="flex items-center text-sm font-medium text-gray-700 mb-1">
+                    <label
+                      htmlFor="name"
+                      className="flex items-center text-sm font-medium text-gray-700 mb-1"
+                    >
                       <User className="w-4 h-4 mr-2" />
-                      Full Name
+                      Account Name
                     </label>
                     <input
                       id="name"
                       type="text"
-                      {...registerProfile('name')}
-                      className="flex h-11 w-full rounded-lg bg-gray-50 border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
-                      placeholder="Enter your full name"
+                      {...registerProfile("name")}
+                      className="flex h-11 w-full rounded-lg bg-black/5 backdrop-blur-sm px-4 py-3 text-sm text-black placeholder:text-gray-500 ring-offset-transparent focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 select-none touch-manipulation shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),inset_0_-1px_2px_rgba(255,255,255,0.1)]"
+                      placeholder="Enter your account name"
+                      style={{
+                        WebkitTapHighlightColor: "transparent",
+                        WebkitUserSelect: "none",
+                        userSelect: "none",
+                        outline: "none",
+                        border: "none",
+                      }}
                     />
                     {profileErrors.name && (
-                      <p className="mt-1 text-xs text-red-600">{profileErrors.name.message}</p>
+                      <p className="mt-1 text-xs text-red-600">
+                        {profileErrors.name.message}
+                      </p>
                     )}
                   </div>
 
                   <div>
-                    <label htmlFor="email" className="flex items-center text-sm font-medium text-gray-700 mb-1">
+                    <label
+                      htmlFor="email"
+                      className="flex items-center text-sm font-medium text-gray-700 mb-1"
+                    >
                       <Mail className="w-4 h-4 mr-2" />
                       Email Address
                     </label>
                     <input
                       id="email"
                       type="email"
-                      {...registerProfile('email')}
-                      className="flex h-11 w-full rounded-lg bg-gray-50 border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
+                      {...registerProfile("email")}
+                      className="flex h-11 w-full rounded-lg bg-black/5 backdrop-blur-sm px-4 py-3 text-sm text-black placeholder:text-gray-500 ring-offset-transparent focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 select-none touch-manipulation shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),inset_0_-1px_2px_rgba(255,255,255,0.1)]"
                       placeholder="Enter your email address"
+                      style={{
+                        WebkitTapHighlightColor: "transparent",
+                        WebkitUserSelect: "none",
+                        userSelect: "none",
+                        outline: "none",
+                        border: "none",
+                      }}
                     />
                     {profileErrors.email && (
-                      <p className="mt-1 text-xs text-red-600">{profileErrors.email.message}</p>
+                      <p className="mt-1 text-xs text-red-600">
+                        {profileErrors.email.message}
+                      </p>
                     )}
                   </div>
 
@@ -342,13 +398,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                     <div className="flex items-center p-3 text-sm text-red-700 bg-red-50 rounded-lg">
                       <AlertCircle className="w-4 h-4 mr-2" />
                       {profileError}
-                    </div>
-                  )}
-
-                  {profileSuccess && (
-                    <div className="flex items-center p-3 text-sm text-green-700 bg-green-50 rounded-lg">
-                      <AlertCircle className="w-4 h-4 mr-2" />
-                      Profile updated successfully!
                     </div>
                   )}
 
@@ -360,11 +409,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                     >
                       Cancel
                     </Button>
-                    <Button
-                      type="submit"
-                      disabled={isUpdatingProfile}
-                    >
-                      {isUpdatingProfile ? 'Saving...' : 'Save Changes'}
+                    <Button type="submit" disabled={isUpdatingProfile}>
+                      {isUpdatingProfile ? "Saving..." : "Save Changes"}
                     </Button>
                   </div>
                 </form>
@@ -372,7 +418,9 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                 {/* Sign Out Section */}
                 <div className="mt-8 pt-6 border-t border-gray-200">
                   <div>
-                    <h4 className="text-md font-medium text-gray-900 mb-2">Account Actions</h4>
+                    <h4 className="text-md font-medium text-gray-900 mb-2">
+                      Account Actions
+                    </h4>
                     <p className="text-sm text-gray-600 mb-4">
                       Sign out of your account on this device.
                     </p>
@@ -384,107 +432,173 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                     className="flex items-center text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
                   >
                     <LogOut className="w-4 h-4 mr-2" />
-                    {isSigningOut ? 'Signing out...' : 'Sign Out'}
+                    {isSigningOut ? "Signing out..." : "Sign Out"}
                   </Button>
                 </div>
               </div>
             )}
 
-            {activeTab === 'models' && (
+            {activeTab === "models" && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">AI Model Preferences</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    AI Model Preferences
+                  </h3>
                   <p className="text-gray-600 mb-4">
-                    Choose which AI models you'd like to use for your analysis. All models are enabled by default.
+                    Select which AI model responses you'd like to track.
                   </p>
                 </div>
 
                 <div className="space-y-4">
                   {/* ChatGPT */}
-                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-lg">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gradient-to-r from-green-400 to-blue-500 rounded-lg flex items-center justify-center">
-                        <span className="text-white font-semibold text-sm">GPT</span>
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-white">
+                        {MODEL_CONFIGS["gpt-4.1-mini"]?.logoUrl ? (
+                          <img
+                            src={MODEL_CONFIGS["gpt-4.1-mini"].logoUrl}
+                            alt={getModelDisplayName("gpt-4.1-mini")}
+                            className="w-6 h-6 object-contain"
+                          />
+                        ) : (
+                          <span className="text-sm font-bold text-gray-600">
+                            {getModelDisplayName("gpt-4.1-mini").charAt(0)}
+                          </span>
+                        )}
                       </div>
                       <div>
-                        <h4 className="font-medium text-gray-900">ChatGPT</h4>
-                        <p className="text-sm text-gray-600">OpenAI • Fast and reliable</p>
+                        <h4 className="font-medium text-gray-900">
+                          {getModelDisplayName("gpt-4.1-mini")}
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          {MODEL_CONFIGS["gpt-4.1-mini"]?.company}
+                        </p>
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={modelPreferences['gpt-4.1-mini']}
-                        onChange={() => handleModelToggle('gpt-4.1-mini')}
+                        checked={modelPreferences["gpt-4.1-mini"]}
+                        onChange={() => handleModelToggle("gpt-4.1-mini")}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-600/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-black/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-black"></div>
                     </label>
                   </div>
 
                   {/* Claude */}
-                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-lg">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gradient-to-r from-orange-400 to-red-500 rounded-lg flex items-center justify-center">
-                        <span className="text-white font-semibold text-sm">C</span>
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-white">
+                        {MODEL_CONFIGS["claude-3-5-haiku-20241022"]?.logoUrl ? (
+                          <img
+                            src={
+                              MODEL_CONFIGS["claude-3-5-haiku-20241022"].logoUrl
+                            }
+                            alt={getModelDisplayName(
+                              "claude-3-5-haiku-20241022"
+                            )}
+                            className="w-6 h-6 object-contain"
+                          />
+                        ) : (
+                          <span className="text-sm font-bold text-gray-600">
+                            {getModelDisplayName(
+                              "claude-3-5-haiku-20241022"
+                            ).charAt(0)}
+                          </span>
+                        )}
                       </div>
                       <div>
-                        <h4 className="font-medium text-gray-900">Claude</h4>
-                        <p className="text-sm text-gray-600">Anthropic • Balanced performance</p>
+                        <h4 className="font-medium text-gray-900">
+                          {getModelDisplayName("claude-3-5-haiku-20241022")}
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          {MODEL_CONFIGS["claude-3-5-haiku-20241022"]?.company}
+                        </p>
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={modelPreferences['claude-3-5-haiku-20241022']}
-                        onChange={() => handleModelToggle('claude-3-5-haiku-20241022')}
+                        checked={modelPreferences["claude-3-5-haiku-20241022"]}
+                        onChange={() =>
+                          handleModelToggle("claude-3-5-haiku-20241022")
+                        }
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-600/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-black/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-black"></div>
                     </label>
                   </div>
 
                   {/* Gemini */}
-                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-lg">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gradient-to-r from-blue-400 to-purple-500 rounded-lg flex items-center justify-center">
-                        <span className="text-white font-semibold text-sm">G</span>
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-white">
+                        {MODEL_CONFIGS["gemini-2.5-flash"]?.logoUrl ? (
+                          <img
+                            src={MODEL_CONFIGS["gemini-2.5-flash"].logoUrl}
+                            alt={getModelDisplayName("gemini-2.5-flash")}
+                            className="w-6 h-6 object-contain"
+                          />
+                        ) : (
+                          <span className="text-sm font-bold text-gray-600">
+                            {getModelDisplayName("gemini-2.5-flash").charAt(0)}
+                          </span>
+                        )}
                       </div>
                       <div>
-                        <h4 className="font-medium text-gray-900">Gemini</h4>
-                        <p className="text-sm text-gray-600">Google • Web search enhanced</p>
+                        <h4 className="font-medium text-gray-900">
+                          {getModelDisplayName("gemini-2.5-flash")}
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          {MODEL_CONFIGS["gemini-2.5-flash"]?.company}
+                        </p>
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={modelPreferences['gemini-2.5-flash']}
-                        onChange={() => handleModelToggle('gemini-2.5-flash')}
+                        checked={modelPreferences["gemini-2.5-flash"]}
+                        onChange={() => handleModelToggle("gemini-2.5-flash")}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-600/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-black/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-black"></div>
                     </label>
                   </div>
 
                   {/* Perplexity */}
-                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-lg">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gradient-to-r from-purple-400 to-pink-500 rounded-lg flex items-center justify-center">
-                        <span className="text-white font-semibold text-sm">P</span>
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-white">
+                        {MODEL_CONFIGS["sonar"]?.logoUrl ? (
+                          <img
+                            src={MODEL_CONFIGS["sonar"].logoUrl}
+                            alt={getModelDisplayName("sonar")}
+                            className="w-6 h-6 object-contain"
+                          />
+                        ) : (
+                          <span className="text-sm font-bold text-gray-600">
+                            {getModelDisplayName("sonar").charAt(0)}
+                          </span>
+                        )}
                       </div>
                       <div>
-                        <h4 className="font-medium text-gray-900">Perplexity</h4>
-                        <p className="text-sm text-gray-600">Perplexity • Real-time search</p>
+                        <h4 className="font-medium text-gray-900">
+                          {getModelDisplayName("sonar")}
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          {MODEL_CONFIGS["sonar"]?.company}
+                        </p>
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={modelPreferences['sonar']}
-                        onChange={() => handleModelToggle('sonar')}
+                        checked={modelPreferences["sonar"]}
+                        onChange={() => handleModelToggle("sonar")}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-600/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-black/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-black"></div>
                     </label>
                   </div>
                 </div>
@@ -496,19 +610,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                   </div>
                 )}
 
-                {modelsSuccess && (
-                  <div className="flex items-center p-3 text-sm text-green-700 bg-green-50 rounded-lg">
-                    <AlertCircle className="w-4 h-4 mr-2" />
-                    Model preferences updated successfully!
-                  </div>
-                )}
-
-                <div className="flex justify-end space-x-3 pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleClose}
-                  >
+                <div className="flex justify-end space-x-3 pt-8">
+                  <Button type="button" variant="outline" onClick={handleClose}>
                     Cancel
                   </Button>
                   <Button
@@ -516,52 +619,63 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                     onClick={handleUpdateModels}
                     disabled={isUpdatingModels}
                   >
-                    {isUpdatingModels ? 'Saving...' : 'Save Preferences'}
+                    {isUpdatingModels ? "Saving..." : "Save Preferences"}
                   </Button>
                 </div>
               </div>
             )}
 
-            {activeTab === 'subscription' && (
+            {activeTab === "subscription" && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Subscription Management</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Subscription Management
+                  </h3>
                   <p className="text-gray-600 mb-4">
                     Manage your Serplexity Pro subscription.
                   </p>
                 </div>
 
-                <div className="border border-gray-200 rounded-lg p-6">
+                <div className="bg-white rounded-lg shadow-lg p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h4 className="font-semibold text-gray-900">Current Plan</h4>
+                      <h4 className="font-semibold text-gray-900">
+                        Current Plan
+                      </h4>
                       <p className="text-sm text-gray-600">
-                        {user?.subscriptionStatus === 'active' ? 'Serplexity Pro' : 'Free Plan'}
+                        {user?.subscriptionStatus === "active"
+                          ? "Serplexity Pro"
+                          : "Free Plan"}
                       </p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-gray-600">Status</p>
                       <span
                         className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user?.subscriptionStatus === 'active'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
+                          user?.subscriptionStatus === "active"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-gray-100 text-gray-800"
                         }`}
                       >
-                        {user?.subscriptionStatus === 'active' ? 'Active' : 'Inactive'}
+                        {user?.subscriptionStatus === "active"
+                          ? "Active"
+                          : "Inactive"}
                       </span>
                     </div>
                   </div>
 
                   <div className="space-y-4">
-                    <Button onClick={handleManageSubscription} className="w-full">
+                    <Button
+                      onClick={handleManageSubscription}
+                      className="w-full"
+                    >
                       <CreditCard className="w-4 h-4 mr-2" />
-                      {user?.subscriptionStatus === 'active'
-                        ? 'Manage Subscription'
-                        : 'Upgrade to Pro'}
+                      {user?.subscriptionStatus === "active"
+                        ? "Manage Subscription"
+                        : "Upgrade to Pro"}
                     </Button>
 
-                    {user?.subscriptionStatus === 'active' && (
+                    {user?.subscriptionStatus === "active" && (
                       <div className="text-sm text-gray-600">
                         <p>• Update payment method</p>
                         <p>• Download invoices</p>
@@ -574,91 +688,148 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
               </div>
             )}
 
-            {activeTab === 'password' && !isOAuthUser && (
+            {activeTab === "password" && !isOAuthUser && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Change Password</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Change Password
+                  </h3>
                   <p className="text-gray-600 mb-4">
                     Update your password to keep your account secure.
                   </p>
                 </div>
 
-                <form onSubmit={handleSubmitPassword(onChangePassword)} className="space-y-4">
+                <form
+                  onSubmit={handleSubmitPassword(onChangePassword)}
+                  className="space-y-4"
+                >
                   <div>
-                    <label htmlFor="currentPassword" className="flex items-center text-sm font-medium text-gray-700 mb-1">
+                    <label
+                      htmlFor="currentPassword"
+                      className="flex items-center text-sm font-medium text-gray-700 mb-1"
+                    >
                       <Lock className="w-4 h-4 mr-2" />
                       Current Password
                     </label>
                     <div className="relative">
                       <input
                         id="currentPassword"
-                        type={showCurrentPassword ? 'text' : 'password'}
-                        {...registerPassword('currentPassword')}
-                        className="flex h-11 w-full rounded-lg bg-gray-50 border border-gray-300 px-4 py-3 pr-10 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
+                        type={showCurrentPassword ? "text" : "password"}
+                        {...registerPassword("currentPassword")}
+                        className="flex h-11 w-full rounded-lg bg-white shadow-lg px-4 py-3 pr-10 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 select-none touch-manipulation"
                         placeholder="Enter your current password"
+                        style={{
+                          WebkitTapHighlightColor: "transparent",
+                          WebkitUserSelect: "none",
+                          userSelect: "none",
+                          outline: "none",
+                          border: "none",
+                        }}
                       />
                       <button
                         type="button"
-                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        onClick={() =>
+                          setShowCurrentPassword(!showCurrentPassword)
+                        }
                         className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                       >
-                        {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        {showCurrentPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
                     {passwordErrors.currentPassword && (
-                      <p className="mt-1 text-xs text-red-600">{passwordErrors.currentPassword.message}</p>
+                      <p className="mt-1 text-xs text-red-600">
+                        {passwordErrors.currentPassword.message}
+                      </p>
                     )}
                   </div>
 
                   <div>
-                    <label htmlFor="newPassword" className="flex items-center text-sm font-medium text-gray-700 mb-1">
+                    <label
+                      htmlFor="newPassword"
+                      className="flex items-center text-sm font-medium text-gray-700 mb-1"
+                    >
                       <Lock className="w-4 h-4 mr-2" />
                       New Password
                     </label>
                     <div className="relative">
                       <input
                         id="newPassword"
-                        type={showNewPassword ? 'text' : 'password'}
-                        {...registerPassword('newPassword')}
-                        className="flex h-11 w-full rounded-lg bg-gray-50 border border-gray-300 px-4 py-3 pr-10 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
+                        type={showNewPassword ? "text" : "password"}
+                        {...registerPassword("newPassword")}
+                        className="flex h-11 w-full rounded-lg bg-white shadow-lg px-4 py-3 pr-10 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 select-none touch-manipulation"
                         placeholder="Enter your new password"
+                        style={{
+                          WebkitTapHighlightColor: "transparent",
+                          WebkitUserSelect: "none",
+                          userSelect: "none",
+                          outline: "none",
+                          border: "none",
+                        }}
                       />
                       <button
                         type="button"
                         onClick={() => setShowNewPassword(!showNewPassword)}
                         className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                       >
-                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        {showNewPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
                     {passwordErrors.newPassword && (
-                      <p className="mt-1 text-xs text-red-600">{passwordErrors.newPassword.message}</p>
+                      <p className="mt-1 text-xs text-red-600">
+                        {passwordErrors.newPassword.message}
+                      </p>
                     )}
                   </div>
 
                   <div>
-                    <label htmlFor="confirmPassword" className="flex items-center text-sm font-medium text-gray-700 mb-1">
+                    <label
+                      htmlFor="confirmPassword"
+                      className="flex items-center text-sm font-medium text-gray-700 mb-1"
+                    >
                       <Lock className="w-4 h-4 mr-2" />
                       Confirm New Password
                     </label>
                     <div className="relative">
                       <input
                         id="confirmPassword"
-                        type={showConfirmPassword ? 'text' : 'password'}
-                        {...registerPassword('confirmPassword')}
-                        className="flex h-11 w-full rounded-lg bg-gray-50 border border-gray-300 px-4 py-3 pr-10 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
+                        type={showConfirmPassword ? "text" : "password"}
+                        {...registerPassword("confirmPassword")}
+                        className="flex h-11 w-full rounded-lg bg-white shadow-lg px-4 py-3 pr-10 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 select-none touch-manipulation"
                         placeholder="Confirm your new password"
+                        style={{
+                          WebkitTapHighlightColor: "transparent",
+                          WebkitUserSelect: "none",
+                          userSelect: "none",
+                          outline: "none",
+                          border: "none",
+                        }}
                       />
                       <button
                         type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        onClick={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
                         className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                       >
-                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        {showConfirmPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
                     {passwordErrors.confirmPassword && (
-                      <p className="mt-1 text-xs text-red-600">{passwordErrors.confirmPassword.message}</p>
+                      <p className="mt-1 text-xs text-red-600">
+                        {passwordErrors.confirmPassword.message}
+                      </p>
                     )}
                   </div>
 
@@ -684,11 +855,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                     >
                       Cancel
                     </Button>
-                    <Button
-                      type="submit"
-                      disabled={isChangingPassword}
-                    >
-                      {isChangingPassword ? 'Changing...' : 'Change Password'}
+                    <Button type="submit" disabled={isChangingPassword}>
+                      {isChangingPassword ? "Changing..." : "Change Password"}
                     </Button>
                   </div>
                 </form>
@@ -701,4 +869,4 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   );
 };
 
-export default ProfileModal; 
+export default ProfileModal;

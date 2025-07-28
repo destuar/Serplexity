@@ -39,6 +39,7 @@ import {
 const LandingPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState<string | null>(null);
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
   const {
     posts: blogPosts,
@@ -82,10 +83,11 @@ const LandingPage: React.FC = () => {
 
   const handleCheckout = async (priceId: string) => {
     if (priceId === "contact_sales") {
-      // Potentially navigate to a contact page or open a modal
       console.log("Contacting sales...");
       return;
     }
+
+    setIsLoading(priceId);
     try {
       const stripe = await loadStripe(
         import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string
@@ -97,6 +99,7 @@ const LandingPage: React.FC = () => {
       await stripe.redirectToCheckout({ sessionId: session.sessionId });
     } catch (error) {
       console.error("Failed to create checkout session:", error);
+      setIsLoading(null);
     }
   };
 
@@ -703,7 +706,7 @@ const LandingPage: React.FC = () => {
                                   : currentTextIndex === 3
                                     ? "60px" // Anthropic - much much smaller
                                     : currentTextIndex === 4
-                                      ? "90px" // Copilot - medium
+                                      ? "75px" // Copilot - smaller
                                       : currentTextIndex === 5
                                         ? "85px" // DeepSeek - smaller
                                         : "85px", // Grok - medium compact
@@ -721,8 +724,8 @@ const LandingPage: React.FC = () => {
                   className="text-lg md:text-xl text-gray-600 max-w-lg mb-6 leading-relaxed"
                 >
                   Track your brand's visibility across AI search engines.
-                  Monitor citations, optimize content, and stay ahead in the age
-                  of generative search.
+                  Monitor mentions and citations, optimize content, and grow
+                  your organic search traffic.
                 </motion.p>
 
                 {/* CTA Buttons */}
@@ -2047,16 +2050,28 @@ const LandingPage: React.FC = () => {
                         </ul>
                         <button
                           onClick={() => handleCheckout(plan.priceId as string)}
+                          disabled={isLoading === plan.priceId}
                           className={`w-full py-3 px-6 rounded-full font-semibold transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer ${
                             plan.popular
-                              ? "bg-black hover:bg-gray-800 text-white shadow-md active:shadow-inner"
-                              : "bg-gray-100 text-black hover:text-gray-900 shadow-md active:shadow-inner"
-                          }`}
+                              ? "bg-black hover:bg-gray-800 text-white shadow-md hover:shadow-lg active:shadow-inner hover:scale-[1.02] active:scale-[0.98]"
+                              : "bg-gray-100 text-black hover:text-gray-900 shadow-md hover:shadow-lg active:shadow-inner hover:scale-[1.02] active:scale-[0.98]"
+                          } ${isLoading === plan.priceId ? "opacity-50 cursor-not-allowed hover:scale-100 hover:shadow-none" : ""}`}
                         >
-                          {plan.price === "By Request"
-                            ? "Contact Sales"
-                            : "Get Started"}
-                          <ArrowRight className="w-4 h-4" />
+                          {isLoading === plan.priceId ? (
+                            <>
+                              <div
+                                className={`animate-spin rounded-full h-3 w-3 border-2 ${plan.popular ? "border-white border-t-transparent" : "border-gray-800 border-t-transparent"}`}
+                              ></div>
+                              Processing...
+                            </>
+                          ) : (
+                            <>
+                              {plan.price === "By Request"
+                                ? "Contact Sales"
+                                : "Get Started"}
+                              <ArrowRight className="w-4 h-4" />
+                            </>
+                          )}
                         </button>
                       </div>
                     ))}
