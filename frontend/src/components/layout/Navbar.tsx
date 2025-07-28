@@ -13,12 +13,12 @@
  * @exports
  * - Navbar: The main navigation component.
  */
-import { Link, useLocation } from 'react-router-dom';
-import { useState, useEffect, useRef } from 'react';
-import { cn } from '../../lib/utils';
-import { Menu, User, LogOut, Settings } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
-import ProfileModal from './ProfileModal';
+import { LogOut, Menu, Settings, User } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
+import { cn } from "../../lib/utils";
+import ProfileModal from "./ProfileModal";
 
 export function Navbar() {
   const location = useLocation();
@@ -29,9 +29,14 @@ export function Navbar() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const navRef = useRef<HTMLElement>(null);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
-  
-  const isLandingPage = location.pathname === '/';
-  const isLandingStylePage = location.pathname === '/' || location.pathname === '/terms' || location.pathname === '/privacy' || location.pathname === '/research' || location.pathname.startsWith('/research/');
+
+  const isLandingPage = location.pathname === "/";
+  const isLandingStylePage =
+    location.pathname === "/" ||
+    location.pathname === "/terms" ||
+    location.pathname === "/privacy" ||
+    location.pathname === "/research" ||
+    location.pathname.startsWith("/research/");
   const shouldApplyScrollStyles = isLandingStylePage && isScrolled;
 
   // Smooth scroll function
@@ -39,8 +44,8 @@ export function Navbar() {
     const element = document.getElementById(sectionId);
     if (element) {
       element.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
+        behavior: "smooth",
+        block: "start",
       });
     }
     setIsMobileMenuOpen(false); // Close mobile menu after navigation
@@ -48,12 +53,12 @@ export function Navbar() {
 
   // Navigation items for landing page
   const landingNavItems = [
-    { label: 'Product', sectionId: 'product-preview' },
-    { label: 'Research', sectionId: 'research' },
-    { label: 'About', sectionId: 'comparison' },
-    { label: 'Pricing', sectionId: 'pricing' },
+    { label: "Product", sectionId: "product-preview" },
+    { label: "Research", sectionId: "research" },
+    { label: "About", sectionId: "comparison" },
+    { label: "Pricing", sectionId: "pricing" },
   ];
-  
+
   useEffect(() => {
     if (!isLandingStylePage) return;
 
@@ -71,33 +76,41 @@ export function Navbar() {
       });
     };
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
   }, [isLandingStylePage]);
 
   // Close mobile menu and profile dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (navRef.current && !navRef.current.contains(event.target as Node) && isMobileMenuOpen) {
+      if (
+        navRef.current &&
+        !navRef.current.contains(event.target as Node) &&
+        isMobileMenuOpen
+      ) {
         setIsMobileMenuOpen(false);
       }
-      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node) && isProfileDropdownOpen) {
+      if (
+        profileDropdownRef.current &&
+        !profileDropdownRef.current.contains(event.target as Node) &&
+        isProfileDropdownOpen
+      ) {
         setIsProfileDropdownOpen(false);
       }
     };
 
     if (isMobileMenuOpen || isProfileDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [isMobileMenuOpen, isProfileDropdownOpen]);
 
   return (
     <>
-      <nav 
+      <nav
         ref={navRef}
         className={cn(
           "fixed left-0 right-0 top-0 z-50",
@@ -113,50 +126,53 @@ export function Navbar() {
         {/* Backdrop blur element that's properly clipped */}
         {shouldApplyScrollStyles && (
           <div className="absolute inset-0 lg:flex lg:justify-center lg:items-center pointer-events-none">
-            <div className="lg:w-full lg:max-w-5xl lg:h-full lg:rounded-full lg:backdrop-blur-xl lg:bg-black/5"></div>
+            <div className="lg:w-full lg:max-w-5xl lg:h-full lg:rounded-lg lg:backdrop-blur-xl"></div>
           </div>
         )}
-        
+
         <div
           className={cn(
             "mx-auto max-w-full relative z-10",
             isLandingStylePage
               ? "lg:transition-[background-color,max-width,box-shadow,border-radius] lg:duration-700 lg:ease-in-out"
               : "",
-            { 
-              "lg:max-w-5xl lg:rounded-full lg:shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)]": shouldApplyScrollStyles,
+            {
+              "lg:max-w-5xl lg:rounded-lg lg:shadow-[0_4px_16px_rgba(0,0,0,0.15),0_0_0_1px_rgba(255,255,255,0.05)]":
+                shouldApplyScrollStyles,
               "lg:bg-transparent": isLandingStylePage,
             }
           )}
         >
-          <div 
+          <div
             className={cn(
               "relative flex items-center h-16",
               "px-6",
               isLandingStylePage
                 ? "lg:transition-[padding] lg:duration-700 lg:ease-in-out"
                 : "lg:px-12",
-              { 
+              {
                 "lg:px-4": shouldApplyScrollStyles,
-                "lg:px-12": isLandingStylePage && !isScrolled
+                "lg:px-12": isLandingStylePage && !isScrolled,
               }
             )}
           >
             <div className="flex items-center flex-shrink-0">
               <Link to="/" className="flex items-center gap-2">
-                <img 
+                <img
                   src="/Serplexity.svg"
-                  alt="Serplexity Logo" 
+                  alt="Serplexity Logo"
                   className={cn(
                     "w-auto h-10",
-                    "lg:transition-all lg:duration-200 lg:ease-in-out",
+                    "lg:transition-all lg:duration-200 lg:ease-in-out"
                   )}
                 />
-                <span className="text-xl font-bold text-gray-900">Serplexity</span>
+                <span className="text-xl font-bold text-gray-900">
+                  Serplexity
+                </span>
               </Link>
             </div>
 
-            <div 
+            <div
               className={cn(
                 "hidden lg:flex items-center justify-center gap-8 absolute left-1/2 transform -translate-x-1/2"
               )}
@@ -174,17 +190,17 @@ export function Navbar() {
                     </button>
                   ))}
                 </>
-              ) : location.pathname === '/research' ? (
+              ) : location.pathname === "/research" ? (
                 // Research page navigation
                 <>
-                  <Link 
-                    to="/" 
+                  <Link
+                    to="/"
                     className="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors"
                   >
                     Home
                   </Link>
-                  <a 
-                    href="/dashboard" 
+                  <a
+                    href="/dashboard"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors"
@@ -192,23 +208,23 @@ export function Navbar() {
                     Dashboard
                   </a>
                 </>
-              ) : location.pathname.startsWith('/research/') ? (
+              ) : location.pathname.startsWith("/research/") ? (
                 // Blog post page navigation
                 <>
-                  <Link 
-                    to="/" 
+                  <Link
+                    to="/"
                     className="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors"
                   >
                     Home
                   </Link>
-                  <Link 
-                    to="/research" 
+                  <Link
+                    to="/research"
                     className="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors"
                   >
                     Research
                   </Link>
-                  <a 
-                    href="/dashboard" 
+                  <a
+                    href="/dashboard"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors"
@@ -218,8 +234,8 @@ export function Navbar() {
                 </>
               ) : !isLandingStylePage ? (
                 // Dashboard navigation
-                <a 
-                  href="/dashboard" 
+                <a
+                  href="/dashboard"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-base font-medium text-gray-600 hover:text-gray-900"
@@ -229,125 +245,147 @@ export function Navbar() {
               ) : null}
             </div>
 
-            <div 
+            <div
               className={cn(
                 "flex items-center flex-shrink-0 gap-3 ml-auto",
-                isLandingStylePage ? "lg:transition-[gap] lg:duration-700 lg:ease-in-out" : "lg:gap-6",
-                { "lg:gap-4": isLandingStylePage && isScrolled, "lg:gap-6": isLandingStylePage && !isScrolled }
+                isLandingStylePage
+                  ? "lg:transition-[gap] lg:duration-700 lg:ease-in-out"
+                  : "lg:gap-6",
+                {
+                  "lg:gap-4": isLandingStylePage && isScrolled,
+                  "lg:gap-6": isLandingStylePage && !isScrolled,
+                }
               )}
             >
               <div className="hidden lg:flex items-center gap-4">
-                  {user ? (
-                    <div className="relative flex-shrink-0" ref={profileDropdownRef}>
-                      <button 
-                        onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                {user ? (
+                  <div
+                    className="relative flex-shrink-0"
+                    ref={profileDropdownRef}
+                  >
+                    <button
+                      onClick={() =>
+                        setIsProfileDropdownOpen(!isProfileDropdownOpen)
+                      }
+                      className={cn(
+                        "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 flex-shrink-0",
+                        isLandingStylePage
+                          ? "bg-white/10 backdrop-blur-sm hover:bg-white/20 text-gray-600"
+                          : "bg-gray-200 hover:bg-gray-300 text-gray-600"
+                      )}
+                    >
+                      <User size={20} />
+                    </button>
+
+                    {/* Profile Dropdown - Positioned relative to profile button */}
+                    {isProfileDropdownOpen && (
+                      <>
+                        {/* Backdrop for mobile/outside clicks */}
+                        <div
+                          className="fixed inset-0 z-40"
+                          onClick={() => setIsProfileDropdownOpen(false)}
+                        ></div>
+                        <div
+                          className="absolute right-0 top-12 w-52 z-50"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {isLandingStylePage ? (
+                            // Liquid Glass Design for Landing Page
+                            <div className="relative bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] overflow-hidden">
+                              {/* Glass morphism border glow */}
+                              <div className="absolute inset-0 bg-gradient-to-r from-[#5271ff]/10 via-[#7662ff]/10 to-[#9e52ff]/10 rounded-2xl blur-xl"></div>
+                              <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/5 rounded-2xl"></div>
+
+                              {/* Inner content */}
+                              <div className="relative z-10 p-2">
+                                <button
+                                  onClick={() => {
+                                    setShowProfileModal(true);
+                                    setIsProfileDropdownOpen(false);
+                                  }}
+                                  className="w-full text-left px-4 py-3 text-sm flex items-center gap-3 transition-all duration-200 text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-xl group"
+                                >
+                                  <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-gradient-to-r from-[#5271ff]/20 to-[#9e52ff]/20 group-hover:from-[#5271ff]/30 group-hover:to-[#9e52ff]/30 transition-all duration-200">
+                                    <Settings size={16} />
+                                  </div>
+                                  <span className="font-medium">
+                                    Edit Profile
+                                  </span>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    logout();
+                                    setIsProfileDropdownOpen(false);
+                                  }}
+                                  className="w-full text-left px-4 py-3 text-sm flex items-center gap-3 transition-all duration-200 text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-xl group"
+                                >
+                                  <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-gradient-to-r from-[#5271ff]/20 to-[#9e52ff]/20 group-hover:from-[#5271ff]/30 group-hover:to-[#9e52ff]/30 transition-all duration-200">
+                                    <LogOut size={16} />
+                                  </div>
+                                  <span className="font-medium">Logout</span>
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            // Standard Design for Other Pages
+                            <div className="bg-white rounded-lg shadow-lg border border-gray-200">
+                              <div className="py-1">
+                                <button
+                                  onClick={() => {
+                                    setShowProfileModal(true);
+                                    setIsProfileDropdownOpen(false);
+                                  }}
+                                  className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors text-gray-700 hover:bg-gray-100"
+                                >
+                                  <Settings size={16} />
+                                  Edit Profile
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    logout();
+                                    setIsProfileDropdownOpen(false);
+                                  }}
+                                  className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors text-gray-700 hover:bg-gray-100"
+                                >
+                                  <LogOut size={16} />
+                                  Logout
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <Link
+                      to="/login"
+                      className={cn(
+                        "text-base font-medium",
+                        isLandingStylePage
+                          ? "text-gray-700 hover:text-gray-900"
+                          : "text-gray-600 hover:text-gray-900"
+                      )}
+                    >
+                      Login
+                    </Link>
+                    <Link to="/register">
+                      <button
                         className={cn(
-                          "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 flex-shrink-0",
-                          isLandingStylePage 
-                            ? "bg-white/10 backdrop-blur-sm hover:bg-white/20 text-gray-600" 
-                            : "bg-gray-200 hover:bg-gray-300 text-gray-600"
+                          "text-base rounded-lg px-5 py-2",
+                          isLandingStylePage
+                            ? "bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200"
+                            : "bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200"
                         )}
                       >
-                        <User size={20} />
+                        Sign up
                       </button>
-                      
-                      {/* Profile Dropdown - Positioned relative to profile button */}
-                      {isProfileDropdownOpen && (
-                        <>
-                          {/* Backdrop for mobile/outside clicks */}
-                          <div className="fixed inset-0 z-40" onClick={() => setIsProfileDropdownOpen(false)}></div>
-                          <div 
-                            className="absolute right-0 top-12 w-52 z-50"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {isLandingStylePage ? (
-                              // Liquid Glass Design for Landing Page
-                              <div className="relative bg-black/5 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.05)] overflow-hidden">
-                                {/* Glass morphism border glow */}
-                                <div className="absolute inset-0 bg-gradient-to-r from-[#5271ff]/10 via-[#7662ff]/10 to-[#9e52ff]/10 rounded-2xl blur-xl"></div>
-                                <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/5 rounded-2xl"></div>
-                                
-                                {/* Inner content */}
-                                <div className="relative z-10 p-2">
-                                  <button
-                                    onClick={() => {
-                                      setShowProfileModal(true);
-                                      setIsProfileDropdownOpen(false);
-                                    }}
-                                    className="w-full text-left px-4 py-3 text-sm flex items-center gap-3 transition-all duration-200 text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-xl group"
-                                  >
-                                    <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-gradient-to-r from-[#5271ff]/20 to-[#9e52ff]/20 group-hover:from-[#5271ff]/30 group-hover:to-[#9e52ff]/30 transition-all duration-200">
-                                      <Settings size={16} />
-                                    </div>
-                                    <span className="font-medium">Edit Profile</span>
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      logout();
-                                      setIsProfileDropdownOpen(false);
-                                    }}
-                                    className="w-full text-left px-4 py-3 text-sm flex items-center gap-3 transition-all duration-200 text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-xl group"
-                                  >
-                                    <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-gradient-to-r from-[#5271ff]/20 to-[#9e52ff]/20 group-hover:from-[#5271ff]/30 group-hover:to-[#9e52ff]/30 transition-all duration-200">
-                                      <LogOut size={16} />
-                                    </div>
-                                    <span className="font-medium">Logout</span>
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              // Standard Design for Other Pages
-                              <div className="bg-white rounded-lg shadow-lg border border-gray-200">
-                                <div className="py-1">
-                                  <button
-                                    onClick={() => {
-                                      setShowProfileModal(true);
-                                      setIsProfileDropdownOpen(false);
-                                    }}
-                                    className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors text-gray-700 hover:bg-gray-100"
-                                  >
-                                    <Settings size={16} />
-                                    Edit Profile
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      logout();
-                                      setIsProfileDropdownOpen(false);
-                                    }}
-                                    className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors text-gray-700 hover:bg-gray-100"
-                                  >
-                                    <LogOut size={16} />
-                                    Logout
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      <Link to="/login" className={cn(
-                        "text-base font-medium",
-                        isLandingStylePage ? "text-gray-700 hover:text-gray-900" : "text-gray-600 hover:text-gray-900"
-                      )}>
-                        Login
-                      </Link>
-                      <Link to="/register">
-                        <button className={cn(
-                          "text-base rounded-full px-5 py-2",
-                          isLandingStylePage 
-                            ? "bg-[#7762ff] hover:bg-[#6650e6] text-white shadow-lg hover:shadow-xl transition-all duration-200"
-                            : "bg-blue-600 hover:bg-blue-700 text-white"
-                        )}>
-                          Sign up
-                        </button>
-                      </Link>
-                    </>
-                  )}
+                    </Link>
+                  </>
+                )}
               </div>
-              <button 
+              <button
                 className="p-2 lg:hidden"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               >
@@ -360,12 +398,14 @@ export function Navbar() {
 
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
-          <div className={cn(
-            "lg:hidden",
-            isLandingStylePage 
-              ? "bg-white/95 backdrop-blur-xl border-t border-gray-200" 
-              : "bg-white border-t border-gray-200"
-          )}>
+          <div
+            className={cn(
+              "lg:hidden",
+              isLandingStylePage
+                ? "bg-white/95 backdrop-blur-xl border-t border-gray-200"
+                : "bg-white border-t border-gray-200"
+            )}
+          >
             <div className="px-6 py-4 space-y-4">
               {isLandingPage ? (
                 // Landing page mobile navigation
@@ -382,7 +422,7 @@ export function Navbar() {
                   <div className="border-t border-gray-200 pt-4 space-y-4">
                     {user ? (
                       <>
-                        <button 
+                        <button
                           onClick={() => {
                             setShowProfileModal(true);
                             setIsMobileMenuOpen(false);
@@ -392,7 +432,7 @@ export function Navbar() {
                           <Settings size={16} />
                           Edit Profile
                         </button>
-                        <button 
+                        <button
                           onClick={() => {
                             logout();
                             setIsMobileMenuOpen(false);
@@ -405,18 +445,18 @@ export function Navbar() {
                       </>
                     ) : (
                       <>
-                        <Link 
-                          to="/login" 
+                        <Link
+                          to="/login"
                           className="block text-base font-medium text-gray-700 hover:text-gray-900 py-2"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
                           Login
                         </Link>
-                        <Link 
+                        <Link
                           to="/register"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
-                          <button className="w-full bg-[#7762ff] hover:bg-[#6650e6] text-white text-base rounded-lg px-4 py-2 font-medium shadow-lg hover:shadow-xl transition-all duration-200">
+                          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white text-base rounded-lg px-4 py-2 font-medium shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200">
                             Sign up
                           </button>
                         </Link>
@@ -424,18 +464,18 @@ export function Navbar() {
                     )}
                   </div>
                 </>
-              ) : location.pathname === '/research' ? (
+              ) : location.pathname === "/research" ? (
                 // Research page mobile navigation
                 <>
-                  <Link 
-                    to="/" 
+                  <Link
+                    to="/"
                     className="block text-base font-medium text-gray-700 hover:text-gray-900 py-2"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     Home
                   </Link>
-                  <a 
-                    href="/dashboard" 
+                  <a
+                    href="/dashboard"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block text-base font-medium text-gray-700 hover:text-gray-900 py-2"
@@ -446,7 +486,7 @@ export function Navbar() {
                   <div className="border-t border-gray-200 pt-4 space-y-4">
                     {user ? (
                       <>
-                        <button 
+                        <button
                           onClick={() => {
                             setShowProfileModal(true);
                             setIsMobileMenuOpen(false);
@@ -456,7 +496,7 @@ export function Navbar() {
                           <Settings size={16} />
                           Edit Profile
                         </button>
-                        <button 
+                        <button
                           onClick={() => {
                             logout();
                             setIsMobileMenuOpen(false);
@@ -469,18 +509,18 @@ export function Navbar() {
                       </>
                     ) : (
                       <>
-                        <Link 
-                          to="/login" 
+                        <Link
+                          to="/login"
                           className="block text-base font-medium text-gray-700 hover:text-gray-900 py-2"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
                           Login
                         </Link>
-                        <Link 
+                        <Link
                           to="/register"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
-                          <button className="w-full bg-[#7762ff] hover:bg-[#6650e6] text-white text-base rounded-lg px-4 py-2 font-medium shadow-lg hover:shadow-xl transition-all duration-200">
+                          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white text-base rounded-lg px-4 py-2 font-medium shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200">
                             Sign up
                           </button>
                         </Link>
@@ -488,25 +528,25 @@ export function Navbar() {
                     )}
                   </div>
                 </>
-              ) : location.pathname.startsWith('/research/') ? (
+              ) : location.pathname.startsWith("/research/") ? (
                 // Blog post page mobile navigation
                 <>
-                  <Link 
-                    to="/" 
+                  <Link
+                    to="/"
                     className="block text-base font-medium text-gray-300 hover:text-white py-2"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     Home
                   </Link>
-                  <Link 
-                    to="/research" 
+                  <Link
+                    to="/research"
                     className="block text-base font-medium text-gray-300 hover:text-white py-2"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     Research
                   </Link>
-                  <a 
-                    href="/dashboard" 
+                  <a
+                    href="/dashboard"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block text-base font-medium text-gray-300 hover:text-white py-2"
@@ -517,7 +557,7 @@ export function Navbar() {
                   <div className="border-t border-white/10 pt-4 space-y-4">
                     {user ? (
                       <>
-                        <button 
+                        <button
                           onClick={() => {
                             setShowProfileModal(true);
                             setIsMobileMenuOpen(false);
@@ -527,7 +567,7 @@ export function Navbar() {
                           <Settings size={16} />
                           Edit Profile
                         </button>
-                        <button 
+                        <button
                           onClick={() => {
                             logout();
                             setIsMobileMenuOpen(false);
@@ -540,18 +580,18 @@ export function Navbar() {
                       </>
                     ) : (
                       <>
-                        <Link 
-                          to="/login" 
+                        <Link
+                          to="/login"
                           className="block text-base font-medium text-gray-300 hover:text-white py-2"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
                           Login
                         </Link>
-                        <Link 
+                        <Link
                           to="/register"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
-                          <button className="w-full bg-[#7762ff] hover:bg-[#6650e6] text-white text-base rounded-lg px-4 py-2 font-medium shadow-lg hover:shadow-xl transition-all duration-200">
+                          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white text-base rounded-lg px-4 py-2 font-medium shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200">
                             Sign up
                           </button>
                         </Link>
@@ -562,8 +602,8 @@ export function Navbar() {
               ) : isLandingStylePage ? (
                 // Terms/Privacy pages mobile navigation
                 <>
-                  <Link 
-                    to="/" 
+                  <Link
+                    to="/"
                     className="block text-base font-medium text-gray-300 hover:text-white py-2"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
@@ -572,7 +612,7 @@ export function Navbar() {
                   <div className="border-t border-white/10 pt-4 space-y-4">
                     {user ? (
                       <>
-                        <button 
+                        <button
                           onClick={() => {
                             setShowProfileModal(true);
                             setIsMobileMenuOpen(false);
@@ -582,7 +622,7 @@ export function Navbar() {
                           <Settings size={16} />
                           Edit Profile
                         </button>
-                        <button 
+                        <button
                           onClick={() => {
                             logout();
                             setIsMobileMenuOpen(false);
@@ -595,18 +635,18 @@ export function Navbar() {
                       </>
                     ) : (
                       <>
-                        <Link 
-                          to="/login" 
+                        <Link
+                          to="/login"
                           className="block text-base font-medium text-gray-300 hover:text-white py-2"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
                           Login
                         </Link>
-                        <Link 
+                        <Link
                           to="/register"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
-                          <button className="w-full bg-[#7762ff] hover:bg-[#6650e6] text-white text-base rounded-lg px-4 py-2 font-medium shadow-lg hover:shadow-xl transition-all duration-200">
+                          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white text-base rounded-lg px-4 py-2 font-medium shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200">
                             Sign up
                           </button>
                         </Link>
@@ -617,8 +657,8 @@ export function Navbar() {
               ) : (
                 // Dashboard mobile navigation
                 <>
-                  <Link 
-                    to="/overview" 
+                  <Link
+                    to="/overview"
                     className="block text-base font-medium text-gray-600 hover:text-gray-900 py-2"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
@@ -627,7 +667,7 @@ export function Navbar() {
                   <div className="border-t border-gray-200 pt-4">
                     {user ? (
                       <>
-                        <button 
+                        <button
                           onClick={() => {
                             setShowProfileModal(true);
                             setIsMobileMenuOpen(false);
@@ -637,7 +677,7 @@ export function Navbar() {
                           <Settings size={16} />
                           Edit Profile
                         </button>
-                        <button 
+                        <button
                           onClick={() => {
                             logout();
                             setIsMobileMenuOpen(false);
@@ -650,18 +690,18 @@ export function Navbar() {
                       </>
                     ) : (
                       <>
-                        <Link 
-                          to="/login" 
+                        <Link
+                          to="/login"
                           className="block text-base font-medium text-gray-600 hover:text-gray-900 py-2"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
                           Login
                         </Link>
-                        <Link 
+                        <Link
                           to="/register"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
-                          <button className="w-full bg-[#7762ff] hover:bg-[#6650e6] text-white text-base rounded-lg px-4 py-2 font-medium shadow-lg hover:shadow-xl transition-all duration-200">
+                          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white text-base rounded-lg px-4 py-2 font-medium shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200">
                             Sign up
                           </button>
                         </Link>
@@ -682,4 +722,4 @@ export function Navbar() {
       />
     </>
   );
-} 
+}

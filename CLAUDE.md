@@ -349,3 +349,41 @@ Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.
 NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
+
+## Additional Important Guidelines
+
+### Development Best Practices
+- Follow the hybrid TypeScript/Python architecture pattern
+- Controllers should be thin - business logic belongs in services
+- All BullMQ workers auto-register when server starts
+- Use centralized prompt templates in `src/prompts/` for auditability
+- Maintain multi-tenant patterns with `companyId` in all models
+- Always use `./start.sh` for backend development to ensure Python environment setup
+
+### Code Quality Standards
+- Backend: Jest with 70% coverage requirement
+- Frontend: Vitest + React Testing Library with 70% coverage requirement
+- Use ESLint and TypeScript strict mode
+- Follow existing import patterns and project conventions
+- Input validation should use Zod schemas
+
+### Python Environment Management
+- Python virtual environment is located at `backend/venv/`
+- Requirements managed via `backend/requirements.txt`
+- PydanticAI agents require proper Python environment setup
+- Use `npm run ops:health` to check agent status
+
+### Security Requirements
+- JWT-based authentication with access/refresh tokens
+- Company-level data isolation enforced at database level
+- Rate limiting on all public endpoints
+- Helmet.js for security headers
+- Never commit API keys or secrets
+- AWS Secrets Manager integration for database credentials
+
+### Testing Requirements
+- Always run `npm test` before deploying (covers both backend and frontend)
+- Use `npm run test:quick` for fast development testing (~2 min)
+- Production validation tests require real API keys
+- Agent tests validate all 6 PydanticAI agents
+- Integration tests cover end-to-end report generation flows

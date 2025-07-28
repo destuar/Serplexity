@@ -17,20 +17,22 @@
  * @exports
  * - router: The Express router instance for authentication routes.
  */
-import { Router, Request, Response } from "express";
-import passport from "passport";
+import { Request, Response, Router } from "express";
 import jwt from "jsonwebtoken";
+import passport from "passport";
 import querystring from "querystring";
+import env from "../config/env";
 import {
-  register,
+  getMe,
   login,
   logout,
   refresh,
-  getMe,
+  register,
 } from "../controllers/authController";
 import { authenticate, authorize } from "../middleware/authMiddleware";
-import env from "../config/env";
-import { User, Role, Company } from "@prisma/client";
+// Import types without the enum for now
+type User = any;
+type Company = any;
 
 const router = Router();
 const { JWT_SECRET, JWT_REFRESH_SECRET } = env;
@@ -52,10 +54,10 @@ router.get("/verify", authenticate, (req: Request, res: Response) => {
 router.get(
   "/verify-admin",
   authenticate,
-  authorize(Role.ADMIN),
+  authorize("ADMIN"),
   (req: Request, res: Response) => {
     res.json({ message: "Admin access verified", user: req.user });
-  },
+  }
 );
 
 // --- OAuth Routes ---
@@ -79,7 +81,7 @@ router.get(
 
     if (!user) {
       return res.redirect(
-        `${env.FRONTEND_URL}/login?error=authentication-failed`,
+        `${env.FRONTEND_URL}/login?error=authentication-failed`
       );
     }
 
@@ -110,7 +112,7 @@ router.get(
 
     const redirectUrl = `${env.FRONTEND_URL}/oauth-callback?${querystring.stringify(queryParams)}`;
     res.redirect(redirectUrl);
-  },
+  }
 );
 
 export default router;

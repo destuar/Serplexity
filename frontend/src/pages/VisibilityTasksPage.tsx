@@ -12,32 +12,38 @@
  * @exports
  * - VisibilityTasksPage: The main visibility tasks page component.
  */
-import React, { useState, useEffect } from 'react';
-import { useCompany } from '../contexts/CompanyContext';
-import { useDashboard } from '../hooks/useDashboard';
-import WelcomePrompt from '../components/ui/WelcomePrompt';
-import BlankLoadingState from '../components/ui/BlankLoadingState';
-import { useReportGeneration } from '../hooks/useReportGeneration';
-import { RefreshCw, Loader } from 'lucide-react';
-import KanbanBoard from '../components/dashboard/KanbanBoard';
-import TaskDetailsModal from '../components/dashboard/TaskDetailsModal';
-import { OptimizationTask, TaskStatus, updateTaskStatus } from '../services/reportService';
+import { Loader, RefreshCw } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import KanbanBoard from "../components/dashboard/KanbanBoard";
+import TaskDetailsModal from "../components/dashboard/TaskDetailsModal";
+import BlankLoadingState from "../components/ui/BlankLoadingState";
+import WelcomePrompt from "../components/ui/WelcomePrompt";
+import { useCompany } from "../contexts/CompanyContext";
+import { useDashboard } from "../hooks/useDashboard";
+import { useReportGeneration } from "../hooks/useReportGeneration";
+import {
+  OptimizationTask,
+  TaskStatus,
+  updateTaskStatus,
+} from "../services/reportService";
 
 const VisibilityTasksPage: React.FC = () => {
   const { selectedCompany } = useCompany();
-  const { data, loading, hasReport, refreshing, refreshData, lastUpdated } = useDashboard();
-  const { 
-    isGenerating, 
-    generationStatus, 
-    progress, 
-    generateReport, 
-    isButtonDisabled, 
-    generationState, 
-     
+  const { data, loading, hasReport, refreshing, refreshData, lastUpdated } =
+    useDashboard();
+  const {
+    isGenerating,
+    generationStatus,
+    progress,
+    generateReport,
+    isButtonDisabled,
+    generationState,
   } = useReportGeneration(selectedCompany);
 
   const [tasks, setTasks] = useState<OptimizationTask[]>([]);
-  const [selectedTask, setSelectedTask] = useState<OptimizationTask | null>(null);
+  const [selectedTask, setSelectedTask] = useState<OptimizationTask | null>(
+    null
+  );
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Sync tasks from dashboard data
@@ -56,55 +62,71 @@ const VisibilityTasksPage: React.FC = () => {
 
   const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
     if (!data?.optimizationTasks) return;
-    
-    const task = tasks.find(t => t.taskId === taskId);
+
+    const task = tasks.find((t) => t.taskId === taskId);
     if (!task) return;
 
     // Store original state for potential rollback
     const originalStatus = task.status;
     const originalIsCompleted = task.isCompleted;
-    
+
     // Immediate optimistic update - no loading state
-    setTasks(prev => prev.map(t => 
-      t.taskId === taskId 
-        ? { ...t, status: newStatus, isCompleted: newStatus === TaskStatus.COMPLETED }
-        : t
-    ));
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.taskId === taskId
+          ? {
+              ...t,
+              status: newStatus,
+              isCompleted: newStatus === TaskStatus.COMPLETED,
+            }
+          : t
+      )
+    );
 
     // Also update the selected task if it's currently being viewed
     if (selectedTask && selectedTask.taskId === taskId) {
-      setSelectedTask(prev => prev ? {
-        ...prev,
-        status: newStatus,
-        isCompleted: newStatus === TaskStatus.COMPLETED
-      } : null);
+      setSelectedTask((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: newStatus,
+              isCompleted: newStatus === TaskStatus.COMPLETED,
+            }
+          : null
+      );
     }
 
     try {
       // Background API call
       await updateTaskStatus(task.reportRunId, taskId, newStatus);
-      
+
       // Silent refresh to ensure consistency - no loading state
       refreshData();
     } catch (error) {
-      console.error('Error updating task status:', error);
-      
+      console.error("Error updating task status:", error);
+
       // Revert optimistic update on error
-      setTasks(prev => prev.map(t => 
-        t.taskId === taskId 
-          ? { ...t, status: originalStatus, isCompleted: originalIsCompleted }
-          : t
-      ));
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.taskId === taskId
+            ? { ...t, status: originalStatus, isCompleted: originalIsCompleted }
+            : t
+        )
+      );
 
       // Also revert the selected task if needed
       if (selectedTask && selectedTask.taskId === taskId) {
-        setSelectedTask(prev => prev ? {
-          ...prev,
-          status: originalStatus,
-          isCompleted: originalIsCompleted
-        } : null);
+        setSelectedTask((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: originalStatus,
+                isCompleted: originalIsCompleted,
+              }
+            : null
+        );
       }
-      
+
       // Show error toast or notification here if needed
       // For now, we'll just log the error
     }
@@ -167,8 +189,11 @@ const VisibilityTasksPage: React.FC = () => {
           {!data || Object.keys(data).length === 0 ? (
             <BlankLoadingState message="Processing visibility tasks..." />
           ) : (
-            <div className="flex-1 min-h-0 p-1 relative" style={{ overflow: 'visible' }}>
-              <KanbanBoard 
+            <div
+              className="flex-1 min-h-0 p-1 relative"
+              style={{ overflow: "visible" }}
+            >
+              <KanbanBoard
                 tasks={tasks}
                 onStatusChange={handleStatusChange}
                 onTaskClick={handleTaskClick}
@@ -189,4 +214,4 @@ const VisibilityTasksPage: React.FC = () => {
   );
 };
 
-export default VisibilityTasksPage; 
+export default VisibilityTasksPage;

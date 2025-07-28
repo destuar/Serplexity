@@ -19,9 +19,8 @@
  * - deleteBlogPost: Controller for deleting a blog post.
  */
 import { Request, Response } from "express";
-import { Role } from "@prisma/client";
-import { getDbClient } from "../config/database";
 import { z } from "zod";
+import { getDbClient } from "../config/database";
 
 const createBlogPostSchema = z.object({
   title: z.string().min(1).max(200),
@@ -45,7 +44,7 @@ const createBlogPostSchema = z.object({
       },
       {
         message: "Must be a valid URL or uploaded image path",
-      },
+      }
     )
     .optional(),
   metaTitle: z.string().max(60).optional(),
@@ -67,7 +66,7 @@ const generateSlug = (title: string): string => {
 
 const ensureUniqueSlug = async (
   baseSlug: string,
-  excludeId?: string,
+  excludeId?: string
 ): Promise<string> => {
   const prisma = await getDbClient();
   let slug = baseSlug;
@@ -101,7 +100,7 @@ export const getAllBlogPosts = async (req: Request, res: Response) => {
   const prisma = await getDbClient();
   try {
     const { published } = req.query;
-    const isAdmin = req.user?.role === Role.ADMIN;
+    const isAdmin = req.user?.role === "ADMIN";
 
     const where =
       published !== undefined
@@ -139,7 +138,7 @@ export const getBlogPostBySlug = async (req: Request, res: Response) => {
   const prisma = await getDbClient();
   try {
     const { slug } = req.params;
-    const isAdmin = req.user?.role === Role.ADMIN;
+    const isAdmin = req.user?.role === "ADMIN";
 
     const post = await prisma.blogPost.findUnique({
       where: { slug },
@@ -170,7 +169,7 @@ export const getBlogPostById = async (req: Request, res: Response) => {
   const prisma = await getDbClient();
   try {
     const { id } = req.params;
-    const isAdmin = req.user?.role === Role.ADMIN;
+    const isAdmin = req.user?.role === "ADMIN";
 
     if (!isAdmin) {
       return res.status(403).json({ error: "Access denied" });

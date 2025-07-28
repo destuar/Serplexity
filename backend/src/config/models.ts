@@ -138,7 +138,6 @@ export const MODELS: Record<string, Model> = {
       ModelTask.SENTIMENT, // ✅ WebSearchSentimentAgent (multi-provider)
       ModelTask.FANOUT_GENERATION, // ✅ IntelligentFanoutAgent (available alternative)
       ModelTask.QUESTION_ANSWERING, // ✅ QuestionAnsweringAgent (multi-provider)
-      ModelTask.WEBSITE_ENRICHMENT, // ✅ WebsiteEnrichmentAgent (ONLY gemini-2.5-flash)
     ],
   },
   sonar: {
@@ -149,6 +148,7 @@ export const MODELS: Record<string, Model> = {
       ModelTask.FANOUT_GENERATION, // ✅ IntelligentFanoutAgent (available alternative)
       ModelTask.QUESTION_ANSWERING, // ✅ QuestionAnsweringAgent (has built-in web search)
       ModelTask.COMPANY_RESEARCH, // ✅ CompanyResearchAgent (ONLY sonar for web research)
+      ModelTask.WEBSITE_ENRICHMENT, // ✅ WebsiteEnrichmentAgent (web search enabled)
     ],
   },
 };

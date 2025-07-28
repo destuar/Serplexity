@@ -69,7 +69,7 @@ class WebSearchConfig:
         TaskType.SENTIMENT: True,           # Enable for sentiment analysis
         TaskType.FANOUT_GENERATION: False,  # Disable for fanout generation
         TaskType.QUESTION_ANSWERING: True,  # Enable for Q&A
-        TaskType.WEBSITE_ENRICHMENT: False,  # Enable for website enrichment
+        TaskType.WEBSITE_ENRICHMENT: True,  # Enable for website enrichment
         TaskType.OPTIMIZATION_TASKS: False, # Disable for optimization tasks
     }
     

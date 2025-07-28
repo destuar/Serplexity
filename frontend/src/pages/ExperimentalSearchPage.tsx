@@ -12,17 +12,17 @@
  * @exports
  * - ExperimentalSearchPage: The main experimental search page component.
  */
-import React, { useState } from 'react';
-import SearchBar from '../components/experimental/SearchBar';
-import GoogleSerpPane from '../components/experimental/GoogleSerpPane';
-import LlmSerpPane from '../components/experimental/LlmSerpPane';
+import React, { useState } from "react";
+import GoogleSerpPane from "../components/experimental/GoogleSerpPane";
+import LlmSerpPane from "../components/experimental/LlmSerpPane";
+import SearchBar from "../components/experimental/SearchBar";
 
 const ExperimentalSearchPage: React.FC = () => {
-  const [query, setQuery] = useState('');
-  const [submittedQuery, setSubmittedQuery] = useState('');
+  const [query, setQuery] = useState("");
+  const [submittedQuery, setSubmittedQuery] = useState("");
 
   // Local model selection state (default to ChatGPT)
-  const [selectedModel, setSelectedModel] = useState<string>('gpt-4.1-mini');
+  const [selectedModel, setSelectedModel] = useState<string>("gpt-4.1-mini");
 
   const handleSubmit = () => {
     if (query.trim()) {
@@ -34,8 +34,7 @@ const ExperimentalSearchPage: React.FC = () => {
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="flex-shrink-0 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-1 px-4 lg:px-0">
-        <div>
-        </div>
+        <div></div>
         {/* model filter moved to LlmSerpPane */}
       </div>
 
@@ -59,4 +58,4 @@ const ExperimentalSearchPage: React.FC = () => {
   );
 };
 
-export default ExperimentalSearchPage; 
+export default ExperimentalSearchPage;

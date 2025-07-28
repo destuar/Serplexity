@@ -82,7 +82,6 @@ MODELS: Dict[str, Model] = {
             ModelTask.SENTIMENT,  # ✅ WebSearchSentimentAgent (multi-provider)
             ModelTask.FANOUT_GENERATION,  # ✅ IntelligentFanoutAgent (available alternative)
             ModelTask.QUESTION_ANSWERING,  # ✅ QuestionAnsweringAgent (multi-provider)
-            ModelTask.WEBSITE_ENRICHMENT,  # ✅ WebsiteEnrichmentAgent (ONLY gemini-2.5-flash)
         ]
     ),
     "sonar": Model(
@@ -93,6 +92,7 @@ MODELS: Dict[str, Model] = {
             ModelTask.FANOUT_GENERATION,  # ✅ IntelligentFanoutAgent (available alternative)
             ModelTask.QUESTION_ANSWERING,  # ✅ QuestionAnsweringAgent (has built-in web search)
             ModelTask.COMPANY_RESEARCH,  # ✅ CompanyResearchAgent (ONLY sonar for web research)
+            ModelTask.WEBSITE_ENRICHMENT,  # ✅ WebsiteEnrichmentAgent (web search enabled)
         ]
     ),
 }
@@ -115,7 +115,7 @@ def get_default_model_for_task(task: ModelTask) -> Optional[Model]:
     if task == ModelTask.SENTIMENT_SUMMARY:
         return get_model_by_id("gpt-4.1-mini")  # Only gpt-4.1-mini
     elif task == ModelTask.WEBSITE_ENRICHMENT:
-        return get_model_by_id("gemini-2.5-flash")  # Only gemini
+        return get_model_by_id("sonar")  # Sonar with web search
     elif task == ModelTask.COMPANY_RESEARCH:
         return get_model_by_id("sonar")  # Only sonar for web research
     elif task == ModelTask.QUESTION_GENERATION:
@@ -144,7 +144,7 @@ def get_agent_models() -> Dict[str, str]:
         "sentiment_summary": "gpt-4.1-mini",  # Only gpt-4.1-mini
         "fanout": "gpt-4.1-mini",  # Primary default
         "question_answering": "gpt-4.1-mini",  # Multi-provider but defaults to gpt-4.1-mini
-        "website_enrichment": "gemini-2.5-flash",  # Only gemini
+        "website_enrichment": "sonar",  # Sonar with web search
         "company_research": "sonar",  # Only sonar
         "question_generation": "gpt-4.1-mini",  # Only gpt-4.1-mini
         "mention_detection": "gpt-4.1-mini",  # Default to gpt-4.1-mini

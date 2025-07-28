@@ -62,7 +62,7 @@ class WebsiteEnrichmentAgent(BaseAgent):
         if default_model_config:
             model_id = default_model_config.get_pydantic_model_id()
         else:
-            model_id = os.getenv('PYDANTIC_MODEL_ID', 'gemini:gemini-2.5-flash')
+            model_id = os.getenv('PYDANTIC_MODEL_ID', 'openai:sonar')
         
         super().__init__(
             agent_id="website_enrichment_agent",
@@ -114,8 +114,13 @@ class WebsiteEnrichmentAgent(BaseAgent):
     
     def _build_system_prompt(self) -> str:
         return """You are an expert business intelligence analyst specializing in competitive research 
-and canonical website identification. Your task is to find the official, primary website for each 
-competitor company and eliminate duplicates.
+and canonical website identification with access to real-time web search. Your task is to find the 
+official, primary website for each competitor company and eliminate duplicates.
+
+SEARCH STRATEGY:
+Use web search to find current, verified company websites. Search for:
+- "{company_name}" official website
+- "{company_name}" company website
 
 CRITICAL REQUIREMENTS:
 
@@ -129,31 +134,31 @@ CRITICAL REQUIREMENTS:
    - "Cedars-Sinai", "Cedars Sinai Health", "Cedars-Sinai Medical Center" → Pick ONE
    - Use the most commonly known name
 
-3. **DOMAIN VERIFICATION**: Ensure websites are legitimate business domains:
-   - Prefer .com over .org/.net unless it's the official domain
+3. **DOMAIN VERIFICATION**: Use web search to ensure websites are legitimate:
    - Verify the domain actually belongs to the company
+   - Check for active, current websites
+   - Accept any legitimate domain extension (.com, .org, .net, .edu, .gov, etc.)
    - Avoid redirect chains or temporary domains
 
-4. **CONFIDENCE SCORING**: Rate your confidence (0.0-1.0) based on:
-   - 0.9-1.0: Verified official domain, well-known company
-   - 0.7-0.9: Confident but less verification
-   - 0.5-0.7: Reasonable match but some uncertainty
-   - Below 0.5: Skip the entry entirely
-
-5. **URL NORMALIZATION**: 
+4. **URL NORMALIZATION**: 
    - Always use https://
    - Remove www. unless specifically required
    - Use lowercase domains
    - No trailing paths, parameters, or anchors
 
+5. **CURRENT INFORMATION**: Use web search to find up-to-date website information:
+   - Verify companies are still active/operational
+   - Find current business websites
+
 EXAMPLES:
 Input: ["Mayo Clinic", "Mayo Clinic Rochester", "Mayo One"]
-Output: [{"name": "Mayo Clinic", "website": "https://mayoclinic.org", "confidence": 0.95}]
+Output: [{"name": "Mayo Clinic", "website": "https://mayoclinic.org"}]
 
 Input: ["Apple Inc", "Apple Computer", "Apple"]  
-Output: [{"name": "Apple", "website": "https://apple.com", "confidence": 1.0}]
+Output: [{"name": "Apple", "website": "https://apple.com"}]
 
-Remember: Quality over quantity. Better to return fewer, accurate entries than many questionable ones."""
+Remember: Use web search to verify accuracy. Quality over quantity. Better to return fewer, 
+verified entries than many questionable ones."""
     
     def get_output_type(self):
         return WebsiteEnrichmentResult

@@ -17,18 +17,16 @@
  * - router: The Express router instance for blog routes.
  */
 import { Router } from "express";
-import _path from "path";
-import { authenticate, authorize } from "../middleware/authMiddleware";
-import { Role } from "@prisma/client";
 import {
-  getAllBlogPosts,
-  getBlogPostBySlug,
-  getBlogPostById,
   createBlogPost,
-  updateBlogPost,
   deleteBlogPost,
+  getAllBlogPosts,
+  getBlogPostById,
+  getBlogPostBySlug,
+  updateBlogPost,
 } from "../controllers/blogController";
-import { upload, getFileUrl } from "../services/uploadService";
+import { authenticate, authorize } from "../middleware/authMiddleware";
+import { getFileUrl, upload } from "../services/uploadService";
 
 const router = Router();
 
@@ -40,7 +38,7 @@ router.get("/:slug", getBlogPostBySlug);
 router.post(
   "/upload",
   authenticate,
-  authorize(Role.ADMIN),
+  authorize("ADMIN"),
   upload.single("image"),
   (req, res) => {
     try {
@@ -60,13 +58,13 @@ router.post(
       console.error("Upload error:", error);
       res.status(500).json({ error: "Failed to upload file" });
     }
-  },
+  }
 );
 
 // Admin-only routes
-router.get("/admin/:id", authenticate, authorize(Role.ADMIN), getBlogPostById);
-router.post("/", authenticate, authorize(Role.ADMIN), createBlogPost);
-router.put("/:id", authenticate, authorize(Role.ADMIN), updateBlogPost);
-router.delete("/:id", authenticate, authorize(Role.ADMIN), deleteBlogPost);
+router.get("/admin/:id", authenticate, authorize("ADMIN"), getBlogPostById);
+router.post("/", authenticate, authorize("ADMIN"), createBlogPost);
+router.put("/:id", authenticate, authorize("ADMIN"), updateBlogPost);
+router.delete("/:id", authenticate, authorize("ADMIN"), deleteBlogPost);
 
 export default router;
