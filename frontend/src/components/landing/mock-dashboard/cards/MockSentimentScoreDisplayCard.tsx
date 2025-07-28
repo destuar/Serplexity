@@ -1,18 +1,16 @@
 /**
  * @file MockSentimentScoreDisplayCard.tsx
- * @description This component displays a mock sentiment score breakdown using a radar chart.
- * It visualizes the brand's sentiment across different categories (e.g., Quality, Price, Reputation),
- * providing a quick visual summary of sentiment strengths and weaknesses. This card is used to
- * demonstrate the application's sentiment analysis capabilities on the landing page.
+ * @description This component displays both a radar chart showing sentiment breakdown by category
+ * and an area chart showing sentiment trends over time. It provides a comprehensive view of 
+ * sentiment analysis capabilities on the landing page.
  *
  * @dependencies
  * - react: For core React functionalities.
- * - recharts: For charting components such as `Radar`, `RadarChart`, `PolarGrid`, `PolarAngleAxis`,
- *   `PolarRadiusAxis`, and `ResponsiveContainer`.
+ * - recharts: For charting components including both radar and area charts.
  * - ./MockDashboardCard: Generic card component for consistent UI in the mock dashboard.
  *
  * @exports
- * - MockSentimentScoreDisplayCard: React functional component for displaying the mock sentiment score.
+ * - MockSentimentScoreDisplayCard: React functional component for displaying sentiment analytics.
  */
 import React from 'react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts';
@@ -39,7 +37,7 @@ const MockSentimentScoreDisplayCard: React.FC = () => {
             <PolarGrid stroke="#e2e8f0" />
             <PolarAngleAxis dataKey="category" tick={{ fontSize: 12, fill: '#64748b' }} />
             <PolarRadiusAxis angle={90} domain={[0, 10]} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-            <Radar name="Score" dataKey="value" stroke="#7762ff" fill="#7762ff" fillOpacity={0.1} />
+            <Radar name="Score" dataKey="value" stroke="#2563eb" fill="#2563eb" fillOpacity={0.1} />
             <Tooltip 
               contentStyle={{
                 backgroundColor: '#ffffff',

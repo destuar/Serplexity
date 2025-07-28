@@ -1,29 +1,29 @@
 /**
  * @file MockSentimentOverTimeCard.tsx
- * @description This component displays a mock sentiment score trend over time using a line chart.
+ * @description This component displays a mock sentiment score trend over time using an area chart.
  * It visualizes how the brand's sentiment score has evolved, providing insights into the impact
  * of various events or campaigns on public perception. This card is used to demonstrate historical
  * sentiment analysis capabilities on the landing page.
  *
  * @dependencies
  * - react: For core React functionalities.
- * - recharts: For charting components such as `LineChart`, `Line`, `XAxis`, `YAxis`, `CartesianGrid`, `Tooltip`, and `ResponsiveContainer`.
+ * - recharts: For charting components such as `AreaChart`, `Area`, `XAxis`, `YAxis`, `CartesianGrid`, `Tooltip`, and `ResponsiveContainer`.
  * - ./MockDashboardCard: Generic card component for consistent UI in the mock dashboard.
  *
  * @exports
  * - MockSentimentOverTimeCard: React functional component for displaying mock sentiment over time.
  */
 import React from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import MockDashboardCard from './MockDashboardCard';
 
 const mockReportMetric = {
     sentimentOverTime: [
-        { date: 'Jun 1', score: 7.2 },
-        { date: 'Jun 8', score: 7.8 },
-        { date: 'Jun 15', score: 8.5 },
-        { date: 'Jun 22', score: 8.8 },
-        { date: 'Jun 28', score: 8.9 },
+        { date: 'Jul 1', score: 7.2 },
+        { date: 'Jul 8', score: 7.8 },
+        { date: 'Jul 15', score: 8.5 },
+        { date: 'Jul 22', score: 8.8 },
+        { date: 'Jul 28', score: 8.9 },
     ],
 };
 
@@ -40,7 +40,7 @@ const MockSentimentOverTimeCard: React.FC = () => {
       </div>
       <div className="flex-1 w-full" style={{ minHeight: '300px' }}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 20, right: 30, bottom: 15, left: 20 }}>
+          <AreaChart data={data} margin={{ top: 20, right: 30, bottom: 15, left: 20 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeWidth={1} />
             <XAxis 
               dataKey="date" 
@@ -74,25 +74,27 @@ const MockSentimentOverTimeCard: React.FC = () => {
               formatter={(value: number) => [`${value.toFixed(1)}/10`, 'Average Score']}
               labelFormatter={(label) => `Date: ${label}`}
             />
-            <Line 
-              type="monotone" 
-              dataKey="score" 
-              stroke="#7762ff" 
-              strokeWidth={3} 
-              dot={{ 
-                fill: '#7762ff', 
-                strokeWidth: 2, 
-                r: 5,
-                stroke: '#ffffff'
-              }} 
+            <Area
+              type="monotone"
+              dataKey="score"
+              stroke="#2563eb"
+              strokeWidth={2}
+              fill="url(#sentimentGradient)"
+              dot={false}
               activeDot={{ 
-                r: 7, 
-                stroke: '#7762ff',
+                r: 4, 
+                stroke: '#2563eb',
                 strokeWidth: 2,
                 fill: '#ffffff'
-              }} 
+              }}
             />
-          </LineChart>
+            <defs>
+              <linearGradient id="sentimentGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#2563eb" stopOpacity={0.3} />
+                <stop offset="100%" stopColor="#2563eb" stopOpacity={0.05} />
+              </linearGradient>
+            </defs>
+          </AreaChart>
         </ResponsiveContainer>
       </div>
     </MockDashboardCard>

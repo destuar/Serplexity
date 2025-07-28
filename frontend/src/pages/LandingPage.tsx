@@ -50,7 +50,7 @@ const LandingPage: React.FC = () => {
   // Rotating text state
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
   const rotatingTexts = [
-    "OpenAI",
+    "ChatGPT",
     "Perplexity",
     "Gemini",
     "Claude",
@@ -666,11 +666,11 @@ const LandingPage: React.FC = () => {
                         transition={{ duration: 0.5, ease: "easeInOut" }}
                         src={
                           currentTextIndex === 0
-                            ? "/OpenAI_Logo.svg.svg"
+                            ? "/chatgpt_logo.svg"
                             : currentTextIndex === 1
                               ? "/logo-perplexity-1024x258.svg"
                               : currentTextIndex === 2
-                                ? "/Google_Gemini_logo.svg.svg"
+                                ? "/gemini_logo.svg"
                                 : currentTextIndex === 3
                                   ? "/claude_logo.svg"
                                   : currentTextIndex === 4
@@ -681,7 +681,7 @@ const LandingPage: React.FC = () => {
                         }
                         alt={
                           currentTextIndex === 0
-                            ? "OpenAI"
+                            ? "ChatGPT"
                             : currentTextIndex === 1
                               ? "Perplexity"
                               : currentTextIndex === 2
@@ -698,9 +698,9 @@ const LandingPage: React.FC = () => {
                         style={{
                           height:
                             currentTextIndex === 0
-                              ? "80px" // OpenAI - compact logo
+                              ? "80px" // ChatGPT - 80px
                               : currentTextIndex === 1
-                                ? "90px" // Perplexity - smaller
+                                ? "100px" // Perplexity - 100px
                                 : currentTextIndex === 2
                                   ? "70px" // Gemini - compact
                                   : currentTextIndex === 3
@@ -709,7 +709,7 @@ const LandingPage: React.FC = () => {
                                       ? "75px" // Copilot - smaller
                                       : currentTextIndex === 5
                                         ? "85px" // DeepSeek - smaller
-                                        : "85px", // Grok - medium compact
+                                        : "90px", // Grok - slightly bigger
                           filter: "brightness(0)",
                         }}
                       />
@@ -1888,27 +1888,27 @@ const LandingPage: React.FC = () => {
                             </td>
                             <td className="px-6 md:px-8 py-6 text-center">
                               <div className="flex justify-center">
-                                <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center group-hover:bg-green-500/30 transition-colors">
-                                  <Check className="w-5 h-5 text-green-400" />
+                                <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center group-hover:bg-blue-500/30 transition-colors">
+                                  <Check className="w-5 h-5 text-blue-400" />
                                 </div>
                               </div>
                             </td>
                             <td className="px-6 md:px-8 py-6 text-center">
                               <div className="flex justify-center">
-                                <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center group-hover:bg-red-500/30 transition-colors">
-                                  <X className="w-5 h-5 text-red-400" />
+                                <div className="w-8 h-8 rounded-full bg-gray-500/20 flex items-center justify-center group-hover:bg-gray-500/30 transition-colors">
+                                  <X className="w-5 h-5 text-gray-400" />
                                 </div>
                               </div>
                             </td>
                             <td className="px-6 md:px-8 py-6 text-center">
                               <div className="flex justify-center">
                                 {i === 0 || i === 2 || i === 3 || i === 4 ? (
-                                  <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center group-hover:bg-red-500/30 transition-colors">
-                                    <X className="w-5 h-5 text-red-400" />
+                                  <div className="w-8 h-8 rounded-full bg-gray-500/20 flex items-center justify-center group-hover:bg-gray-500/30 transition-colors">
+                                    <X className="w-5 h-5 text-gray-400" />
                                   </div>
                                 ) : (
-                                  <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center group-hover:bg-green-500/30 transition-colors">
-                                    <Check className="w-5 h-5 text-green-400" />
+                                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center group-hover:bg-blue-500/30 transition-colors">
+                                    <Check className="w-5 h-5 text-blue-400" />
                                   </div>
                                 )}
                               </div>
@@ -2043,7 +2043,7 @@ const LandingPage: React.FC = () => {
                               key={j}
                               className="flex items-start text-gray-600 text-sm"
                             >
-                              <Check className="w-4 h-4 text-green-600 mr-2 mt-0.5 flex-shrink-0" />
+                              <Check className="w-4 h-4 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
                               <span>{feature}</span>
                             </li>
                           ))}

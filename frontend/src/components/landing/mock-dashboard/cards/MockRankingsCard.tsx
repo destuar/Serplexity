@@ -14,10 +14,12 @@
  * @exports
  * - MockRankingsCard: React functional component for displaying mock industry rankings and competitors.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import MockDashboardCard from './MockDashboardCard';
 import { getCompanyLogo } from '../../../../lib/logoService';
+
+type TabType = 'mentions' | 'citations';
 
 interface CompetitorData {
     name: string;
@@ -72,7 +74,7 @@ const IndustryRanking = () => {
                     const height = Math.max(6, (c.shareOfVoice / maxShareOfVoice) * 90);
                     return (
                         <div key={i}
-                             className={`w-3 rounded-t ${c.isUserCompany ? 'bg-[#7762ff]' : 'bg-gray-300'}`}
+                             className={`w-3 rounded-t ${c.isUserCompany ? 'bg-[#2563eb]' : 'bg-gray-300'}`}
                              style={{ height: `${height}px` }}
                              title={`${c.name}: ${c.shareOfVoice.toFixed(1)}%`}
                         />
@@ -109,7 +111,7 @@ const CompetitorsList = () => {
                 return (
                     <div key={i} className="flex items-center justify-between rounded-md p-1 transition-colors hover:bg-gray-50">
                         <div className="flex items-center space-x-2 flex-1 min-w-0">
-                            <span className={`text-xs font-medium w-4 text-center ${c.isUserCompany ? 'text-[#7762ff]' : 'text-gray-600'}`}>{i + 1}.</span>
+                            <span className={`text-xs font-medium w-4 text-center ${c.isUserCompany ? 'text-[#2563eb]' : 'text-gray-600'}`}>{i + 1}.</span>
                             <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-2xs font-semibold text-gray-600 flex-shrink-0 overflow-hidden">
                                 {logoResult ? (
                                     <img
@@ -121,7 +123,7 @@ const CompetitorsList = () => {
                                     isOthers ? '' : c.name.charAt(0).toUpperCase()
                                 )}
                             </div>
-                            <span className={`text-xs font-medium truncate ${isOthers ? 'text-gray-500 italic' : c.isUserCompany ? 'text-[#7762ff]' : 'text-gray-800'}`}>{c.name}</span>
+                            <span className={`text-xs font-medium truncate ${isOthers ? 'text-gray-500 italic' : c.isUserCompany ? 'text-[#2563eb]' : 'text-gray-800'}`}>{c.name}</span>
                         </div>
                         <div className="flex items-center flex-shrink-0">
                             <div className="w-12 flex justify-start">
@@ -133,7 +135,7 @@ const CompetitorsList = () => {
                                 )}
                             </div>
                             <div className="w-10 text-right">
-                                <span className={`text-xs font-semibold ${c.isUserCompany ? 'text-[#7762ff]' : isOthers ? 'text-gray-500' : 'text-gray-700'}`}>{c.shareOfVoice.toFixed(1)}%</span>
+                                <span className={`text-xs font-semibold ${c.isUserCompany ? 'text-[#2563eb]' : isOthers ? 'text-gray-500' : 'text-gray-700'}`}>{c.shareOfVoice.toFixed(1)}%</span>
                             </div>
                         </div>
                     </div>
@@ -145,6 +147,37 @@ const CompetitorsList = () => {
 
 
 const MockRankingsCard: React.FC = () => {
+    const [activeTab, setActiveTab] = useState<TabType>('mentions');
+
+    const renderIconTabs = () => {
+        return (
+            <div className="flex space-x-1">
+                <button
+                    onClick={() => setActiveTab('mentions')}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-medium transition-all duration-200 ${
+                        activeTab === 'mentions'
+                            ? 'bg-white/60 backdrop-blur-sm border border-white/30 shadow-inner text-gray-900'
+                            : 'bg-white/80 backdrop-blur-sm border border-white/20 shadow-md text-gray-500 hover:text-gray-700 hover:bg-white/85'
+                    }`}
+                    title="Mentions"
+                >
+                    @
+                </button>
+                <button
+                    onClick={() => setActiveTab('citations')}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-medium transition-all duration-200 ${
+                        activeTab === 'citations'
+                            ? 'bg-white/60 backdrop-blur-sm border border-white/30 shadow-inner text-gray-900'
+                            : 'bg-white/80 backdrop-blur-sm border border-white/20 shadow-md text-gray-500 hover:text-gray-700 hover:bg-white/85'
+                    }`}
+                    title="Citations"
+                >
+                    [ ]
+                </button>
+            </div>
+        );
+    };
+
     return (
         <MockDashboardCard>
             <div className="flex h-full w-full">
@@ -153,7 +186,12 @@ const MockRankingsCard: React.FC = () => {
                     <IndustryRanking />
                 </div>
                 <div className="w-1/2 pl-4 flex flex-col">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Top Competitors</h3>
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold text-gray-800">
+                            {activeTab === 'mentions' ? 'Mentions' : 'Citations'}
+                        </h3>
+                        {renderIconTabs()}
+                    </div>
                     <CompetitorsList />
                 </div>
             </div>

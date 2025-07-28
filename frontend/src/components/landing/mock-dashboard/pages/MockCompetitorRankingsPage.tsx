@@ -40,7 +40,7 @@ const mockCompetitors = [
 ];
 
 const aiModelOptions = [
-    { value: 'all', label: 'All AI Models' },
+    { value: 'all', label: 'All Models', icon: Sparkles },
     { value: 'openai/gpt-4o', label: 'GPT-4o' },
     { value: 'google/gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
     { value: 'anthropic/claude-3-opus', label: 'Claude 3 Opus' },
@@ -174,7 +174,7 @@ const MockCompetitorRankingsPage: React.FC = () => {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Competitor Rankings</h1>
               <p className="text-sm text-gray-500 mt-1">
-                Last updated: 6/28/2025, 5:05:00 AM
+                Last updated: 7/28/2025, 5:05:00 AM
               </p>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex items-center gap-2 w-full lg:w-auto">

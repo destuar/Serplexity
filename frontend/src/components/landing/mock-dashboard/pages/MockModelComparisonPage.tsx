@@ -28,11 +28,11 @@ import MockFilterDropdown from '../MockFilterDropdown';
 // Inline mock data reflecting the structure of ModelComparisonPage.tsx
 const mockModelComparisonData = {
     historyData: [
-        { date: 'Jun 1', 'gpt-4.1-mini': 5.0, 'claude-3-5-haiku-20241022': 4.0, 'gemini-2.5-flash': 6.0, 'sonar': 1.0 },
-        { date: 'Jun 8', 'gpt-4.1-mini': 10.0, 'claude-3-5-haiku-20241022': 8.0, 'gemini-2.5-flash': 12.0, 'sonar': 3.0 },
-        { date: 'Jun 15', 'gpt-4.1-mini': 25.0, 'claude-3-5-haiku-20241022': 20.0, 'gemini-2.5-flash': 22.0, 'sonar': 10.0 },
-        { date: 'Jun 22', 'gpt-4.1-mini': 40.0, 'claude-3-5-haiku-20241022': 35.0, 'gemini-2.5-flash': 35.0, 'sonar': 18.0 },
-        { date: 'Jun 28', 'gpt-4.1-mini': 49.5, 'claude-3-5-haiku-20241022': 42.0, 'gemini-2.5-flash': 40.0, 'sonar': 22.5 },
+        { date: 'Jul 1', 'gpt-4.1-mini': 5.0, 'claude-3-5-haiku-20241022': 4.0, 'gemini-2.5-flash': 6.0, 'sonar': 1.0 },
+        { date: 'Jul 8', 'gpt-4.1-mini': 10.0, 'claude-3-5-haiku-20241022': 8.0, 'gemini-2.5-flash': 12.0, 'sonar': 3.0 },
+        { date: 'Jul 15', 'gpt-4.1-mini': 25.0, 'claude-3-5-haiku-20241022': 20.0, 'gemini-2.5-flash': 22.0, 'sonar': 10.0 },
+        { date: 'Jul 22', 'gpt-4.1-mini': 40.0, 'claude-3-5-haiku-20241022': 35.0, 'gemini-2.5-flash': 35.0, 'sonar': 18.0 },
+        { date: 'Jul 28', 'gpt-4.1-mini': 49.5, 'claude-3-5-haiku-20241022': 42.0, 'gemini-2.5-flash': 40.0, 'sonar': 22.5 },
     ],
     metricRows: [
         { modelId: 'gpt-4.1-mini', shareOfVoice: 49.5, shareOfVoiceChange: 44.5, averagePosition: 1.8, averagePositionChange: -0.5, inclusionRate: 92.1, inclusionRateChange: 10.0 },
@@ -152,7 +152,7 @@ const MockModelComparisonPage: React.FC = () => {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Model Comparison</h1>
               <p className="text-sm text-gray-500 mt-1">
-                Last updated: 6/28/2025, 5:05:00 AM
+                Last updated: 7/28/2025, 5:05:00 AM
               </p>
             </div>
             <div className="flex items-center gap-2">

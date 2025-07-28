@@ -15,8 +15,9 @@
  */
 import React, { useState } from 'react';
 import MockDashboardCard from './MockDashboardCard';
-import { getModelDisplayName } from '../../../../types/dashboard';
+import { getModelDisplayName, MODEL_CONFIGS } from '../../../../types/dashboard';
 import FormattedResponseViewer from '../../../ui/FormattedResponseViewer';
+import { getCompanyLogo } from '../../../../lib/logoService';
 
 const mockTopQuestions = [
     {
@@ -25,27 +26,41 @@ const mockTopQuestions = [
         bestResponseModel: 'gpt-4.1-mini',
         productName: 'AISO',
         type: 'visibility',
+        mentionedCompanies: [{ name: 'Serplexity', website: 'serplexity.com' }],
     },
     {
         question: "What are the top platforms for Generative Engine Optimization?",
-        bestResponse: "Leading platforms for **Generative Engine Optimization** include <brand>Serplexity</brand>, which provides detailed analytics on AI-driven search, and a few other emerging tools. <brand>Serplexity</brand> is noted for its comprehensive model coverage.",
+        bestResponse: "Leading platforms for **Generative Engine Optimization** include <brand>Serplexity</brand>, which provides detailed analytics on AI-driven search, <brand>Athena</brand> for enterprise insights, and <brand>Writesonic</brand> for content optimization. <brand>Serplexity</brand> is noted for its comprehensive model coverage.",
         bestResponseModel: 'claude-3-5-haiku-20241022',
         productName: 'AISO',
         type: 'visibility',
+        mentionedCompanies: [
+            { name: 'Serplexity', website: 'serplexity.com' },
+            { name: 'Athena', website: 'athenahq.ai' },
+            { name: 'Writesonic', website: 'writesonic.com' }
+        ],
     },
     {
         question: "Compare Serplexity vs. BrightEdge for AI visibility.",
-        bestResponse: "<brand>Serplexity</brand> offers specialized tools for **AI visibility**, tracking metrics like Share of Voice across models like GPT-4. BrightEdge is a traditional SEO platform and lacks this specific focus on generative AI.",
+        bestResponse: "<brand>Serplexity</brand> offers specialized tools for **AI visibility**, tracking metrics like Share of Voice across models like GPT-4. <brand>BrightEdge</brand> is a traditional SEO platform and lacks this specific focus on generative AI.",
         bestResponseModel: 'gemini-2.5-flash',
         productName: 'AISO',
         type: 'benchmark',
+        mentionedCompanies: [
+            { name: 'Serplexity', website: 'serplexity.com' },
+            { name: 'BrightEdge', website: 'brightedge.com' }
+        ],
     },
     {
         question: "What are the pros and cons of using Serplexity for GEO?",
-        bestResponse: "Pros of using <brand>Serplexity</brand> include **comprehensive AI model tracking** and **in-depth sentiment analysis**. A potential con could be the learning curve for teams new to **Generative Engine Optimization** concepts.",
+        bestResponse: "Pros of using <brand>Serplexity</brand> include **comprehensive AI model tracking** and **in-depth sentiment analysis**. A potential con could be the learning curve for teams new to **Generative Engine Optimization** concepts compared to traditional tools like <brand>Semrush</brand>.",
         bestResponseModel: 'sonar',
         productName: 'AISO',
         type: 'benchmark',
+        mentionedCompanies: [
+            { name: 'Serplexity', website: 'serplexity.com' },
+            { name: 'Semrush', website: 'semrush.com' }
+        ],
     },
 ];
 
@@ -83,9 +98,16 @@ const QuestionItem: React.FC<{ question: typeof mockTopQuestions[0]; index: numb
                         <div className="border-t border-gray-100 pt-2">
                             <div className="flex items-center justify-between mb-2">
                                 <h4 className="font-semibold text-xs text-gray-500 uppercase tracking-wide">Best Response</h4>
-                                <span className="bg-[#7762ff]/10 text-[#7762ff] px-2 py-0.5 rounded-full text-2xs font-medium border border-[#7762ff]/20">
-                                    {getModelDisplayName(question.bestResponseModel)}
-                                </span>
+                                <div className="flex items-center gap-1.5 bg-[#2563eb]/10 text-[#2563eb] px-2 py-0.5 rounded-full text-2xs font-medium border border-[#2563eb]/20">
+                                    {MODEL_CONFIGS[question.bestResponseModel]?.logoUrl && (
+                                        <img 
+                                            src={MODEL_CONFIGS[question.bestResponseModel].logoUrl} 
+                                            alt={`${getModelDisplayName(question.bestResponseModel)} logo`}
+                                            className="w-3 h-3 rounded-sm"
+                                        />
+                                    )}
+                                    <span>{getModelDisplayName(question.bestResponseModel)}</span>
+                                </div>
                             </div>
                             <FormattedResponseViewer 
                                 text={stripBrandTags(question.bestResponse)} 
@@ -99,6 +121,28 @@ const QuestionItem: React.FC<{ question: typeof mockTopQuestions[0]; index: numb
                                 <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md text-2xs font-medium">
                                     {question.productName}
                                 </span>
+                            </div>
+                        )}
+                        {question.mentionedCompanies && question.mentionedCompanies.length > 0 && (
+                            <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                                <span className="text-2xs text-gray-500">Mentions:</span>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                    {question.mentionedCompanies.map((company, idx) => {
+                                        const logoResult = getCompanyLogo(company.website);
+                                        return (
+                                            <div key={idx} className="flex items-center gap-1 bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded-md text-2xs">
+                                                {logoResult && (
+                                                    <img
+                                                        src={logoResult.url}
+                                                        alt={`${company.name} logo`}
+                                                        className="w-3 h-3 rounded-sm"
+                                                    />
+                                                )}
+                                                <span className="font-medium">{company.name}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         )}
                     </div>

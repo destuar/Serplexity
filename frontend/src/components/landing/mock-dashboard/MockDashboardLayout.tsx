@@ -15,31 +15,57 @@
  * @exports
  * - MockDashboardLayout: The React functional component that provides the layout for the mock dashboard.
  */
-import React, { Component, ErrorInfo, ReactNode } from 'react';
-import MockSidebar from './MockSidebar';
-import MockHeader from './MockHeader';
-import { CompanyContext, CompanyFormData } from '../../../hooks/useCompany';
-import { Company } from '../../../types/schemas';
+import React, { Component, ErrorInfo, ReactNode } from "react";
+import MockSidebar from "./MockSidebar";
+import MockHeader from "./MockHeader";
+import { CompanyContext, CompanyFormData } from "../../../hooks/useCompany";
+import { Company } from "../../../types/schemas";
 
 // Mock Company Context value for the dashboard preview
 const mockCompanyValue = {
   selectedCompany: {
-    id: 'mock-company-id',
-    name: 'Serplexity',
-    website: 'https://serplexity.com',
-    industry: 'Technology',
-    userId: 'mock-user-id',
+    id: "mock-company-id",
+    name: "Serplexity",
+    website: "https://serplexity.com",
+    industry: "Technology",
+    userId: "mock-user-id",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     competitors: [],
     benchmarkingQuestions: [],
-    products: []
+    products: [],
   },
   companies: [],
   loading: false,
   error: null,
-  createCompany: (data: CompanyFormData): Promise<Company> => Promise.resolve({ ...data, id: 'new-mock-id', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), userId: 'mock-user-id', competitors: [], benchmarkingQuestions: [], products: [] }),
-  updateCompany: (id: string, data: Partial<CompanyFormData>): Promise<Company> => Promise.resolve({ id, name: 'Updated Serplexity', website: 'https://serplexity.com', industry: 'Tech', ...data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), userId: 'mock-user-id', competitors: [], benchmarkingQuestions: [], products: [] }),
+  createCompany: (data: CompanyFormData): Promise<Company> =>
+    Promise.resolve({
+      ...data,
+      id: "new-mock-id",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      userId: "mock-user-id",
+      competitors: [],
+      benchmarkingQuestions: [],
+      products: [],
+    }),
+  updateCompany: (
+    id: string,
+    data: Partial<CompanyFormData>
+  ): Promise<Company> =>
+    Promise.resolve({
+      id,
+      name: "Updated Serplexity",
+      website: "https://serplexity.com",
+      industry: "Tech",
+      ...data,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      userId: "mock-user-id",
+      competitors: [],
+      benchmarkingQuestions: [],
+      products: [],
+    }),
   deleteCompany: () => Promise.resolve(),
   selectCompany: () => {},
   refreshCompanies: () => Promise.resolve(),
@@ -73,24 +99,14 @@ class MockDashboardErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.warn('Mock Dashboard Error:', error, errorInfo);
+    console.warn("Mock Dashboard Error:", error, errorInfo);
   }
 
   render() {
     if (this.state.hasError) {
       return (
         <div className="flex items-center justify-center h-full bg-gray-50">
-          <div className="text-center p-8">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gray-200 rounded-lg flex items-center justify-center">
-              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Dashboard Preview</h3>
-            <p className="text-gray-600 max-w-md">
-              This is a preview of our comprehensive analytics dashboard with real-time AI visibility tracking.
-            </p>
-          </div>
+          {/* Blank fallback - no text or icon */}
         </div>
       );
     }
@@ -99,23 +115,26 @@ class MockDashboardErrorBoundary extends Component<
   }
 }
 
-const MockDashboardLayout: React.FC<MockDashboardLayoutProps> = ({ children, activePage }) => {
+const MockDashboardLayout: React.FC<MockDashboardLayoutProps> = ({
+  children,
+  activePage,
+}) => {
   return (
     <CompanyContext.Provider value={mockCompanyValue}>
       <MockDashboardErrorBoundary>
         <div className="flex h-full w-full bg-gray-50 overflow-visible">
           <MockSidebar activePage={activePage} />
           <div className="flex flex-col flex-1 min-w-0 h-full">
-            <MockHeader />
+            <MockHeader activePage={activePage} />
             <main className="flex-1 flex flex-col overflow-visible p-4 min-h-0">
               <div className="flex-1 min-h-0 overflow-visible flex flex-col">
                 {children}
               </div>
             </main>
-                     </div>
-         </div>
-       </MockDashboardErrorBoundary>
-     </CompanyContext.Provider>
+          </div>
+        </div>
+      </MockDashboardErrorBoundary>
+    </CompanyContext.Provider>
   );
 };
 

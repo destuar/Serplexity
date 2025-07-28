@@ -24,19 +24,19 @@ import React, {
   useState,
 } from "react";
 import MockOverviewPage from "./mock-dashboard/pages/MockOverviewPage";
-
-import MockCompetitorRankingsPage from "./mock-dashboard/pages/MockCompetitorRankingsPage";
-import MockModelComparisonPage from "./mock-dashboard/pages/MockModelComparisonPage";
-import MockResponseDetailsPage from "./mock-dashboard/pages/MockResponseDetailsPage";
 import MockSentimentAnalysisPage from "./mock-dashboard/pages/MockSentimentAnalysisPage";
+import MockPromptsPage from "./mock-dashboard/pages/MockPromptsPage";
+import MockResponsesPage from "./mock-dashboard/pages/MockResponsesPage";
+import MockCompetitorsPage from "./mock-dashboard/pages/MockCompetitorsPage";
+import MockVisibilityTasksPage from "./mock-dashboard/pages/MockVisibilityTasksPage";
 
 // Memoized page components for performance
 const MemoizedOverviewPage = React.memo(MockOverviewPage);
-
 const MemoizedSentimentAnalysisPage = React.memo(MockSentimentAnalysisPage);
-const MemoizedResponseDetailsPage = React.memo(MockResponseDetailsPage);
-const MemoizedCompetitorRankingsPage = React.memo(MockCompetitorRankingsPage);
-const MemoizedModelComparisonPage = React.memo(MockModelComparisonPage);
+const MemoizedPromptsPage = React.memo(MockPromptsPage);
+const MemoizedResponsesPage = React.memo(MockResponsesPage);
+const MemoizedCompetitorsPage = React.memo(MockCompetitorsPage);
+const MemoizedVisibilityTasksPage = React.memo(MockVisibilityTasksPage);
 
 /**
  * Array of page configurations for the carousel.
@@ -44,14 +44,12 @@ const MemoizedModelComparisonPage = React.memo(MockModelComparisonPage);
  * @type {Array<{ name: string; component: JSX.Element }>}
  */
 const pages = [
-  { name: "Overview", component: <MemoizedOverviewPage /> },
-  { name: "Sentiment Analysis", component: <MemoizedSentimentAnalysisPage /> },
-  { name: "Response Details", component: <MemoizedResponseDetailsPage /> },
-  {
-    name: "Competitor Rankings",
-    component: <MemoizedCompetitorRankingsPage />,
-  },
-  { name: "Model Comparison", component: <MemoizedModelComparisonPage /> },
+  { name: "Dashboard", component: <MemoizedOverviewPage /> },
+  { name: "Dashboard → Sentiment", component: <MemoizedSentimentAnalysisPage /> },
+  { name: "Prompts", component: <MemoizedPromptsPage /> },
+  { name: "Prompts → Responses", component: <MemoizedResponsesPage /> },
+  { name: "Competitors", component: <MemoizedCompetitorsPage /> },
+  { name: "Visibility Tasks", component: <MemoizedVisibilityTasksPage /> },
 ];
 
 /**

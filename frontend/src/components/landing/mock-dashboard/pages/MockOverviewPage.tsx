@@ -19,10 +19,7 @@
 import React from 'react';
 import { Calendar, Sparkles, RefreshCw } from 'lucide-react';
 import MockDashboardLayout from '../MockDashboardLayout';
-import MockBrandShareOfVoiceCard from '../cards/MockBrandShareOfVoiceCard';
 import MockVisibilityOverTimeCard from '../cards/MockVisibilityOverTimeCard';
-import MockAverageInclusionRateCard from '../cards/MockAverageInclusionRateCard';
-import MockAveragePositionCard from '../cards/MockAveragePositionCard';
 import MockSentimentScoreDisplayCard from '../cards/MockSentimentScoreDisplayCard';
 import MockTopRankingQuestionsCard from '../cards/MockTopRankingQuestionsCard';
 import MockRankingsCard from '../cards/MockRankingsCard';
@@ -30,6 +27,7 @@ import MockFilterDropdown from '../MockFilterDropdown';
 import { MODEL_CONFIGS, ModelConfig } from '../../../../types/dashboard';
 
 const dateRangeOptions = [
+  { value: '24h', label: 'Last 24 hours' },
   { value: '7d', label: 'Last 7 days' },
   { value: '30d', label: 'Last 30 days' },
   { value: '90d', label: 'Last 90 days' },
@@ -37,7 +35,7 @@ const dateRangeOptions = [
 ];
 
 const aiModelOptions = [
-    { value: 'all', label: 'All AI Models', icon: Sparkles },
+    { value: 'all', label: 'All Models', icon: Sparkles },
     ...(Object.values(MODEL_CONFIGS) as ModelConfig[]).map(model => ({
         value: model.id,
         label: model.displayName,
@@ -46,19 +44,13 @@ const aiModelOptions = [
 
 const MockOverviewPage: React.FC = () => {
   return (
-    <MockDashboardLayout activePage="Overview">
-      {/* Header Section */}
-      <div className="flex-shrink-0 flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-2">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Overview</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Last updated: 6/28/2025, 5:05:00 AM
-          </p>
-        </div>
-        <div className="grid grid-cols-2 md:flex items-center gap-2 w-full md:w-auto">
+    <MockDashboardLayout activePage="Dashboard">
+      {/* Header Section - Match exact pattern from OverviewPage.tsx */}
+      <div className="flex-shrink-0 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-2">
+        <div className="grid grid-cols-2 lg:flex items-center gap-2 w-full lg:w-auto">
           <MockFilterDropdown
             label="Date Range"
-            value={'7d'}
+            value={'30d'}
             options={dateRangeOptions}
             icon={Calendar}
           />
@@ -70,43 +62,62 @@ const MockOverviewPage: React.FC = () => {
           />
           <button 
             disabled={true}
-            className="flex items-center justify-center w-full md:w-auto gap-2 px-4 py-2 bg-[#7762ff] text-white rounded-lg disabled:opacity-50 transition-colors text-sm font-medium col-span-2"
+            className="flex items-center justify-center w-full lg:w-auto gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-black"
           >
             <RefreshCw size={16} />
-            <span className="whitespace-nowrap">Refresh data</span>
+            <span className="whitespace-nowrap">Refresh Data</span>
           </button>
+        </div>
+        <div>
+          <p className="text-sm text-gray-500">
+            Last updated: {new Date().toLocaleString()}
+          </p>
         </div>
       </div>
       
-      {/* Grid from real dashboard */}
-      <div className="flex-1 min-h-0">
-        <div className="grid h-full w-full gap-2" style={{
-          gridTemplateColumns: 'repeat(48, 1fr)',
-          gridTemplateRows: 'repeat(14, minmax(30px, 1fr))',
-          gridTemplateAreas: `
-            "m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-            "m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-            "m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-            "m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-            "m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m1 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 m2 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-            "m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-            "m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-            "m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m3 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 m4 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-            "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
-            "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
-            "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
-            "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
-            "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
-            "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
-          `
-        }}>
-          <div style={{ gridArea: 'm1' }}><MockBrandShareOfVoiceCard /></div>
-          <div style={{ gridArea: 'm2' }}><MockVisibilityOverTimeCard /></div>
-          <div style={{ gridArea: 'm3' }}><MockAverageInclusionRateCard /></div>
-          <div style={{ gridArea: 'm4' }}><MockAveragePositionCard /></div>
-          <div style={{ gridArea: 's1' }}><MockSentimentScoreDisplayCard /></div>
-          <div style={{ gridArea: 'q1' }}><MockTopRankingQuestionsCard /></div>
-          <div style={{ gridArea: 'r1' }}><MockRankingsCard /></div>
+      {/* Grid layout matching real OverviewPage.tsx */}
+      <div className="flex-1 min-h-0 p-1 relative">
+        <div className="h-full w-full">
+          <div className="hidden lg:grid h-full w-full gap-4" style={{
+            gridTemplateColumns: 'repeat(48, 1fr)',
+            gridTemplateRows: 'repeat(13, minmax(30px, 1fr))',
+            gridTemplateAreas: `
+              "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+              "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+              "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+              "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+              "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+              "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+              "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
+              "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
+              "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
+              "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
+              "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
+              "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
+              "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
+            `
+          }}>
+            <div style={{ gridArea: 'metrics' }}><MockVisibilityOverTimeCard /></div>
+            <div style={{ gridArea: 's1' }}><MockSentimentScoreDisplayCard /></div>
+            <div style={{ gridArea: 'q1' }}><MockTopRankingQuestionsCard /></div>
+            <div style={{ gridArea: 'r1' }}><MockRankingsCard /></div>
+          </div>
+          
+          {/* Mobile Layout */}
+          <div className="lg:hidden h-full overflow-y-auto space-y-4">
+            <div className="min-h-[400px]">
+              <MockVisibilityOverTimeCard />
+            </div>
+            <div className="min-h-[300px]">
+              <MockSentimentScoreDisplayCard />
+            </div>
+            <div className="min-h-[300px]">
+              <MockTopRankingQuestionsCard />
+            </div>
+            <div className="min-h-[200px]">
+              <MockRankingsCard />
+            </div>
+          </div>
         </div>
       </div>
     </MockDashboardLayout>

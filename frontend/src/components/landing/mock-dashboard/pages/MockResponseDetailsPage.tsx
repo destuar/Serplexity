@@ -163,7 +163,7 @@ const dateRangeOptions = [
 ];
 
 const aiModelOptions = [
-    { value: 'all', label: 'All AI Models', icon: Sparkles },
+    { value: 'all', label: 'All Models', icon: Sparkles },
     { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
     { value: 'gpt-4-1106-preview', label: 'GPT-4 Turbo' },
     { value: 'gemini-1.0-pro-001', label: 'Gemini 1.0 Pro' },

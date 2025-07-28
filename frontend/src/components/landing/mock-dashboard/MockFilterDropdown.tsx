@@ -45,8 +45,8 @@ const MockFilterDropdown: React.FC<MockFilterDropdownProps> = ({
   const displayLabel = selectedOption?.label || label;
 
   const buttonClasses = isCompact 
-    ? 'flex items-center justify-between w-full gap-1.5 px-3 py-1.5 bg-white rounded-md shadow-sm text-xs transition-colors cursor-default'
-    : 'flex items-center justify-between w-full lg:w-48 gap-2 px-4 py-2 bg-white rounded-lg shadow-md text-sm transition-colors cursor-default';
+    ? 'flex items-center justify-between w-full gap-1.5 px-3 py-1.5 bg-white/80 backdrop-blur-sm border border-white/20 rounded-md shadow-sm text-xs transition-colors cursor-default'
+    : 'flex items-center justify-between w-full lg:w-48 gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md text-sm transition-colors cursor-default';
 
   return (
     <div className={cn("relative", className)}>
@@ -65,14 +65,7 @@ const MockFilterDropdown: React.FC<MockFilterDropdownProps> = ({
             />
           )}
           <span className="truncate">
-            {selectedOption ? (
-              <>
-                <span className="text-gray-500">{label}: </span>
-                <span>{selectedOption.label}</span>
-              </>
-            ) : (
-              displayLabel
-            )}
+            {selectedOption ? selectedOption.label : displayLabel}
           </span>
         </span>
         <ChevronDown 
