@@ -96,6 +96,11 @@ COPY backend/start.sh ./start.sh
 # Copy Docker-specific startup script
 COPY backend/docker-start.sh ./docker-start.sh
 
+# Regenerate Prisma client to ensure it's properly initialized
+RUN echo "Regenerating Prisma client..." && \
+    npx prisma generate && \
+    echo "Prisma client regenerated"
+
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S backend -u 1001
@@ -116,4 +121,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 EXPOSE 8000
 
 # Start the application
-CMD ["sh", "-c", "ls -la /app/ && pwd && /app/docker-start.sh"] 
+CMD ["./docker-start.sh"] 

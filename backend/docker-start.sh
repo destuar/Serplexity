@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
 echo "🚀 Starting Serplexity Backend (Docker)..."
@@ -23,7 +23,7 @@ fi
 
 # Run database migrations
 echo "🔧 Running database migrations..."
-npx prisma migrate deploy || echo "⚠️ Database migrations skipped"
+node scripts/run-with-secrets.js prisma migrate deploy || echo "⚠️ Database migrations skipped"
 
 # Start the server
 echo "🎯 Starting server..."
