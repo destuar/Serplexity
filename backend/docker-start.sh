@@ -23,7 +23,7 @@ fi
 
 # Run database migrations
 echo "🔧 Running database migrations..."
-node scripts/run-with-secrets.js prisma migrate deploy || echo "⚠️ Database migrations skipped"
+node dist/scripts/run-with-secrets.js prisma migrate deploy || echo "⚠️ Database migrations skipped"
 
 # Start the server
 echo "🎯 Starting server..."
