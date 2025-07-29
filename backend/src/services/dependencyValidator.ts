@@ -469,8 +469,17 @@ export class DependencyValidator {
    */
   private async validatePydanticAgentsDirectory(): Promise<DependencyResult> {
     try {
-      const agentsPath = path.join(process.cwd(), "src", "pydantic_agents");
-      const agentsDir = await fs.readdir(agentsPath);
+      // Try Docker path first (production), then development path
+      let agentsPath = path.join(process.cwd(), "pydantic_agents");
+      let agentsDir: string[];
+      
+      try {
+        agentsDir = await fs.readdir(agentsPath);
+      } catch {
+        // Fallback to development path
+        agentsPath = path.join(process.cwd(), "src", "pydantic_agents");
+        agentsDir = await fs.readdir(agentsPath);
+      }
       
       const requiredFiles = ["__init__.py", "base_agent.py", "schemas.py"];
       const requiredDirs = ["agents", "config"];
@@ -501,13 +510,20 @@ export class DependencyValidator {
         return {
           success: true,
           message: "PydanticAI agents directory structure valid",
-          details: { filesFound: agentsDir.length }
+          details: { 
+            filesFound: agentsDir.length, 
+            agentsPath: agentsPath.replace(process.cwd(), '.') 
+          }
         };
       } else {
         return {
           success: false,
           message: "PydanticAI agents directory structure incomplete",
-          details: { missingFiles, missingDirs },
+          details: { 
+            missingFiles, 
+            missingDirs, 
+            agentsPath: agentsPath.replace(process.cwd(), '.') 
+          },
           remediation: "Ensure all required Python agent files and directories exist"
         };
       }
