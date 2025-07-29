@@ -95,6 +95,11 @@ COPY backend/start.sh ./start.sh
 # Copy Docker-specific startup script
 COPY backend/docker-start.sh ./docker-start.sh
 
+# Regenerate Prisma client before switching users
+RUN echo "Regenerating Prisma client..." && \
+    npx prisma generate && \
+    echo "Prisma client regenerated"
+
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S backend -u 1001
@@ -107,11 +112,6 @@ RUN chmod +x ./docker-start.sh && \
     head -5 ./docker-start.sh
 
 USER backend
-
-# Regenerate Prisma client as the backend user to ensure proper permissions
-RUN echo "Regenerating Prisma client..." && \
-    npx prisma generate && \
-    echo "Prisma client regenerated"
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
