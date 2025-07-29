@@ -21,9 +21,10 @@ else
     fi
 fi
 
-# Skip database migrations in Docker - let the application handle them
-echo "🔧 Database migrations will be handled by the application..."
+# Run database migrations using AWS Secrets Manager
+echo "🔧 Running database migrations with AWS Secrets..."
+node dist/scripts/run-with-secrets.js prisma migrate deploy || echo "⚠️ Database migrations skipped"
 
-# Start the server
+# Start the server (like local start.sh does)
 echo "🎯 Starting server..."
 exec node dist/server.js
