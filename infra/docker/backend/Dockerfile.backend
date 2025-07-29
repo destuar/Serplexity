@@ -100,10 +100,12 @@ COPY backend/docker-start.sh ./docker-start.sh
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S backend -u 1001
 
-# Change ownership and permissions of the app directory
+# Change ownership and permissions of the app directory  
 RUN chmod +x ./docker-start.sh && \
     chown -R backend:nodejs /app && \
-    ls -la ./docker-start.sh
+    ls -la ./docker-start.sh && \
+    echo "Testing script execution:" && \
+    head -5 ./docker-start.sh
 
 USER backend
 
