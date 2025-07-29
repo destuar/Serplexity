@@ -10,6 +10,8 @@
  */
 
 import { Worker, Job } from "bullmq";
+import { PydanticProvider, PydanticResponse, PydanticQuestionResult, ExtendedCompetitorInfo } from "../types/pydantic";
+import { PrismaClient } from "@prisma/client";
 import pLimit from "p-limit";
 import env from "../config/env";
 import { getBullMQConnection, getBullMQOptions, getWorkerOptions } from "../config/bullmq";
@@ -18,6 +20,7 @@ import { Prisma } from ".prisma/client";
 import {
   generateSentimentScores,
   generateOverallSentimentSummary,
+  SentimentScores,
   generateWebsiteForCompetitors,
   getModelsByTaskWithUserPreferences,
   CompetitorInfo,
@@ -37,7 +40,7 @@ interface CompanyData {
   timezone?: string;
 }
 
-interface ProgressData {
+interface _ProgressData {
   stage: string;
   progress: number;
   message?: string;
@@ -74,7 +77,7 @@ async function validateWorkerDependencies(): Promise<void> {
         const { pydanticLlmService } = await import("../services/pydanticLlmService");
         // Simple health check - check available providers
         const providers = pydanticLlmService.getAvailableProviders();
-        const healthyProviders = providers.filter(p => p.status === 'available').length;
+        const healthyProviders = (providers as PydanticProvider[]).filter(p => p.status === 'available').length;
         if (healthyProviders > 0) {
           console.log("✅ PydanticAI service verified");
         } else {
@@ -141,7 +144,7 @@ validateWorkerDependencies().then(() => {
     console.log(`🚀 Worker started processing job ${job.id} for ${company?.name} (runId: ${runId})`);
   });
 
-  worker.on("progress", (job: Job, progress: ProgressData) => {
+  worker.on("progress", (job: Job, progress: unknown) => {
     console.log(`📈 Job ${job.id} progress:`, progress);
   });
 
@@ -402,10 +405,10 @@ class CompetitorPipeline {
  * Advanced competitor deduplication using multiple strategies
  */
 async function deduplicateCompetitors(
-  competitors: CompetitorInfo[], 
+  competitors: ExtendedCompetitorInfo[], 
   companyId: string, 
-  prisma: unknown
-): Promise<CompetitorInfo[]> {
+  prisma: PrismaClient
+): Promise<ExtendedCompetitorInfo[]> {
   if (competitors.length === 0) return competitors;
 
   // Helper function to normalize brand names for comparison
@@ -467,18 +470,18 @@ async function deduplicateCompetitors(
   // Deduplicate the new competitors
   const seenNames = new Set<string>();
   const seenDomains = new Set<string>();
-  const deduplicated: CompetitorInfo[] = [];
+  const deduplicated: ExtendedCompetitorInfo[] = [];
 
   // Sort by confidence score (highest first) to keep the best entries
   const sortedCompetitors = [...competitors].sort((a, b) => {
-    const confA = (a as unknown).confidence || 0.8; // Default confidence if missing
-    const confB = (b as unknown).confidence || 0.8;
+    const confA = a.confidence || 0.8; // Default confidence if missing
+    const confB = b.confidence || 0.8;
     return confB - confA;
   });
 
   for (const competitor of sortedCompetitors) {
     const normalizedName = normalizeBrandName(competitor.name);
-    const rootDomain = extractRootDomain(competitor.website);
+    const rootDomain = extractRootDomain(competitor.website || "");
 
     // Skip if we've already seen this brand name (normalized)
     if (seenNames.has(normalizedName)) {
@@ -642,7 +645,7 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
       );
 
       // Handle both the Python response format and the expected format
-      const resultData = questionResult.data;
+      const resultData = (questionResult as PydanticQuestionResult).data;
       let generatedActive: Array<{ query: string; type: string; intent: string }> = [];
       let suggestedQuestions: Array<{ query: string; type: string; intent: string }> = [];
 
@@ -816,7 +819,7 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
               );
             }
 
-            const response = result.data as unknown;
+            const response = result.data as PydanticResponse;
             totalTokens += result.metadata?.tokensUsed || 0;
 
             // Count web searches - assume 1 search if web search was used
@@ -853,7 +856,7 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
                   question_type: question.type,
                   question_intent: question.intent,
                   question_source: question.source,
-                } as unknown,
+                } as Prisma.JsonObject,
               },
             });
 
@@ -1153,7 +1156,7 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
     const sentimentResults = await Promise.allSettled(sentimentPromises);
     const successfulSentiments = sentimentResults
       .filter((r) => r.status === "fulfilled" && r.value.success)
-      .map((r) => (r as PromiseFulfilledResult<{ success: boolean; data: unknown }>).value.data);
+      .map((r) => (r as PromiseFulfilledResult<{ success: boolean; data: SentimentScores }>).value.data);
 
     // Generate overall sentiment summary
     if (successfulSentiments.length > 0) {
@@ -1212,7 +1215,7 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
     totalCost += competitorCost;
 
     // Apply final deduplication before storage
-    const deduplicatedCompetitors = await deduplicateCompetitors(competitors, fullCompany.id, prisma);
+    const deduplicatedCompetitors = await deduplicateCompetitors(competitors as ExtendedCompetitorInfo[], fullCompany.id, prisma);
     
     // Save enriched competitors
     for (const competitor of deduplicatedCompetitors) {
@@ -1220,7 +1223,7 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
         where: {
           companyId_website: {
             companyId: fullCompany.id,
-            website: competitor.website,
+            website: competitor.website || "",
           },
         },
         update: {
@@ -1230,7 +1233,7 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
         create: {
           companyId: fullCompany.id,
           name: competitor.name,
-          website: competitor.website,
+          website: competitor.website || "",
           isGenerated: true,
         },
       });
@@ -1278,7 +1281,7 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
     try {
       const { persistOptimizationTasks, PRESET_TASKS } = await import('../services/optimizationTaskService');
       console.log(`📋 Generating optimization tasks...`);
-      await persistOptimizationTasks(PRESET_TASKS as unknown, runId, fullCompany.id, prisma);
+      await persistOptimizationTasks(PRESET_TASKS, runId, fullCompany.id, prisma);
       console.log(`✅ Optimization tasks generated successfully`);
     } catch (error) {
       console.error(`❌ Failed to generate optimization tasks:`, error);
@@ -1310,7 +1313,7 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
  * Prevents cascade failures when database connections fail during error handling
  */
 async function safeUpdateReportStatus(
-  prisma: unknown,
+  prisma: PrismaClient,
   runId: string, 
   updateData: {
     status: string;

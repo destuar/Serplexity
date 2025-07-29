@@ -9,6 +9,14 @@ import { Check, X, Plus, ExternalLink, Edit2 } from 'lucide-react';
 import MockDashboardLayout from '../MockDashboardLayout';
 import { getCompanyLogo } from '../../../../lib/logoService';
 
+interface Competitor {
+  id: string;
+  name: string;
+  website: string;
+  mentions: number;
+  status: 'suggested' | 'accepted';
+}
+
 const MockCompetitorsPage: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   
@@ -68,7 +76,7 @@ const MockCompetitorsPage: React.FC = () => {
     }
   ];
 
-  const handleAccept = (id: string) => {
+  const _handleAccept = (id: string) => {
     // Mock function - would normally call API
     console.log('Accept competitor:', id);
   };
@@ -93,7 +101,7 @@ const MockCompetitorsPage: React.FC = () => {
   };
 
   // Suggested Competitor Card Component
-  const SuggestedCompetitorCard: React.FC<{ competitor: any; index: number }> = ({ competitor }) => {
+  const SuggestedCompetitorCard: React.FC<{ competitor: Competitor; index: number }> = ({ competitor }) => {
     const logoResult = getCompanyLogo(competitor.website);
     
     return (

@@ -21,21 +21,25 @@
  * @exports
  * - CompanyProfileForm: React functional component for company profile management.
  */
-import React, { useState, useRef, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { X } from 'lucide-react';
-import { InlineSpinner } from '../ui/InlineSpinner';
-import { buttonClasses } from '../../utils/colorClasses';
-import { useCompany, CompanyFormData, Company } from '../../contexts/CompanyContext';
-import { flexibleUrlSchema } from '../../utils/urlNormalizer';
+import React, { useState, useRef, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { X } from "lucide-react";
+import { InlineSpinner } from "../ui/InlineSpinner";
+import { buttonClasses as _buttonClasses } from "../../utils/colorClasses";
+import {
+  useCompany,
+  CompanyFormData,
+  Company,
+} from "../../contexts/CompanyContext";
+import { flexibleUrlSchema } from "../../utils/urlNormalizer";
 
 // Simplified form validation schema - only required fields
 const formSchema = z.object({
-  name: z.string().min(1, 'Company name is required'),
+  name: z.string().min(1, "Company name is required"),
   website: flexibleUrlSchema,
-  industry: z.string().min(1, 'Industry is required'),
+  industry: z.string().min(1, "Industry is required"),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -45,58 +49,58 @@ interface CompanyProfileFormProps {
   onCancel?: () => void;
   isModal?: boolean;
   initialData?: Company;
-  mode?: 'create' | 'edit';
+  mode?: "create" | "edit";
 }
 
 // Comprehensive industry options
 const INDUSTRY_OPTIONS = [
-  'Advertising & Marketing',
-  'Aerospace & Defense',
-  'Agriculture & Farming',
-  'Architecture & Construction',
-  'Automotive',
-  'Banking & Financial Services',
-  'Biotechnology',
-  'Chemical & Petrochemical',
-  'Consulting',
-  'Consumer Electronics',
-  'Consumer Goods',
-  'Cybersecurity',
-  'E-commerce & Retail',
-  'Education & Training',
-  'Energy & Utilities',
-  'Entertainment & Media',
-  'Environmental Services',
-  'Fashion & Apparel',
-  'Financial Technology (FinTech)',
-  'Food & Beverage',
-  'Gaming',
-  'Government & Public Sector',
-  'Healthcare & Medical',
-  'Hospitality & Tourism',
-  'Human Resources',
-  'Insurance',
-  'Internet & Software',
-  'Investment & Asset Management',
-  'Legal Services',
-  'Logistics & Supply Chain',
-  'Manufacturing',
-  'Mining & Metals',
-  'Non-Profit',
-  'Oil & Gas',
-  'Pharmaceutical',
-  'Professional Services',
-  'Real Estate',
-  'Renewable Energy',
-  'Research & Development',
-  'Retail & Consumer',
-  'Sports & Recreation',
-  'Telecommunications',
-  'Transportation & Logistics',
-  'Travel & Tourism',
-  'Venture Capital & Private Equity',
-  'Waste Management',
-  'Other',
+  "Advertising & Marketing",
+  "Aerospace & Defense",
+  "Agriculture & Farming",
+  "Architecture & Construction",
+  "Automotive",
+  "Banking & Financial Services",
+  "Biotechnology",
+  "Chemical & Petrochemical",
+  "Consulting",
+  "Consumer Electronics",
+  "Consumer Goods",
+  "Cybersecurity",
+  "E-commerce & Retail",
+  "Education & Training",
+  "Energy & Utilities",
+  "Entertainment & Media",
+  "Environmental Services",
+  "Fashion & Apparel",
+  "Financial Technology (FinTech)",
+  "Food & Beverage",
+  "Gaming",
+  "Government & Public Sector",
+  "Healthcare & Medical",
+  "Hospitality & Tourism",
+  "Human Resources",
+  "Insurance",
+  "Internet & Software",
+  "Investment & Asset Management",
+  "Legal Services",
+  "Logistics & Supply Chain",
+  "Manufacturing",
+  "Mining & Metals",
+  "Non-Profit",
+  "Oil & Gas",
+  "Pharmaceutical",
+  "Professional Services",
+  "Real Estate",
+  "Renewable Energy",
+  "Research & Development",
+  "Retail & Consumer",
+  "Sports & Recreation",
+  "Telecommunications",
+  "Transportation & Logistics",
+  "Travel & Tourism",
+  "Venture Capital & Private Equity",
+  "Waste Management",
+  "Other",
 ];
 
 // Autocomplete Industry Input Component
@@ -111,7 +115,7 @@ const IndustryAutocomplete: React.FC<IndustryAutocompleteProps> = ({
   value,
   onChange,
   onBlur,
-  isModal = false
+  isModal = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [filteredOptions, setFilteredOptions] = useState(INDUSTRY_OPTIONS);
@@ -120,7 +124,7 @@ const IndustryAutocomplete: React.FC<IndustryAutocompleteProps> = ({
 
   useEffect(() => {
     if (value) {
-      const filtered = INDUSTRY_OPTIONS.filter(option =>
+      const filtered = INDUSTRY_OPTIONS.filter((option) =>
         option.toLowerCase().includes(value.toLowerCase())
       );
       setFilteredOptions(filtered);
@@ -141,8 +145,8 @@ const IndustryAutocomplete: React.FC<IndustryAutocompleteProps> = ({
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -174,18 +178,18 @@ const IndustryAutocomplete: React.FC<IndustryAutocompleteProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
       setIsOpen(false);
       inputRef.current?.blur();
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       setIsOpen(false);
       inputRef.current?.blur();
     }
   };
 
-  const inputClassName = isModal 
-    ? "w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 text-gray-900 placeholder:text-gray-500 transition-colors [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:hover]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:hover]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:focus]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:focus]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:active]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:active]:[-webkit-text-fill-color:rgb(17_24_39)!important]"
+  const inputClassName = isModal
+    ? "w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all text-gray-900 placeholder:text-gray-500 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_rgb(255_255_255)] [&:-webkit-autofill]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:hover]:shadow-[inset_0_0_0_1000px_rgb(255_255_255)] [&:-webkit-autofill:hover]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:focus]:shadow-[inset_0_0_0_1000px_rgb(255_255_255)] [&:-webkit-autofill:focus]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:active]:shadow-[inset_0_0_0_1000px_rgb(255_255_255)] [&:-webkit-autofill:active]:[-webkit-text-fill-color:rgb(17_24_39)!important]"
     : "flex h-11 w-full rounded-lg bg-black/5 backdrop-blur-sm px-4 py-3 text-sm text-white placeholder:text-white/60 ring-offset-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-0 focus-visible:bg-black/8 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),inset_0_-1px_2px_rgba(255,255,255,0.1)] focus-visible:shadow-[inset_0_3px_6px_rgba(0,0,0,0.3),inset_0_-1px_3px_rgba(255,255,255,0.15)] focus-visible:border-purple-500 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:hover]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:hover]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:focus]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:focus]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:active]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:active]:[-webkit-text-fill-color:rgb(17_24_39)!important]";
 
   return (
@@ -202,16 +206,16 @@ const IndustryAutocomplete: React.FC<IndustryAutocompleteProps> = ({
         className={inputClassName}
         autoComplete="off"
       />
-      
+
       {isOpen && (
         <div
           ref={dropdownRef}
           className={`absolute z-[9999] w-full mt-1 max-h-60 overflow-auto rounded-lg shadow-lg border ${
             isModal
-              ? 'bg-white border-gray-200'
-              : 'bg-white/95 backdrop-blur-xl border-gray-200'
+              ? "bg-white border-gray-200"
+              : "bg-white/95 backdrop-blur-xl border-gray-200"
           }`}
-          style={{ position: 'absolute', top: '100%', left: 0 }}
+          style={{ position: "absolute", top: "100%", left: 0 }}
         >
           {filteredOptions.length > 0 ? (
             filteredOptions.map((option) => (
@@ -221,17 +225,19 @@ const IndustryAutocomplete: React.FC<IndustryAutocompleteProps> = ({
                 onClick={() => handleOptionClick(option)}
                 className={`w-full text-left px-4 py-2 text-sm transition-colors ${
                   isModal
-                    ? 'text-gray-900 hover:bg-gray-100'
-                    : 'text-gray-900 hover:bg-gray-100'
+                    ? "text-gray-900 hover:bg-gray-100"
+                    : "text-gray-900 hover:bg-gray-100"
                 }`}
               >
                 {option}
               </button>
             ))
           ) : (
-            <div className={`px-4 py-2 text-sm ${
-              isModal ? 'text-gray-500' : 'text-gray-500'
-            }`}>
+            <div
+              className={`px-4 py-2 text-sm ${
+                isModal ? "text-gray-500" : "text-gray-500"
+              }`}
+            >
               No matches found. Press Enter to use "{value}" as custom industry.
             </div>
           )}
@@ -246,11 +252,17 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
   onCancel,
   isModal = false,
   initialData,
-  mode = 'create'
+  mode = "create",
 }) => {
-  const { createCompany, updateCompany, loading: _loading, companies, maxCompanies } = useCompany();
+  const {
+    createCompany,
+    updateCompany,
+    loading: _loading,
+    companies,
+    maxCompanies,
+  } = useCompany();
   const [submitting, setSubmitting] = useState(false);
-  
+
   const {
     register,
     handleSubmit,
@@ -260,14 +272,14 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: initialData?.name || '',
-      website: initialData?.website || '',
-      industry: initialData?.industry || '',
-    }
+      name: initialData?.name || "",
+      website: initialData?.website || "",
+      industry: initialData?.industry || "",
+    },
   });
-  
-  const industry = watch('industry');
-  const [industryValue, setIndustryValue] = useState(industry || '');
+
+  const industry = watch("industry");
+  const [industryValue, setIndustryValue] = useState(industry || "");
 
   useEffect(() => {
     setIndustryValue(industry);
@@ -282,12 +294,12 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
         industry: data.industry,
       };
 
-      if (mode === 'edit' && initialData?.id) {
+      if (mode === "edit" && initialData?.id) {
         await updateCompany(initialData.id, apiData);
       } else {
         await createCompany(apiData);
       }
-      
+
       if (onSuccess) {
         setTimeout(() => {
           onSuccess();
@@ -302,20 +314,33 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
 
   const handleIndustryChange = (newValue: string) => {
     setIndustryValue(newValue);
-    setValue('industry', newValue, { shouldValidate: true, shouldDirty: true });
+    setValue("industry", newValue, { shouldValidate: true, shouldDirty: true });
   };
-  
+
   const containerClass = isModal
-    ? "company-profile-form bg-white w-full max-w-none rounded-lg shadow-xl relative"
+    ? "company-profile-form bg-white w-full max-w-none relative"
     : "company-profile-form max-w-2xl mx-auto bg-black/5 backdrop-blur-xl rounded-2xl p-8";
-  
-  if (mode === 'create' && companies.length >= maxCompanies) {
+
+  if (mode === "create" && companies.length >= maxCompanies) {
     return (
       <div className={containerClass}>
-        <div className="p-8 text-center">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Company Limit Reached</h2>
+        {isModal && (
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <h2 className="text-2xl font-bold text-gray-900">
+              Company Limit Reached
+            </h2>
+            <button
+              onClick={onCancel}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+        )}
+        <div className="p-6 text-center">
           <p className="text-gray-600 mb-6">
-            You can only create up to {maxCompanies} company profiles. Please delete an existing company to create a new one.
+            You can only create up to {maxCompanies} company profiles. Please
+            delete an existing company to create a new one.
           </p>
           <button
             onClick={onCancel}
@@ -332,15 +357,15 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
     <div className={containerClass}>
       {/* Header */}
       {isModal && (
-        <div className="flex items-center justify-between p-6 border-b border-gray-100">
-          <h2 className="text-xl font-semibold text-gray-900">
-            {mode === 'create' ? 'Add Company' : 'Edit Company Profile'}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <h2 className="text-2xl font-bold text-gray-900">
+            {mode === "create" ? "Add Company" : "Edit Company"}
           </h2>
           <button
             onClick={onCancel}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="text-gray-400 hover:text-gray-600 transition-colors"
           >
-            <X className="w-5 h-5 text-gray-500" />
+            <X className="w-6 h-6" />
           </button>
         </div>
       )}
@@ -350,20 +375,26 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Company Information */}
           <div className="space-y-4">
-            <h3 className="text-sm font-medium text-gray-900 uppercase tracking-wide">Company Information</h3>
-            
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Company Information
+            </h3>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Company Name *
               </label>
               <input
                 type="text"
-                {...register('name')}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:hover]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:hover]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:focus]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:focus]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:active]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:active]:[-webkit-text-fill-color:rgb(17_24_39)!important]"
+                {...register("name")}
+                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_rgb(255_255_255)] [&:-webkit-autofill]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:hover]:shadow-[inset_0_0_0_1000px_rgb(255_255_255)] [&:-webkit-autofill:hover]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:focus]:shadow-[inset_0_0_0_1000px_rgb(255_255_255)] [&:-webkit-autofill:focus]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:active]:shadow-[inset_0_0_0_1000px_rgb(255_255_255)] [&:-webkit-autofill:active]:[-webkit-text-fill-color:rgb(17_24_39)!important]"
                 placeholder="Enter company name"
                 required
               />
-              {errors.name && <p className="text-sm text-red-500 mt-1">{errors.name.message}</p>}
+              {errors.name && (
+                <p className="text-sm text-red-500 mt-1">
+                  {errors.name.message}
+                </p>
+              )}
             </div>
 
             <div>
@@ -372,12 +403,16 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
               </label>
               <input
                 type="text"
-                {...register('website')}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:hover]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:hover]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:focus]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:focus]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:active]:shadow-[inset_0_0_0_1000px_rgb(239_246_255)] [&:-webkit-autofill:active]:[-webkit-text-fill-color:rgb(17_24_39)!important]"
+                {...register("website")}
+                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_rgb(255_255_255)] [&:-webkit-autofill]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:hover]:shadow-[inset_0_0_0_1000px_rgb(255_255_255)] [&:-webkit-autofill:hover]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:focus]:shadow-[inset_0_0_0_1000px_rgb(255_255_255)] [&:-webkit-autofill:focus]:[-webkit-text-fill-color:rgb(17_24_39)!important] [&:-webkit-autofill:active]:shadow-[inset_0_0_0_1000px_rgb(255_255_255)] [&:-webkit-autofill:active]:[-webkit-text-fill-color:rgb(17_24_39)!important]"
                 placeholder="https://example.com"
                 required
               />
-              {errors.website && <p className="text-sm text-red-500 mt-1">{errors.website.message}</p>}
+              {errors.website && (
+                <p className="text-sm text-red-500 mt-1">
+                  {errors.website.message}
+                </p>
+              )}
             </div>
 
             <div>
@@ -389,17 +424,23 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
                 onChange={handleIndustryChange}
                 onBlur={() => {
                   if (industryValue !== industry) {
-                    setValue('industry', industryValue, { shouldValidate: true });
+                    setValue("industry", industryValue, {
+                      shouldValidate: true,
+                    });
                   }
                 }}
                 isModal={isModal}
               />
-              {errors.industry && <p className="text-sm text-red-500 mt-1">{errors.industry.message}</p>}
+              {errors.industry && (
+                <p className="text-sm text-red-500 mt-1">
+                  {errors.industry.message}
+                </p>
+              )}
             </div>
           </div>
 
           {/* Form Actions */}
-          <div className="flex justify-end gap-3 pt-6 border-t border-gray-100">
+          <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
             {onCancel && (
               <button
                 type="button"
@@ -412,10 +453,14 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
             <button
               type="submit"
               disabled={submitting}
-              className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${buttonClasses.primary}`}
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {submitting && <InlineSpinner size={16} />}
-              {submitting ? 'Saving...' : mode === 'create' ? 'Create Company' : 'Save Changes'}
+              {submitting
+                ? "Saving..."
+                : mode === "create"
+                  ? "Create Company"
+                  : "Save Changes"}
             </button>
           </div>
         </form>
@@ -424,4 +469,4 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
   );
 };
 
-export default CompanyProfileForm; 
+export default CompanyProfileForm;

@@ -20,7 +20,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Building, Globe, Factory, CheckCircle } from 'lucide-react';
+import { Building, Globe as _Globe, Factory as _Factory, CheckCircle } from 'lucide-react';
 import { InlineSpinner } from '../ui/InlineSpinner';
 import { useCompany, CompanyFormData } from '../../contexts/CompanyContext';
 import { flexibleUrlSchema } from '../../utils/urlNormalizer';

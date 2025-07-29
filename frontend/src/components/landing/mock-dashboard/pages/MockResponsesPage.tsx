@@ -8,7 +8,7 @@ import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Calendar, Sparkles, Search, User } from 'lucide-react';
 import MockDashboardLayout from '../MockDashboardLayout';
 import MockFilterDropdown from '../MockFilterDropdown';
-import { MODEL_CONFIGS, getModelDisplayName } from '../../../../types/dashboard';
+import { MODEL_CONFIGS, getModelDisplayName as _getModelDisplayName } from '../../../../types/dashboard';
 import { getCompanyLogo } from '../../../../lib/logoService';
 
 // Mock prompt data
@@ -70,9 +70,9 @@ const mockResponses = [
 
 const MockResponsesPage: React.FC = () => {
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set(['gpt4-response-1']));
-  const [timeFilter, setTimeFilter] = useState('all');
-  const [modelFilter, setModelFilter] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [timeFilter, _setTimeFilter] = useState('all');
+  const [modelFilter, _setModelFilter] = useState('all');
+  const [searchTerm, _setSearchTerm] = useState('');
 
   const toggleExpanded = (responseId: string) => {
     setExpandedItems(prev => {
@@ -105,7 +105,7 @@ const MockResponsesPage: React.FC = () => {
   };
 
   const getCompetitorLogos = (brands: Array<{ name: string; website: string }>) => {
-    return brands.slice(0, 4).map((brand, index) => {
+    return brands.slice(0, 4).map((brand, _index) => {
       const logoResult = getCompanyLogo(brand.website);
       return {
         name: brand.name,

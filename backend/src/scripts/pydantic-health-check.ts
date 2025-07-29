@@ -13,6 +13,12 @@ import { providerManager } from "../config/pydanticProviders";
 // Modern PydanticAI uses embedded system prompts, not external prompt management
 import logger from "../utils/logger";
 
+interface ProviderDetail {
+  id: string;
+  status: "healthy" | "degraded" | "unhealthy";
+  errorCount: number;
+}
+
 interface HealthCheckResult {
   timestamp: string;
   overall: {
@@ -24,7 +30,7 @@ interface HealthCheckResult {
     healthy: number;
     degraded: number;
     unhealthy: number;
-    details: unknown[];
+    details: ProviderDetail[];
   };
   service: {
     activeExecutions: number;

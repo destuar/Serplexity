@@ -66,7 +66,7 @@ function isSentimentRating(value: unknown): value is SentimentRating {
     typeof value === 'object' &&
     value !== null &&
     'ratings' in value &&
-    Array.isArray((value as any).ratings)
+    Array.isArray((value as { ratings?: unknown }).ratings)
   );
 }
 
@@ -75,7 +75,7 @@ function isCompetitorRankings(value: unknown): value is CompetitorRankings {
     typeof value === 'object' &&
     value !== null &&
     'chartCompetitors' in value &&
-    Array.isArray((value as any).chartCompetitors)
+    Array.isArray((value as { chartCompetitors?: unknown }).chartCompetitors)
   );
 }
 
@@ -785,8 +785,8 @@ export async function getFullReportMetrics(
   const citationRankings =
     metric.competitorRankings &&
     isCompetitorRankings(metric.competitorRankings) &&
-    (metric.competitorRankings as any).citationRankings
-      ? (metric.competitorRankings as any).citationRankings
+    metric.competitorRankings.citationRankings
+      ? metric.competitorRankings.citationRankings
       : null;
 
   return {
@@ -805,6 +805,6 @@ export async function getFullReportMetrics(
     topQuestions: metric.topQuestions,
     sentimentOverTime: null, // Historical data fetched separately
     shareOfVoiceHistory: null, // Historical data fetched separately
-    sentimentDetails: metric.sentimentDetails as any,
+    sentimentDetails: metric.sentimentDetails,
   };
 }

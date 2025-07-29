@@ -13,7 +13,7 @@
  * - LandingPage: The main landing page component.
  */
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Calendar, Check, Clock, Target, X } from "lucide-react";
+import { ArrowRight, Calendar, Check, Clock, Target, User, X } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { FaLinkedin } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
@@ -28,6 +28,7 @@ import { SlideIn } from "../components/ui/SlideIn";
 import { useBlogPosts } from "../hooks/useBlogPosts";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { createCheckoutSession } from "../services/paymentService";
+import { getCompanyLogo } from "../lib/logoService";
 import {
   estimateReadTime,
   extractFirstCategory,
@@ -348,8 +349,8 @@ const LandingPage: React.FC = () => {
     { file: "DeepSeek_logo.svg.png", name: "DeepSeek" },
   ];
 
-  const topRowLogos = companyLogos.slice(0, 4);
-  const bottomRowLogos = companyLogos.slice(4, 7);
+  const _topRowLogos = companyLogos.slice(0, 4);
+  const _bottomRowLogos = companyLogos.slice(4, 7);
 
   return (
     <div className="bg-gray-50 text-gray-900 relative min-h-screen">
@@ -1397,7 +1398,7 @@ const LandingPage: React.FC = () => {
                     suffix: "+",
                     format: (num: number) => num.toString(),
                   },
-                ].map((stat, index) => (
+                ].map((stat, _index) => (
                   <div className="text-center p-8 bg-white border border-gray-200 rounded-2xl hover:shadow-lg transition-all duration-300">
                     <div className="text-4xl md:text-5xl font-bold text-black mb-2">
                       {stat.format(stat.value)}
@@ -1461,7 +1462,7 @@ const LandingPage: React.FC = () => {
               <div className="relative lg:sticky lg:top-24">
                 {/* All steps stacked with minimal spacing */}
                 <div className="space-y-4">
-                  {/* Step 1 Content */}
+                  {/* Step 1 Content - Monitor: Top Ranking Questions Card */}
                   <motion.div
                     ref={step1Ref}
                     data-step="0"
@@ -1476,10 +1477,43 @@ const LandingPage: React.FC = () => {
                           ? "border-gray-300 scale-105 opacity-100"
                           : "border-gray-200 opacity-40 scale-95"
                       }`}
-                    ></div>
+                    >
+                      {/* Top Ranking Questions Card Content */}
+                      <div className="p-6 h-full flex flex-col">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-semibold text-gray-800">Top Ranking Prompts</h3>
+                        </div>
+                        
+                        <div className="flex-1 space-y-3 overflow-hidden">
+                          {[
+                            { question: "What are the best AI visibility tracking tools for businesses?", mentions: 12, trend: "up" },
+                            { question: "How can I track my brand mentions in AI search results?", mentions: 8, trend: "up" },
+                            { question: "Which platforms offer AI-powered SEO analytics?", mentions: 6, trend: "down" },
+                            { question: "How do I improve my brand's visibility in ChatGPT responses?", mentions: 4, trend: "up" }
+                          ].map((item, index) => (
+                            <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100 transition-colors">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate">
+                                  {item.question}
+                                </p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-xs text-gray-500">{item.mentions} mentions</span>
+                                  <span className={`text-xs ${item.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
+                                    {item.trend === 'up' ? '↗' : '↘'} {item.trend === 'up' ? '+12%' : '-8%'}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="text-lg font-bold text-gray-600 ml-2">
+                                #{index + 1}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </motion.div>
 
-                  {/* Step 2 Content */}
+                  {/* Step 2 Content - Analyze: Responses Card (Example Conversation) */}
                   <motion.div
                     ref={step2Ref}
                     data-step="1"
@@ -1494,10 +1528,88 @@ const LandingPage: React.FC = () => {
                           ? "border-gray-300 scale-105 opacity-100"
                           : "border-gray-200 opacity-40 scale-95"
                       }`}
-                    ></div>
+                    >
+                      {/* Responses Card Content */}
+                      <div className="p-6 h-full flex flex-col">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-semibold text-gray-800">AI Response Analysis</h3>
+                        </div>
+                        
+                        <div className="flex-1 overflow-hidden">
+                          {/* Chat-style conversation matching MockResponsesPage */}
+                          <div className="space-y-4 h-full overflow-y-auto">
+                            {/* User Question */}
+                            <div className="flex justify-end">
+                              <div className="flex items-start gap-2 max-w-[80%]">
+                                <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-2xl shadow-md px-3 py-2 rounded-tr-md">
+                                  <p className="text-xs text-gray-900 leading-relaxed">
+                                    What are the best AI visibility tracking tools for businesses?
+                                  </p>
+                                </div>
+                                <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
+                                  <User size={14} className="text-gray-600" />
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* AI Response */}
+                            <div className="flex justify-start">
+                              <div className="flex items-start gap-2 max-w-[80%]">
+                                <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center flex-shrink-0 border border-gray-200">
+                                  <img src="https://openai.com/favicon.ico" alt="ChatGPT" className="w-4 h-4 rounded object-contain" />
+                                </div>
+                                <div className="flex flex-col">
+                                  <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-2xl shadow-md px-3 py-2 rounded-tl-md">
+                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                      <span className="text-xs font-medium text-gray-600">ChatGPT</span>
+                                    </div>
+                                    <div className="text-xs text-gray-900 leading-relaxed">
+                                      For AI visibility tracking, <strong>Serplexity</strong> leads the market with comprehensive monitoring across ChatGPT, Claude, and Gemini. It provides detailed analytics on brand mentions and competitive positioning. The platform offers real-time insights for optimization.
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Mentions and Citations - below the chat bubble */}
+                                  <div className="mt-2 flex items-center gap-3 px-3">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-xs text-gray-500 font-medium">Mentions:</span>
+                                      <div className="flex items-center gap-0.5">
+                                        {[
+                                          { name: 'Serplexity', website: 'serplexity.com' },
+                                          { name: 'Profound', website: 'tryprofound.com' },
+                                          { name: 'Daydream', website: 'withdaydream.com' }
+                                        ].map((brand, index) => {
+                                          const logoResult = getCompanyLogo(brand.website);
+                                          return (
+                                            <div
+                                              key={`${brand.name}-${index}`}
+                                              className="w-4 h-4 rounded bg-white flex items-center justify-center overflow-hidden border border-gray-200"
+                                              title={brand.name}
+                                            >
+                                              <img
+                                                src={logoResult.url}
+                                                alt={brand.name}
+                                                className="w-full h-full object-contain"
+                                              />
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-xs text-gray-500 font-medium">Citations:</span>
+                                      <span className="text-xs text-gray-500">3</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </motion.div>
 
-                  {/* Step 3 Content */}
+                  {/* Step 3 Content - Optimize: Visibility Tasks Card */}
                   <motion.div
                     ref={step3Ref}
                     data-step="2"
@@ -1512,7 +1624,79 @@ const LandingPage: React.FC = () => {
                           ? "border-gray-300 scale-105 opacity-100"
                           : "border-gray-200 opacity-40 scale-95"
                       }`}
-                    ></div>
+                    >
+                      {/* Visibility Tasks Card Content */}
+                      <div className="p-6 h-full flex flex-col">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-semibold text-gray-800">Brand Visibility Tasks</h3>
+                        </div>
+                        
+                        <div className="flex-1 min-h-0">
+                          {/* Full Kanban Board matching MockVisibilityTasksPage */}
+                          <div className="grid grid-cols-3 gap-3 h-full">
+                            {/* Not Started Column */}
+                            <div className="flex flex-col h-full min-h-0">
+                              <div className="flex items-center justify-between p-3 bg-gray-100 rounded-t-lg border-b border-gray-200">
+                                <h4 className="text-xs font-semibold text-gray-900">Not Started</h4>
+                                <span className="text-xs font-medium text-gray-600 bg-white/60 px-2 py-1 rounded-full">1</span>
+                              </div>
+                              <div className="flex-1 p-2 space-y-2 overflow-y-auto">
+                                <div className="group relative bg-white rounded-lg p-3 shadow-md border border-gray-100 hover:shadow-lg transition-all duration-200">
+                                  <div className="flex items-start justify-between mb-2">
+                                    <h5 className="text-xs font-semibold text-gray-800 leading-tight pr-4">Verify robots.txt & llms.txt</h5>
+                                    <span className="text-xs px-0.5 py-0 rounded font-medium border flex-shrink-0 bg-red-50 text-red-700 border-red-200 text-[10px]">High</span>
+                                  </div>
+                                  <p className="text-xs text-gray-600 mb-3 line-clamp-2 leading-relaxed">Navigate to your website's robots.txt and create llms.txt with brand description...</p>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md border border-gray-200 font-medium">Technical SEO</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* In Progress Column */}
+                            <div className="flex flex-col h-full min-h-0">
+                              <div className="flex items-center justify-between p-3 bg-blue-100 rounded-t-lg border-b border-gray-200">
+                                <h4 className="text-xs font-semibold text-gray-900">In Progress</h4>
+                                <span className="text-xs font-medium text-gray-600 bg-white/60 px-2 py-1 rounded-full">1</span>
+                              </div>
+                              <div className="flex-1 p-2 space-y-2 overflow-y-auto">
+                                <div className="group relative bg-white rounded-lg p-3 shadow-md border border-gray-100 hover:shadow-lg transition-all duration-200">
+                                  <div className="flex items-start justify-between mb-2">
+                                    <h5 className="text-xs font-semibold text-gray-800 leading-tight pr-4">Implement Schema Markup</h5>
+                                    <span className="text-xs px-0.5 py-0 rounded font-medium border flex-shrink-0 bg-red-50 text-red-700 border-red-200 text-[10px]">High</span>
+                                  </div>
+                                  <p className="text-xs text-gray-600 mb-3 line-clamp-2 leading-relaxed">Use schema markup generator for Organization, Product and Article...</p>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md border border-gray-200 font-medium">Technical SEO</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Completed Column */}
+                            <div className="flex flex-col h-full min-h-0">
+                              <div className="flex items-center justify-between p-3 bg-blue-200 rounded-t-lg border-b border-gray-200">
+                                <h4 className="text-xs font-semibold text-gray-900">Completed</h4>
+                                <span className="text-xs font-medium text-gray-600 bg-white/60 px-2 py-1 rounded-full">1</span>
+                              </div>
+                              <div className="flex-1 p-2 space-y-2 overflow-y-auto">
+                                <div className="group relative bg-white rounded-lg p-3 shadow-md border border-gray-100 hover:shadow-lg transition-all duration-200">
+                                  <div className="flex items-start justify-between mb-2">
+                                    <h5 className="text-xs font-semibold text-gray-800 leading-tight pr-4">Create Brand Pages</h5>
+                                    <span className="text-xs px-0.5 py-0 rounded font-medium border flex-shrink-0 bg-red-50 text-red-700 border-red-200 text-[10px]">High</span>
+                                  </div>
+                                  <p className="text-xs text-gray-600 mb-3 line-clamp-2 leading-relaxed">Research top 10 queries where competitors rank but you don't...</p>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md border border-gray-200 font-medium">Content & Messaging</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </motion.div>
                 </div>
               </div>

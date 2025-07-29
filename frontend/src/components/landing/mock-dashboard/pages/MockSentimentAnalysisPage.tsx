@@ -16,7 +16,7 @@
  * - MockSentimentAnalysisPage: The React functional component for the mock sentiment analysis page.
  */
 import React from 'react';
-import { Calendar, Sparkles, RefreshCw, Loader } from 'lucide-react';
+import { Calendar, Sparkles, RefreshCw, Loader as _Loader } from 'lucide-react';
 import MockDashboardLayout from '../MockDashboardLayout';
 import MockSentimentScoreDisplayCard from '../cards/MockSentimentScoreDisplayCard';
 import MockSentimentOverTimeCard from '../cards/MockSentimentOverTimeCard';

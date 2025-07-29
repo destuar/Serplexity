@@ -29,6 +29,7 @@
  * - ./controllers/paymentController: Controller for handling Stripe webhooks.
  */
 import express, { Application, Request, Response } from "express";
+import { PydanticProvider } from "./types/pydantic";
 import cors from "cors";
 import morgan from "morgan";
 import dotenv from "dotenv";
@@ -195,7 +196,7 @@ app.get("/healthz", async (req, res) => {
     try {
       const { pydanticLlmService } = await import("./services/pydanticLlmService");
       const providers = pydanticLlmService.getAvailableProviders();
-      const healthyProviders = providers.filter(p => p.status === 'available').length;
+      const healthyProviders = (providers as PydanticProvider[]).filter(p => p.status === 'available').length;
       checks.pydantic_ai = { status: healthyProviders > 0 ? "healthy" : "degraded", availableProviders: healthyProviders };
     } catch {
       checks.pydantic_ai = { status: "degraded", error: "Service unavailable - first-time reports will fail" };

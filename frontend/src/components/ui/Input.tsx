@@ -31,6 +31,8 @@ const Input = React.forwardRef<
         userSelect: "none",
         outline: "none",
         border: "none",
+        color: "#000000 !important",
+        WebkitTextFillColor: "#000000 !important",
         boxShadow:
           "inset 0 2px 4px rgba(0,0,0,0.2), inset 0 -1px 2px rgba(255,255,255,0.1)",
         ...style,

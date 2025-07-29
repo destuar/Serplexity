@@ -4,8 +4,8 @@
  * Displays companies in a list format with logos, allows accepting/declining suggested competitors.
  */
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Check, X, Plus, ExternalLink, Users, Edit2, Loader } from 'lucide-react';
-import { InlineSpinner } from '../components/ui/InlineSpinner';
+import { Check, X, Plus, ExternalLink, Users, Edit2, Loader as _Loader } from 'lucide-react';
+import { InlineSpinner as _InlineSpinner } from '../components/ui/InlineSpinner';
 import { useCompany } from '../contexts/CompanyContext';
 import { useNavigation } from '../hooks/useNavigation';
 import { useDashboard } from '../hooks/useDashboard';

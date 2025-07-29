@@ -22,7 +22,16 @@ import { z } from "zod";
 
 // NOTE: Now using hardcoded preset tasks for reliability and consistency
 
-export const PRESET_TASKS = [
+interface PresetTask {
+  id: string;
+  title: string;
+  description: string;
+  category: "Technical SEO" | "Content & Messaging" | "Brand Positioning" | "Link Building" | "Local SEO";
+  priority: "High" | "Medium" | "Low";
+  impact_metric: "inclusionRate" | "averagePosition" | "visibility";
+}
+
+export const PRESET_TASKS: PresetTask[] = [
   {
     id: "S01",
     title: "Verify robots.txt & llms.txt",
@@ -111,7 +120,7 @@ const __TaskSchema = z.object({
 });
 
 export interface OptimizationTasksResult {
-  tasks: z.infer<typeof _TaskSchema>[];
+  tasks: z.infer<typeof __TaskSchema>[];
   summary: string;
   tokenUsage: {
     promptTokens: number;
@@ -141,7 +150,7 @@ export async function generateOptimizationTasksAndSummary(
 // ===== TASK PERSISTENCE FUNCTIONS (STILL USED) =====
 
 export async function persistOptimizationTasks(
-  tasks: z.infer<typeof _TaskSchema>[],
+  tasks: z.infer<typeof __TaskSchema>[],
   runId: string,
   companyId: string,
   prisma: PrismaClient,

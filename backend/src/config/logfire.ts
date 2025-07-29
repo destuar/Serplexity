@@ -350,7 +350,7 @@ export function logfireMiddleware() {
           "http.user_agent": req.get("User-Agent") || "",
           "http.request_id": requestId,
           "user.id": req.user?.id || "",
-          "company.id": (req.user as unknown)?.companyId || "",
+          "company.id": req.user?.companyId || "",
         },
       },
     );
@@ -378,7 +378,7 @@ export function logfireMiddleware() {
         duration,
         success: res.statusCode < 400,
         userId: req.user?.id,
-        companyId: (req.user as unknown)?.companyId,
+        companyId: req.user?.companyId,
       });
 
       span.end();

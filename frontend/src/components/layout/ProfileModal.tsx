@@ -87,7 +87,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const [modelsError, setModelsError] = useState<string | null>(null);
 
   const [passwordSuccess, setPasswordSuccess] = useState(false);
-  const [modelsSuccess, setModelsSuccess] = useState(false);
+  const [_modelsSuccess, _setModelsSuccess] = useState(false);
 
   // Model preferences state
   const [modelPreferences, setModelPreferences] = useState<
@@ -140,6 +140,16 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
       loadModelPreferences();
     }
   }, [isOpen]);
+
+  // Update form values when user data changes
+  useEffect(() => {
+    if (user) {
+      resetProfile({
+        name: user.name || "",
+        email: user.email || "",
+      });
+    }
+  }, [user, resetProfile]);
 
   if (!isOpen) return null;
 

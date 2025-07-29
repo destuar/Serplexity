@@ -28,7 +28,7 @@ const MockKanbanColumn: React.FC<{
   tasks: MockOptimizationTask[];
   count: number;
   onTaskClick?: (task: MockOptimizationTask) => void;
-}> = ({ id, title, color, tasks, count, onTaskClick }) => {
+}> = ({ id: _id, title, color, tasks, count, onTaskClick }) => {
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className={`flex items-center justify-between p-4 ${color} rounded-t-lg border-b border-gray-200`}>
@@ -95,7 +95,7 @@ const MockKanbanTaskCard: React.FC<{
 };
 
 const MockVisibilityTasksPage: React.FC = () => {
-  const [selectedTask, setSelectedTask] = useState<MockOptimizationTask | null>(null);
+  const [_selectedTask, _setSelectedTask] = useState<MockOptimizationTask | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const mockTasks: MockOptimizationTask[] = [

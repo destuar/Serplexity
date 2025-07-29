@@ -126,7 +126,7 @@ export function validateDataPipeline(
   context: DataPipelineContext,
   expectedMinPoints: number = 1
 ): boolean {
-  const report = generateDataConsistencyReport(data, context);
+  const _report = generateDataConsistencyReport(data, context);
   
   const validations = [
     {

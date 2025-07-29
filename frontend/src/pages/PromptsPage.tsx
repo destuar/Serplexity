@@ -134,7 +134,7 @@ const PromptListItem: React.FC<{
   onDelete?: (prompt: PromptItem) => void;
   onClick?: (prompt: PromptItem) => void;
   onStatusChange?: (prompt: PromptItem, newStatus: 'active' | 'inactive' | 'suggested') => void;
-}> = ({ prompt, index, promptQuestion, acceptedCompetitors, onEdit, onDelete, onClick, onStatusChange }) => {
+}> = ({ prompt, index, promptQuestion, acceptedCompetitors, onEdit: _onEdit, onDelete, onClick, onStatusChange }) => {
   const companyLogos = promptQuestion ? getPromptCompanyLogos(promptQuestion, acceptedCompetitors || []) : [];
 
   // Calculate total citations from all responses (using brands as proxy for citations)
@@ -652,11 +652,11 @@ const PromptsPage: React.FC = () => {
       
       // Refresh the prompts data to get the new question from backend
       await fetchPrompts();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to add question:', error);
       
       // Handle subscription-related errors gracefully
-      if (error?.response?.status === 403) {
+      if (error && typeof error === 'object' && 'response' in error && error.response && typeof error.response === 'object' && 'status' in error.response && error.response.status === 403) {
         if (isAdmin) {
           alert('Access denied. Please check your admin permissions.');
         } else {

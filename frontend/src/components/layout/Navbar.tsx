@@ -270,8 +270,8 @@ export function Navbar() {
                       className={cn(
                         "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 flex-shrink-0",
                         isLandingStylePage
-                          ? "bg-gray-200 hover:bg-gray-300 text-gray-600"
-                          : "bg-gray-200 hover:bg-gray-300 text-gray-600"
+                          ? "bg-white/20 backdrop-blur-sm border border-white/10 hover:bg-white/30 text-gray-600 shadow-md"
+                          : "bg-white/20 backdrop-blur-sm border border-white/10 hover:bg-white/30 text-gray-600 shadow-md"
                       )}
                     >
                       <User size={20} />

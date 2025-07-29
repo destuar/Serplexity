@@ -27,7 +27,7 @@ export class CacheService {
       }
       return null;
     } catch (error) {
-      logger.error(`Cache get error for key ${key}:`, error);
+      logger.error(`Cache get error for key ${key}:`, { error });
       return null;
     }
   }
@@ -38,7 +38,7 @@ export class CacheService {
       await redis.setex(key, ttl, JSON.stringify(value));
       return true;
     } catch (error) {
-      logger.error(`Cache set error for key ${key}:`, error);
+      logger.error(`Cache set error for key ${key}:`, { error });
       return false;
     }
   }
@@ -48,7 +48,7 @@ export class CacheService {
       await redis.del(key);
       return true;
     } catch (error) {
-      logger.error(`Cache delete error for key ${key}:`, error);
+      logger.error(`Cache delete error for key ${key}:`, { error });
       return false;
     }
   }
@@ -61,7 +61,7 @@ export class CacheService {
       }
       return 0;
     } catch (error) {
-      logger.error(`Cache pattern invalidation error for ${pattern}:`, error);
+      logger.error(`Cache pattern invalidation error for ${pattern}:`, { error });
       return 0;
     }
   }

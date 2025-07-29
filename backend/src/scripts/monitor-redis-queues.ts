@@ -108,7 +108,7 @@ async function monitorQueues() {
     const dbInfo = await redis.info("keyspace");
     logger.info(`🔑 Redis Keys: ${dbInfo || "No keyspace info"}`);
   } catch (error) {
-    logger.error("❌ Error monitoring queues:", error);
+    logger.error("❌ Error monitoring queues:", { error });
   } finally {
     await redis.quit();
   }

@@ -690,7 +690,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
         value: score.value,
       }));
 
-      console.log('[DEBUG] Transformed sentimentDetails:', sentimentDetails.map((s: any) => ({ name: s.name, engine: s.engine })));
+      console.log('[DEBUG] Transformed sentimentDetails:', sentimentDetails.map((s: { name: string; engine: string }) => ({ name: s.name, engine: s.engine })));
       console.log('🚀 [DEBUG] About to send sentimentDetails with length:', sentimentDetails.length);
 
       controllerLog(
@@ -1308,10 +1308,10 @@ export const getSystemHealth = async (req: Request, res: Response) => {
 
     // Determine overall system status
     const allHealthy = Object.values(checks).every(
-      (check: any) => check.status === "healthy",
+      (check: { status: string }) => check.status === "healthy",
     );
     const anyUnhealthy = Object.values(checks).some(
-      (check: any) => check.status === "unhealthy",
+      (check: { status: string }) => check.status === "unhealthy",
     );
 
     const overallStatus = allHealthy

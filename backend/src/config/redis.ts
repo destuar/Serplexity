@@ -46,7 +46,7 @@ class RedisConnectionManager {
   private isShuttingDown = false;
   private lastHealthyCount: number = POOL_SIZE;
 
-  private readonly baseConfig: RedisOptions & { detectOpenHandles?: boolean; tcp?: any } = {
+  private readonly baseConfig: RedisOptions & { detectOpenHandles?: boolean; tcp?: unknown } = {
     host: env.REDIS_HOST,
     port: env.REDIS_PORT,
     password: env.REDIS_PASSWORD,
@@ -209,7 +209,7 @@ class RedisConnectionManager {
           await this.recoverConnections();
         }
       } catch (error) {
-        logger.error("[Redis] Health check failed:", error);
+        logger.error("[Redis] Health check failed:", { error });
       }
     }, HEALTH_CHECK_INTERVAL);
   }
@@ -221,7 +221,7 @@ class RedisConnectionManager {
       try {
         await this.performMaintenance();
       } catch (error) {
-        logger.error("[Redis] Maintenance task failed:", error);
+        logger.error("[Redis] Maintenance task failed:", { error });
       }
     }, MAINTENANCE_INTERVAL);
 
@@ -229,7 +229,7 @@ class RedisConnectionManager {
     setTimeout(() => {
       if (!this.isShuttingDown) {
         this.performMaintenance().catch((error) => {
-          logger.error("[Redis] Initial maintenance failed:", error);
+          logger.error("[Redis] Initial maintenance failed:", { error });
         });
       }
     }, 300000);
@@ -255,7 +255,7 @@ class RedisConnectionManager {
       
       logger.info("[Redis] Maintenance task completed successfully");
     } catch (error) {
-      logger.error("[Redis] Maintenance task failed:", error);
+      logger.error("[Redis] Maintenance task failed:", { error });
     }
   }
 
@@ -295,7 +295,7 @@ class RedisConnectionManager {
             cleanedJobs += jobs.length;
           }
         } catch (keyError) {
-          logger.warn(`[Redis] Failed to cleanup key ${key}:`, keyError);
+          logger.warn(`[Redis] Failed to cleanup key ${key}:`, { error: keyError });
           skippedKeys++;
         }
       }
@@ -304,7 +304,7 @@ class RedisConnectionManager {
         logger.info(`[Redis] Cleaned up ${cleanedJobs} old queue jobs, skipped ${skippedKeys} invalid keys`);
       }
     } catch (error) {
-      logger.warn("[Redis] Failed to cleanup old jobs:", error);
+      logger.warn("[Redis] Failed to cleanup old jobs:", { error });
     }
   }
 
@@ -337,7 +337,7 @@ class RedisConnectionManager {
         logger.info(`[Redis] Set TTL on ${expiredKeys} stale keys`);
       }
     } catch (error) {
-      logger.warn("[Redis] Failed to cleanup expired keys:", error);
+      logger.warn("[Redis] Failed to cleanup expired keys:", { error });
     }
   }
 
@@ -368,7 +368,7 @@ class RedisConnectionManager {
         }
       }
     } catch (error) {
-      logger.warn("[Redis] Failed to check memory usage:", error);
+      logger.warn("[Redis] Failed to check memory usage:", { error });
     }
   }
 
@@ -411,7 +411,7 @@ class RedisConnectionManager {
         }
       }
     } catch (error) {
-      logger.warn("[Redis] Failed to optimize connection pool:", error);
+      logger.warn("[Redis] Failed to optimize connection pool:", { error });
     }
   }
 

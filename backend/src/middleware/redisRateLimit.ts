@@ -77,7 +77,7 @@ export function createRedisRateLimit(options: RateLimitOptions) {
             try {
               await redis.decr(redisKey);
             } catch (error) {
-              logger.error("Error decrementing rate limit counter:", error);
+              logger.error("Error decrementing rate limit counter:", { error });
             }
           }
         });
@@ -85,7 +85,7 @@ export function createRedisRateLimit(options: RateLimitOptions) {
 
       next();
     } catch (error) {
-      logger.error("Redis rate limit error:", error);
+      logger.error("Redis rate limit error:", { error });
       // Fallback to allowing the request if Redis fails
       next();
     }

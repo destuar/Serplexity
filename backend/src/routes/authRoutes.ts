@@ -30,9 +30,8 @@ import {
   register,
 } from "../controllers/authController";
 import { authenticate, authorize } from "../middleware/authMiddleware";
-// Import types without the enum for now
-type User = any;
-type Company = any;
+// Import proper Prisma types
+import type { User, Company } from "@prisma/client";
 
 const router = Router();
 const { JWT_SECRET, JWT_REFRESH_SECRET } = env;

@@ -28,6 +28,12 @@ import {
 import { authenticate, authorize } from "../middleware/authMiddleware";
 import { getFileUrl, upload } from "../services/uploadService";
 
+interface UploadedFile {
+  key: string;
+  originalname: string;
+  size: number;
+}
+
 const router = Router();
 
 // Public routes - no authentication required
@@ -46,10 +52,10 @@ router.post(
         return res.status(400).json({ error: "No file uploaded" });
       }
 
-      const fileUrl = getFileUrl((req.file as unknown).key);
+      const fileUrl = getFileUrl((req.file as unknown as UploadedFile).key);
       res.json({
         url: fileUrl,
-        filename: (req.file as unknown).key,
+        filename: (req.file as unknown as UploadedFile).key,
         originalName: req.file.originalname,
         size: req.file.size,
         mimeType: req.file.mimetype,

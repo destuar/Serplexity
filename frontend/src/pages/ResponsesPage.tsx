@@ -56,7 +56,7 @@ const formatTimeDisplay = (dateString: string): string => {
 };
 
 // Get citation icons with overflow handling - cross-references citation IDs with database
-const getCitationIcons = (citationIds: string[], allCitations: CitationData[], maxDisplay: number = 4): Array<{name: string, url: string, domain: string, isOverflow?: boolean, count?: number}> => {
+const _getCitationIcons = (citationIds: string[], allCitations: CitationData[], maxDisplay: number = 4): Array<{name: string, url: string, domain: string, isOverflow?: boolean, count?: number}> => {
   if (!citationIds || citationIds.length === 0 || !allCitations || allCitations.length === 0) {
     return [];
   }
@@ -163,7 +163,7 @@ const ResponseListItem: React.FC<{
   isExpanded: boolean;
   onToggle: () => void;
   question: string;
-}> = ({ response, index: _index, acceptedCompetitors, citations, isExpanded, onToggle, question }) => {
+}> = ({ response, index: _index, acceptedCompetitors, citations: _citations, isExpanded, onToggle, question }) => {
   const companyLogos = getCompetitorLogos(response.brands || [], acceptedCompetitors || [], 4);
   // Use brands length as citation count since citations field doesn't exist in PromptResponse
   const citationCount = response.brands?.length || 0;

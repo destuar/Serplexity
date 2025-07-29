@@ -1370,7 +1370,7 @@ export const updateQuestion = async (req: Request, res: Response) => {
     }
 
     // Only allow updating query text for user questions, but allow isActive updates for all questions
-    const updateData: any = {};
+    const updateData: { query?: string; isActive?: boolean } = {};
     
     if (validatedData.query !== undefined) {
       if (existingQuestion.source !== "user") {

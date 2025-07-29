@@ -5,14 +5,14 @@
  * table-style list, inline editing, status management, and prompt metrics.
  */
 import React, { useState } from 'react';
-import { ListFilter, Search, Check, X, Trash2, Plus } from 'lucide-react';
+import { ListFilter, Search, Check as _Check, X, Trash2 as _Trash2, Plus } from 'lucide-react';
 import MockDashboardLayout from '../MockDashboardLayout';
 import MockFilterDropdown from '../MockFilterDropdown';
 import { getCompanyLogo } from '../../../../lib/logoService';
 
 const MockPromptsPage: React.FC = () => {
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, _setStatusFilter] = useState('all');
+  const [searchTerm, _setSearchTerm] = useState('');
 
   // Mock data with company websites for real logos
   const mockPrompts = [
@@ -86,7 +86,7 @@ const MockPromptsPage: React.FC = () => {
   ];
 
   const getCompetitorLogos = (brands: Array<{ name: string; website: string }>) => {
-    return brands.slice(0, 4).map((brand, index) => {
+    return brands.slice(0, 4).map((brand, _index) => {
       const logoResult = getCompanyLogo(brand.website);
       return {
         name: brand.name,
