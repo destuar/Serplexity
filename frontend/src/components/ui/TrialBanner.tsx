@@ -30,7 +30,7 @@ const TrialBanner: React.FC = () => {
       if (!user) return;
 
       try {
-        const response = await apiClient.get('/api/users/me/trial-status');
+        const response = await apiClient.get('/users/me/trial-status');
         setTrialStatus(response.data);
       } catch (error) {
         console.error('Failed to fetch trial status:', error);

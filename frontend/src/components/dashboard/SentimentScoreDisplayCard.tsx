@@ -77,7 +77,7 @@ const SentimentScoreDisplayCard: React.FC<SentimentScoreDisplayCardProps> = ({ s
                     </button>
                 )}
             </div>
-            <div className="flex-1 min-h-0">
+            <div className="flex-1 min-h-0" style={{ minHeight: '300px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                     <RadarChart 
                         data={chartData} 

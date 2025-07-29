@@ -522,7 +522,7 @@ export async function computeAndPersistMetrics(
         averagePositionChange: allAvgPosChange,
         topRankingsCount: allTopRankings,
         rankingsChange: allRankingsChange,
-        sentimentScore: overallSentimentScore as Prisma.InputJsonValue,
+        sentimentScore: JSON.parse(JSON.stringify(overallSentimentScore)) as Prisma.InputJsonValue,
         sentimentChange: overallSentimentChange,
         competitorRankings: JSON.parse(JSON.stringify(enhancedCompetitorRankings)) as Prisma.InputJsonValue,
         topQuestions: topQuestions.questions,
@@ -540,7 +540,7 @@ export async function computeAndPersistMetrics(
         averagePositionChange: allAvgPosChange,
         topRankingsCount: allTopRankings,
         rankingsChange: allRankingsChange,
-        sentimentScore: overallSentimentScore as Prisma.InputJsonValue,
+        sentimentScore: JSON.parse(JSON.stringify(overallSentimentScore)) as Prisma.InputJsonValue,
         sentimentChange: overallSentimentChange,
         competitorRankings: JSON.parse(JSON.stringify(enhancedCompetitorRankings)) as Prisma.InputJsonValue,
         topQuestions: topQuestions.questions,
@@ -805,6 +805,8 @@ export async function getFullReportMetrics(
     topQuestions: metric.topQuestions,
     sentimentOverTime: null, // Historical data fetched separately
     shareOfVoiceHistory: null, // Historical data fetched separately
-    sentimentDetails: metric.sentimentDetails,
+    sentimentDetails: Array.isArray(metric.sentimentDetails) 
+      ? metric.sentimentDetails as Array<{name: string; engine: string; value: any}>
+      : [],
   };
 }

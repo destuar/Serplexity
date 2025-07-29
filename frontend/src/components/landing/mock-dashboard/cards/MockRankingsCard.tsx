@@ -18,6 +18,7 @@ import React, { useState } from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import MockDashboardCard from './MockDashboardCard';
 import { getCompanyLogo } from '../../../../lib/logoService';
+import { useMediaQuery } from '../../../../hooks/useMediaQuery';
 
 type TabType = 'mentions' | 'citations';
 
@@ -62,14 +63,15 @@ const getOrdinalSuffix = (num: number): string => {
 const IndustryRanking = () => {
     const { industryRanking, chartCompetitors } = mockRankingsData;
     const maxShareOfVoice = Math.max(...chartCompetitors.map(c => c.shareOfVoice));
+    const isDesktopScreen = useMediaQuery("(min-width: 1024px)");
 
     return (
         <div className="flex-1 flex flex-col items-center justify-center h-full">
-            <div className="text-6xl font-bold text-gray-800 mb-6">
+            <div className={`${isDesktopScreen ? 'text-5xl' : 'text-4xl'} font-bold text-gray-800 mb-3`}>
                 {industryRanking}
-                <span className="text-lg font-normal text-gray-500">{getOrdinalSuffix(industryRanking)}</span>
+                <span className={`${isDesktopScreen ? 'text-base' : 'text-sm'} font-normal text-gray-500`}>{getOrdinalSuffix(industryRanking)}</span>
             </div>
-            <div className="flex items-end justify-center space-x-1 h-24 w-full max-w-48">
+            <div className="flex items-end justify-center space-x-1 h-16 w-full max-w-48">
                 {chartCompetitors.slice(0, 12).map((c, i) => {
                     const height = Math.max(6, (c.shareOfVoice / maxShareOfVoice) * 90);
                     return (
@@ -86,12 +88,16 @@ const IndustryRanking = () => {
 };
 
 const CompetitorsList = () => {
+    const isMediumScreen = useMediaQuery("(min-width: 768px) and (max-width: 1023px)");
     const allCompetitors = mockRankingsData.chartCompetitors;
-    const topCompetitors = allCompetitors.slice(0, 4);
+    
+    // Show only 4 competitors on medium screens, 4 + others on other screens
+    const maxCompetitors = isMediumScreen ? 4 : 4;
+    const topCompetitors = allCompetitors.slice(0, maxCompetitors);
     const othersCount = allCompetitors.length - topCompetitors.length;
     
     const displayCompetitors = [...topCompetitors];
-    if (othersCount > 0) {
+    if (othersCount > 0 && !isMediumScreen) {
         displayCompetitors.push({
             name: `${othersCount}+ others`,
             shareOfVoice: allCompetitors.slice(4).reduce((acc, c) => acc + c.shareOfVoice, 0),
@@ -111,7 +117,7 @@ const CompetitorsList = () => {
                 return (
                     <div key={i} className="flex items-center justify-between rounded-md p-1 transition-colors hover:bg-gray-50">
                         <div className="flex items-center space-x-2 flex-1 min-w-0">
-                            <span className={`text-xs font-medium w-4 text-center ${c.isUserCompany ? 'text-[#2563eb]' : 'text-gray-600'}`}>{i + 1}.</span>
+                            <span className="text-xs font-medium w-4 text-center text-gray-600">{i + 1}.</span>
                             <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-2xs font-semibold text-gray-600 flex-shrink-0 overflow-hidden">
                                 {logoResult ? (
                                     <img
@@ -123,7 +129,7 @@ const CompetitorsList = () => {
                                     isOthers ? '' : c.name.charAt(0).toUpperCase()
                                 )}
                             </div>
-                            <span className={`text-xs font-medium truncate ${isOthers ? 'text-gray-500 italic' : c.isUserCompany ? 'text-[#2563eb]' : 'text-gray-800'}`}>{c.name}</span>
+                            <span className={`text-xs font-medium truncate ${isOthers ? 'text-gray-500 italic' : 'text-gray-800'}`}>{c.name}</span>
                         </div>
                         <div className="flex items-center flex-shrink-0">
                             <div className="w-12 flex justify-start">
@@ -135,7 +141,7 @@ const CompetitorsList = () => {
                                 )}
                             </div>
                             <div className="w-10 text-right">
-                                <span className={`text-xs font-semibold ${c.isUserCompany ? 'text-[#2563eb]' : isOthers ? 'text-gray-500' : 'text-gray-700'}`}>{c.shareOfVoice.toFixed(1)}%</span>
+                                <span className={`text-xs font-semibold ${isOthers ? 'text-gray-500' : 'text-gray-700'}`}>{c.shareOfVoice.toFixed(1)}%</span>
                             </div>
                         </div>
                     </div>
@@ -182,17 +188,19 @@ const MockRankingsCard: React.FC = () => {
         <MockDashboardCard>
             <div className="flex h-full w-full">
                 <div className="w-1/2 pr-4 border-r border-gray-200 flex flex-col">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Industry Ranking</h3>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-2">Industry Ranking</h3>
                     <IndustryRanking />
                 </div>
                 <div className="w-1/2 pl-4 flex flex-col">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-2">
                         <h3 className="text-lg font-semibold text-gray-800">
                             {activeTab === 'mentions' ? 'Mentions' : 'Citations'}
                         </h3>
                         {renderIconTabs()}
                     </div>
-                    <CompetitorsList />
+                    <div className="flex-1 min-h-0">
+                        <CompetitorsList />
+                    </div>
                 </div>
             </div>
         </MockDashboardCard>

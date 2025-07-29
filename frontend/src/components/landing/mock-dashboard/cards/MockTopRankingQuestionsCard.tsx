@@ -16,8 +16,9 @@
 import React, { useState } from 'react';
 import MockDashboardCard from './MockDashboardCard';
 import { getModelDisplayName, MODEL_CONFIGS } from '../../../../types/dashboard';
-import FormattedResponseViewer from '../../../ui/FormattedResponseViewer';
+import MockFormattedResponseViewer from '../MockFormattedResponseViewer';
 import { getCompanyLogo } from '../../../../lib/logoService';
+import { useMediaQuery } from '../../../../hooks/useMediaQuery';
 
 const mockTopQuestions = [
     {
@@ -60,6 +61,17 @@ const mockTopQuestions = [
         mentionedCompanies: [
             { name: 'Serplexity', website: 'serplexity.com' },
             { name: 'Semrush', website: 'semrush.com' }
+        ],
+    },
+    {
+        question: "How does Serplexity compare to other AI visibility tools?",
+        bestResponse: "<brand>Serplexity</brand> stands out with its comprehensive **multi-model tracking** across GPT-4, Claude, and Gemini, while competitors like <brand>Cognizo</brand> focus on single platforms. <brand>Serplexity</brand> provides deeper sentiment analysis and competitive benchmarking capabilities.",
+        bestResponseModel: 'gpt-4.1-mini',
+        productName: 'AISO',
+        type: 'benchmark',
+        mentionedCompanies: [
+            { name: 'Serplexity', website: 'serplexity.com' },
+            { name: 'Cognizo', website: 'cognizo.ai' }
         ],
     },
 ];
@@ -109,7 +121,7 @@ const QuestionItem: React.FC<{ question: typeof mockTopQuestions[0]; index: numb
                                     <span>{getModelDisplayName(question.bestResponseModel)}</span>
                                 </div>
                             </div>
-                            <FormattedResponseViewer 
+                            <MockFormattedResponseViewer 
                                 text={stripBrandTags(question.bestResponse)} 
                                 compact={true}
                                 className="bg-gray-50 rounded-md p-3 border-l-4 border-green-500"
@@ -155,13 +167,20 @@ const QuestionItem: React.FC<{ question: typeof mockTopQuestions[0]; index: numb
 
 const MockTopRankingQuestionsCard: React.FC = () => {
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+    const isMediumScreen = useMediaQuery("(min-width: 768px) and (max-width: 1023px)");
+    const isDesktopScreen = useMediaQuery("(min-width: 1024px)");
+    
+    // Show 3 questions on medium, 5 on desktop, all on mobile
+    const questionsToShow = isMediumScreen ? mockTopQuestions.slice(0, 3) : 
+                           isDesktopScreen ? mockTopQuestions.slice(0, 5) : 
+                           mockTopQuestions;
 
     return (
         <MockDashboardCard>
             <h3 className="text-lg font-semibold text-gray-800 mb-3">Top Ranking Questions</h3>
             <div className="flex-1 min-h-0">
                 <div className="space-y-2 pr-1">
-                    {mockTopQuestions.map((q, i) => (
+                    {questionsToShow.map((q, i) => (
                         <div 
                             key={i} 
                             onMouseEnter={() => setHoveredIndex(i)} 

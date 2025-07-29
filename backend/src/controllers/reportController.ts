@@ -758,10 +758,53 @@ export const getLatestReport = async (req: Request, res: Response) => {
     }
 
     if (!metrics) {
-      // This might happen if metrics haven't been computed yet for this run/model.
-      return res
-        .status(404)
-        .json({ error: "Metrics not available for the latest report." });
+      // 10x IMPROVEMENT: Graceful degradation instead of total failure
+      controllerLog(
+        {
+          endpoint,
+          userId,
+          companyId,
+          reportId: latestRun.id,
+          metadata: { degradedMode: true },
+        },
+        "Metrics unavailable - serving report with basic data",
+        "WARN",
+      );
+
+      // Return basic report data with fallback metrics
+      const fallbackMetrics = {
+        shareOfVoice: 0,
+        shareOfVoiceChange: null,
+        averageInclusionRate: 0,
+        averageInclusionChange: null,
+        averagePosition: 0,
+        averagePositionChange: null,
+        sentimentScore: null,
+        sentimentChange: null,
+        topRankingsCount: 0,
+        rankingsChange: null,
+        competitorRankings: { chartCompetitors: [] },
+        citationRankings: null,
+        topQuestions: [],
+        sentimentOverTime: null,
+        shareOfVoiceHistory: null,
+        sentimentDetails: [],
+      };
+
+      const responseData = {
+        id: latestRun.id,
+        runId: latestRun.id,
+        companyId: latestRun.companyId,
+        createdAt: latestRun.createdAt,
+        updatedAt: latestRun.updatedAt,
+        status: latestRun.status,
+        ...fallbackMetrics,
+        optimizationTasks: latestRun.optimizationTasks || [],
+        _degradedMode: true, // Signal to frontend
+        _reason: "Metrics computation failed - showing basic report data"
+      };
+
+      return res.status(200).json(responseData);
     }
 
     // If the latest report has no optimization tasks, fallback to the newest report that does.

@@ -16,6 +16,7 @@
 import React from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import MockDashboardCard from './MockDashboardCard';
+import { useMediaQuery } from '../../../../hooks/useMediaQuery';
 
 const mockReportMetric = {
     sentimentOverTime: [
@@ -29,6 +30,7 @@ const mockReportMetric = {
 
 const MockSentimentOverTimeCard: React.FC = () => {
   const data = mockReportMetric.sentimentOverTime;
+  const isMediumScreen = useMediaQuery("(min-width: 768px) and (max-width: 1023px)");
 
   return (
     <MockDashboardCard>
@@ -38,9 +40,9 @@ const MockSentimentOverTimeCard: React.FC = () => {
           All Models
         </span>
       </div>
-      <div className="flex-1 w-full" style={{ minHeight: '300px' }}>
+      <div className="flex-1 w-full" style={{ minHeight: isMediumScreen ? '150px' : '300px' }}>
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 20, right: 30, bottom: 15, left: 20 }}>
+          <AreaChart data={data} margin={isMediumScreen ? { top: 10, right: 20, bottom: 10, left: 15 } : { top: 20, right: 30, bottom: 15, left: 20 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeWidth={1} />
             <XAxis 
               dataKey="date" 

@@ -17,51 +17,62 @@
  * @file MetricsOverTimeCard.tsx
  * @description Combined metrics chart that displays either Share of Voice or Inclusion Rate over time.
  * Features toggle buttons to switch between metrics and model breakdown views.
- * 
+ *
  * REFACTORED (v2.0.0): Now uses centralized utilities for:
  * - Chart data processing (eliminates duplicated logic)
- * - Model filtering (consistent behavior across components)  
+ * - Model filtering (consistent behavior across components)
  * - Data transformation and validation
  * - Y-axis scaling and date formatting
- * 
+ *
  * Key features:
  * - Dual metric support (Share of Voice + Inclusion Rate)
  * - Consistent model filtering logic
  * - Standardized chart data processing
  * - Proper error handling and data validation
- * 
+ *
  * @author Dashboard Team
  * @version 2.0.0 - Refactored to use centralized utilities
  */
-import { useState, useMemo, useEffect, useRef } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { MessageSquare, Eye, Sparkles } from 'lucide-react';
-import LiquidGlassCard from '../ui/LiquidGlassCard';
-import { LiquidGlassSpinner } from '../ui/LiquidGlassSpinner';
-import { useDashboard } from '../../hooks/useDashboard';
-import { useCompany } from '../../hooks/useCompany';
-import { chartColorArrays } from '../../utils/colorClasses';
-import { getShareOfVoiceHistory, getInclusionRateHistory } from '../../services/companyService';
-import { MODEL_CONFIGS, getModelDisplayName } from '../../types/dashboard';
+import { Eye, MessageSquare, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  processTimeSeriesData,
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { useCompany } from "../../hooks/useCompany";
+import { useDashboard } from "../../hooks/useDashboard";
+import {
+  getInclusionRateHistory,
+  getShareOfVoiceHistory,
+} from "../../services/companyService";
+import { MODEL_CONFIGS, getModelDisplayName } from "../../types/dashboard";
+import {
+  DateRangeFilter,
+  GranularityFilter,
+  InclusionRateHistoryItem,
   MetricsChartDataPoint,
   ShareOfVoiceHistoryItem,
-  InclusionRateHistoryItem,
-  extractCurrentValue,
-  calculateYAxisScaling,
   calculateXAxisInterval,
-  parseApiDate,
+  calculateYAxisScaling,
+  extractCurrentValue,
   formatChartDate,
   getOptimalGranularity,
-  GranularityFilter,
-  DateRangeFilter
-} from '../../utils/chartDataProcessing';
-import { 
-  DataPipelineMonitor, 
+  parseApiDate,
+  processTimeSeriesData,
+} from "../../utils/chartDataProcessing";
+import { chartColorArrays } from "../../utils/colorClasses";
+import {
+  DataPipelineMonitor,
+  compareDataSources,
   validateDataPipeline,
-  compareDataSources 
-} from '../../utils/dataConsistencyDebugger';
+} from "../../utils/dataConsistencyDebugger";
+import LiquidGlassCard from "../ui/LiquidGlassCard";
+import { LiquidGlassSpinner } from "../ui/LiquidGlassSpinner";
 // Model filtering handled within processTimeSeriesData
 
 interface MetricsOverTimeCardProps {
@@ -71,25 +82,31 @@ interface MetricsOverTimeCardProps {
 // Using shared interfaces from chartDataProcessing utils
 // Legacy interfaces removed - now using centralized types
 
-type MetricType = 'shareOfVoice' | 'inclusionRate';
+type MetricType = "shareOfVoice" | "inclusionRate";
 
-const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel = 'all' }) => {
+const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({
+  selectedModel = "all",
+}) => {
   const { data, error, filters } = useDashboard();
   const { selectedCompany } = useCompany();
-  const [selectedMetric, setSelectedMetric] = useState<MetricType>('shareOfVoice');
+  const [selectedMetric, setSelectedMetric] =
+    useState<MetricType>("shareOfVoice");
   const [showModelBreakdown, setShowModelBreakdown] = useState<boolean>(false);
-  
+
   // Smart granularity defaults based on date range
-  const optimalGranularity = useMemo(() => 
-    getOptimalGranularity((filters?.dateRange || '30d') as DateRangeFilter), 
+  const optimalGranularity = useMemo(
+    () =>
+      getOptimalGranularity((filters?.dateRange || "30d") as DateRangeFilter),
     [filters?.dateRange]
   );
-  
-  const [granularity, setGranularity] = useState<GranularityFilter>(optimalGranularity);
-  const [granularityDropdownOpen, setGranularityDropdownOpen] = useState<boolean>(false);
+
+  const [granularity, setGranularity] =
+    useState<GranularityFilter>(optimalGranularity);
+  const [granularityDropdownOpen, setGranularityDropdownOpen] =
+    useState<boolean>(false);
   const [animationKey, setAnimationKey] = useState<number>(0);
   const granularityDropdownRef = useRef<HTMLDivElement>(null);
-  
+
   // State for component-level granularity data
   const [granularityData, setGranularityData] = useState<{
     shareOfVoiceHistory: ShareOfVoiceHistoryItem[];
@@ -103,7 +120,9 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
 
   // Update granularity when date range changes for optimal user experience
   useEffect(() => {
-    const newOptimalGranularity = getOptimalGranularity((filters?.dateRange || '30d') as DateRangeFilter);
+    const newOptimalGranularity = getOptimalGranularity(
+      (filters?.dateRange || "30d") as DateRangeFilter
+    );
     setGranularity(newOptimalGranularity);
   }, [filters?.dateRange]);
 
@@ -120,21 +139,23 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
 
     // Fetch granularity-specific data with enterprise-grade monitoring
     const fetchGranularityData = async () => {
-      setGranularityData(prev => ({ ...prev, loading: true }));
-      
+      setGranularityData((prev) => ({ ...prev, loading: true }));
+
       try {
         // Fetch aggregated data based on granularity
         const currentFilters = {
           dateRange: filters?.dateRange,
-          aiModel: selectedModel !== 'all' ? selectedModel : filters?.aiModel,
+          aiModel: selectedModel !== "all" ? selectedModel : filters?.aiModel,
           granularity,
         };
 
         console.group(`🔄 [MetricsOverTimeCard] Fetching granularity data`);
-        console.log('🎯 Filters:', currentFilters);
-        console.log('🏢 Company:', selectedCompany.name);
-        console.log('🔧 MetricsOverTimeCard fetches data WITH granularity parameter');
-        
+        console.log("🎯 Filters:", currentFilters);
+        console.log("🏢 Company:", selectedCompany.name);
+        console.log(
+          "🔧 MetricsOverTimeCard fetches data WITH granularity parameter"
+        );
+
         const [sovHistory, inclusionHistory] = await Promise.all([
           getShareOfVoiceHistory(selectedCompany.id, currentFilters),
           getInclusionRateHistory(selectedCompany.id, currentFilters),
@@ -145,10 +166,10 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
           `${selectedCompany.id}-sov-${granularity}-${filters?.dateRange}`,
           sovHistory,
           {
-            component: 'MetricsOverTimeCard',
-            operation: 'fetchShareOfVoiceHistory',
+            component: "MetricsOverTimeCard",
+            operation: "fetchShareOfVoiceHistory",
             filters: currentFilters,
-            companyId: selectedCompany.id
+            companyId: selectedCompany.id,
           }
         );
 
@@ -156,26 +177,26 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
           `${selectedCompany.id}-inclusion-${granularity}-${filters?.dateRange}`,
           inclusionHistory,
           {
-            component: 'MetricsOverTimeCard',
-            operation: 'fetchInclusionRateHistory',
+            component: "MetricsOverTimeCard",
+            operation: "fetchInclusionRateHistory",
             filters: currentFilters,
-            companyId: selectedCompany.id
+            companyId: selectedCompany.id,
           }
         );
 
         // Validate data pipeline integrity
         const sovValid = validateDataPipeline(sovHistory, {
-          component: 'MetricsOverTimeCard',
-          operation: 'shareOfVoiceValidation',
+          component: "MetricsOverTimeCard",
+          operation: "shareOfVoiceValidation",
           filters: currentFilters,
-          companyId: selectedCompany.id
+          companyId: selectedCompany.id,
         });
 
         const inclusionValid = validateDataPipeline(inclusionHistory, {
-          component: 'MetricsOverTimeCard', 
-          operation: 'inclusionRateValidation',
+          component: "MetricsOverTimeCard",
+          operation: "inclusionRateValidation",
           filters: currentFilters,
-          companyId: selectedCompany.id
+          companyId: selectedCompany.id,
         });
 
         // Compare with dashboard context data if available
@@ -184,25 +205,37 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
             `${selectedCompany.id}-sov-context-${filters?.dateRange}`,
             data.shareOfVoiceHistory,
             {
-              component: 'DashboardContext',
-              operation: 'shareOfVoiceHistory',
-              filters: { dateRange: filters?.dateRange, aiModel: filters?.aiModel },
-              companyId: selectedCompany.id
+              component: "DashboardContext",
+              operation: "shareOfVoiceHistory",
+              filters: {
+                dateRange: filters?.dateRange,
+                aiModel: filters?.aiModel,
+              },
+              companyId: selectedCompany.id,
             }
           );
-          
+
           compareDataSources(sovReport, contextReport);
         }
 
         if (!sovValid || !inclusionValid) {
-          console.error('🚨 [MetricsOverTimeCard] Data pipeline validation failed');
+          console.error(
+            "🚨 [MetricsOverTimeCard] Data pipeline validation failed"
+          );
         }
 
         console.groupEnd();
 
-        console.log(`[MetricsOverTimeCard] Received SOV history: ${sovHistory.length} points`);
-        console.log(`[MetricsOverTimeCard] Received inclusion history: ${inclusionHistory.length} points`);
-        console.log('[MetricsOverTimeCard] SOV History sample:', sovHistory.slice(0, 3));
+        console.log(
+          `[MetricsOverTimeCard] Received SOV history: ${sovHistory.length} points`
+        );
+        console.log(
+          `[MetricsOverTimeCard] Received inclusion history: ${inclusionHistory.length} points`
+        );
+        console.log(
+          "[MetricsOverTimeCard] SOV History sample:",
+          sovHistory.slice(0, 3)
+        );
 
         setGranularityData({
           shareOfVoiceHistory: sovHistory,
@@ -210,30 +243,44 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
           loading: false,
         });
       } catch (error) {
-        console.error('🚨 [MetricsOverTimeCard] Failed to fetch granularity data:', error);
-        setGranularityData(prev => ({ ...prev, loading: false }));
+        console.error(
+          "🚨 [MetricsOverTimeCard] Failed to fetch granularity data:",
+          error
+        );
+        setGranularityData((prev) => ({ ...prev, loading: false }));
       }
     };
 
     fetchGranularityData();
-  }, [granularity, selectedModel, filters?.dateRange, filters?.aiModel, selectedCompany, data?.shareOfVoiceHistory, data?.inclusionRateHistory]);
+  }, [
+    granularity,
+    selectedModel,
+    filters?.dateRange,
+    filters?.aiModel,
+    selectedCompany,
+    data?.shareOfVoiceHistory,
+    data?.inclusionRateHistory,
+  ]);
 
   const handleToggleBreakdown = () => {
     setShowModelBreakdown(!showModelBreakdown);
-    setAnimationKey(prev => prev + 1); // Force re-render with new animation
+    setAnimationKey((prev) => prev + 1); // Force re-render with new animation
   };
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (granularityDropdownRef.current && !granularityDropdownRef.current.contains(event.target as Node)) {
+      if (
+        granularityDropdownRef.current &&
+        !granularityDropdownRef.current.contains(event.target as Node)
+      ) {
         setGranularityDropdownOpen(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
@@ -246,9 +293,10 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
    */
   const chartDataResult = useMemo(() => {
     // Get the appropriate history data based on selected metric from granularity-aware data
-    const historyData = selectedMetric === 'inclusionRate' 
-      ? granularityData.inclusionRateHistory 
-      : granularityData.shareOfVoiceHistory;
+    const historyData =
+      selectedMetric === "inclusionRate"
+        ? granularityData.inclusionRateHistory
+        : granularityData.shareOfVoiceHistory;
 
     if (!historyData || !Array.isArray(historyData)) {
       return { chartData: [], modelIds: [] };
@@ -256,12 +304,12 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
 
     // Use centralized chart data processing
     const result = processTimeSeriesData<
-      ShareOfVoiceHistoryItem | InclusionRateHistoryItem, 
+      ShareOfVoiceHistoryItem | InclusionRateHistoryItem,
       MetricsChartDataPoint
     >(
       historyData,
       {
-        dateRange: (filters?.dateRange || '30d') as DateRangeFilter,
+        dateRange: (filters?.dateRange || "30d") as DateRangeFilter,
         selectedModel,
         showModelBreakdown,
         includeZeroPoint: true,
@@ -271,7 +319,7 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
       (item: ShareOfVoiceHistoryItem | InclusionRateHistoryItem) => {
         const parsedDate = parseApiDate(item.date);
         if (!parsedDate) return null;
-        
+
         // Create chart data point with the selected metric value
         // For breakdown mode, we need to set the primary metric value that will be used for model keys
         const chartPoint: MetricsChartDataPoint = {
@@ -280,79 +328,118 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
           shareOfVoice: 0,
           inclusionRate: 0,
           aggregationType: granularity,
-          reportCount: (item as ShareOfVoiceHistoryItem & { reportCount?: number }).reportCount, // Include report count for aggregated data
+          reportCount: (
+            item as ShareOfVoiceHistoryItem & { reportCount?: number }
+          ).reportCount, // Include report count for aggregated data
         };
 
         // Set the appropriate values based on data type and selected metric
-        if ('shareOfVoice' in item) {
+        if ("shareOfVoice" in item) {
           chartPoint.shareOfVoice = item.shareOfVoice;
           chartPoint.inclusionRate = item.inclusionRate || 0;
           // For breakdown mode, set the primary metric that will be mapped to model keys
-          (chartPoint as MetricsChartDataPoint & { primaryValue: number }).primaryValue = selectedMetric === 'shareOfVoice' ? item.shareOfVoice : (item.inclusionRate || 0);
-        } else if ('inclusionRate' in item) {
+          (
+            chartPoint as MetricsChartDataPoint & { primaryValue: number }
+          ).primaryValue =
+            selectedMetric === "shareOfVoice"
+              ? item.shareOfVoice
+              : item.inclusionRate || 0;
+        } else if ("inclusionRate" in item) {
           chartPoint.inclusionRate = item.inclusionRate;
           // For inclusion rate data, we don't have shareOfVoice, so keep at 0
-          (chartPoint as MetricsChartDataPoint & { primaryValue: number }).primaryValue = item.inclusionRate;
+          (
+            chartPoint as MetricsChartDataPoint & { primaryValue: number }
+          ).primaryValue = item.inclusionRate;
         }
 
         return chartPoint;
       },
-      // Value extractor for Y-axis scaling  
+      // Value extractor for Y-axis scaling
       (chartData: MetricsChartDataPoint[], modelIds: string[]) => {
-        const valueKey = selectedMetric === 'shareOfVoice' ? 'shareOfVoice' : 'inclusionRate';
-        
+        const valueKey =
+          selectedMetric === "shareOfVoice" ? "shareOfVoice" : "inclusionRate";
+
         if (modelIds.length > 0) {
           // Breakdown mode: extract values from all model keys
-          return chartData.flatMap(d => 
-            modelIds.map(modelId => d[modelId] as number)
-              .filter(val => typeof val === 'number' && !isNaN(val))
+          return chartData.flatMap((d) =>
+            modelIds
+              .map((modelId) => d[modelId] as number)
+              .filter((val) => typeof val === "number" && !isNaN(val))
           );
         } else {
           // Single line mode: extract values for selected metric
           return chartData
-            .map(d => d[valueKey])
-            .filter(val => typeof val === 'number' && !isNaN(val)) as number[];
+            .map((d) => d[valueKey])
+            .filter(
+              (val) => typeof val === "number" && !isNaN(val)
+            ) as number[];
         }
       }
     );
 
     return {
-      chartData: result.chartData,  
+      chartData: result.chartData,
       modelIds: result.modelIds,
     };
-  }, [granularityData.shareOfVoiceHistory, granularityData.inclusionRateHistory, selectedModel, selectedMetric, showModelBreakdown, filters?.dateRange, granularity]);
+  }, [
+    granularityData.shareOfVoiceHistory,
+    granularityData.inclusionRateHistory,
+    selectedModel,
+    selectedMetric,
+    showModelBreakdown,
+    filters?.dateRange,
+    granularity,
+  ]);
 
-  const chartData = useMemo(() => chartDataResult?.chartData || [], [chartDataResult?.chartData]);
-  const modelIds = useMemo(() => chartDataResult?.modelIds || [], [chartDataResult?.modelIds]);
+  const chartData = useMemo(
+    () => chartDataResult?.chartData || [],
+    [chartDataResult?.chartData]
+  );
+  const modelIds = useMemo(
+    () => chartDataResult?.modelIds || [],
+    [chartDataResult?.modelIds]
+  );
 
   /**
    * Calculate Y-axis and X-axis configuration using shared utilities
    */
   const { yAxisMax, ticks, xAxisInterval } = useMemo(() => {
     if (!chartData || chartData.length === 0) {
-      return { yAxisMax: 100, ticks: [0, 20, 40, 60, 80, 100], xAxisInterval: 0 };
+      return {
+        yAxisMax: 100,
+        ticks: [0, 20, 40, 60, 80, 100],
+        xAxisInterval: 0,
+      };
     }
-    
+
     // Extract values for Y-axis scaling using shared logic
     let values: number[] = [];
     if (showModelBreakdown && modelIds.length > 0) {
-      values = chartData.flatMap((d: MetricsChartDataPoint & Record<string, unknown>) => 
-        modelIds.map((modelId: string) => d[modelId] as number)
-          .filter((val: unknown) => typeof val === 'number' && !isNaN(val))
+      values = chartData.flatMap(
+        (d: MetricsChartDataPoint & Record<string, unknown>) =>
+          modelIds
+            .map((modelId: string) => d[modelId] as number)
+            .filter((val: unknown) => typeof val === "number" && !isNaN(val))
       );
     } else {
-      const metricKey = selectedMetric === 'shareOfVoice' ? 'shareOfVoice' : 'inclusionRate';
+      const metricKey =
+        selectedMetric === "shareOfVoice" ? "shareOfVoice" : "inclusionRate";
       values = chartData
-        .map((d: MetricsChartDataPoint) => d[metricKey as keyof MetricsChartDataPoint])
-        .filter((val: unknown) => typeof val === 'number' && !isNaN(val)) as number[];
+        .map(
+          (d: MetricsChartDataPoint) =>
+            d[metricKey as keyof MetricsChartDataPoint]
+        )
+        .filter(
+          (val: unknown) => typeof val === "number" && !isNaN(val)
+        ) as number[];
     }
-    
+
     // Use centralized Y-axis scaling (metrics are percentages, 0-100 range)
     const { yAxisMax, ticks } = calculateYAxisScaling(values, true, 100);
-    
+
     // Use centralized X-axis interval calculation
     const xAxisInterval = calculateXAxisInterval(chartData.length);
-    
+
     return { yAxisMax, ticks, xAxisInterval };
   }, [chartData, selectedMetric, showModelBreakdown, modelIds]);
 
@@ -362,22 +449,22 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
    */
   const getCurrentMetricValue = () => {
     if (!data) return null;
-    
+
     // Use extractCurrentValue utility for consistency with chart data
     const currentValueFromChart = extractCurrentValue(
       chartData,
-      selectedMetric === 'shareOfVoice' ? 'shareOfVoice' : 'inclusionRate',
+      selectedMetric === "shareOfVoice" ? "shareOfVoice" : "inclusionRate",
       modelIds,
       showModelBreakdown
     );
-    
+
     // If we have chart data, use it for consistency
     if (currentValueFromChart !== null) {
       return currentValueFromChart;
     }
-    
+
     // Fallback to direct data fields
-    if (selectedMetric === 'shareOfVoice') {
+    if (selectedMetric === "shareOfVoice") {
       return data.shareOfVoice;
     } else {
       return data.averageInclusionRate;
@@ -386,8 +473,8 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
 
   const getCurrentMetricChange = () => {
     if (!data) return null;
-    
-    if (selectedMetric === 'shareOfVoice') {
+
+    if (selectedMetric === "shareOfVoice") {
       return data.shareOfVoiceChange;
     } else {
       return data.averageInclusionChange;
@@ -396,23 +483,23 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
 
   const getMetricLabel = () => {
     switch (selectedMetric) {
-      case 'shareOfVoice':
-        return 'Share of Voice';
-      case 'inclusionRate':
-        return 'Inclusion Rate';
+      case "shareOfVoice":
+        return "Share of Voice";
+      case "inclusionRate":
+        return "Inclusion Rate";
       default:
-        return 'Share of Voice';
+        return "Share of Voice";
     }
   };
 
   const getDataKey = () => {
     switch (selectedMetric) {
-      case 'shareOfVoice':
-        return 'shareOfVoice';
-      case 'inclusionRate':
-        return 'inclusionRate';
+      case "shareOfVoice":
+        return "shareOfVoice";
+      case "inclusionRate":
+        return "inclusionRate";
       default:
-        return 'shareOfVoice';
+        return "shareOfVoice";
     }
   };
 
@@ -443,97 +530,119 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
       );
     }
 
-
     return (
-              <div className="flex-1 min-h-0 relative">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart 
-              data={chartData} 
-              margin={{ 
-                top: 5, 
-                right: showModelBreakdown ? 35 : 15, // Just enough space for icons when in breakdown mode
-                bottom: 0, 
-                left: 20 
-              }}
-            >
-            <CartesianGrid 
-              strokeDasharray="3 3" 
-              stroke="#e2e8f0" 
+      <div className="flex-1 min-h-0 relative" style={{ minHeight: "290px" }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart
+            data={chartData}
+            margin={{
+              top: 5,
+              right: showModelBreakdown ? 35 : 15, // Just enough space for icons when in breakdown mode
+              bottom: 0,
+              left: 20,
+            }}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="#e2e8f0"
               strokeWidth={1}
               horizontalPoints={[0]}
             />
-            <XAxis 
-              dataKey="date" 
-              axisLine={{ stroke: '#e2e8f0', strokeWidth: 1 }}
+            <XAxis
+              dataKey="date"
+              axisLine={{ stroke: "#e2e8f0", strokeWidth: 1 }}
               tickLine={false}
-              tick={{ 
-                fontSize: 11, 
-                fill: '#64748b',
-                textAnchor: chartData.length > 10 ? 'end' : 'middle'
+              tick={{
+                fontSize: 11,
+                fill: "#64748b",
+                textAnchor: chartData.length > 10 ? "end" : "middle",
               }}
               tickMargin={chartData.length > 10 ? 2 : 0}
               interval={xAxisInterval}
               angle={chartData.length > 10 ? -45 : 0}
               height={chartData.length > 10 ? 25 : 20}
             />
-            <YAxis 
+            <YAxis
               domain={[0, yAxisMax]}
               ticks={ticks}
               interval={0}
               allowDecimals={false}
-              axisLine={{ stroke: '#e2e8f0', strokeWidth: 1 }}
+              axisLine={{ stroke: "#e2e8f0", strokeWidth: 1 }}
               tickLine={false}
-              tick={{ fontSize: 11, fill: '#64748b' }}
+              tick={{ fontSize: 11, fill: "#64748b" }}
               tickFormatter={(value) => `${value}%`}
               width={20}
             />
-            <Tooltip 
+            <Tooltip
               contentStyle={{
-                backgroundColor: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                fontSize: '12px'
+                backgroundColor: "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: "8px",
+                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                fontSize: "12px",
               }}
               content={(props) => {
-                if (!props.active || !props.payload || props.payload.length === 0) return null;
-                
+                if (
+                  !props.active ||
+                  !props.payload ||
+                  props.payload.length === 0
+                )
+                  return null;
+
                 // Don't show tooltip for zero points
                 if (props.payload[0]?.payload?.isZeroPoint) {
                   return null;
                 }
-                
+
                 const label = props.label;
-                
+
                 if (showModelBreakdown) {
                   // For breakdown mode, show all models at this data point
-                  const payload = props.payload.filter(entry => entry.value !== null && entry.value !== undefined);
-                  
+                  const payload = props.payload.filter(
+                    (entry) => entry.value !== null && entry.value !== undefined
+                  );
+
                   if (payload.length === 0) return null;
-                  
+
                   // Sort payload by value in descending order
                   const sortedPayload = [...payload].sort((a, b) => {
-                    const valueA = typeof a.value === 'number' ? a.value : 0;
-                    const valueB = typeof b.value === 'number' ? b.value : 0;
+                    const valueA = typeof a.value === "number" ? a.value : 0;
+                    const valueB = typeof b.value === "number" ? b.value : 0;
                     return valueB - valueA;
                   });
-                  
+
                   return (
-                    <div style={{
-                      backgroundColor: '#ffffff',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                      fontSize: '12px',
-                      padding: '8px'
-                    }}>
-                      <p style={{ margin: '0 0 4px 0', fontWeight: 'bold' }}>{label && `Date: ${label}`}</p>
+                    <div
+                      style={{
+                        backgroundColor: "#ffffff",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "8px",
+                        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                        fontSize: "12px",
+                        padding: "8px",
+                      }}
+                    >
+                      <p style={{ margin: "0 0 4px 0", fontWeight: "bold" }}>
+                        {label && `Date: ${label}`}
+                      </p>
                       {sortedPayload.map((entry, index) => (
-                        <p key={index} style={{ 
-                          margin: index === sortedPayload.length - 1 ? 0 : '0 0 2px 0', 
-                          color: entry.color || entry.stroke || '#2563eb' 
-                        }}>
-                          {getModelDisplayName(entry.dataKey as string) || entry.dataKey}: {typeof entry.value === 'number' ? entry.value.toFixed(1) : '0.0'}%
+                        <p
+                          key={index}
+                          style={{
+                            margin:
+                              index === sortedPayload.length - 1
+                                ? 0
+                                : "0 0 2px 0",
+                            color: entry.color || entry.stroke || "#2563eb",
+                          }}
+                        >
+                          {getModelDisplayName(entry.dataKey as string) ||
+                            entry.dataKey}
+                          :{" "}
+                          {typeof entry.value === "number"
+                            ? entry.value.toFixed(1)
+                            : "0.0"}
+                          %
                         </p>
                       ))}
                     </div>
@@ -542,20 +651,25 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
                   // For single line mode
                   const data = props.payload[0];
                   const value = data.value;
-                  const color = data.color || data.stroke || '#2563eb';
-                  
+                  const color = data.color || data.stroke || "#2563eb";
+
                   return (
-                    <div style={{
-                      backgroundColor: '#ffffff',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                      fontSize: '12px',
-                      padding: '8px'
-                    }}>
-                      <p style={{ margin: '0 0 4px 0', fontWeight: 'bold' }}>{label && `Date: ${label}`}</p>
+                    <div
+                      style={{
+                        backgroundColor: "#ffffff",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "8px",
+                        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                        fontSize: "12px",
+                        padding: "8px",
+                      }}
+                    >
+                      <p style={{ margin: "0 0 4px 0", fontWeight: "bold" }}>
+                        {label && `Date: ${label}`}
+                      </p>
                       <p style={{ margin: 0, color: color }}>
-                        {getMetricLabel()}: {typeof value === 'number' ? value.toFixed(1) : '0.0'}%
+                        {getMetricLabel()}:{" "}
+                        {typeof value === "number" ? value.toFixed(1) : "0.0"}%
                       </p>
                     </div>
                   );
@@ -566,175 +680,194 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
               shared={showModelBreakdown}
               trigger="hover"
               isAnimationActive={false}
-              wrapperStyle={{ outline: 'none' }}
+              wrapperStyle={{ outline: "none" }}
             />
-                         {showModelBreakdown ? (
-               // Multi-line mode: render an area for each model with animation
-               modelIds.map((modelId: string, idx: number) => {
-                 const color = chartColorArrays.multiColor[idx % chartColorArrays.multiColor.length];
-                 return (
-                   <Area
-                     key={`${modelId}-${animationKey}`}
-                     type="monotone"
-                     dataKey={modelId}
-                     name={modelId}
-                     stroke={color}
-                     fill={color}
-                     fillOpacity={0.2}
-                     strokeWidth={chartData.length > 1 ? 2 : 0}
-                     dot={(props: { cx?: number; cy?: number; payload?: { isZeroPoint?: boolean } }) => {
-                       if (props.payload?.isZeroPoint) return <g />;
-                       return (
-                         <circle 
-                           cx={props.cx} 
-                           cy={props.cy} 
-                           r={4} 
-                           fill={color}
-                           strokeWidth={0}
-                         />
-                       );
-                     }}
-                     activeDot={(props: { cx?: number; cy?: number; payload?: { isZeroPoint?: boolean } }) => {
-                       if (props.payload?.isZeroPoint) return <g />;
-                       return (
-                         <circle 
-                           cx={props.cx} 
-                           cy={props.cy} 
-                           r={5} 
-                           fill={color}
-                           strokeWidth={0}
-                         />
-                       );
-                     }}
-                     connectNulls={false}
-                     isAnimationActive={true}
-                     animationBegin={idx * 100}
-                     animationDuration={800}
-                   />
-                 );
-               })
-             ) : (
-               // Single-line mode: render one aggregated area
-               <Area
-                 key={`single-${animationKey}`}
-                 type="monotone"
-                 dataKey={getDataKey()}
-                 stroke="#2563eb"
-                 fill="#2563eb"
-                 fillOpacity={0.1}
-                 strokeWidth={chartData.length > 1 ? 2 : 0}
-                 dot={(props: { cx?: number; cy?: number; payload?: { isZeroPoint?: boolean } }) => {
-                   if (props.payload?.isZeroPoint) return <g />;
-                   const r = chartData.length === 1 ? 6 : 4;
-                   const strokeWidth = chartData.length === 1 ? 2 : 0;
-                   const stroke = chartData.length === 1 ? '#ffffff' : '#2563eb';
-                   return (
-                     <circle 
-                       cx={props.cx} 
-                       cy={props.cy} 
-                       r={r} 
-                       fill="#2563eb"
-                       strokeWidth={strokeWidth}
-                       stroke={stroke}
-                     />
-                   );
-                 }}
-                 activeDot={(props: { cx?: number; cy?: number; payload?: { isZeroPoint?: boolean } }) => {
-                   if (props.payload?.isZeroPoint) return <g />;
-                   return (
-                     <circle 
-                       cx={props.cx} 
-                       cy={props.cy} 
-                       r={6} 
-                       fill="#2563eb"
-                       strokeWidth={1}
-                       stroke="#ffffff"
-                     />
-                   );
-                 }}
-                 connectNulls={false}
-                 isAnimationActive={true}
-                 animationDuration={600}
-               />
-             )}
-                      </AreaChart>
-        </ResponsiveContainer>
-        
-                 {/* Model icons positioned at the end of each line */}
-         {showModelBreakdown && modelIds.length > 0 && chartData.length > 0 && (
-           <div className="absolute inset-0 pointer-events-none">
-             {(() => {
-               const lastDataPoint = chartData[chartData.length - 1];
-               
-               // Group models by their score value for horizontal offsetting
-               const modelsByScore: Record<number, string[]> = {};
-               modelIds.forEach(modelId => {
-                 const value = lastDataPoint[modelId] as number;
-                 if (value !== undefined && value !== null) {
-                   const roundedValue = Math.round(value * 10) / 10; // Round to 1 decimal for grouping
-                   if (!modelsByScore[roundedValue]) {
-                     modelsByScore[roundedValue] = [];
-                   }
-                   modelsByScore[roundedValue].push(modelId);
-                 }
-               });
-
-               return modelIds.map((modelId: string) => {
-                 const value = lastDataPoint[modelId] as number;
-                 if (value === undefined || value === null) return null;
-                 
-                 // Calculate position based on chart dimensions and value
-                 const chartHeight = 100; // Approximate chart height percentage
-                 const yPercent = ((yAxisMax - value) / yAxisMax) * chartHeight;
-                 
-                 // Calculate horizontal offset for models with same score
-                 const roundedValue = Math.round(value * 10) / 10;
-                 const modelsAtSameScore = modelsByScore[roundedValue];
-                 const indexInGroup = modelsAtSameScore.indexOf(modelId);
-                 const totalInGroup = modelsAtSameScore.length;
-                 
-                                   // Calculate horizontal offset (spread models horizontally when they have same score)
-                  let horizontalOffset = 5; // Default right position
-                  let zIndex = 1; // Default z-index
-                  if (totalInGroup > 1) {
-                    const spacing = 8; // pixels between icons
-                    const totalWidth = (totalInGroup - 1) * spacing;
-                    const startOffset = 5 + totalWidth / 2; // Center the group
-                    horizontalOffset = startOffset - (indexInGroup * spacing);
-                    // Leftmost icon (index 0) gets highest z-index
-                    zIndex = totalInGroup - indexInGroup;
-                  }
-                  
-                  const modelConfig = MODEL_CONFIGS[modelId];
-                  
+            {showModelBreakdown ? (
+              // Multi-line mode: render an area for each model with animation
+              modelIds.map((modelId: string, idx: number) => {
+                const color =
+                  chartColorArrays.multiColor[
+                    idx % chartColorArrays.multiColor.length
+                  ];
+                return (
+                  <Area
+                    key={`${modelId}-${animationKey}`}
+                    type="monotone"
+                    dataKey={modelId}
+                    name={modelId}
+                    stroke={color}
+                    fill={color}
+                    fillOpacity={0.2}
+                    strokeWidth={chartData.length > 1 ? 2 : 0}
+                    dot={(props: {
+                      cx?: number;
+                      cy?: number;
+                      payload?: { isZeroPoint?: boolean };
+                    }) => {
+                      if (props.payload?.isZeroPoint) return <g />;
+                      return (
+                        <circle
+                          cx={props.cx}
+                          cy={props.cy}
+                          r={4}
+                          fill={color}
+                          strokeWidth={0}
+                        />
+                      );
+                    }}
+                    activeDot={(props: {
+                      cx?: number;
+                      cy?: number;
+                      payload?: { isZeroPoint?: boolean };
+                    }) => {
+                      if (props.payload?.isZeroPoint) return <g />;
+                      return (
+                        <circle
+                          cx={props.cx}
+                          cy={props.cy}
+                          r={5}
+                          fill={color}
+                          strokeWidth={0}
+                        />
+                      );
+                    }}
+                    connectNulls={false}
+                    isAnimationActive={true}
+                    animationBegin={idx * 100}
+                    animationDuration={800}
+                  />
+                );
+              })
+            ) : (
+              // Single-line mode: render one aggregated area
+              <Area
+                key={`single-${animationKey}`}
+                type="monotone"
+                dataKey={getDataKey()}
+                stroke="#2563eb"
+                fill="#2563eb"
+                fillOpacity={0.1}
+                strokeWidth={chartData.length > 1 ? 2 : 0}
+                dot={(props: {
+                  cx?: number;
+                  cy?: number;
+                  payload?: { isZeroPoint?: boolean };
+                }) => {
+                  if (props.payload?.isZeroPoint) return <g />;
+                  const r = chartData.length === 1 ? 6 : 4;
+                  const strokeWidth = chartData.length === 1 ? 2 : 0;
+                  const stroke = chartData.length === 1 ? "#ffffff" : "#2563eb";
                   return (
-                    <div
-                      key={`icon-${modelId}`}
-                      className="absolute w-6 h-6 rounded-full bg-white shadow-sm flex items-center justify-center"
-                      style={{
-                        top: `${Math.max(5, Math.min(85, yPercent - 4))}%`,
-                        right: `${horizontalOffset}px`,
-                        transform: 'translateY(-50%)',
-                        zIndex: zIndex
-                      }}
-                   >
-                     {modelConfig?.logoUrl ? (
-                       <img 
-                         src={modelConfig.logoUrl} 
-                         alt={getModelDisplayName(modelId)}
-                         className="w-4 h-4 rounded-full object-contain"
-                       />
-                     ) : (
-                       <span className="text-xs font-bold text-gray-600">
-                         {getModelDisplayName(modelId).charAt(0)}
-                       </span>
-                     )}
-                   </div>
-                 );
-               });
-             })()}
-           </div>
-         )}
+                    <circle
+                      cx={props.cx}
+                      cy={props.cy}
+                      r={r}
+                      fill="#2563eb"
+                      strokeWidth={strokeWidth}
+                      stroke={stroke}
+                    />
+                  );
+                }}
+                activeDot={(props: {
+                  cx?: number;
+                  cy?: number;
+                  payload?: { isZeroPoint?: boolean };
+                }) => {
+                  if (props.payload?.isZeroPoint) return <g />;
+                  return (
+                    <circle
+                      cx={props.cx}
+                      cy={props.cy}
+                      r={6}
+                      fill="#2563eb"
+                      strokeWidth={1}
+                      stroke="#ffffff"
+                    />
+                  );
+                }}
+                connectNulls={false}
+                isAnimationActive={true}
+                animationDuration={600}
+              />
+            )}
+          </AreaChart>
+        </ResponsiveContainer>
+
+        {/* Model icons positioned at the end of each line */}
+        {showModelBreakdown && modelIds.length > 0 && chartData.length > 0 && (
+          <div className="absolute inset-0 pointer-events-none">
+            {(() => {
+              const lastDataPoint = chartData[chartData.length - 1];
+
+              // Group models by their score value for horizontal offsetting
+              const modelsByScore: Record<number, string[]> = {};
+              modelIds.forEach((modelId) => {
+                const value = lastDataPoint[modelId] as number;
+                if (value !== undefined && value !== null) {
+                  const roundedValue = Math.round(value * 10) / 10; // Round to 1 decimal for grouping
+                  if (!modelsByScore[roundedValue]) {
+                    modelsByScore[roundedValue] = [];
+                  }
+                  modelsByScore[roundedValue].push(modelId);
+                }
+              });
+
+              return modelIds.map((modelId: string) => {
+                const value = lastDataPoint[modelId] as number;
+                if (value === undefined || value === null) return null;
+
+                // Calculate position based on chart dimensions and value
+                const chartHeight = 100; // Approximate chart height percentage
+                const yPercent = ((yAxisMax - value) / yAxisMax) * chartHeight;
+
+                // Calculate horizontal offset for models with same score
+                const roundedValue = Math.round(value * 10) / 10;
+                const modelsAtSameScore = modelsByScore[roundedValue];
+                const indexInGroup = modelsAtSameScore.indexOf(modelId);
+                const totalInGroup = modelsAtSameScore.length;
+
+                // Calculate horizontal offset (spread models horizontally when they have same score)
+                let horizontalOffset = 5; // Default right position
+                let zIndex = 1; // Default z-index
+                if (totalInGroup > 1) {
+                  const spacing = 8; // pixels between icons
+                  const totalWidth = (totalInGroup - 1) * spacing;
+                  const startOffset = 5 + totalWidth / 2; // Center the group
+                  horizontalOffset = startOffset - indexInGroup * spacing;
+                  // Leftmost icon (index 0) gets highest z-index
+                  zIndex = totalInGroup - indexInGroup;
+                }
+
+                const modelConfig = MODEL_CONFIGS[modelId];
+
+                return (
+                  <div
+                    key={`icon-${modelId}`}
+                    className="absolute w-6 h-6 rounded-full bg-white shadow-sm flex items-center justify-center"
+                    style={{
+                      top: `${Math.max(5, Math.min(85, yPercent - 4))}%`,
+                      right: `${horizontalOffset}px`,
+                      transform: "translateY(-50%)",
+                      zIndex: zIndex,
+                    }}
+                  >
+                    {modelConfig?.logoUrl ? (
+                      <img
+                        src={modelConfig.logoUrl}
+                        alt={getModelDisplayName(modelId)}
+                        className="w-4 h-4 rounded-full object-contain"
+                      />
+                    ) : (
+                      <span className="text-xs font-bold text-gray-600">
+                        {getModelDisplayName(modelId).charAt(0)}
+                      </span>
+                    )}
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        )}
       </div>
     );
   };
@@ -747,98 +880,120 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
-            <h3 className="text-lg font-semibold text-gray-800">{getMetricLabel()}</h3>
-            {currentValue !== null && typeof currentValue === 'number' && (
+            <h3 className="text-lg font-semibold text-gray-800">
+              {getMetricLabel()}
+            </h3>
+            {currentValue !== null && typeof currentValue === "number" && (
               <div className="h-8 px-3 bg-white/60 backdrop-blur-sm border border-white/30 rounded-lg shadow-inner flex items-center justify-center">
                 <span className="text-sm font-medium text-gray-700">
                   {currentValue.toFixed(1)}%
                 </span>
               </div>
             )}
-            {currentChange !== null && typeof currentChange === 'number' && Math.abs(currentChange) >= 0.1 && (
-              <span className={`flex items-center text-xs font-medium ${
-                currentChange > 0 ? 'text-green-500' : currentChange < 0 ? 'text-red-500' : 'text-gray-400'
-              }`}>
-                {currentChange > 0 ? '↗' : currentChange < 0 ? '↘' : '—'}
-                {Math.abs(currentChange).toFixed(1)}%
-              </span>
-            )}
+            {currentChange !== null &&
+              typeof currentChange === "number" &&
+              Math.abs(currentChange) >= 0.1 && (
+                <span
+                  className={`flex items-center text-xs font-medium ${
+                    currentChange > 0
+                      ? "text-green-500"
+                      : currentChange < 0
+                        ? "text-red-500"
+                        : "text-gray-400"
+                  }`}
+                >
+                  {currentChange > 0 ? "↗" : currentChange < 0 ? "↘" : "—"}
+                  {Math.abs(currentChange).toFixed(1)}%
+                </span>
+              )}
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <div className="flex space-x-1">
             <button
-              onClick={() => setSelectedMetric('shareOfVoice')}
+              onClick={() => setSelectedMetric("shareOfVoice")}
               className={`w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation ${
-                selectedMetric === 'shareOfVoice'
-                  ? 'bg-white/60 backdrop-blur-sm border border-white/30 shadow-inner text-gray-900'
-                  : 'bg-white/80 backdrop-blur-sm border border-white/20 shadow-md text-gray-500 hover:text-gray-700 hover:bg-white/85'
+                selectedMetric === "shareOfVoice"
+                  ? "bg-white/60 backdrop-blur-sm border border-white/30 shadow-inner text-gray-900"
+                  : "bg-white/80 backdrop-blur-sm border border-white/20 shadow-md text-gray-500 hover:text-gray-700 hover:bg-white/85"
               }`}
               title="Share of Voice"
-              style={{ 
-                WebkitTapHighlightColor: 'transparent',
-                WebkitUserSelect: 'none',
-                userSelect: 'none'
+              style={{
+                WebkitTapHighlightColor: "transparent",
+                WebkitUserSelect: "none",
+                userSelect: "none",
               }}
             >
               <MessageSquare size={14} />
             </button>
             <button
-              onClick={() => setSelectedMetric('inclusionRate')}
+              onClick={() => setSelectedMetric("inclusionRate")}
               className={`w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation ${
-                selectedMetric === 'inclusionRate'
-                  ? 'bg-white/60 backdrop-blur-sm border border-white/30 shadow-inner text-gray-900'
-                  : 'bg-white/80 backdrop-blur-sm border border-white/20 shadow-md text-gray-500 hover:text-gray-700 hover:bg-white/85'
+                selectedMetric === "inclusionRate"
+                  ? "bg-white/60 backdrop-blur-sm border border-white/30 shadow-inner text-gray-900"
+                  : "bg-white/80 backdrop-blur-sm border border-white/20 shadow-md text-gray-500 hover:text-gray-700 hover:bg-white/85"
               }`}
               title="Inclusion Rate"
-              style={{ 
-                WebkitTapHighlightColor: 'transparent',
-                WebkitUserSelect: 'none',
-                userSelect: 'none'
+              style={{
+                WebkitTapHighlightColor: "transparent",
+                WebkitUserSelect: "none",
+                userSelect: "none",
               }}
             >
               <Eye size={14} />
             </button>
-            
+
             <button
               onClick={handleToggleBreakdown}
               className={`w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation ${
                 showModelBreakdown
-                  ? 'bg-white/60 backdrop-blur-sm border border-white/30 shadow-inner text-gray-900'
-                  : 'bg-white/80 backdrop-blur-sm border border-white/20 shadow-md text-gray-500 hover:text-gray-700 hover:bg-white/85'
+                  ? "bg-white/60 backdrop-blur-sm border border-white/30 shadow-inner text-gray-900"
+                  : "bg-white/80 backdrop-blur-sm border border-white/20 shadow-md text-gray-500 hover:text-gray-700 hover:bg-white/85"
               }`}
-              title={showModelBreakdown ? "Show aggregated view" : "Break down by model"}
-              style={{ 
-                WebkitTapHighlightColor: 'transparent',
-                WebkitUserSelect: 'none',
-                userSelect: 'none'
+              title={
+                showModelBreakdown
+                  ? "Show aggregated view"
+                  : "Break down by model"
+              }
+              style={{
+                WebkitTapHighlightColor: "transparent",
+                WebkitUserSelect: "none",
+                userSelect: "none",
               }}
             >
               <Sparkles size={14} />
             </button>
-            
+
             {/* Granularity Selector */}
             <div className="relative ml-2" ref={granularityDropdownRef}>
               <button
-                onClick={() => setGranularityDropdownOpen(!granularityDropdownOpen)}
+                onClick={() =>
+                  setGranularityDropdownOpen(!granularityDropdownOpen)
+                }
                 className="flex items-center justify-center w-16 h-8 px-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md text-xs transition-colors hover:bg-white/85 focus:outline-none select-none touch-manipulation"
                 title="Time granularity"
-                style={{ 
-                  WebkitTapHighlightColor: 'transparent',
-                  WebkitUserSelect: 'none',
-                  userSelect: 'none'
+                style={{
+                  WebkitTapHighlightColor: "transparent",
+                  WebkitUserSelect: "none",
+                  userSelect: "none",
                 }}
               >
-                <span className="text-xs">{granularity === 'day' ? 'Daily' : granularity === 'hour' ? 'Hourly' : 'Weekly'}</span>
+                <span className="text-xs">
+                  {granularity === "day"
+                    ? "Daily"
+                    : granularity === "hour"
+                      ? "Hourly"
+                      : "Weekly"}
+                </span>
               </button>
-              
+
               {granularityDropdownOpen && (
                 <div className="absolute top-full left-0 w-full min-w-20 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md z-50 py-1">
                   {[
-                    { value: 'hour', label: 'Hourly' },
-                    { value: 'day', label: 'Daily' },
-                    { value: 'week', label: 'Weekly' }
+                    { value: "hour", label: "Hourly" },
+                    { value: "day", label: "Daily" },
+                    { value: "week", label: "Weekly" },
                   ].map((option) => {
                     return (
                       <button
@@ -849,10 +1004,10 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
                         }}
                         disabled={granularityData.loading}
                         className="w-full px-2 py-2 text-left text-xs transition-colors flex items-center justify-between group focus:outline-none select-none touch-manipulation hover:bg-white/20 text-gray-800"
-                        style={{ 
-                          WebkitTapHighlightColor: 'transparent',
-                          WebkitUserSelect: 'none',
-                          userSelect: 'none'
+                        style={{
+                          WebkitTapHighlightColor: "transparent",
+                          WebkitUserSelect: "none",
+                          userSelect: "none",
                         }}
                       >
                         <div className="flex items-center gap-1">
@@ -875,4 +1030,4 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({ selectedModel
   );
 };
 
-export default MetricsOverTimeCard; 
+export default MetricsOverTimeCard;

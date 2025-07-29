@@ -116,8 +116,7 @@ export function Navbar() {
           "fixed left-0 right-0 top-0 z-50",
           isLandingStylePage
             ? cn(
-                "bg-black/20 border-b border-white/10 lg:bg-transparent lg:border-none lg:backdrop-blur-none lg:transition-[top] lg:duration-700 lg:ease-in-out",
-                !isScrolled && "backdrop-blur-xl"
+                "bg-transparent border-none backdrop-blur-md lg:backdrop-blur-none lg:transition-[top] lg:duration-700 lg:ease-in-out"
               )
             : "border-b bg-white/80 backdrop-blur-sm dark:border-transparent lg:relative",
           { "lg:top-4": shouldApplyScrollStyles }

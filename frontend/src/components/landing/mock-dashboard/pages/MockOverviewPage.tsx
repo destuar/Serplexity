@@ -46,8 +46,8 @@ const MockOverviewPage: React.FC = () => {
   return (
     <MockDashboardLayout activePage="Dashboard">
       {/* Header Section - Match exact pattern from OverviewPage.tsx */}
-      <div className="flex-shrink-0 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-2">
-        <div className="grid grid-cols-2 lg:flex items-center gap-2 w-full lg:w-auto">
+      <div className="flex-shrink-0 flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-2">
+        <div className="grid grid-cols-2 md:flex lg:flex items-center gap-2 w-full md:w-auto lg:w-auto">
           <MockFilterDropdown
             label="Date Range"
             value={'30d'}
@@ -62,13 +62,13 @@ const MockOverviewPage: React.FC = () => {
           />
           <button 
             disabled={true}
-            className="flex items-center justify-center w-full lg:w-auto gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-black"
+            className="flex items-center justify-center w-full md:w-auto lg:w-auto gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2 md:col-span-1 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-black"
           >
             <RefreshCw size={16} />
             <span className="whitespace-nowrap">Refresh Data</span>
           </button>
         </div>
-        <div>
+        <div className="flex-shrink-0">
           <p className="text-sm text-gray-500">
             Last updated: {new Date().toLocaleString()}
           </p>
@@ -78,18 +78,15 @@ const MockOverviewPage: React.FC = () => {
       {/* Grid layout matching real OverviewPage.tsx */}
       <div className="flex-1 min-h-0 p-1 relative">
         <div className="h-full w-full">
-          <div className="hidden lg:grid h-full w-full gap-4" style={{
+          <div className="hidden md:grid h-full w-full gap-4" style={{
             gridTemplateColumns: 'repeat(48, 1fr)',
-            gridTemplateRows: 'repeat(13, minmax(30px, 1fr))',
+            gridTemplateRows: 'repeat(10, minmax(30px, 1fr))',
             gridTemplateAreas: `
               "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
               "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
               "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
               "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
               "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-              "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-              "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1"
-              "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
               "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
               "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
               "q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 q1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1"
@@ -104,7 +101,7 @@ const MockOverviewPage: React.FC = () => {
           </div>
           
           {/* Mobile Layout */}
-          <div className="lg:hidden h-full overflow-y-auto space-y-4">
+          <div className="md:hidden h-full overflow-y-auto space-y-4">
             <div className="min-h-[400px]">
               <MockVisibilityOverTimeCard />
             </div>

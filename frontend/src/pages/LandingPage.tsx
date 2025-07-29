@@ -42,6 +42,7 @@ const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState<string | null>(null);
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
+  const isMediumScreen = useMediaQuery("(min-width: 768px)");
   const {
     posts: blogPosts,
     loading: postsLoading,
@@ -639,25 +640,50 @@ const LandingPage: React.FC = () => {
           box-shadow: 0 0 15px rgba(119, 98, 255, 0.8);
         }
       }
+
+      /* Mobile-specific optimizations */
+      @media (max-width: 768px) {
+        .dashboard-preview-container::before {
+          left: 1rem;
+          right: 1rem;
+        }
+        
+        .marquee-logo {
+          margin: 0 1rem;
+        }
+        
+        /* Ensure chart cards don't overflow on small screens */
+        .absolute {
+          max-width: calc(100vw - 2rem);
+        }
+      }
+      
+      @media (max-width: 640px) {
+        .dashboard-preview-container::before {
+          left: 0.5rem;
+          right: 0.5rem;
+        }
+      }
       `}</style>
 
       <div className="relative z-10 vertical-grid-container">
         <Navbar />
 
+
         {/* Enhanced Hero Section */}
-        <section className="relative px-4 sm:px-6 lg:px-8 pt-32 md:pt-40 pb-20 md:pb-24 bg-gray-50 min-h-screen">
+        <section className="relative px-4 sm:px-6 lg:px-8 pt-32 sm:pt-36 md:pt-24 lg:pt-32 pb-12 sm:pb-16 md:pb-20 lg:pb-24 bg-gray-50 min-h-screen">
           <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center min-h-[80vh]">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-10 md:gap-12 lg:gap-16 items-center min-h-[70vh] sm:min-h-[75vh] md:min-h-[80vh]">
               {/* Left Column - Content */}
               <motion.div
                 initial={{ opacity: 0, x: -50 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.8, ease: "easeOut" }}
-                className="text-left -mt-8 md:-mt-12"
+                className="text-left -mt-4 sm:-mt-6 md:-mt-8 lg:-mt-12 mb-8 lg:mb-0"
               >
-                <h1 className="font-archivo text-5xl md:text-6xl lg:text-7xl font-semibold text-black tracking-tight leading-[1.1] mb-8">
-                  <div className="mb-6">Get mentioned by</div>
-                  <div className="h-[90px] flex items-center justify-start">
+                <h1 className="font-archivo text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-semibold text-black tracking-tight leading-[1.1] mb-6 sm:mb-8">
+                  <div className="mb-4 sm:mb-6 text-4xl sm:text-3xl md:text-5xl lg:text-5xl xl:text-6xl">Get mentioned by</div>
+                  <div className="h-[60px] sm:h-[70px] md:h-[80px] lg:h-[90px] flex items-center justify-start">
                     <AnimatePresence mode="wait">
                       <motion.img
                         key={currentTextIndex}
@@ -699,18 +725,18 @@ const LandingPage: React.FC = () => {
                         style={{
                           height:
                             currentTextIndex === 0
-                              ? "80px" // ChatGPT - 80px
+                              ? isLargeScreen ? "80px" : isMediumScreen ? "65px" : "50px" // ChatGPT
                               : currentTextIndex === 1
-                                ? "100px" // Perplexity - 100px
+                                ? isLargeScreen ? "100px" : isMediumScreen ? "80px" : "60px" // Perplexity
                                 : currentTextIndex === 2
-                                  ? "70px" // Gemini - compact
+                                  ? isLargeScreen ? "60px" : isMediumScreen ? "50px" : "38px" // Gemini
                                   : currentTextIndex === 3
-                                    ? "60px" // Anthropic - much much smaller
+                                    ? isLargeScreen ? "60px" : isMediumScreen ? "50px" : "40px" // Anthropic
                                     : currentTextIndex === 4
-                                      ? "75px" // Copilot - smaller
+                                      ? isLargeScreen ? "75px" : isMediumScreen ? "60px" : "48px" // Copilot
                                       : currentTextIndex === 5
-                                        ? "85px" // DeepSeek - smaller
-                                        : "90px", // Grok - slightly bigger
+                                        ? isLargeScreen ? "85px" : isMediumScreen ? "68px" : "52px" // DeepSeek
+                                        : isLargeScreen ? "90px" : isMediumScreen ? "72px" : "55px", // Grok
                           filter: "brightness(0)",
                         }}
                       />
@@ -722,23 +748,23 @@ const LandingPage: React.FC = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8, delay: 0.2 }}
-                  className="text-lg md:text-xl text-gray-600 max-w-lg mb-6 leading-relaxed"
+                  className="text-base sm:text-lg md:text-xl text-gray-600 max-w-lg -mb-2 md:-mb-8 lg:mb-6 leading-relaxed"
                 >
                   Track your brand's visibility across AI search engines.
                   Monitor mentions and citations, optimize content, and grow
                   your organic search traffic.
                 </motion.p>
 
-                {/* CTA Buttons */}
+                {/* CTA Buttons - Desktop Only */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8, delay: 0.4 }}
-                  className="flex flex-col sm:flex-row gap-4"
+                  className="hidden lg:flex flex-col sm:flex-row gap-3 sm:gap-4"
                 >
                   <button
                     onClick={user ? handleDashboard : handleGetStarted}
-                    className="px-8 py-4 bg-black hover:bg-gray-800 text-white rounded-xl font-semibold text-lg shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200 group"
+                    className="px-6 sm:px-8 py-3 sm:py-4 bg-black hover:bg-gray-800 text-white rounded-xl font-semibold text-base sm:text-lg shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200 group"
                   >
                     <span className="flex items-center justify-center">
                       <span>{user ? "View Dashboard" : "Start Tracking"}</span>
@@ -747,14 +773,14 @@ const LandingPage: React.FC = () => {
                   </button>
                   <button
                     onClick={() => navigate("/research")}
-                    className="px-8 py-4 border-2 border-gray-300 hover:border-gray-400 text-gray-800 bg-white hover:bg-gray-50 rounded-xl font-semibold text-lg shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200"
+                    className="px-6 sm:px-8 py-3 sm:py-4 border-2 border-gray-300 hover:border-gray-400 text-gray-800 bg-white hover:bg-gray-50 rounded-xl font-semibold text-base sm:text-lg shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200"
                   >
                     Learn More
                   </button>
                 </motion.div>
               </motion.div>
 
-              {/* Right Column - Stacked Chart Cards */}
+              {/* Right Column - Stacked Chart Cards (Desktop Only) */}
               <style>{`
             @keyframes drawLine {
               to {
@@ -889,14 +915,14 @@ const LandingPage: React.FC = () => {
                 initial={{ opacity: 0, x: 50 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.8, delay: 0.3 }}
-                className="relative h-[600px] w-full"
+                className="relative h-[400px] sm:h-[450px] md:h-[400px] lg:h-[600px] w-full mt-0 lg:mt-0"
               >
                 {/* Blank Card 1 - Back card */}
                 <motion.div
                   initial={{ opacity: 0, y: 40, rotate: -3 }}
                   animate={{ opacity: 1, y: 0, rotate: -3 }}
                   transition={{ duration: 0.6, delay: 0.5 }}
-                  className="absolute top-0 left-16 w-72 h-48 bg-white rounded-2xl overflow-hidden shadow-2xl transform rotate-[-3deg] z-10"
+                  className="absolute top-0 md:top-[-6rem] lg:top-[-0.5rem] left-4 sm:left-8 md:right-8 lg:left-16 w-64 sm:w-68 md:w-72 h-40 sm:h-44 md:h-48 bg-white rounded-2xl overflow-hidden shadow-lg lg:shadow-2xl transform rotate-[-3deg] z-10"
                 >
                   <div className="pl-2 pr-2 py-4 h-full flex flex-col">
                     <div className="flex items-center gap-3 mb-2 ml-1">
@@ -912,7 +938,7 @@ const LandingPage: React.FC = () => {
                         ↗ 2.1%
                       </span>
                     </div>
-                    <div className="flex-1 relative ml-1">
+                    <div className="flex-1 relative ml-1 h-16 sm:h-20 lg:h-auto">
                       <svg
                         width="100%"
                         height="100%"
@@ -1018,7 +1044,7 @@ const LandingPage: React.FC = () => {
                   initial={{ opacity: 0, y: 40, rotate: 2 }}
                   animate={{ opacity: 1, y: 0, rotate: 2 }}
                   transition={{ duration: 0.6, delay: 0.7 }}
-                  className="absolute top-28 right-0 w-72 h-48 bg-white rounded-2xl overflow-hidden shadow-2xl transform rotate-[2deg] z-20"
+                  className="absolute top-20 sm:top-24 md:top-[1rem] lg:top-[7rem] right-0 md:right-8 lg:right-0 w-64 sm:w-68 md:w-72 h-40 sm:h-44 md:h-48 bg-white rounded-2xl overflow-hidden shadow-lg lg:shadow-2xl transform rotate-[2deg] z-20"
                 >
                   <div className="pl-2 pr-2 py-4 h-full flex flex-col">
                     <div className="flex items-center gap-3 mb-2 ml-1">
@@ -1034,7 +1060,7 @@ const LandingPage: React.FC = () => {
                         ↗ 1.8%
                       </span>
                     </div>
-                    <div className="flex-1 relative ml-1">
+                    <div className="flex-1 relative ml-1 h-16 sm:h-20 lg:h-auto">
                       <svg
                         width="100%"
                         height="100%"
@@ -1271,7 +1297,7 @@ const LandingPage: React.FC = () => {
                   initial={{ opacity: 0, y: 40, rotate: 0 }}
                   animate={{ opacity: 1, y: 0, rotate: 0 }}
                   transition={{ duration: 0.6, delay: 0.9 }}
-                  className="absolute bottom-20 left-40 w-72 h-48 bg-white rounded-2xl overflow-hidden shadow-2xl transform rotate-[0deg] z-30"
+                  className="absolute bottom-16 sm:bottom-18 md:top-[12rem] lg:top-[20rem] left-8 sm:left-20 md:left-[4rem] lg:left-40 w-64 sm:w-68 md:w-72 h-40 sm:h-44 md:h-48 bg-white rounded-2xl overflow-hidden shadow-lg lg:shadow-2xl transform rotate-[0deg] z-30"
                 >
                   <div className="px-4 pt-4 pb-6 h-full flex flex-col">
                     <div className="text-xs font-semibold text-gray-600 mb-2">
@@ -1284,7 +1310,7 @@ const LandingPage: React.FC = () => {
                           st
                         </span>
                       </div>
-                      <div className="flex items-end justify-center space-x-1 h-20 w-full max-w-56">
+                      <div className="flex items-end justify-center space-x-1 h-12 sm:h-20 lg:h-20 w-full max-w-56">
                         {/* Bar 1 - Serplexity (highest, user company) */}
                         <div
                           className="w-4 rounded-t transition-all duration-300 bg-blue-600 animate-bar-1"
@@ -1339,6 +1365,30 @@ const LandingPage: React.FC = () => {
                 </motion.div>
               </motion.div>
             </div>
+            
+            {/* Mobile CTA Buttons - Below Chart Cards */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.6 }}
+              className="lg:hidden flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center -mt-2 md:-mt-16 px-4"
+            >
+              <button
+                onClick={user ? handleDashboard : handleGetStarted}
+                className="px-6 sm:px-8 py-3 sm:py-4 bg-black hover:bg-gray-800 text-white rounded-xl font-semibold text-base sm:text-lg shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200 group"
+              >
+                <span className="flex items-center justify-center">
+                  <span>{user ? "View Dashboard" : "Start Tracking"}</span>
+                  <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                </span>
+              </button>
+              <button
+                onClick={() => navigate("/research")}
+                className="px-6 sm:px-8 py-3 sm:py-4 border-2 border-gray-300 hover:border-gray-400 text-gray-800 bg-white hover:bg-gray-50 rounded-xl font-semibold text-base sm:text-lg shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200"
+              >
+                Learn More
+              </button>
+            </motion.div>
           </div>
         </section>
 
@@ -1349,20 +1399,20 @@ const LandingPage: React.FC = () => {
           onViewportEnter={() => setStatsVisible(true)}
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
-          className="py-16 md:py-20"
+          className="py-8 sm:py-12 md:py-16 lg:py-20"
         >
-          <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div
-              className="bg-black rounded-3xl p-12 md:p-16"
+              className="bg-black rounded-2xl sm:rounded-3xl p-6 sm:p-8 md:p-12 lg:p-16"
               style={{ boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)" }}
             >
-              <div className="text-center mb-16">
+              <div className="text-center mb-10 sm:mb-12 md:mb-16">
                 <motion.h2
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.6 }}
-                  className="text-3xl md:text-4xl font-bold text-white mb-4"
+                  className="text-xl sm:text-2xl md:text-4xl font-bold text-white mb-4"
                 >
                   The All-In-One Brand SEO Software For AI Search Engines
                 </motion.h2>
@@ -1371,14 +1421,14 @@ const LandingPage: React.FC = () => {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.6, delay: 0.1 }}
-                  className="text-lg md:text-xl text-gray-300"
+                  className="hidden sm:block text-base sm:text-lg md:text-xl text-gray-300"
                 >
                   Join leading companies already optimizing for the future of
                   search
                 </motion.p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
                 {[
                   {
                     label: "Responses Analyzed",
@@ -1398,13 +1448,13 @@ const LandingPage: React.FC = () => {
                     suffix: "+",
                     format: (num: number) => num.toString(),
                   },
-                ].map((stat, _index) => (
-                  <div className="text-center p-8 bg-white border border-gray-200 rounded-2xl hover:shadow-lg transition-all duration-300">
-                    <div className="text-4xl md:text-5xl font-bold text-black mb-2">
+                ].map((stat, index) => (
+                  <div key={index} className="text-center p-6 sm:p-8 bg-white border border-gray-200 rounded-2xl hover:shadow-lg transition-all duration-300">
+                    <div className="text-3xl sm:text-4xl md:text-4xl lg:text-5xl font-bold text-black mb-2">
                       {stat.format(stat.value)}
                       {stat.suffix}
                     </div>
-                    <div className="text-gray-600 font-medium">
+                    <div className="text-sm sm:text-base text-gray-600 font-medium">
                       {stat.label}
                     </div>
                   </div>
@@ -1415,17 +1465,17 @@ const LandingPage: React.FC = () => {
         </motion.section>
 
         {/* Process Steps Section - Wave.co Style */}
-        <section ref={stepsContainerRef} className="relative py-16 md:py-20">
-          <div className="max-w-7xl mx-auto px-6 lg:px-8">
+        <section ref={stepsContainerRef} className="relative py-12 sm:py-14 md:py-16 lg:py-20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Two Column Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr] lg:grid-cols-2 gap-8 sm:gap-10 md:gap-12 lg:gap-16">
               {/* Left Column - Sticky Navigation */}
               <div className="relative">
                 {/* Vertical Line - full height of parent */}
-                <div className="absolute left-1.5 top-0 h-full w-0.5 bg-black hidden lg:block" />
+                <div className="absolute left-1.5 top-0 h-full w-0.5 bg-black hidden md:block" />
 
                 {/* Sticky container for the text */}
-                <div className="lg:sticky lg:top-36">
+                <div className="hidden md:block md:sticky md:top-36 mb-8 md:mb-0">
                   {/* Steps Navigation */}
                   <div className="space-y-16">
                     {[
@@ -1433,10 +1483,10 @@ const LandingPage: React.FC = () => {
                       { title: "Analyze" },
                       { title: "Optimize" },
                     ].map((step, index) => (
-                      <div key={index} className="relative pl-10">
+                      <div key={index} className="relative pl-0 md:pl-10 text-center md:text-left">
                         {/* Dot */}
                         <div
-                          className={`absolute left-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full transition-all duration-300 ${
+                          className={`hidden md:block absolute left-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full transition-all duration-300 ${
                             index === currentStep
                               ? "bg-black scale-110 shadow-lg"
                               : "bg-black/30"
@@ -1459,9 +1509,9 @@ const LandingPage: React.FC = () => {
               </div>
 
               {/* Right Column - Stacked Images/Content */}
-              <div className="relative lg:sticky lg:top-24">
+              <div className="relative md:sticky md:top-24">
                 {/* All steps stacked with minimal spacing */}
-                <div className="space-y-4">
+                <div className="space-y-4 md:space-y-8 max-w-sm md:max-w-none mx-auto md:mx-auto md:flex md:flex-col md:justify-center md:h-full">
                   {/* Step 1 Content - Monitor: Top Ranking Questions Card */}
                   <motion.div
                     ref={step1Ref}
@@ -1471,11 +1521,14 @@ const LandingPage: React.FC = () => {
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
                   >
+                    <h3 className={`md:hidden text-3xl font-semibold text-center mt-8 mb-4 transition-all duration-300 ${
+                      currentStep === 0 ? "text-black scale-105" : "text-black/60 scale-100"
+                    }`}>Monitor</h3>
                     <div
                       className={`relative w-full h-80 bg-white rounded-3xl overflow-hidden border transition-all duration-500 shadow-lg ${
                         currentStep === 0
                           ? "border-gray-300 scale-105 opacity-100"
-                          : "border-gray-200 opacity-40 scale-95"
+                          : "border-gray-200 opacity-40 scale-95 md:opacity-100"
                       }`}
                     >
                       {/* Top Ranking Questions Card Content */}
@@ -1522,11 +1575,14 @@ const LandingPage: React.FC = () => {
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
                   >
+                    <h3 className={`md:hidden text-3xl font-semibold text-center mt-8 mb-4 transition-all duration-300 ${
+                      currentStep === 1 ? "text-black scale-105" : "text-black/60 scale-100"
+                    }`}>Analyze</h3>
                     <div
                       className={`relative w-full h-80 bg-white rounded-3xl overflow-hidden border transition-all duration-500 shadow-lg ${
                         currentStep === 1
                           ? "border-gray-300 scale-105 opacity-100"
-                          : "border-gray-200 opacity-40 scale-95"
+                          : "border-gray-200 opacity-40 scale-95 md:opacity-100"
                       }`}
                     >
                       {/* Responses Card Content */}
@@ -1564,7 +1620,8 @@ const LandingPage: React.FC = () => {
                                       <span className="text-xs font-medium text-gray-600">ChatGPT</span>
                                     </div>
                                     <div className="text-xs text-gray-900 leading-relaxed">
-                                      For AI visibility tracking, <strong>Serplexity</strong> leads the market with comprehensive monitoring across ChatGPT, Claude, and Gemini. It provides detailed analytics on brand mentions and competitive positioning. The platform offers real-time insights for optimization.
+                                      <span className="hidden sm:inline">For AI visibility tracking, <strong>Serplexity</strong> leads the market with comprehensive monitoring across ChatGPT, Claude, and Gemini. It provides detailed analytics on brand mentions and competitive positioning. The platform offers real-time insights for optimization.</span>
+                                      <span className="sm:hidden">For AI visibility tracking, <strong>Serplexity</strong> leads with monitoring across ChatGPT, Claude, and Gemini. Real-time insights for optimization.</span>
                                     </div>
                                   </div>
                                   
@@ -1618,11 +1675,14 @@ const LandingPage: React.FC = () => {
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
                   >
+                    <h3 className={`md:hidden text-3xl font-semibold text-center mt-8 mb-4 transition-all duration-300 ${
+                      currentStep === 2 ? "text-black scale-105" : "text-black/60 scale-100"
+                    }`}>Optimize</h3>
                     <div
                       className={`relative w-full h-80 bg-white rounded-3xl overflow-hidden border transition-all duration-500 shadow-lg ${
                         currentStep === 2
                           ? "border-gray-300 scale-105 opacity-100"
-                          : "border-gray-200 opacity-40 scale-95"
+                          : "border-gray-200 opacity-40 scale-95 md:opacity-100"
                       }`}
                     >
                       {/* Visibility Tasks Card Content */}
@@ -1633,9 +1693,9 @@ const LandingPage: React.FC = () => {
                         
                         <div className="flex-1 min-h-0">
                           {/* Full Kanban Board matching MockVisibilityTasksPage */}
-                          <div className="grid grid-cols-3 gap-3 h-full">
-                            {/* Not Started Column */}
-                            <div className="flex flex-col h-full min-h-0">
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 h-full">
+                            {/* Not Started Column - Hidden on Mobile */}
+                            <div className="hidden md:flex flex-col h-full min-h-0">
                               <div className="flex items-center justify-between p-3 bg-gray-100 rounded-t-lg border-b border-gray-200">
                                 <h4 className="text-xs font-semibold text-gray-900">Not Started</h4>
                                 <span className="text-xs font-medium text-gray-600 bg-white/60 px-2 py-1 rounded-full">1</span>
@@ -1683,7 +1743,10 @@ const LandingPage: React.FC = () => {
                               <div className="flex-1 p-2 space-y-2 overflow-y-auto">
                                 <div className="group relative bg-white rounded-lg p-3 shadow-md border border-gray-100 hover:shadow-lg transition-all duration-200">
                                   <div className="flex items-start justify-between mb-2">
-                                    <h5 className="text-xs font-semibold text-gray-800 leading-tight pr-4">Create Brand Pages</h5>
+                                    <h5 className="text-xs font-semibold text-gray-800 leading-tight pr-4">
+                                      <span className="lg:hidden">Brand Pages</span>
+                                      <span className="hidden lg:inline">Create Brand Pages</span>
+                                    </h5>
                                     <span className="text-xs px-0.5 py-0 rounded font-medium border flex-shrink-0 bg-red-50 text-red-700 border-red-200 text-[10px]">High</span>
                                   </div>
                                   <p className="text-xs text-gray-600 mb-3 line-clamp-2 leading-relaxed">Research top 10 queries where competitors rank but you don't...</p>
@@ -1710,15 +1773,16 @@ const LandingPage: React.FC = () => {
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
-          className="py-16 md:py-20"
+          className="py-12 sm:py-14 md:py-16 lg:py-20"
         >
-          <div className="max-w-7xl mx-auto px-6 lg:px-8">
-            <div className="text-center mb-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            {/* Hidden on mobile - only show on sm and larger screens */}
+            <div className="hidden sm:block text-center mb-6 sm:mb-8">
               <motion.h2
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="text-3xl md:text-4xl font-bold text-black mb-4"
+                className="text-2xl sm:text-3xl md:text-4xl font-bold text-black mb-4"
               >
                 Your Brand Visibility Metrics, All In One Place
               </motion.h2>
@@ -1727,13 +1791,13 @@ const LandingPage: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.1 }}
-                className="text-lg md:text-xl text-black"
+                className="text-base sm:text-lg md:text-xl text-black"
               >
                 Understand what AI is saying to millions of customers
               </motion.p>
             </div>
 
-            <div id="product-preview" className="dashboard-preview-container">
+            <div id="product-preview" className="hidden sm:block dashboard-preview-container">
               {/* Dashboard Preview */}
               <motion.div
                 initial={{ opacity: 0, y: 30 }}
@@ -1742,7 +1806,7 @@ const LandingPage: React.FC = () => {
                 transition={{ duration: 0.8, delay: 0.2 }}
                 className="dashboard-preview-content"
               >
-                {isLargeScreen ? (
+                {isMediumScreen ? (
                   <DashboardPreviewCarousel />
                 ) : (
                   <img
@@ -1875,7 +1939,7 @@ const LandingPage: React.FC = () => {
                   </div>
 
                   {/* Desktop: Grid layout */}
-                  <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
                     {blogPosts.map((post) => (
                       <article
                         key={post.id}
@@ -2149,7 +2213,7 @@ const LandingPage: React.FC = () => {
               <div className="relative bg-white rounded-3xl shadow-lg border border-gray-200 p-6 md:p-8 overflow-hidden">
                 {/* Inner content */}
                 <div className="relative">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
                     {[
                       {
                         name: "Serplexity Pro",
@@ -2268,13 +2332,13 @@ const LandingPage: React.FC = () => {
 
         {/* FAQ Accordion Section */}
         <SlideIn>
-          <section id="faq" className="pt-12 md:pt-16 pb-12 md:pb-16">
-            <div className="max-w-4xl mx-auto px-6 lg:px-8">
-              <div className="text-center mb-16">
-                <h2 className="text-4xl font-bold tracking-tight text-black mb-4">
+          <section id="faq" className="pt-10 sm:pt-12 md:pt-16 pb-10 sm:pb-12 md:pb-16">
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center mb-10 sm:mb-12 md:mb-16">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-black mb-4">
                   Frequently Asked Questions
                 </h2>
-                <p className="text-lg md:text-xl text-gray-600">
+                <p className="text-base sm:text-lg md:text-xl text-gray-600">
                   Everything you need to know about Generative Engine
                   Optimization
                 </p>
@@ -2287,16 +2351,16 @@ const LandingPage: React.FC = () => {
 
         {/* Landing Page Footer */}
         <footer className="bg-transparent">
-          <div className="max-w-6xl mx-auto px-6 lg:px-8 py-16">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
             <div className="text-center">
-              <div className="inline-grid grid-cols-3 md:grid-cols-4 gap-8 text-left">
+              <div className="inline-grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 sm:gap-8 text-left">
                 {/* Links */}
                 {[
                   {
-                    title: "Product",
+                    title: "Pages",
                     links: [
-                      { label: "About", href: "#solutions" },
-                      { label: "Pricing", href: "#pricing" },
+                      { label: "Login", href: "/login" },
+                      { label: "Sign Up", href: "/register" },
                     ],
                   },
                   {
@@ -2307,14 +2371,15 @@ const LandingPage: React.FC = () => {
                     ],
                   },
                   {
-                    title: "Pages",
+                    title: "Product",
                     links: [
-                      { label: "Login", href: "/login" },
-                      { label: "Sign Up", href: "/register" },
+                      { label: "About", href: "#solutions" },
+                      { label: "Pricing", href: "#pricing" },
                     ],
+                    mobileHidden: true,
                   },
                 ].map((column, i) => (
-                  <div key={i}>
+                  <div key={i} className={column.mobileHidden ? "hidden sm:block" : ""}>
                     <h3 className="font-semibold text-black mb-4">
                       {column.title}
                     </h3>

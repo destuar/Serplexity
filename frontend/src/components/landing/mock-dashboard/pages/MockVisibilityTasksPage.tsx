@@ -214,7 +214,7 @@ const MockVisibilityTasksPage: React.FC = () => {
           style={{ overflow: "visible" }}
         >
           <div className="h-full relative" style={{ overflow: 'visible' }}>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-full min-h-0 overflow-visible">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-4 h-full min-h-0 overflow-visible">
               {columns.map((column) => (
                 <div key={column.id} className="min-h-0 flex flex-col overflow-visible">
                   <MockKanbanColumn

@@ -237,7 +237,7 @@ const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedM
     }
 
     return (
-      <div className="flex-1 min-h-0 relative">
+      <div className="flex-1 min-h-0 relative" style={{ minHeight: '300px' }}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart 
             data={chartData} 

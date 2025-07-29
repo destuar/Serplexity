@@ -95,14 +95,16 @@ COPY backend/start.sh ./start.sh
 
 # Copy Docker-specific startup script
 COPY backend/docker-start.sh ./docker-start.sh
-RUN chmod +x ./docker-start.sh
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S backend -u 1001
 
-# Change ownership of the app directory
-RUN chown -R backend:nodejs /app
+# Change ownership and permissions of the app directory
+RUN chmod +x ./docker-start.sh && \
+    chown -R backend:nodejs /app && \
+    ls -la ./docker-start.sh
+
 USER backend
 
 # Health check

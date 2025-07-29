@@ -27,12 +27,12 @@ const chartData = [
 const MockSentimentScoreDisplayCard: React.FC = () => {
   return (
     <MockDashboardCard>
-      <h3 className="text-lg font-semibold text-gray-800 mb-2">Sentiment Score</h3>
+      <h3 className="text-lg font-semibold text-gray-800 mb-1">Sentiment Score</h3>
       <div className="flex-1 min-h-0">
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart 
             data={chartData} 
-            margin={{ top: 5, right: 15, bottom: -15, left: 15 }}
+            margin={{ top: 10, right: 15, bottom: 10, left: 15 }}
           >
             <PolarGrid stroke="#e2e8f0" />
             <PolarAngleAxis dataKey="category" tick={{ fontSize: 12, fill: '#64748b' }} />

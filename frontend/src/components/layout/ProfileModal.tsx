@@ -87,7 +87,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const [modelsError, setModelsError] = useState<string | null>(null);
 
   const [passwordSuccess, setPasswordSuccess] = useState(false);
-  const [_modelsSuccess, _setModelsSuccess] = useState(false);
+  const [modelsSuccess, setModelsSuccess] = useState(false);
 
   // Model preferences state
   const [modelPreferences, setModelPreferences] = useState<
@@ -284,23 +284,32 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   ];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl max-w-4xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-hidden">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 sm:p-6"
+      onClick={handleClose}
+    >
+      <div 
+        className="bg-white rounded-xl sm:rounded-2xl max-w-4xl w-full shadow-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-2xl font-bold text-gray-900">Profile Settings</h2>
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Profile Settings</h2>
           <button
-            onClick={handleClose}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleClose();
+            }}
             className="text-gray-400 hover:text-gray-600 transition-colors"
           >
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        <div className="flex h-[calc(90vh-120px)]">
+        <div className="flex flex-col sm:flex-row h-[calc(95vh-80px)] sm:h-[calc(90vh-120px)]">
           {/* Sidebar */}
-          <div className="w-64 bg-gray-50 border-r border-gray-200 p-4">
-            <nav className="space-y-2">
+          <div className="w-full sm:w-64 bg-gray-50 border-b sm:border-b-0 sm:border-r border-gray-200 p-3 sm:p-4 flex-shrink-0">
+            <nav className="flex flex-row sm:flex-col space-x-2 sm:space-x-0 sm:space-y-2 overflow-x-auto sm:overflow-x-visible">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
@@ -308,7 +317,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                     key={tab.id}
                     onClick={() => !tab.disabled && setActiveTab(tab.id)}
                     disabled={tab.disabled}
-                    className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors focus:outline-none ${
+                    className={`flex-shrink-0 sm:w-full flex items-center justify-center sm:justify-start px-3 sm:px-4 py-2 sm:py-3 text-left rounded-lg transition-colors focus:outline-none whitespace-nowrap sm:whitespace-normal min-w-[44px] sm:min-w-0 ${
                       activeTab === tab.id
                         ? "bg-black text-white"
                         : tab.disabled
@@ -316,10 +325,10 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                           : "text-gray-700 hover:bg-gray-100"
                     }`}
                   >
-                    <Icon className="w-5 h-5 mr-3" />
-                    {tab.label}
+                    <Icon className="w-5 h-5 sm:mr-3" />
+                    <span className="hidden sm:inline">{tab.label}</span>
                     {tab.disabled && (
-                      <span className="ml-auto text-xs text-gray-400">
+                      <span className="hidden sm:inline ml-auto text-xs text-gray-400">
                         OAuth
                       </span>
                     )}
@@ -330,21 +339,21 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
           </div>
 
           {/* Main Content */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
             {activeTab === "profile" && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">
                     Profile Information
                   </h3>
-                  <p className="text-gray-600 mb-4">
+                  <p className="text-sm sm:text-base text-gray-600 mb-4">
                     Update your account details below.
                   </p>
                 </div>
 
                 <form
                   onSubmit={handleSubmitProfile(onUpdateProfile)}
-                  className="space-y-4"
+                  className="space-y-4 sm:space-y-6"
                 >
                   <div>
                     <label

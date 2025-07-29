@@ -1273,8 +1273,19 @@ async function processReport(runId: string, company: CompanyData): Promise<void>
     // Compute and persist metrics
     try {
       await computeAndPersistMetrics(runId, fullCompany.id);
+      console.log(`✅ Metrics computed successfully for report ${runId}`);
     } catch (error) {
-      console.error(`❌ Failed to compute metrics:`, error);
+      // 10x IMPROVEMENT: Enhanced error logging for better debugging
+      console.error(`❌ CRITICAL: Failed to compute metrics for report ${runId}:`, {
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined,
+        reportId: runId,
+        companyId: fullCompany.id,
+        timestamp: new Date().toISOString()
+      });
+      
+      // TODO: In production, consider alerting/monitoring integration
+      // This non-blocking failure means dashboard will use degraded mode
     }
 
     // Generate and persist optimization tasks

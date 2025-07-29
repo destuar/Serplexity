@@ -27,6 +27,18 @@ export const getDashboardData = async (companyId: string, filters: Partial<Dashb
       console.log(`[Dashboard] No data returned from API.`);
       return null;
     }
+
+    // 10x IMPROVEMENT: Handle degraded mode gracefully
+    if (dashboardData._degradedMode) {
+      console.warn(`[Dashboard] ⚠️  Degraded mode detected: ${dashboardData._reason}`);
+      console.warn(`[Dashboard] Showing basic report data - some features may be limited`);
+      
+      // Still return the data - frontend can show warnings but remains functional
+      return {
+        ...dashboardData,
+        _showDegradedWarning: true
+      };
+    }
     
     return dashboardData;
 

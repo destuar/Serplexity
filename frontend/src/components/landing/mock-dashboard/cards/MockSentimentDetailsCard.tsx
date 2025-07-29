@@ -18,12 +18,12 @@ import MockDashboardCard from './MockDashboardCard';
 const mockReportMetric = {
     sentimentDetails: {
         "Quality": { score: 9.5 },
-        "Price": { score: 9.0 },
-        "Reputation": { score: 7.9 },
+        "Price": { score: 9.2 },
+        "Reputation": { score: 8.8 },
         "Trust": { score: 9.3 },
-        "Service": { score: 8.6 },
+        "Service": { score: 9.1 },
     },
-    sentimentScore: 8.9
+    sentimentScore: 9.2
 };
 
 const MOCK_COMPANY_PROFILE = {
@@ -61,7 +61,7 @@ const MockSentimentDetailsCard: React.FC = () => {
                 </p>
               </div>
           </div>
-          <div className="flex-[2] p-6 flex items-center min-w-0">
+          <div className="flex-[2] pt-5 px-6 pb-6 flex items-start min-w-0">
             <div className="flex flex-wrap gap-3 w-full">
                 {categories.map(([name, { score }]) => (
                     <div key={name} className={`flex-[0_0_calc(50%-6px)] rounded-lg p-2 ${getScoreColor(score)}`}>

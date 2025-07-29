@@ -344,6 +344,21 @@ cd backend && npm run ops:monitor
 docker-compose logs backend
 ```
 
+## Single Test Commands
+```bash
+# Run a single test file
+cd backend && npx jest src/__tests__/auth.test.ts
+cd frontend && npx vitest src/__tests__/App.test.tsx
+
+# Run tests matching a pattern
+cd backend && npx jest --testNamePattern="auth"
+cd frontend && npx vitest --run --reporter=verbose --testNamePattern="AuthContext"
+
+# Run specific test suites
+cd backend && npx jest src/__tests__/agents/ --testTimeout=60000  # Agent tests only
+cd backend && npx jest src/__tests__/integration/ --testTimeout=120000  # Integration tests only
+```
+
 # important-instruction-reminders
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
@@ -387,3 +402,20 @@ NEVER proactively create documentation files (*.md) or README files. Only create
 - Production validation tests require real API keys
 - Agent tests validate all 6 PydanticAI agents
 - Integration tests cover end-to-end report generation flows
+
+### AI Agent Architecture
+The system uses 6 specialized PydanticAI agents in `backend/src/pydantic_agents/agents/`:
+- **Answer Agent** (`answer_agent.py`): Generates comprehensive responses with citations
+- **Search Agent** (`search_agent.py`): Performs web searches and content extraction
+- **Sentiment Agent** (`sentiment_agent.py`): Analyzes sentiment in mentions and content
+- **Mention Agent** (`mention_agent.py`): Detects and classifies brand mentions
+- **Research Agent** (`research_agent.py`): Conducts research across multiple sources
+- **Website Agent** (`website_agent.py`): Enriches website data and metadata
+
+### Project Business Domain
+This is **Serplexity**, a Generative Engine Optimization (GEO) platform that helps brands measure and grow visibility inside AI search engines. Key business concepts:
+- **PAWC**: Position-Adjusted Word Share metric
+- **AIR**: Answer Inclusion Rate metric  
+- **Brand visibility** in AI-generated search results
+- **Multi-tenant SaaS** with company-level data isolation
+- **Stripe billing** with freemium model

@@ -44,7 +44,7 @@ const MockVisibilityOverTimeCard: React.FC = () => {
 
   return (
     <MockDashboardCard>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <h3 className="text-lg font-semibold text-gray-800">{getCardTitle()}</h3>
         <div className="flex items-center gap-2">
           <button
@@ -87,7 +87,7 @@ const MockVisibilityOverTimeCard: React.FC = () => {
       </div>
       <div className="flex-1 min-h-0 -ml-4">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData} margin={{ top: 5, right: 15, bottom: -15, left: 20 }}>
+          <AreaChart data={chartData} margin={{ top: 5, right: 15, bottom: 5, left: 20 }}>
             <CartesianGrid 
               strokeDasharray="3 3" 
               stroke="#e2e8f0" 
