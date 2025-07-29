@@ -187,7 +187,7 @@ const LandingPage: React.FC = () => {
     const script = document.createElement("script");
     script.src = "https://platform.twitter.com/widgets.js";
     script.async = true;
-    script.charset = "utf-8";
+    // Note: charset is deprecated for script elements in HTML5
     document.head.appendChild(script);
   }, []);
 
@@ -340,7 +340,7 @@ const LandingPage: React.FC = () => {
     },
   ];
 
-  const companyLogos = [
+  const _companyLogos = [
     { file: "Google_Gemini_logo.svg.png", name: "Google Gemini" },
     { file: "logo-perplexity-1024x258.png", name: "Perplexity" },
     { file: "OpenAI_Logo.svg.png", name: "OpenAI" },
@@ -350,8 +350,7 @@ const LandingPage: React.FC = () => {
     { file: "DeepSeek_logo.svg.png", name: "DeepSeek" },
   ];
 
-  const _topRowLogos = companyLogos.slice(0, 4);
-  const _bottomRowLogos = companyLogos.slice(4, 7);
+  // Logos are referenced directly in the component
 
   return (
     <div className="bg-gray-50 text-gray-900 relative min-h-screen">

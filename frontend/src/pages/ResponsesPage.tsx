@@ -562,7 +562,7 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
       filteredResponses: filtered,
       responsesByReport: sortedGrouped
     };
-  }, [responses, timeFilter, modelFilter, searchTerm, citations]);
+  }, [responses, timeFilter, modelFilter, searchTerm]);
 
   // Get unique models for filter dropdown
   const modelFilterOptions = useMemo(() => {

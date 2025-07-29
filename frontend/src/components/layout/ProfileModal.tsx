@@ -87,7 +87,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const [modelsError, setModelsError] = useState<string | null>(null);
 
   const [passwordSuccess, setPasswordSuccess] = useState(false);
-  const [modelsSuccess, setModelsSuccess] = useState(false);
+  const [_modelsSuccess, setModelsSuccess] = useState(false);
 
   // Model preferences state
   const [modelPreferences, setModelPreferences] = useState<
