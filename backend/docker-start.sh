@@ -21,9 +21,9 @@ else
     fi
 fi
 
-# Run database migrations using AWS Secrets Manager
-echo "🔧 Running database migrations with AWS Secrets..."
-node dist/scripts/run-with-secrets.js prisma migrate deploy || echo "⚠️ Database migrations skipped"
+# Force regenerate Prisma client at runtime to ensure it's properly initialized
+echo "🔧 Ensuring Prisma client is ready..."
+npx prisma generate --force
 
 # Start the server (like local start.sh does)
 echo "🎯 Starting server..."

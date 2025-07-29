@@ -1,6 +1,6 @@
 import { exec } from 'child_process';
-import { SecretsProviderFactory, type SecretsProviderType } from '../src/services/secretsProvider';
-import env from '../src/config/env';
+import { SecretsProviderFactory, type SecretsProviderType } from '../services/secretsProvider';
+import env from '../config/env';
 import path from 'path';
 
 async function main() {
