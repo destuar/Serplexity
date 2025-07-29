@@ -81,10 +81,10 @@ RUN echo "Python dependencies - Installing..." && \
     pip3 install --no-cache-dir --break-system-packages -r requirements.txt && \
     echo "Python dependencies - Installed"
 
-# Copy built application from builder stage
+# Copy built application from builder stage  
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+# DON'T copy .prisma from builder - let production generate its own
 
 # Copy Python agents
 COPY backend/src/pydantic_agents/ ./pydantic_agents/
@@ -95,10 +95,11 @@ COPY backend/start.sh ./start.sh
 # Copy Docker-specific startup script
 COPY backend/docker-start.sh ./docker-start.sh
 
-# Regenerate Prisma client before switching users
-RUN echo "Regenerating Prisma client..." && \
+# Generate Prisma client in production context with correct permissions
+RUN echo "Generating production Prisma client..." && \
     npx prisma generate && \
-    echo "Prisma client regenerated"
+    echo "Production Prisma client generated successfully" && \
+    ls -la node_modules/.prisma/client/
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
