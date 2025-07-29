@@ -115,5 +115,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 EXPOSE 8000
 
-# Override the default Node.js entrypoint to use our custom script
-ENTRYPOINT ["./docker-start.sh"] 
+# Start the application
+CMD ["bash", "-c", "ls -la /app/ && pwd && /app/docker-start.sh"] 
