@@ -21,9 +21,8 @@ else
     fi
 fi
 
-# Run database migrations
-echo "🔧 Running database migrations..."
-node dist/scripts/run-with-secrets.js prisma migrate deploy || echo "⚠️ Database migrations skipped"
+# Skip database migrations in Docker - let the application handle them
+echo "🔧 Database migrations will be handled by the application..."
 
 # Start the server
 echo "🎯 Starting server..."
