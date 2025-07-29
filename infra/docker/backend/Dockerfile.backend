@@ -116,4 +116,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 EXPOSE 8000
 
 # Start the application
-CMD ["bash", "-c", "ls -la /app/ && pwd && /app/docker-start.sh"] 
+CMD ["sh", "-c", "ls -la /app/ && pwd && /app/docker-start.sh"] 
