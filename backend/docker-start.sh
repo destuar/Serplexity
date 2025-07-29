@@ -21,9 +21,7 @@ else
     fi
 fi
 
-# Force regenerate Prisma client at runtime to ensure it's properly initialized
-echo "🔧 Ensuring Prisma client is ready..."
-npx prisma generate --force
+# Prisma client should already be generated during build
 
 # Start the server (like local start.sh does)
 echo "🎯 Starting server..."
