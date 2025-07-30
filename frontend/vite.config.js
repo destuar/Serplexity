@@ -14,18 +14,20 @@ export default defineConfig({
     }
   },
   build: {
-    assetsInlineLimit: 0, // Don't inline SVGs to ensure they're available as separate files
+    assetsInlineLimit: 0, // Don't inline any assets
     rollupOptions: {
       output: {
         assetFileNames: (assetInfo) => {
           // Keep SVG files in assets folder with clean names  
           if (assetInfo.name?.endsWith('.svg')) {
-            return 'assets/[name].[hash][extname]';
+            return 'assets/[name][extname]'; // Remove hash for easier debugging
           }
           return 'assets/[name].[hash][extname]';
         }
       }
-    }
+    },
+    // Force copy public files
+    copyPublicDir: true
   },
   assetsInclude: ['**/*.svg'], // Ensure SVGs are treated as assets
   publicDir: 'public' // Explicitly set public directory
