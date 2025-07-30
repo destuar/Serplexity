@@ -1,0 +1,24 @@
+{
+  "name": "Serplexity - AI Search Optimization",
+  "short_name": "Serplexity",
+  "description": "The all-in-one brand SEO software for AI search engines",
+  "icons": [
+    {
+      "src": "/Serplexity.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/Serplexity.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff",
+  "categories": ["business", "productivity", "utilities"]
+}

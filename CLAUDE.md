@@ -400,17 +400,20 @@ NEVER proactively create documentation files (*.md) or README files. Only create
 - Always run `npm test` before deploying (covers both backend and frontend)
 - Use `npm run test:quick` for fast development testing (~2 min)
 - Production validation tests require real API keys
-- Agent tests validate all 6 PydanticAI agents
+- Agent tests validate all 9 PydanticAI agents
 - Integration tests cover end-to-end report generation flows
 
 ### AI Agent Architecture
-The system uses 6 specialized PydanticAI agents in `backend/src/pydantic_agents/agents/`:
+The system uses 9 specialized PydanticAI agents in `backend/src/pydantic_agents/agents/`:
 - **Answer Agent** (`answer_agent.py`): Generates comprehensive responses with citations
 - **Search Agent** (`search_agent.py`): Performs web searches and content extraction
 - **Sentiment Agent** (`sentiment_agent.py`): Analyzes sentiment in mentions and content
+- **Sentiment Summary Agent** (`sentiment_summary_agent.py`): Aggregates sentiment analysis
 - **Mention Agent** (`mention_agent.py`): Detects and classifies brand mentions
 - **Research Agent** (`research_agent.py`): Conducts research across multiple sources
 - **Website Agent** (`website_agent.py`): Enriches website data and metadata
+- **Question Agent** (`question_agent.py`): Generates and processes research questions
+- **Fanout Agent** (`fanout_agent.py`): Coordinates parallel processing across multiple AI models
 
 ### Project Business Domain
 This is **Serplexity**, a Generative Engine Optimization (GEO) platform that helps brands measure and grow visibility inside AI search engines. Key business concepts:

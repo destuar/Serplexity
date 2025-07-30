@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+
+<!-- Main Landing Page -->
+<url>
+  <loc>https://serplexity.com/</loc>
+  <lastmod>2025-01-30</lastmod>
+  <changefreq>weekly</changefreq>
+  <priority>1.0</priority>
+</url>
+
+<!-- Public Pages -->
+<url>
+  <loc>https://serplexity.com/login</loc>
+  <lastmod>2025-01-30</lastmod>
+  <changefreq>monthly</changefreq>
+  <priority>0.6</priority>
+</url>
+
+<url>
+  <loc>https://serplexity.com/register</loc>
+  <lastmod>2025-01-30</lastmod>
+  <changefreq>monthly</changefreq>
+  <priority>0.6</priority>
+</url>
+
+<url>
+  <loc>https://serplexity.com/terms</loc>
+  <lastmod>2025-01-30</lastmod>
+  <changefreq>yearly</changefreq>
+  <priority>0.3</priority>
+</url>
+
+<url>
+  <loc>https://serplexity.com/privacy</loc>
+  <lastmod>2025-01-30</lastmod>
+  <changefreq>yearly</changefreq>
+  <priority>0.3</priority>
+</url>
+
+<!-- Research/Blog Section -->
+<url>
+  <loc>https://serplexity.com/research</loc>
+  <lastmod>2025-01-30</lastmod>
+  <changefreq>weekly</changefreq>
+  <priority>0.8</priority>
+</url>
+
+<!-- Blog Posts (should be dynamically generated) -->
+<!-- 
+Example blog post URLs based on your routing structure:
+<url>
+  <loc>https://serplexity.com/research/ai-search-optimization-guide</loc>
+  <lastmod>2025-01-30</lastmod>
+  <changefreq>monthly</changefreq>
+  <priority>0.7</priority>
+</url>
+
+<url>
+  <loc>https://serplexity.com/research/brand-visibility-chatgpt</loc>
+  <lastmod>2025-01-29</lastmod>
+  <changefreq>monthly</changefreq>
+  <priority>0.7</priority>
+</url>
+
+<url>
+  <loc>https://serplexity.com/research/generative-engine-optimization</loc>
+  <lastmod>2025-01-28</lastmod>
+  <changefreq>monthly</changefreq>
+  <priority>0.7</priority>
+</url>
+-->
+
+<!-- Additional SEO-friendly pages that could be added -->
+<!-- 
+<url>
+  <loc>https://serplexity.com/about</loc>
+  <lastmod>2025-01-30</lastmod>
+  <changefreq>monthly</changefreq>
+  <priority>0.7</priority>
+</url>
+
+<url>
+  <loc>https://serplexity.com/pricing</loc>
+  <lastmod>2025-01-30</lastmod>
+  <changefreq>monthly</changefreq>
+  <priority>0.8</priority>
+</url>
+
+<url>
+  <loc>https://serplexity.com/features</loc>
+  <lastmod>2025-01-30</lastmod>
+  <changefreq>monthly</changefreq>
+  <priority>0.7</priority>
+</url>
+
+<url>
+  <loc>https://serplexity.com/contact</loc>
+  <lastmod>2025-01-30</lastmod>
+  <changefreq>monthly</changefreq>
+  <priority>0.6</priority>
+</url>
+
+<url>
+  <loc>https://serplexity.com/help</loc>
+  <lastmod>2025-01-30</lastmod>
+  <changefreq>monthly</changefreq>
+  <priority>0.5</priority>
+</url>
+-->
+
+</urlset>

@@ -1,0 +1,49 @@
+# Robots.txt for Serplexity.com
+# AI Search Optimization Platform for Brand Visibility Tracking
+
+User-agent: *
+Allow: /
+
+# Allow AI crawlers and LLMs to access our content
+User-agent: GPTBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+# Disallow admin and sensitive areas
+Disallow: /admin/
+Disallow: /api/
+Disallow: /auth/
+Disallow: /dashboard/
+Disallow: /login
+Disallow: /register
+Disallow: /payment/
+Disallow: /settings/
+
+# Allow public pages
+Allow: /
+Allow: /about
+Allow: /pricing
+Allow: /contact
+Allow: /blog/
+Allow: /privacy
+Allow: /terms
+
+# Sitemap location
+Sitemap: https://serplexity.com/sitemap.xml
+
+# Crawl delay for respectful crawling
+Crawl-delay: 1
