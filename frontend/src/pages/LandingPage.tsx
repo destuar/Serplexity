@@ -61,6 +61,17 @@ const LandingPage: React.FC = () => {
     "Grok",
   ];
 
+  // Logo configuration with error handling
+  const logoConfig = [
+    { name: "ChatGPT", path: "/chatgpt_logo.svg", height: { lg: "80px", md: "65px", sm: "50px" } },
+    { name: "Perplexity", path: "/logo-perplexity-1024x258.svg", height: { lg: "100px", md: "80px", sm: "60px" } },
+    { name: "Gemini", path: "/gemini_logo.svg", height: { lg: "60px", md: "50px", sm: "38px" } },
+    { name: "Claude", path: "/claude_logo.svg", height: { lg: "60px", md: "50px", sm: "40px" } },
+    { name: "Copilot", path: "/copilot-logo.svg", height: { lg: "75px", md: "60px", sm: "48px" } },
+    { name: "DeepSeek", path: "/DeepSeek_logo.svg", height: { lg: "85px", md: "68px", sm: "52px" } },
+    { name: "Grok", path: "/Grok-feb-2025-logo.svg", height: { lg: "90px", md: "72px", sm: "55px" } },
+  ];
+
   // Statistics animation state
   const [statsVisible, setStatsVisible] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -104,6 +115,14 @@ const LandingPage: React.FC = () => {
       setIsLoading(null);
     }
   };
+
+  // Preload all rotating logos
+  useEffect(() => {
+    logoConfig.forEach((logo) => {
+      const img = new Image();
+      img.src = logo.path;
+    });
+  }, []);
 
   // Rotating text animation
   useEffect(() => {
@@ -684,61 +703,44 @@ const LandingPage: React.FC = () => {
                   <div className="mb-4 sm:mb-6 text-4xl sm:text-3xl md:text-5xl lg:text-5xl xl:text-6xl">Get mentioned by</div>
                   <div className="h-[60px] sm:h-[70px] md:h-[80px] lg:h-[90px] flex items-center justify-start">
                     <AnimatePresence mode="wait">
-                      <motion.img
+                      <motion.div
                         key={currentTextIndex}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
                         transition={{ duration: 0.5, ease: "easeInOut" }}
-                        src={
-                          currentTextIndex === 0
-                            ? "/chatgpt_logo.svg"
-                            : currentTextIndex === 1
-                              ? "/logo-perplexity-1024x258.svg"
-                              : currentTextIndex === 2
-                                ? "/gemini_logo.svg"
-                                : currentTextIndex === 3
-                                  ? "/claude_logo.svg"
-                                  : currentTextIndex === 4
-                                    ? "/copilot-logo.svg"
-                                    : currentTextIndex === 5
-                                      ? "/DeepSeek_logo.svg.svg"
-                                      : "/Grok-feb-2025-logo.svg.svg"
-                        }
-                        alt={
-                          currentTextIndex === 0
-                            ? "ChatGPT"
-                            : currentTextIndex === 1
-                              ? "Perplexity"
-                              : currentTextIndex === 2
-                                ? "Gemini"
-                                : currentTextIndex === 3
-                                  ? "Claude"
-                                  : currentTextIndex === 4
-                                    ? "Copilot"
-                                    : currentTextIndex === 5
-                                      ? "DeepSeek"
-                                      : "Grok"
-                        }
-                        className="w-auto object-contain max-h-full"
-                        style={{
-                          height:
-                            currentTextIndex === 0
-                              ? isLargeScreen ? "80px" : isMediumScreen ? "65px" : "50px" // ChatGPT
-                              : currentTextIndex === 1
-                                ? isLargeScreen ? "100px" : isMediumScreen ? "80px" : "60px" // Perplexity
-                                : currentTextIndex === 2
-                                  ? isLargeScreen ? "60px" : isMediumScreen ? "50px" : "38px" // Gemini
-                                  : currentTextIndex === 3
-                                    ? isLargeScreen ? "60px" : isMediumScreen ? "50px" : "40px" // Anthropic
-                                    : currentTextIndex === 4
-                                      ? isLargeScreen ? "75px" : isMediumScreen ? "60px" : "48px" // Copilot
-                                      : currentTextIndex === 5
-                                        ? isLargeScreen ? "85px" : isMediumScreen ? "68px" : "52px" // DeepSeek
-                                        : isLargeScreen ? "90px" : isMediumScreen ? "72px" : "55px", // Grok
-                          filter: "brightness(0)",
-                        }}
-                      />
+                        className="relative"
+                      >
+                        <img
+                          src={logoConfig[currentTextIndex]?.path}
+                          alt={logoConfig[currentTextIndex]?.name}
+                          className="w-auto object-contain max-h-full"
+                          style={{
+                            height: isLargeScreen 
+                              ? logoConfig[currentTextIndex]?.height.lg 
+                              : isMediumScreen 
+                                ? logoConfig[currentTextIndex]?.height.md 
+                                : logoConfig[currentTextIndex]?.height.sm,
+                            filter: "brightness(0)",
+                            display: "block",
+                            maxWidth: "100%",
+                          }}
+                          onError={(e) => {
+                            console.error(`Failed to load logo: ${logoConfig[currentTextIndex]?.path}`);
+                            const target = e.target as HTMLImageElement;
+                            const parent = target.parentElement;
+                            if (parent) {
+                              // Create text fallback
+                              target.style.display = 'none';
+                              const textFallback = document.createElement('div');
+                              textFallback.className = 'text-black font-bold text-4xl md:text-5xl lg:text-6xl';
+                              textFallback.textContent = logoConfig[currentTextIndex]?.name || 'AI';
+                              parent.appendChild(textFallback);
+                            }
+                          }}
+                          loading="eager"
+                        />
+                      </motion.div>
                     </AnimatePresence>
                   </div>
                 </h1>
@@ -1645,6 +1647,21 @@ const LandingPage: React.FC = () => {
                                                 src={logoResult.url}
                                                 alt={brand.name}
                                                 className="w-full h-full object-contain"
+                                                style={{
+                                                  display: "block",
+                                                  maxWidth: "100%",
+                                                  maxHeight: "100%",
+                                                }}
+                                                onError={(e) => {
+                                                  // Fallback to first letter if logo fails
+                                                  const target = e.target as HTMLImageElement;
+                                                  target.style.display = 'none';
+                                                  const parent = target.parentElement;
+                                                  if (parent) {
+                                                    parent.innerHTML = `<span class="text-xs font-bold text-gray-600">${brand.name[0]}</span>`;
+                                                  }
+                                                }}
+                                                loading="lazy"
                                               />
                                             </div>
                                           );

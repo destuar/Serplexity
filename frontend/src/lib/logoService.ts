@@ -11,7 +11,7 @@
  * - generateFavicon: Function for generating favicon from logo.
  */
 
-import SerplexityLogo from '/Serplexity.svg';
+import SerplexityLogo from '/Serplexity.svg?url';
 
 export interface LogoResult {
   url: string;

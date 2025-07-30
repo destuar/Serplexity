@@ -290,7 +290,7 @@ export function Navbar() {
                         >
                           {isLandingStylePage ? (
                             // Clean Design for Landing Page
-                            <div className="bg-white rounded-lg shadow-lg border border-gray-200">
+                            <div className="bg-white/98 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200">
                               <div className="py-1">
                                 <button
                                   onClick={() => {
@@ -316,7 +316,7 @@ export function Navbar() {
                             </div>
                           ) : (
                             // Standard Design for Other Pages
-                            <div className="bg-white rounded-lg shadow-lg border border-gray-200">
+                            <div className="bg-white/98 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200">
                               <div className="py-1">
                                 <button
                                   onClick={() => {
@@ -389,9 +389,7 @@ export function Navbar() {
           <div
             className={cn(
               "lg:hidden",
-              isLandingStylePage
-                ? "bg-white/95 backdrop-blur-xl border-t border-gray-200"
-                : "bg-white border-t border-gray-200"
+              "bg-white/98 backdrop-blur-xl border-t border-gray-200"
             )}
           >
             <div className="px-6 py-4 space-y-4">
@@ -407,7 +405,7 @@ export function Navbar() {
                       {item.label}
                     </button>
                   ))}
-                  <div className="border-t border-gray-200 pt-4 space-y-4">
+                  <div className="border-t border-gray-200 pt-4 space-y-3">
                     {user ? (
                       <>
                         <button
@@ -432,23 +430,24 @@ export function Navbar() {
                         </button>
                       </>
                     ) : (
-                      <>
+                      <div className="space-y-4">
                         <Link
                           to="/login"
-                          className="block text-base font-medium text-gray-700 hover:text-gray-900 py-2"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
-                          Login
+                          <button className="w-full bg-white hover:bg-gray-50 text-black text-base rounded-lg px-4 py-2 font-medium shadow-md border border-gray-300 hover:shadow-lg active:shadow-inner transition-all duration-200 mb-3">
+                            Login
+                          </button>
                         </Link>
                         <Link
                           to="/register"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
-                          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white text-base rounded-lg px-4 py-2 font-medium shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200">
+                          <button className="w-full bg-black hover:bg-gray-800 text-white text-base rounded-lg px-4 py-2 font-medium shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200">
                             Sign up
                           </button>
                         </Link>
-                      </>
+                      </div>
                     )}
                   </div>
                 </>
@@ -471,7 +470,7 @@ export function Navbar() {
                   >
                     Dashboard
                   </a>
-                  <div className="border-t border-gray-200 pt-4 space-y-4">
+                  <div className="border-t border-gray-200 pt-4 space-y-3">
                     {user ? (
                       <>
                         <button
@@ -496,23 +495,24 @@ export function Navbar() {
                         </button>
                       </>
                     ) : (
-                      <>
+                      <div className="space-y-4">
                         <Link
                           to="/login"
-                          className="block text-base font-medium text-gray-700 hover:text-gray-900 py-2"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
-                          Login
+                          <button className="w-full bg-white hover:bg-gray-50 text-black text-base rounded-lg px-4 py-2 font-medium shadow-md border border-gray-300 hover:shadow-lg active:shadow-inner transition-all duration-200 mb-3">
+                            Login
+                          </button>
                         </Link>
                         <Link
                           to="/register"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
-                          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white text-base rounded-lg px-4 py-2 font-medium shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200">
+                          <button className="w-full bg-black hover:bg-gray-800 text-white text-base rounded-lg px-4 py-2 font-medium shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200">
                             Sign up
                           </button>
                         </Link>
-                      </>
+                      </div>
                     )}
                   </div>
                 </>
@@ -542,7 +542,7 @@ export function Navbar() {
                   >
                     Dashboard
                   </a>
-                  <div className="border-t border-gray-200 pt-4 space-y-4">
+                  <div className="border-t border-gray-200 pt-4 space-y-3">
                     {user ? (
                       <>
                         <button
@@ -567,13 +567,14 @@ export function Navbar() {
                         </button>
                       </>
                     ) : (
-                      <>
+                      <div className="space-y-4">
                         <Link
                           to="/login"
-                          className="block text-base font-medium text-gray-700 hover:text-gray-900 py-2"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
-                          Login
+                          <button className="w-full bg-white hover:bg-gray-50 text-black text-base rounded-lg px-4 py-2 font-medium shadow-md border border-gray-300 hover:shadow-lg active:shadow-inner transition-all duration-200 mb-3">
+                            Login
+                          </button>
                         </Link>
                         <Link
                           to="/register"
@@ -583,7 +584,7 @@ export function Navbar() {
                             Sign up
                           </button>
                         </Link>
-                      </>
+                      </div>
                     )}
                   </div>
                 </>
@@ -597,7 +598,7 @@ export function Navbar() {
                   >
                     Home
                   </Link>
-                  <div className="border-t border-gray-200 pt-4 space-y-4">
+                  <div className="border-t border-gray-200 pt-4 space-y-3">
                     {user ? (
                       <>
                         <button
@@ -622,13 +623,14 @@ export function Navbar() {
                         </button>
                       </>
                     ) : (
-                      <>
+                      <div className="space-y-4">
                         <Link
                           to="/login"
-                          className="block text-base font-medium text-gray-700 hover:text-gray-900 py-2"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
-                          Login
+                          <button className="w-full bg-white hover:bg-gray-50 text-black text-base rounded-lg px-4 py-2 font-medium shadow-md border border-gray-300 hover:shadow-lg active:shadow-inner transition-all duration-200 mb-3">
+                            Login
+                          </button>
                         </Link>
                         <Link
                           to="/register"
@@ -638,7 +640,7 @@ export function Navbar() {
                             Sign up
                           </button>
                         </Link>
-                      </>
+                      </div>
                     )}
                   </div>
                 </>
@@ -677,13 +679,14 @@ export function Navbar() {
                         </button>
                       </>
                     ) : (
-                      <>
+                      <div className="space-y-4">
                         <Link
                           to="/login"
-                          className="block text-base font-medium text-gray-600 hover:text-gray-900 py-2"
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
-                          Login
+                          <button className="w-full bg-white hover:bg-gray-50 text-black text-base rounded-lg px-4 py-2 font-medium shadow-md border border-gray-300 hover:shadow-lg active:shadow-inner transition-all duration-200 mb-3">
+                            Login
+                          </button>
                         </Link>
                         <Link
                           to="/register"
@@ -693,7 +696,7 @@ export function Navbar() {
                             Sign up
                           </button>
                         </Link>
-                      </>
+                      </div>
                     )}
                   </div>
                 </>
