@@ -44,6 +44,7 @@ import reportRouter from "./routes/reportRoutes";
 import searchRouter from "./routes/searchRoutes";
 import userRouter from "./routes/userRoutes";
 import blogRouter from "./routes/blogRoutes";
+import healthRouter from "./routes/healthRoutes";
 import env from "./config/env";
 import { stripeWebhook } from "./controllers/paymentController";
 import { dbCache } from "./config/dbCache";
@@ -224,6 +225,9 @@ app.get("/healthz", async (req, res) => {
 
 // Auth routes (public) with stricter rate limiting
 app.use("/api/auth", authLimiter, authRouter);
+
+// Health routes (no rate limiting for health checks)
+app.use("/api/health", healthRouter);
 
 // Protected routes
 app.use("/api/companies", companyRouter);
