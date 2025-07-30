@@ -28,7 +28,7 @@ const MockSentimentScoreDisplayCard: React.FC = () => {
   return (
     <MockDashboardCard>
       <h3 className="text-lg font-semibold text-gray-800 mb-1">Sentiment Score</h3>
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0" style={{ minHeight: "200px" }}>
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart 
             data={chartData} 

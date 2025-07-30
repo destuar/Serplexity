@@ -85,7 +85,7 @@ const MockVisibilityOverTimeCard: React.FC = () => {
           </button>
         </div>
       </div>
-      <div className="flex-1 min-h-0 -ml-4">
+      <div className="flex-1 min-h-0 -ml-4" style={{ minHeight: "200px" }}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 5, right: 15, bottom: 5, left: 20 }}>
             <CartesianGrid 

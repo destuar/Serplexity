@@ -33,7 +33,7 @@
  * @author Dashboard Team
  * @version 2.0.0 - Refactored to use centralized utilities
  */
-import { Eye, MessageSquare, Sparkles } from "lucide-react";
+import { Eye, MessageSquare, Sparkles, ChevronUp, ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
@@ -902,7 +902,7 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({
                         : "text-gray-400"
                   }`}
                 >
-                  {currentChange > 0 ? "↗" : currentChange < 0 ? "↘" : "—"}
+                  {currentChange > 0 ? <ChevronUp className="h-3 w-3 mr-0.5" /> : currentChange < 0 ? <ChevronDown className="h-3 w-3 mr-0.5" /> : "—"}
                   {Math.abs(currentChange).toFixed(1)}%
                 </span>
               )}

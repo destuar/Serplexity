@@ -32,7 +32,7 @@
  */
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Sparkles, ChevronDown } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
 import LiquidGlassCard from '../ui/LiquidGlassCard';
 import { useDashboard } from '../../hooks/useDashboard';
 import { chartColorArrays } from '../../utils/colorClasses';
@@ -551,7 +551,7 @@ const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedM
               <span className={`flex items-center text-xs font-medium ${
                 currentChange > 0 ? 'text-green-500' : currentChange < 0 ? 'text-red-500' : 'text-gray-400'
               }`}>
-                {currentChange > 0 ? '↗' : currentChange < 0 ? '↘' : '—'}
+                {currentChange > 0 ? <ChevronUp className="h-3 w-3 mr-0.5" /> : currentChange < 0 ? <ChevronDown className="h-3 w-3 mr-0.5" /> : '—'}
                 {Math.abs(currentChange).toFixed(1)}
               </span>
             )}

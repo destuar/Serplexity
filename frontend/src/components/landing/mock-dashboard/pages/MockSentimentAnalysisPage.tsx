@@ -15,30 +15,30 @@
  * @exports
  * - MockSentimentAnalysisPage: The React functional component for the mock sentiment analysis page.
  */
-import React from 'react';
-import { Calendar, Sparkles, RefreshCw, Loader as _Loader } from 'lucide-react';
-import MockDashboardLayout from '../MockDashboardLayout';
-import MockSentimentScoreDisplayCard from '../cards/MockSentimentScoreDisplayCard';
-import MockSentimentOverTimeCard from '../cards/MockSentimentOverTimeCard';
-import MockSentimentDetailsCard from '../cards/MockSentimentDetailsCard';
-import MockFilterDropdown from '../MockFilterDropdown';
-import { MODEL_CONFIGS, ModelConfig } from '../../../../types/dashboard';
+import { Calendar, RefreshCw, Sparkles } from "lucide-react";
+import React from "react";
+import { MODEL_CONFIGS, ModelConfig } from "../../../../types/dashboard";
+import MockDashboardLayout from "../MockDashboardLayout";
+import MockFilterDropdown from "../MockFilterDropdown";
+import MockSentimentDetailsCard from "../cards/MockSentimentDetailsCard";
+import MockSentimentOverTimeCard from "../cards/MockSentimentOverTimeCard";
+import MockSentimentScoreDisplayCard from "../cards/MockSentimentScoreDisplayCard";
 
 const dateRangeOptions = [
-  { value: '24h', label: 'Last 24 hours' },
-  { value: '7d', label: 'Last 7 days' },
-  { value: '30d', label: 'Last 30 days' },
-  { value: '90d', label: 'Last 90 days' },
-  { value: '1y', label: 'Last year' },
+  { value: "24h", label: "Last 24 hours" },
+  { value: "7d", label: "Last 7 days" },
+  { value: "30d", label: "Last 30 days" },
+  { value: "90d", label: "Last 90 days" },
+  { value: "1y", label: "Last year" },
 ];
 
 const aiModelOptions = [
-    { value: 'all', label: 'All Models', icon: Sparkles },
-    ...(Object.values(MODEL_CONFIGS) as ModelConfig[]).map(model => ({
-        value: model.id,
-        label: model.displayName,
-        logoUrl: model.logoUrl,
-    }))
+  { value: "all", label: "All Models", icon: Sparkles },
+  ...(Object.values(MODEL_CONFIGS) as ModelConfig[]).map((model) => ({
+    value: model.id,
+    label: model.displayName,
+    logoUrl: model.logoUrl,
+  })),
 ];
 
 const MockSentimentAnalysisPage: React.FC = () => {
@@ -49,17 +49,17 @@ const MockSentimentAnalysisPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <MockFilterDropdown
               label="Date Range"
-              value={'30d'}
+              value={"30d"}
               options={dateRangeOptions}
               icon={Calendar}
             />
             <MockFilterDropdown
               label="AI Model"
-              value={'all'}
+              value={"all"}
               options={aiModelOptions}
               icon={Sparkles}
             />
-            <button 
+            <button
               disabled
               className="flex items-center justify-center gap-2 px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 active:shadow-inner"
             >
@@ -73,7 +73,7 @@ const MockSentimentAnalysisPage: React.FC = () => {
             </p>
           </div>
         </div>
-        
+
         <div className="flex-1 min-h-0 p-1 relative">
           <div className="h-full w-full">
             <div className="md:hidden h-full overflow-y-auto space-y-4">
@@ -89,15 +89,18 @@ const MockSentimentAnalysisPage: React.FC = () => {
             </div>
 
             {/* Medium screen grid (768px - 1023px) */}
-            <div className="hidden md:grid lg:hidden h-full w-full gap-4" style={{
-              gridTemplateColumns: 'repeat(48, 1fr)',
-              gridTemplateRows: 'repeat(15, minmax(30px, 1fr))',
-              gridTemplateAreas: `
+            <div
+              className="hidden md:grid lg:hidden h-full w-full gap-4"
+              style={{
+                gridTemplateColumns: "repeat(48, 1fr)",
+                gridTemplateRows: "repeat(14, minmax(30px, 1fr))",
+                gridTemplateAreas: `
                 "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
                 "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
                 "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
                 "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
                 "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
+                "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
                 "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
                 "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
                 "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
@@ -107,21 +110,27 @@ const MockSentimentAnalysisPage: React.FC = () => {
                 "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
                 "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
                 "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
-                "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
-                "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
-                "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
-              `
-            }}>
-              <div style={{ gridArea: 's1' }}><MockSentimentScoreDisplayCard /></div>
-              <div style={{ gridArea: 's2' }}><MockSentimentOverTimeCard /></div>
-              <div style={{ gridArea: 'd1' }}><MockSentimentDetailsCard /></div>
+              `,
+              }}
+            >
+              <div style={{ gridArea: "s1" }}>
+                <MockSentimentScoreDisplayCard />
+              </div>
+              <div style={{ gridArea: "s2" }}>
+                <MockSentimentOverTimeCard />
+              </div>
+              <div style={{ gridArea: "d1" }}>
+                <MockSentimentDetailsCard />
+              </div>
             </div>
 
             {/* Desktop grid (1024px+) */}
-            <div className="hidden lg:grid h-full w-full gap-4" style={{
-              gridTemplateColumns: 'repeat(48, 1fr)',
-              gridTemplateRows: 'repeat(24, minmax(30px, 1fr))',
-              gridTemplateAreas: `
+            <div
+              className="hidden lg:grid h-full w-full gap-4"
+              style={{
+                gridTemplateColumns: "repeat(48, 1fr)",
+                gridTemplateRows: "repeat(23, minmax(30px, 1fr))",
+                gridTemplateAreas: `
                 "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
                 "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
                 "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
@@ -137,20 +146,18 @@ const MockSentimentAnalysisPage: React.FC = () => {
                 "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
                 "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
                 "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
-                "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
-                "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
-                "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
-                "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
-                "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
-                "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
-                "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
-                "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
-                "d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1 d1"
-              `
-            }}>
-              <div style={{ gridArea: 's1' }}><MockSentimentScoreDisplayCard /></div>
-              <div style={{ gridArea: 's2' }}><MockSentimentOverTimeCard /></div>
-              <div style={{ gridArea: 'd1' }}><MockSentimentDetailsCard /></div>
+              `,
+              }}
+            >
+              <div style={{ gridArea: "s1" }}>
+                <MockSentimentScoreDisplayCard />
+              </div>
+              <div style={{ gridArea: "s2" }}>
+                <MockSentimentOverTimeCard />
+              </div>
+              <div style={{ gridArea: "d1" }}>
+                <MockSentimentDetailsCard />
+              </div>
             </div>
           </div>
         </div>
@@ -159,4 +166,4 @@ const MockSentimentAnalysisPage: React.FC = () => {
   );
 };
 
-export default MockSentimentAnalysisPage; 
+export default MockSentimentAnalysisPage;

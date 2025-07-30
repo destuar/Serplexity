@@ -13,7 +13,7 @@
  * - LandingPage: The main landing page component.
  */
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Calendar, Check, Clock, Target, User, X, TrendingUp, TrendingDown } from "lucide-react";
+import { ArrowRight, Calendar, Check, Clock, Target, User, X, ChevronUp, ChevronDown } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { FaLinkedin } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
@@ -943,8 +943,9 @@ const LandingPage: React.FC = () => {
                           38.5%
                         </span>
                       </div>
-                      <span className="flex items-center text-xs font-medium text-green-500">
-                        ↗ 2.1%
+                      <span className="flex items-center gap-1 text-xs font-medium text-green-500">
+                        <ChevronUp className="h-3 w-3" />
+                        2.1%
                       </span>
                     </div>
                     <div className="flex-1 relative ml-1 h-16 sm:h-20 lg:h-auto">
@@ -1066,7 +1067,7 @@ const LandingPage: React.FC = () => {
                         </span>
                       </div>
                       <span className="flex items-center text-xs font-medium text-green-500">
-                        ↗ 1.8%
+                        <ChevronUp className="h-3 w-3 mr-0.5" /> 1.8%
                       </span>
                     </div>
                     <div className="flex-1 relative ml-1 h-16 sm:h-20 lg:h-auto">
@@ -1561,7 +1562,7 @@ const LandingPage: React.FC = () => {
                                 <div className="flex items-center gap-2 mt-1">
                                   <span className="text-xs text-gray-500">{item.mentions} mentions</span>
                                   <span className={`text-xs flex items-center gap-1 ${item.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
-                                    {item.trend === 'up' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                                    {item.trend === 'up' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                                     {item.trend === 'up' ? '+12%' : '-8%'}
                                   </span>
                                 </div>
