@@ -329,6 +329,85 @@ export const createReport = async (req: Request, res: Response) => {
       });
     }
 
+    // Check subscription status before allowing report generation
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        subscriptionStatus: true,
+        trialEndsAt: true,
+        role: true,
+      },
+    });
+
+    if (!user) {
+      const duration = Date.now() - startTime;
+      controllerLog(
+        {
+          endpoint,
+          userId,
+          companyId,
+          duration,
+          statusCode: 404,
+          metadata: { reason: "user_not_found" },
+        },
+        "User not found",
+        "ERROR",
+      );
+
+      return res.status(404).json({
+        error: "User not found",
+        message: "Unable to verify subscription status",
+      });
+    }
+
+    // Check if user has permission to generate reports
+    const hasActiveSubscription = user.subscriptionStatus === "active";
+    const isAdmin = user.role === "ADMIN";
+    const isInActiveTrial = user.subscriptionStatus === "trialing" && 
+      user.trialEndsAt && new Date() < new Date(user.trialEndsAt);
+
+    if (!hasActiveSubscription && !isAdmin && !isInActiveTrial) {
+      const duration = Date.now() - startTime;
+      controllerLog(
+        {
+          endpoint,
+          userId,
+          companyId,
+          duration,
+          statusCode: 403,
+          metadata: { 
+            subscriptionStatus: user.subscriptionStatus,
+            trialExpired: user.trialEndsAt ? new Date() >= new Date(user.trialEndsAt) : false,
+            reason: "subscription_required"
+          },
+        },
+        "Report generation blocked - subscription required",
+        "WARN",
+      );
+
+      return res.status(403).json({
+        error: "Subscription required",
+        message: "Report generation requires an active subscription or trial. You can still view existing dashboard data.",
+        subscriptionStatus: user.subscriptionStatus,
+        trialExpired: user.trialEndsAt ? new Date() >= new Date(user.trialEndsAt) : false,
+      });
+    }
+
+    controllerLog(
+      {
+        endpoint,
+        userId,
+        companyId,
+        metadata: {
+          subscriptionStatus: user.subscriptionStatus,
+          hasActiveSubscription,
+          isAdmin,
+          isInActiveTrial,
+        },
+      },
+      "Subscription validation passed - proceeding with report generation",
+    );
+
     // Queue the report generation with enhanced error handling
     controllerLog(
       { endpoint, userId, companyId },

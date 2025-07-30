@@ -357,7 +357,7 @@ Immediate Actions:
   private async sendWebhookAlert(
     level: AlertLevel,
     type: string,
-    data: Record<string, unknown>,
+    data: Record<string, unknown> | ReportFailureAlert | SystemAlert,
   ): Promise<void> {
     if (!env.ALERT_WEBHOOK_URL) {
       console.log(

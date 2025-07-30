@@ -14,7 +14,7 @@
  */
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Calendar, Check, Clock, Target, User, X, ChevronUp, ChevronDown } from "lucide-react";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FaLinkedin } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
 import { useNavigate } from "react-router-dom";
@@ -61,16 +61,60 @@ const LandingPage: React.FC = () => {
     "Grok",
   ];
 
-  // Logo configuration with error handling
-  const logoConfig = [
-    { name: "ChatGPT", path: "/chatgpt_logo.svg", height: { lg: "80px", md: "65px", sm: "50px" } },
-    { name: "Perplexity", path: "/logo-perplexity-1024x258.svg", height: { lg: "100px", md: "80px", sm: "60px" } },
-    { name: "Gemini", path: "/gemini_logo.svg", height: { lg: "60px", md: "50px", sm: "38px" } },
-    { name: "Claude", path: "/claude_logo.svg", height: { lg: "60px", md: "50px", sm: "40px" } },
-    { name: "Copilot", path: "/copilot-logo.svg", height: { lg: "75px", md: "60px", sm: "48px" } },
-    { name: "DeepSeek", path: "/DeepSeek_logo.svg", height: { lg: "85px", md: "68px", sm: "52px" } },
-    { name: "Grok", path: "/Grok-feb-2025-logo.svg", height: { lg: "90px", md: "72px", sm: "55px" } },
-  ];
+  // Mobile detection hook
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    // Check on mount
+    checkIsMobile();
+
+    // Add resize listener
+    window.addEventListener('resize', checkIsMobile);
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+
+  // Logo configuration with responsive PNG/SVG support
+  const logoConfig = useMemo(() => [
+      { 
+        name: "ChatGPT", 
+        path: isMobile ? "/chatgpt_logo.png" : "/chatgpt_logo.svg", 
+        height: { lg: "80px", md: "65px", sm: "50px" } 
+      },
+      { 
+        name: "Perplexity", 
+        path: isMobile ? "/perplexity_logo.png" : "/logo-perplexity-1024x258.svg", 
+        height: { lg: "100px", md: "80px", sm: "60px" } 
+      },
+      { 
+        name: "Gemini", 
+        path: isMobile ? "/gemini_logo.png" : "/gemini_logo.svg", 
+        height: { lg: "60px", md: "50px", sm: "38px" } 
+      },
+      { 
+        name: "Claude", 
+        path: isMobile ? "/claude_logo.png" : "/claude_logo.svg", 
+        height: { lg: "60px", md: "50px", sm: "40px" } 
+      },
+      { 
+        name: "Copilot", 
+        path: isMobile ? "/copilot-logo.png" : "/copilot-logo.svg", 
+        height: { lg: "75px", md: "60px", sm: "48px" } 
+      },
+      { 
+        name: "DeepSeek", 
+        path: isMobile ? "/DeepSeek_logo.png" : "/DeepSeek_logo.svg", 
+        height: { lg: "85px", md: "68px", sm: "52px" } 
+      },
+      { 
+        name: "Grok", 
+        path: isMobile ? "/grok_logo.png" : "/Grok-feb-2025-logo.svg", 
+        height: { lg: "90px", md: "72px", sm: "55px" } 
+      },
+  ], [isMobile]);
 
   // Statistics animation state
   const [statsVisible, setStatsVisible] = useState(false);
@@ -122,7 +166,7 @@ const LandingPage: React.FC = () => {
       const img = new Image();
       img.src = logo.path;
     });
-  }, []);
+  }, [logoConfig]);
 
   // Rotating text animation
   useEffect(() => {
@@ -700,7 +744,7 @@ const LandingPage: React.FC = () => {
                 className="text-left -mt-4 sm:-mt-6 md:-mt-8 lg:-mt-12 mb-8 lg:mb-0"
               >
                 <h1 className="font-archivo text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-semibold text-black tracking-tight leading-[1.1] mb-6 sm:mb-8">
-                  <div className="mb-4 sm:mb-6 text-4xl sm:text-3xl md:text-5xl lg:text-5xl xl:text-6xl">Get mentioned by</div>
+                  <div className="mb-4 sm:mb-6 text-[2.5rem] sm:text-3xl md:text-5xl lg:text-5xl xl:text-6xl">Get mentioned by</div>
                   <div className="h-[60px] sm:h-[70px] md:h-[80px] lg:h-[90px] flex items-center justify-start">
                     <AnimatePresence mode="wait">
                       <motion.div

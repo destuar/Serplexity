@@ -80,7 +80,7 @@ const SentimentScoresSchema = z.object({
 const CompetitorSchema = z.object({
   name: z.string().min(1),
   website: z.string().min(1), // Keep simple validation here since this handles LLM responses
-});
+}) as z.ZodType<CompetitorInfo>;
 
 const QuestionResponseSchema = z.object({
   question: z.string(),
@@ -98,7 +98,19 @@ const QuestionResponseSchema = z.object({
     .optional(),
   has_web_search: z.boolean().optional(),
   brand_mentions_count: z.number().optional(),
-});
+}) as z.ZodType<{
+  question: string;
+  answer: string;
+  citations?: {
+    url: string;
+    title: string;
+    domain: string;
+    accessedAt?: string;
+    position?: number;
+  }[];
+  has_web_search?: boolean;
+  brand_mentions_count?: number;
+}>;
 
 export type SentimentScores = z.infer<typeof SentimentScoresSchema>;
 
@@ -436,7 +448,7 @@ export async function generateWebsiteForCompetitors(
       },
       z.object({
         competitors: z.array(CompetitorSchema),
-      }),
+      }) as z.ZodType<{ competitors: CompetitorInfo[] }>,
       {
         temperature: 0.2,
         maxTokens: 2000,
@@ -531,7 +543,7 @@ export async function generateChatCompletion(
           prompt,
           structured: false,
         },
-        z.object({ response: z.string() }),
+        z.object({ response: z.string() }) as z.ZodType<{ response: string }>,
         {
           modelId: model.id,
           temperature: 0.7,
@@ -732,23 +744,23 @@ export async function getModelsByTaskWithUserPreferences(
 function extractActualTokenUsage(metadata: Record<string, unknown>): TokenUsage {
   // Try to extract actual token counts from metadata
   if (metadata.usage && typeof metadata.usage === 'object') {
-    const usage = metadata.usage;
+    const usage = metadata.usage as Record<string, unknown>;
     
     // Priority 1: Direct token counts from provider
     if (usage.prompt_tokens !== undefined && usage.completion_tokens !== undefined) {
       return {
-        promptTokens: usage.prompt_tokens,
-        completionTokens: usage.completion_tokens,
-        totalTokens: usage.total_tokens || (usage.prompt_tokens + usage.completion_tokens),
+        promptTokens: Number(usage.prompt_tokens) || 0,
+        completionTokens: Number(usage.completion_tokens) || 0,
+        totalTokens: Number(usage.total_tokens) || (Number(usage.prompt_tokens) + Number(usage.completion_tokens)),
       };
     }
     
     // Priority 2: Input/output tokens
     if (usage.input_tokens !== undefined && usage.output_tokens !== undefined) {
       return {
-        promptTokens: usage.input_tokens,
-        completionTokens: usage.output_tokens,
-        totalTokens: usage.total_tokens || (usage.input_tokens + usage.output_tokens),
+        promptTokens: Number(usage.input_tokens) || 0,
+        completionTokens: Number(usage.output_tokens) || 0,
+        totalTokens: Number(usage.total_tokens) || (Number(usage.input_tokens) + Number(usage.output_tokens)),
       };
     }
   }
@@ -759,7 +771,7 @@ function extractActualTokenUsage(metadata: Record<string, unknown>): TokenUsage 
   console.warn(`⚠️  Using fallback estimates - cost calculation may be inaccurate`);
   console.warn(`⚠️  PydanticAI agents must be updated to return actual token counts`);
   
-  const totalTokens = metadata.tokensUsed || 0;
+  const totalTokens = Number(metadata.tokensUsed) || 0;
   
   // Use conservative 80/20 split for fallback (overestimate input tokens for safety)
   return {

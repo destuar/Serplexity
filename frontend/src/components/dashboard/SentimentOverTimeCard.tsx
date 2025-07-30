@@ -244,7 +244,7 @@ const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({ selectedM
             margin={{ 
               top: 5, 
               right: showModelBreakdown ? 35 : 15,
-              bottom: 0, 
+              bottom: chartData.length > 10 ? 35 : 25, 
               left: 20 
             }}
           >

@@ -13,7 +13,6 @@
  */
 import React from 'react';
 import { Sparkles } from 'lucide-react';
-import { InlineSpinner } from './InlineSpinner';
 
 
 interface WelcomePromptProps {
@@ -64,7 +63,7 @@ const WelcomePrompt: React.FC<WelcomePromptProps> = ({
           )}
           <div className="relative z-10 flex items-center gap-3">
             {isGenerating ? (
-              <InlineSpinner size={16} />
+              <span>Generating Report...</span>
             ) : (
               <>
                 <Sparkles size={16} />

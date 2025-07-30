@@ -208,7 +208,14 @@ export const createBlogPost = async (req: Request, res: Response) => {
 
     const post = await prisma.blogPost.create({
       data: {
-        ...validatedData,
+        title: validatedData.title,
+        content: validatedData.content,
+        excerpt: validatedData.excerpt,
+        coverImage: validatedData.coverImage,
+        published: validatedData.published ?? false,
+        metaTitle: validatedData.metaTitle,
+        metaDescription: validatedData.metaDescription,
+        tags: validatedData.tags || [],
         slug,
         authorId: userId,
         estimatedReadTime,

@@ -375,12 +375,15 @@ export const getTrialStatus = async (req: Request, res: Response) => {
     const isAdmin = user.role === "ADMIN";
     const hasActiveSubscription = user.subscriptionStatus === "active";
     const isTrialing = user.subscriptionStatus === "trialing";
-    const trialExpired = user.trialEndsAt ? now >= new Date(user.trialEndsAt) : true;
+    const trialExpired = user.trialEndsAt ? now >= new Date(user.trialEndsAt) : false;
     const isInActiveTrial = isTrialing && !trialExpired;
     
-    const daysRemaining = user.trialEndsAt ? 
-      Math.max(0, Math.ceil((new Date(user.trialEndsAt).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))) 
+    const timeRemaining = user.trialEndsAt ? 
+      Math.max(0, new Date(user.trialEndsAt).getTime() - now.getTime()) 
       : 0;
+    
+    const daysRemaining = Math.floor(timeRemaining / (1000 * 60 * 60 * 24));
+    const hoursRemaining = Math.floor((timeRemaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
 
     // Determine access levels
     const hasFullAccess = isAdmin || hasActiveSubscription || isInActiveTrial;
@@ -395,6 +398,7 @@ export const getTrialStatus = async (req: Request, res: Response) => {
       trialStartedAt: user.trialStartedAt,
       trialEndsAt: user.trialEndsAt,
       daysRemaining,
+      hoursRemaining,
       hasFullAccess,
       canModifyPrompts,
       canCreateReports,

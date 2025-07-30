@@ -45,6 +45,7 @@ if (env.NODE_ENV !== "test") {
           tomorrow.setDate(tomorrow.getDate() + 1);
 
           // Find companies that have previous completed reports (so they're eligible for daily reports)
+          // Only include companies whose users have active subscriptions, active trials, or are admins  
           const eligibleCompanies = await prisma.company.findMany({
             where: {
               runs: {
@@ -52,6 +53,22 @@ if (env.NODE_ENV !== "test") {
                   status: "COMPLETED",
                 },
               },
+              // Only include companies whose users have active subscriptions, active trials, or are admins
+              user: {
+                OR: [
+                  // Active subscription
+                  { subscriptionStatus: "active" },
+                  // Admin users (always get reports)
+                  { role: "ADMIN" },
+                  // Active trial (not expired)
+                  {
+                    AND: [
+                      { subscriptionStatus: "trialing" },
+                      { trialEndsAt: { gt: new Date() } }
+                    ]
+                  }
+                ]
+              }
             },
             include: {
               runs: {
@@ -220,6 +237,7 @@ if (env.NODE_ENV !== "test") {
         try {
           const prisma = await getDbClient();
           // For emergency triggers, queue reports for ALL eligible companies regardless of today's status
+          // Only include companies whose users have active subscriptions, active trials, or are admins
           const companies = await prisma.company.findMany({
             where: {
               runs: {
@@ -227,6 +245,22 @@ if (env.NODE_ENV !== "test") {
                   status: "COMPLETED",
                 },
               },
+              // Only include companies whose users have active subscriptions, active trials, or are admins
+              user: {
+                OR: [
+                  // Active subscription
+                  { subscriptionStatus: "active" },
+                  // Admin users (always get reports)
+                  { role: "ADMIN" },
+                  // Active trial (not expired)
+                  {
+                    AND: [
+                      { subscriptionStatus: "trialing" },
+                      { trialEndsAt: { gt: new Date() } }
+                    ]
+                  }
+                ]
+              }
             },
             select: { id: true, name: true },
           });

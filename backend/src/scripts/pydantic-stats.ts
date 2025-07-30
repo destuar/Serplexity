@@ -217,7 +217,7 @@ async function main() {
       console.log(
         `🔗 Providers (${stats.providers.available}/${stats.providers.total}):`,
       );
-      stats.providers.healthReport.forEach((provider) => {
+      stats.providers.healthReport.forEach((provider: any) => {
         const statusEmoji = provider.available ? "✅" : "❌";
         console.log(
           `  ${statusEmoji} ${provider.id}: ${provider.available ? "Available" : "Unavailable"} (errors: ${provider.errorCount})`,

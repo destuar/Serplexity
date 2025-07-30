@@ -279,7 +279,7 @@ const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
                   step="0.1"
                   value={settings.temperature}
                   onChange={(e) => handleSettingsChange({ temperature: parseFloat(e.target.value) })}
-                  className="w-full h-2 bg-gradient-to-r from-blue-200 via-purple-200 to-pink-200 rounded-lg appearance-none cursor-pointer slider [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-gray-300 [&::-webkit-slider-thumb]:cursor-pointer"
+                  className="w-full h-2 bg-gradient-to-r from-blue-200 via-white to-orange-300 rounded-lg appearance-none cursor-pointer slider [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-gray-300 [&::-webkit-slider-thumb]:cursor-pointer"
                 />
                 <div className="flex justify-between mt-1">
                   <span className="text-xs text-gray-400">Focused</span>
@@ -574,7 +574,7 @@ const LlmSerpPane: React.FC<Props> = ({ query, modelId, onModelChange }) => {
                     setShowPaywall(false);
                     navigate('/payment');
                   }}
-                  className="px-6 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors inline-flex items-center gap-2"
+                  className="px-6 py-2 text-sm bg-black hover:bg-gray-800 text-white rounded-lg transition-colors inline-flex items-center gap-2"
                 >
                   Upgrade Now
                   <ArrowRight className="h-4 w-4" />

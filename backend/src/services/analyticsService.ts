@@ -106,7 +106,7 @@ export class AnalyticsService {
         totalPageViews: pageViews.length,
         uniquePages: Object.keys(uniquePages).length,
         popularPages: this.getTopPages(uniquePages),
-        eventBreakdown: this.getEventBreakdown(events),
+        eventBreakdown: this.getEventBreakdown(events as UserEvent[]),
       };
     } catch (error) {
       logger.error("Error getting daily analytics:", error);
@@ -127,7 +127,7 @@ export class AnalyticsService {
 
       const parsedEvents = events
         .map((event: string) => JSON.parse(event))
-        .filter((event: UserEvent): event is UserEvent => {
+        .filter((event: any): event is UserEvent => {
           // Basic validation, can be enhanced with Zod
           return (
             event &&

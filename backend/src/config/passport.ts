@@ -60,13 +60,19 @@ passport.use(
             });
           }
         } else {
-          // If user does not exist, create a new one
+          // If user does not exist, create a new one with trial information
+          const trialStartedAt = new Date();
+          const trialEndsAt = new Date(trialStartedAt.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
           user = await prisma.user.create({
             data: {
               email,
               name: profile.displayName,
               provider: "google",
               providerId: profile.id,
+              trialStartedAt,
+              trialEndsAt,
+              subscriptionStatus: "trialing",
             },
             include: { companies: { include: { competitors: true } } },
           });

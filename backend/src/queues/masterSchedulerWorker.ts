@@ -42,6 +42,22 @@ if (env.NODE_ENV !== "test") {
                 status: "COMPLETED",
               },
             },
+            // Only include companies whose users have active subscriptions, active trials, or are admins
+            user: {
+              OR: [
+                // Active subscription
+                { subscriptionStatus: "active" },
+                // Admin users (always get reports)
+                { role: "ADMIN" },
+                // Active trial (not expired)
+                {
+                  AND: [
+                    { subscriptionStatus: "trialing" },
+                    { trialEndsAt: { gt: new Date() } }
+                  ]
+                }
+              ]
+            }
           },
           select: { id: true },
         });

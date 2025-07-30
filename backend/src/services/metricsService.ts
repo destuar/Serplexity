@@ -806,7 +806,7 @@ export async function getFullReportMetrics(
     sentimentOverTime: null, // Historical data fetched separately
     shareOfVoiceHistory: null, // Historical data fetched separately
     sentimentDetails: Array.isArray(metric.sentimentDetails) 
-      ? metric.sentimentDetails as Array<{name: string; engine: string; value: any}>
+      ? metric.sentimentDetails as Array<{name: string; engine: string; value: { ratings: { quality: number; priceValue: number; brandReputation: number; brandTrust: number; customerService: number; summaryDescription: string; }[]; }}>
       : [],
   };
 }

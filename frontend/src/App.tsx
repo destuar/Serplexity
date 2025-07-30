@@ -53,9 +53,11 @@ import { usePageTracking, useSessionTracking } from './hooks/useAnalytics';
 
 const DashboardRoutes: React.FC = () => (
   <NavigationProvider>
-    <TrialBanner />
-    <DashboardLayout>
-      <Routes>
+    <div className="h-screen flex flex-col">
+      <TrialBanner />
+      <div className="flex-1 min-h-0">
+        <DashboardLayout>
+          <Routes>
         <Route path="/overview" element={<OverviewPage />} />
         <Route path="/dashboard" element={<OverviewPage />} />
         <Route path="/visibility-tasks" element={<VisibilityTasksPage />} />
@@ -64,8 +66,10 @@ const DashboardRoutes: React.FC = () => (
         <Route path="/competitors" element={<CompetitorsPage />} />
 
         <Route path="/experimental-search" element={<ExperimentalSearchPage />} />
-      </Routes>
-    </DashboardLayout>
+          </Routes>
+        </DashboardLayout>
+      </div>
+    </div>
   </NavigationProvider>
 );
 

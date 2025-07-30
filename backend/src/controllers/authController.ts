@@ -67,6 +67,13 @@ export const register = async (req: Request, res: Response) => {
     const trialStartedAt = new Date();
     const trialEndsAt = new Date(trialStartedAt.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
+    logger.info("Creating user with trial data", {
+      email,
+      trialStartedAt: trialStartedAt.toISOString(),
+      trialEndsAt: trialEndsAt.toISOString(),
+      subscriptionStatus: "trialing",
+    });
+
     const user = await prisma.user.create({
       data: {
         email,
@@ -88,6 +95,14 @@ export const register = async (req: Request, res: Response) => {
         trialEndsAt: true,
         companies: { include: { competitors: true } },
       },
+    });
+
+    logger.info("User created successfully", {
+      userId: user.id,
+      email: user.email,
+      subscriptionStatus: user.subscriptionStatus,
+      trialStartedAt: user.trialStartedAt,
+      trialEndsAt: user.trialEndsAt,
     });
 
     const payload: JwtPayload = {

@@ -52,38 +52,35 @@ const TrialBanner: React.FC = () => {
   const daysLeft = trialStatus.daysRemaining;
 
   return (
-    <div className={`relative ${isExpired ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'} border-b px-4 py-3`}>
-      <div className="flex items-center justify-between max-w-7xl mx-auto">
-        <div className="flex items-center space-x-3">
-
-          <div className="flex-1">
-            <p className={`text-sm font-medium ${isExpired ? 'text-red-800' : 'text-blue-800'}`}>
-              {isExpired ? (
-                <>
-                  <strong>Trial Expired</strong> - You can still view your dashboard and competitors, but prompt management requires a subscription.
-                </>
-              ) : (
-                <>
-                  <strong>Free Trial Active</strong> - {daysLeft} day{daysLeft !== 1 ? 's' : ''} remaining with full access to all features.
-                </>
-              )}
-            </p>
-          </div>
+    <div className="relative bg-white border-gray-200 border-b px-4 py-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Centered text - responsive padding */}
+        <div className="text-center pl-0 sm:pl-16 lg:pl-32 pr-24 sm:pr-32 lg:pr-48">
+          <p className="text-sm font-medium text-gray-900">
+            {isExpired ? (
+              <>
+                <strong>Free Trial Expired</strong> - You can still access your dashboard data, but future reports will no longer update.
+              </>
+            ) : (
+              <>
+                <strong>Free Trial Active</strong> - {daysLeft} day{daysLeft !== 1 ? 's' : ''} remaining with full access to all features.
+              </>
+            )}
+          </p>
         </div>
-        <div className="flex items-center space-x-3">
+        
+        {/* Right-aligned buttons - responsive positioning */}
+        <div className="absolute top-1/2 right-2 sm:right-4 transform -translate-y-1/2 flex items-center space-x-2 sm:space-x-3">
           <button
             onClick={() => window.location.href = '/payment'}
-            className={`px-4 py-2 text-sm font-medium rounded-md ${
-              isExpired 
-                ? 'bg-red-600 hover:bg-red-700 text-white' 
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
-            } transition-colors`}
+            className="px-2 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md bg-gray-900 hover:bg-black text-white transition-colors whitespace-nowrap"
           >
-            {isExpired ? 'Subscribe Now' : 'Upgrade Early'}
+            <span className="hidden sm:inline">Upgrade to Pro</span>
+            <span className="sm:hidden">Upgrade</span>
           </button>
           <button
             onClick={() => setDismissed(true)}
-            className={`p-1 rounded-md ${isExpired ? 'text-red-400 hover:text-red-600' : 'text-blue-400 hover:text-blue-600'}`}
+            className="p-1 rounded-md text-gray-400 hover:text-gray-600 flex-shrink-0"
           >
             <span className="sr-only">Dismiss</span>
             <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">

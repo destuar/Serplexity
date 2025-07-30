@@ -184,9 +184,9 @@ export async function calculateCitationRankings(
   // Check if citation rankings are already computed and stored in competitorRankings
   if (
     metric?.competitorRankings &&
-    (metric.competitorRankings as unknown).citationRankings
+    (metric.competitorRankings as any)?.citationRankings
   ) {
-    return (metric.competitorRankings as unknown).citationRankings;
+    return (metric.competitorRankings as any).citationRankings;
   }
 
   // Fallback – compute citation share of voice via Citation

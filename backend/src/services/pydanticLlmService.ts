@@ -208,8 +208,9 @@ export class PydanticLlmService {
     const steps: string[] = [];
     
     for (const [checkName, result] of results) {
-      if (!result.success && result.remediation) {
-        steps.push(`${checkName}: ${result.remediation}`);
+      const resultObj = result as { success?: boolean; remediation?: string };
+      if (!resultObj.success && resultObj.remediation) {
+        steps.push(`${checkName}: ${resultObj.remediation}`);
       }
     }
     
@@ -222,7 +223,8 @@ export class PydanticLlmService {
   private async attemptAutomatedRemediation(results: Map<string, unknown>): Promise<void> {
     const remediation = results.get('pydantic-ai-installation');
     
-    if (remediation && !remediation.success && remediation.remediation?.includes('pip3 install')) {
+    const remediationObj = remediation as { success?: boolean; remediation?: string };
+    if (remediationObj && !remediationObj.success && remediationObj.remediation?.includes('pip3 install')) {
       try {
         logger.info("🔧 Attempting to install Python dependencies automatically...");
         
@@ -507,7 +509,7 @@ export class PydanticLlmService {
             result.providerId || options.modelId?.split(":")[0] || "unknown";
 
           const response: PydanticResponse<T> = {
-            data: resultData,
+            data: resultData as T,
             metadata: {
               modelUsed:
                 result.modelUsed || options.modelId || providerIdForMetadata,
@@ -704,7 +706,7 @@ export class PydanticLlmService {
 
       // Send input data with provider information
       const enhancedInputData = {
-        ...inputData,
+        ...(inputData as Record<string, unknown>),
         provider: providerId,
       };
       pythonProcess.stdin?.write(JSON.stringify(enhancedInputData));
@@ -754,6 +756,9 @@ export class PydanticLlmService {
                 executionTime,
                 providerId,
                 tokensUsed: result.tokensUsed || result.tokens_used || 0,
+                modelUsed: "unknown",
+                attemptCount: 1,
+                fallbackUsed: false,
               });
               return;
             }
@@ -922,7 +927,7 @@ export class PydanticLlmService {
         : inputData;
     }
     if (typeof inputData === "object" && inputData !== null) {
-      const sanitized = { ...inputData };
+      const sanitized = { ...(inputData as Record<string, unknown>) };
       // Remove sensitive data from objects
       if (sanitized.apiKey) {
         sanitized.apiKey = "***";
