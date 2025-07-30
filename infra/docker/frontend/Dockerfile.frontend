@@ -21,8 +21,8 @@ RUN echo "Application - Building..."
 RUN npm run build
 RUN echo "Application - Built"
 
-# Clean up unnecessary files but keep dist
-RUN rm -rf node_modules src public *.json *.config.* *.md
+# Clean up unnecessary files but keep dist (preserve public folder for Vite build)
+RUN rm -rf node_modules src *.json *.config.* *.md
 RUN echo "------ Build Stage Finished ------"
 
 # ============================= PRODUCTION STAGE ==============================
