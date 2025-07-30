@@ -1822,16 +1822,7 @@ const LandingPage: React.FC = () => {
                 transition={{ duration: 0.8, delay: 0.2 }}
                 className="dashboard-preview-content"
               >
-                {isMediumScreen ? (
-                  <DashboardPreviewCarousel />
-                ) : (
-                  <img
-                    src="/mock_dashboard.png"
-                    alt="Dashboard preview"
-                    className="w-full rounded-xl shadow-lg"
-                    style={{ maxWidth: 600, margin: "0 auto" }}
-                  />
-                )}
+                <DashboardPreviewCarousel />
               </motion.div>
             </div>
           </div>

@@ -111,7 +111,23 @@ const authLimiter = rateLimit({
 app.use(globalLimiter);
 
 const corsOptions = {
-  origin: env.CORS_ORIGIN,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      env.CORS_ORIGIN,
+      'https://www.serplexity.com',
+      'https://serplexity.com',
+      'http://localhost:3000', // Development
+    ];
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true, // Allow cookies to be sent
   optionsSuccessStatus: 200,
 };
