@@ -7,14 +7,14 @@
  *
  * @dependencies
  * - react: For core React functionalities.
- * - react-icons/fi: For icons such as `FiArrowUp` and `FiArrowDown`.
+ * - lucide-react: For icons such as `ArrowUp` and `ArrowDown`.
  * - ./MockDashboardCard: Generic card component for consistent UI in the mock dashboard.
  *
  * @exports
  * - MockAverageInclusionRateCard: React functional component for displaying the mock average inclusion rate.
  */
 import React from 'react';
-import { FiArrowUp, FiArrowDown } from 'react-icons/fi';
+import { ArrowUp, ArrowDown } from 'lucide-react';
 import MockDashboardCard from './MockDashboardCard';
 
 const MOCK_AVG_INCLUSION_RATE = 72.3;
@@ -32,7 +32,7 @@ const MockAverageInclusionRateCard: React.FC = () => {
 
     const isPositive = MOCK_CHANGE > 0;
     const changeColor = isPositive ? 'text-green-500' : 'text-red-500';
-    const Icon = isPositive ? FiArrowUp : FiArrowDown;
+    const Icon = isPositive ? ArrowUp : ArrowDown;
 
     return (
       <span className={`flex items-center text-xs font-medium ${changeColor}`}>

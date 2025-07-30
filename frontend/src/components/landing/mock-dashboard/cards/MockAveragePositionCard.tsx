@@ -7,14 +7,14 @@
  *
  * @dependencies
  * - react: For core React functionalities.
- * - react-icons/fi: For icons such as `FiArrowUp` and `FiArrowDown`.
+ * - lucide-react: For icons such as `ArrowUp` and `ArrowDown`.
  * - ./MockDashboardCard: Generic card component for consistent UI in the mock dashboard.
  *
  * @exports
  * - MockAveragePositionCard: React functional component for displaying the mock average position.
  */
 import React from 'react';
-import { FiArrowUp, FiArrowDown } from 'react-icons/fi';
+import { ArrowUp, ArrowDown } from 'lucide-react';
 import MockDashboardCard from './MockDashboardCard';
 
 const MOCK_AVG_POSITION = 2.1;
@@ -32,7 +32,7 @@ const MockAveragePositionCard: React.FC = () => {
 
     const isImprovement = MOCK_CHANGE < 0; // Negative change is better
     const changeColor = isImprovement ? 'text-green-500' : 'text-red-500';
-    const Icon = isImprovement ? FiArrowDown : FiArrowUp;
+    const Icon = isImprovement ? ArrowDown : ArrowUp;
 
     return (
       <span className={`flex items-center text-xs font-medium ${changeColor}`}>

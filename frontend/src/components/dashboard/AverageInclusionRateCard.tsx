@@ -15,7 +15,7 @@
  */
 import LiquidGlassCard from '../ui/LiquidGlassCard';
 import { useDashboard } from '../../hooks/useDashboard';
-import { FiArrowUp, FiArrowDown } from 'react-icons/fi';
+import { ArrowUp, ArrowDown } from 'lucide-react';
 
 const AverageInclusionRateCard = () => {
   const { data, loading, error } = useDashboard();
@@ -48,7 +48,7 @@ const AverageInclusionRateCard = () => {
     // For inclusion rate: increase is good, decrease is bad
     const isPositive = change > 0;
     const changeColor = isPositive ? 'text-green-500' : 'text-red-500';
-    const Icon = isPositive ? FiArrowUp : FiArrowDown;
+    const Icon = isPositive ? ArrowUp : ArrowDown;
 
     return (
       <span className={`flex items-center text-sm font-medium ${changeColor}`}>

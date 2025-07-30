@@ -13,7 +13,7 @@
  * - LandingPage: The main landing page component.
  */
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Calendar, Check, Clock, Target, User, X } from "lucide-react";
+import { ArrowRight, Calendar, Check, Clock, Target, User, X, TrendingUp, TrendingDown } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { FaLinkedin } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
@@ -711,10 +711,8 @@ const LandingPage: React.FC = () => {
                         transition={{ duration: 0.5, ease: "easeInOut" }}
                         className="relative"
                       >
-                        <img
-                          src={logoConfig[currentTextIndex]?.path}
-                          alt={logoConfig[currentTextIndex]?.name}
-                          className="w-auto object-contain max-h-full"
+                        <div
+                          className="flex items-center justify-start"
                           style={{
                             height: isLargeScreen 
                               ? logoConfig[currentTextIndex]?.height.lg 
@@ -722,24 +720,34 @@ const LandingPage: React.FC = () => {
                                 ? logoConfig[currentTextIndex]?.height.md 
                                 : logoConfig[currentTextIndex]?.height.sm,
                             filter: "brightness(0)",
-                            display: "block",
-                            maxWidth: "100%",
-                          }}
-                          onError={(e) => {
+                            maskImage: `url(${logoConfig[currentTextIndex]?.path})`,
+                            WebkitMaskImage: `url(${logoConfig[currentTextIndex]?.path})`,
+                            maskRepeat: "no-repeat",
+                            WebkitMaskRepeat: "no-repeat",
+                            maskSize: "contain",
+                            WebkitMaskSize: "contain",
+                            maskPosition: "left center",
+                            WebkitMaskPosition: "left center",
+                            backgroundColor: "currentColor",
+                            width: "auto",
+                            minWidth: isLargeScreen ? "200px" : isMediumScreen ? "160px" : "120px",
+                            aspectRatio: logoConfig[currentTextIndex]?.name === "Perplexity" ? "4/1" : "auto",
+                          } as React.CSSProperties}
+                          onError={() => {
                             console.error(`Failed to load logo: ${logoConfig[currentTextIndex]?.path}`);
-                            const target = e.target as HTMLImageElement;
-                            const parent = target.parentElement;
-                            if (parent) {
-                              // Create text fallback
-                              target.style.display = 'none';
-                              const textFallback = document.createElement('div');
-                              textFallback.className = 'text-black font-bold text-4xl md:text-5xl lg:text-6xl';
-                              textFallback.textContent = logoConfig[currentTextIndex]?.name || 'AI';
-                              parent.appendChild(textFallback);
-                            }
                           }}
-                          loading="eager"
-                        />
+                        >
+                          {/* Fallback content */}
+                          <img
+                            src={logoConfig[currentTextIndex]?.path}
+                            alt={logoConfig[currentTextIndex]?.name}
+                            className="w-auto object-contain max-h-full opacity-0"
+                            style={{
+                              height: "100%",
+                              maxWidth: "100%",
+                            }}
+                          />
+                        </div>
                       </motion.div>
                     </AnimatePresence>
                   </div>
@@ -1552,8 +1560,9 @@ const LandingPage: React.FC = () => {
                                 </p>
                                 <div className="flex items-center gap-2 mt-1">
                                   <span className="text-xs text-gray-500">{item.mentions} mentions</span>
-                                  <span className={`text-xs ${item.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
-                                    {item.trend === 'up' ? '↗' : '↘'} {item.trend === 'up' ? '+12%' : '-8%'}
+                                  <span className={`text-xs flex items-center gap-1 ${item.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
+                                    {item.trend === 'up' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                                    {item.trend === 'up' ? '+12%' : '-8%'}
                                   </span>
                                 </div>
                               </div>

@@ -15,7 +15,7 @@
  */
 import LiquidGlassCard from '../ui/LiquidGlassCard';
 import { useDashboard } from '../../hooks/useDashboard';
-import { FiArrowUp, FiArrowDown } from 'react-icons/fi';
+import { ArrowUp, ArrowDown } from 'lucide-react';
 
 const AveragePositionCard = () => {
   const { data, loading, error } = useDashboard();
@@ -50,7 +50,7 @@ const AveragePositionCard = () => {
     // Negative change = position got better (moved from 5 to 2)
     const isImprovement = change < 0; // Negative change means better position
     const changeColor = isImprovement ? 'text-green-500' : 'text-red-500';
-    const Icon = isImprovement ? FiArrowDown : FiArrowUp; // Down arrow = improvement, Up arrow = worse
+    const Icon = isImprovement ? ArrowDown : ArrowUp; // Down arrow = improvement, Up arrow = worse
 
     return (
       <span className={`flex items-center text-sm font-medium ${changeColor}`}>
