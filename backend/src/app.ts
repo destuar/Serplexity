@@ -48,6 +48,7 @@ import healthRouter from "./routes/healthRoutes";
 import env from "./config/env";
 import { stripeWebhook } from "./controllers/paymentController";
 import { dbCache } from "./config/dbCache";
+import { autoRecoveryMiddleware, healthCheckWithRecovery } from "./middleware/autoRecovery";
 
 dotenv.config();
 
@@ -160,27 +161,39 @@ app.get("/api/health", (req: Request, res: Response) => {
 
 app.get("/api/health/deep", async (req: Request, res: Response) => {
   try {
-    const dbClient = await dbCache.getPrimaryClient();
-    await dbClient.$queryRaw`SELECT 1`;
-
-    // Check for write access
-    const result: { transaction_read_only: string }[] =
-      await dbClient.$queryRaw`SHOW transaction_read_only;`;
-    const isReadOnly = result[0].transaction_read_only === "on";
-
-    if (isReadOnly) {
-      return res.status(503).json({
-        status: "UP",
-        db: "DEGRADED",
-        error: "Database connection is read-only. Write operations will fail.",
+    // Use auto-recovery health check
+    const healthResult = await healthCheckWithRecovery();
+    
+    if (healthResult.status === 'healthy') {
+      res.status(200).json({ 
+        status: "UP", 
+        db: "UP",
+        autoRecovery: "ACTIVE"
+      });
+    } else if (healthResult.status === 'recovering') {
+      res.status(200).json({ 
+        status: "UP", 
+        db: "RECOVERING",
+        recovery: healthResult.recovery,
+        autoRecovery: "ACTIVE"
+      });
+    } else {
+      res.status(503).json({ 
+        status: "DOWN", 
+        db: "DOWN",
+        recovery: healthResult.recovery,
+        autoRecovery: "FAILED"
       });
     }
-
-    res.status(200).json({ status: "UP", db: "UP" });
   } catch (error) {
     res
       .status(503)
-      .json({ status: "DOWN", db: "DOWN", error: (error as Error).message });
+      .json({ 
+        status: "DOWN", 
+        db: "DOWN", 
+        error: (error as Error).message,
+        autoRecovery: "ERROR"
+      });
   }
 });
 
@@ -258,6 +271,9 @@ app.use("/api/blog", blogRouter);
 app.get("/", (req: Request, res: Response) => {
   res.send("Hello from the Serplexity backend!");
 });
+
+// Auto-recovery middleware (must be after all routes)
+app.use(autoRecoveryMiddleware);
 
 const initializeDatabase = async (): Promise<void> => {
   // Initialize database cache for proper connection pooling

@@ -63,6 +63,23 @@ const LandingPage: React.FC = () => {
 
   // Mobile detection hook
   const [isMobile, setIsMobile] = useState(false);
+  
+  // Track failed logo loads for fallback to PNG
+  const [failedLogos, setFailedLogos] = useState<Set<number>>(new Set());
+
+  // Get PNG fallback path for a logo
+  const getPngFallback = (logoName: string) => {
+    const pngMap: Record<string, string> = {
+      'ChatGPT': '/chatgpt_logo.png',
+      'Perplexity': '/perplexity_logo.png', 
+      'Gemini': '/gemini_logo.png',
+      'Claude': '/claude_logo.png',
+      'Copilot': '/copilot-logo.png',
+      'DeepSeek': '/DeepSeek_logo.png',
+      'Grok': '/grok_logo.png'
+    };
+    return pngMap[logoName] || logoConfig.find(l => l.name === logoName)?.path;
+  };
 
   useEffect(() => {
     const checkIsMobile = () => {
@@ -764,8 +781,16 @@ const LandingPage: React.FC = () => {
                                 ? logoConfig[currentTextIndex]?.height.md 
                                 : logoConfig[currentTextIndex]?.height.sm,
                             filter: "brightness(0)",
-                            maskImage: `url(${logoConfig[currentTextIndex]?.path})`,
-                            WebkitMaskImage: `url(${logoConfig[currentTextIndex]?.path})`,
+                            maskImage: `url(${
+                              failedLogos.has(currentTextIndex) 
+                                ? getPngFallback(logoConfig[currentTextIndex]?.name) 
+                                : logoConfig[currentTextIndex]?.path
+                            })`,
+                            WebkitMaskImage: `url(${
+                              failedLogos.has(currentTextIndex) 
+                                ? getPngFallback(logoConfig[currentTextIndex]?.name) 
+                                : logoConfig[currentTextIndex]?.path
+                            })`,
                             maskRepeat: "no-repeat",
                             WebkitMaskRepeat: "no-repeat",
                             maskSize: "contain",
@@ -778,17 +803,28 @@ const LandingPage: React.FC = () => {
                             aspectRatio: logoConfig[currentTextIndex]?.name === "Perplexity" ? "4/1" : "auto",
                           } as React.CSSProperties}
                           onError={() => {
-                            console.error(`Failed to load logo: ${logoConfig[currentTextIndex]?.path}`);
+                            console.error(`Failed to load logo: ${logoConfig[currentTextIndex]?.path}, switching to PNG fallback`);
+                            setFailedLogos(prev => new Set(prev).add(currentTextIndex));
                           }}
                         >
                           {/* Fallback content */}
                           <img
-                            src={logoConfig[currentTextIndex]?.path}
+                            src={
+                              failedLogos.has(currentTextIndex) 
+                                ? getPngFallback(logoConfig[currentTextIndex]?.name) 
+                                : logoConfig[currentTextIndex]?.path
+                            }
                             alt={logoConfig[currentTextIndex]?.name}
                             className="w-auto object-contain max-h-full opacity-0"
                             style={{
                               height: "100%",
                               maxWidth: "100%",
+                            }}
+                            onError={() => {
+                              if (!failedLogos.has(currentTextIndex)) {
+                                console.error(`Failed to load img: ${logoConfig[currentTextIndex]?.path}, switching to PNG fallback`);
+                                setFailedLogos(prev => new Set(prev).add(currentTextIndex));
+                              }
                             }}
                           />
                         </div>

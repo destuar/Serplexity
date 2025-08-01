@@ -73,16 +73,32 @@ class DatabaseService {
       return this.clients;
     }
 
-    const config = await this.getDatabaseConfig();
-    this.clients = await this.createClients(config);
+    try {
+      const config = await this.getDatabaseConfig();
+      this.clients = await this.createClients(config);
 
-    logger.info("[Database] Clients initialized successfully", {
-      primaryHost: config.primary.host,
-      replicaHost: config.replica.host,
-      provider: this.secretsProvider?.getProviderName() || "ENVIRONMENT",
-    });
+      logger.info("[Database] Clients initialized successfully", {
+        primaryHost: config.primary.host,
+        replicaHost: config.replica.host,
+        provider: this.secretsProvider?.getProviderName() || "ENVIRONMENT",
+      });
 
-    return this.clients;
+      return this.clients;
+    } catch (error) {
+      // If it's an auth failure, attempt recovery
+      if (this.isAuthFailure(error)) {
+        logger.warn("[Database] Auth failure during client initialization, attempting recovery");
+        const recovered = await this.handleAuthFailure();
+        if (recovered) {
+          // Retry client creation
+          const config = await this.getDatabaseConfig();
+          this.clients = await this.createClients(config);
+          logger.info("[Database] Client recovery successful");
+          return this.clients;
+        }
+      }
+      throw error;
+    }
   }
 
   /**
@@ -102,7 +118,7 @@ class DatabaseService {
   }
 
   /**
-   * Test database connection
+   * Test database connection with auto-recovery on auth failure
    */
   async testConnection(): Promise<boolean> {
     try {
@@ -111,9 +127,73 @@ class DatabaseService {
       logger.info("[Database] Connection test successful");
       return true;
     } catch (error) {
+      // Check if this is an authentication failure (P1000)
+      if (this.isAuthFailure(error)) {
+        logger.warn("[Database] Auth failure detected, attempting auto-recovery");
+        const recovered = await this.handleAuthFailure();
+        if (recovered) {
+          // Retry the connection test with new credentials
+          try {
+            const client = await this.getPrimaryClient();
+            await client.$queryRaw`SELECT 1`;
+            logger.info("[Database] Auto-recovery successful");
+            return true;
+          } catch (retryError) {
+            logger.error("[Database] Auto-recovery failed", { error: retryError });
+            return false;
+          }
+        }
+      }
       logger.error("[Database] Connection test failed", { error });
       return false;
     }
+  }
+
+  /**
+   * Handle authentication failures by refreshing secrets and reconnecting
+   */
+  async handleAuthFailure(): Promise<boolean> {
+    try {
+      logger.info("[Database] Starting auth failure recovery");
+      
+      // 1. Clear secrets cache to force fresh fetch
+      if (this.secretsProvider) {
+        this.secretsProvider.clearCache();
+        logger.info("[Database] Secrets cache cleared");
+      }
+
+      // 2. Close existing connections
+      await this.closeConnections();
+      logger.info("[Database] Existing connections closed");
+
+      // 3. Reset circuit breaker
+      this.circuitBreaker = {
+        failures: 0,
+        lastFailure: 0,
+        state: "closed",
+      };
+
+      // 4. Force re-initialization on next request
+      this.clients = null;
+      this.secretsProvider = null;
+
+      logger.info("[Database] Auth failure recovery completed");
+      return true;
+    } catch (error) {
+      logger.error("[Database] Auth failure recovery failed", { error });
+      return false;
+    }
+  }
+
+  /**
+   * Check if error is an authentication failure
+   */
+  private isAuthFailure(error: any): boolean {
+    return (
+      error?.code === 'P1000' ||
+      error?.message?.includes('Authentication failed') ||
+      error?.message?.includes('password authentication failed')
+    );
   }
 
   /**

@@ -29,6 +29,8 @@ import "./queues/backupSchedulerWorker"; // This initializes the backup schedule
 import "./queues/reportEvents"; // Initializes the report event listener
 import { scheduleDailyReportTrigger } from "./queues/masterScheduler";
 import { scheduleBackupDailyReportTrigger } from "./queues/backupScheduler";
+import { initializeHealthCheckScheduler } from "./queues/healthCheckScheduler";
+import { redis } from "./config/redis";
 
 const PORT = env.PORT;
 
@@ -56,6 +58,10 @@ const startServer = async () => {
     // Initialize backup scheduler
     await scheduleBackupDailyReportTrigger();
     console.log("Backup report scheduler initialized.");
+
+    // Initialize health check scheduler for auto-recovery
+    await initializeHealthCheckScheduler(redis);
+    console.log("✅ Health check scheduler initialized - auto-recovery active!");
 
     server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
