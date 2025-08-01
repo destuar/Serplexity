@@ -15,6 +15,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { databaseService } from '../config/database';
+import { dbCache } from '../config/dbCache';
 import logger from '../utils/logger';
 
 interface RecoveryState {
@@ -86,15 +87,19 @@ class AutoRecoveryService {
     try {
       logger.info(`[AutoRecovery] Starting recovery attempt ${this.recoveryState.attemptCount}/${this.MAX_RECOVERY_ATTEMPTS}`);
       
-      // Trigger database service recovery
-      const recovered = await databaseService.handleAuthFailure();
+      // 1. Trigger database service recovery (refreshes credentials)
+      const serviceRecovered = await databaseService.handleAuthFailure();
       
-      if (recovered) {
-        // Test the connection to verify recovery
+      if (serviceRecovered) {
+        // 2. Refresh ALL cached database clients (this is the critical missing piece!)
+        logger.info("[AutoRecovery] Refreshing cached database clients...");
+        await dbCache.refreshAllClients();
+        
+        // 3. Test the connection to verify recovery
         const connectionWorking = await databaseService.testConnection();
         
         if (connectionWorking) {
-          logger.info("[AutoRecovery] Database recovery successful");
+          logger.info("[AutoRecovery] Complete recovery successful - credentials + cache refreshed");
           this.resetRecoveryState();
           return true;
         } else {

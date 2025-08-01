@@ -15,6 +15,7 @@ class DatabaseCache {
   private primaryClient: PrismaClient | null = null;
   private replicaClient: PrismaClient | null = null;
   private isInitialized = false;
+  private refreshInProgress = false;
 
   private constructor() {}
 
@@ -37,6 +38,55 @@ class DatabaseCache {
       this.replicaClient = await getReadDbClient();
     }
     return this.replicaClient;
+  }
+
+  /**
+   * 10x ENGINEER: Force refresh all cached database clients
+   * This is called when authentication failures are detected
+   */
+  async refreshAllClients(): Promise<void> {
+    if (this.refreshInProgress) {
+      logger.info('[DatabaseCache] Refresh already in progress, waiting...');
+      // Wait for current refresh to complete
+      while (this.refreshInProgress) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      return;
+    }
+
+    this.refreshInProgress = true;
+    logger.info('[DatabaseCache] Refreshing all database clients due to auth failure');
+
+    try {
+      // Close existing connections
+      await this.close();
+      
+      // Clear the initialization flag to force re-initialization
+      this.isInitialized = false;
+      
+      // Re-initialize with fresh credentials
+      await this.initialize();
+      
+      logger.info('[DatabaseCache] All database clients refreshed successfully');
+    } catch (error) {
+      logger.error('[DatabaseCache] Failed to refresh database clients', { error });
+      throw error;
+    } finally {
+      this.refreshInProgress = false;
+    }
+  }
+
+  /**
+   * Check if an error is a database authentication failure
+   */
+  isAuthenticationError(error: any): boolean {
+    return (
+      error?.code === 'P1000' ||
+      error?.message?.includes('Authentication failed') ||
+      error?.message?.includes('password authentication failed') ||
+      error?.message?.includes('provided database credentials') ||
+      error?.message?.includes('are not valid')
+    );
   }
 
   async initialize(): Promise<void> {

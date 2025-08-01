@@ -13,7 +13,17 @@
  * - LandingPage: The main landing page component.
  */
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Calendar, Check, Clock, Target, User, X, ChevronUp, ChevronDown } from "lucide-react";
+import {
+  ArrowRight,
+  Calendar,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Target,
+  User,
+  X,
+} from "lucide-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FaLinkedin } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
@@ -27,8 +37,8 @@ import { Accordion } from "../components/ui/Accordion";
 import { SlideIn } from "../components/ui/SlideIn";
 import { useBlogPosts } from "../hooks/useBlogPosts";
 import { useMediaQuery } from "../hooks/useMediaQuery";
-import { createCheckoutSession } from "../services/paymentService";
 import { getCompanyLogo } from "../lib/logoService";
+import { createCheckoutSession } from "../services/paymentService";
 import {
   estimateReadTime,
   extractFirstCategory,
@@ -63,22 +73,24 @@ const LandingPage: React.FC = () => {
 
   // Mobile detection hook
   const [isMobile, setIsMobile] = useState(false);
-  
+
   // Track failed logo loads for fallback to PNG
   const [failedLogos, setFailedLogos] = useState<Set<number>>(new Set());
 
   // Get PNG fallback path for a logo
   const getPngFallback = (logoName: string) => {
     const pngMap: Record<string, string> = {
-      'ChatGPT': '/chatgpt_logo.png',
-      'Perplexity': '/perplexity_logo.png', 
-      'Gemini': '/gemini_logo.png',
-      'Claude': '/claude_logo.png',
-      'Copilot': '/copilot-logo.png',
-      'DeepSeek': '/DeepSeek_logo.png',
-      'Grok': '/grok_logo.png'
+      ChatGPT: "/chatgpt_logo.png",
+      Perplexity: "/perplexity_logo.png",
+      Gemini: "/gemini_logo.png",
+      Claude: "/claude_logo.png",
+      Copilot: "/copilot-logo.png",
+      DeepSeek: "/DeepSeek_logo.png",
+      Grok: "/grok_logo.png",
     };
-    return pngMap[logoName] || logoConfig.find(l => l.name === logoName)?.path;
+    return (
+      pngMap[logoName] || logoConfig.find((l) => l.name === logoName)?.path
+    );
   };
 
   useEffect(() => {
@@ -90,48 +102,53 @@ const LandingPage: React.FC = () => {
     checkIsMobile();
 
     // Add resize listener
-    window.addEventListener('resize', checkIsMobile);
-    return () => window.removeEventListener('resize', checkIsMobile);
+    window.addEventListener("resize", checkIsMobile);
+    return () => window.removeEventListener("resize", checkIsMobile);
   }, []);
 
   // Logo configuration with responsive PNG/SVG support
-  const logoConfig = useMemo(() => [
-      { 
-        name: "ChatGPT", 
-        path: isMobile ? "/chatgpt_logo.png" : "/chatgpt_logo.svg", 
-        height: { lg: "80px", md: "65px", sm: "50px" } 
+  const logoConfig = useMemo(
+    () => [
+      {
+        name: "ChatGPT",
+        path: isMobile ? "/chatgpt_logo.png" : "/chatgpt_logo.svg",
+        height: { lg: "80px", md: "65px", sm: "50px" },
       },
-      { 
-        name: "Perplexity", 
-        path: isMobile ? "/perplexity_logo.png" : "/logo-perplexity-1024x258.svg", 
-        height: { lg: "100px", md: "80px", sm: "60px" } 
+      {
+        name: "Perplexity",
+        path: isMobile
+          ? "/perplexity_logo.png"
+          : "/logo-perplexity-1024x258.svg",
+        height: { lg: "100px", md: "80px", sm: "60px" },
       },
-      { 
-        name: "Gemini", 
-        path: isMobile ? "/gemini_logo.png" : "/gemini_logo.svg", 
-        height: { lg: "60px", md: "50px", sm: "38px" } 
+      {
+        name: "Gemini",
+        path: isMobile ? "/gemini_logo.png" : "/gemini_logo.svg",
+        height: { lg: "60px", md: "50px", sm: "38px" },
       },
-      { 
-        name: "Claude", 
-        path: isMobile ? "/claude_logo.png" : "/claude_logo.svg", 
-        height: { lg: "60px", md: "50px", sm: "40px" } 
+      {
+        name: "Claude",
+        path: isMobile ? "/claude_logo.png" : "/claude_logo.svg",
+        height: { lg: "60px", md: "50px", sm: "40px" },
       },
-      { 
-        name: "Copilot", 
-        path: isMobile ? "/copilot-logo.png" : "/copilot-logo.svg", 
-        height: { lg: "75px", md: "60px", sm: "48px" } 
+      {
+        name: "Copilot",
+        path: isMobile ? "/copilot-logo.png" : "/copilot-logo.svg",
+        height: { lg: "75px", md: "60px", sm: "48px" },
       },
-      { 
-        name: "DeepSeek", 
-        path: isMobile ? "/DeepSeek_logo.png" : "/DeepSeek_logo.svg", 
-        height: { lg: "85px", md: "68px", sm: "52px" } 
+      {
+        name: "DeepSeek",
+        path: isMobile ? "/DeepSeek_logo.png" : "/DeepSeek_logo.svg",
+        height: { lg: "85px", md: "68px", sm: "52px" },
       },
-      { 
-        name: "Grok", 
-        path: isMobile ? "/grok_logo.png" : "/Grok-feb-2025-logo.svg", 
-        height: { lg: "90px", md: "72px", sm: "55px" } 
+      {
+        name: "Grok",
+        path: isMobile ? "/grok_logo.png" : "/Grok-feb-2025-logo.svg",
+        height: { lg: "90px", md: "72px", sm: "55px" },
       },
-  ], [isMobile]);
+    ],
+    [isMobile]
+  );
 
   // Statistics animation state
   const [statsVisible, setStatsVisible] = useState(false);
@@ -726,17 +743,17 @@ const LandingPage: React.FC = () => {
           left: 1rem;
           right: 1rem;
         }
-        
+
         .marquee-logo {
           margin: 0 1rem;
         }
-        
+
         /* Ensure chart cards don't overflow on small screens */
         .absolute {
           max-width: calc(100vw - 2rem);
         }
       }
-      
+
       @media (max-width: 640px) {
         .dashboard-preview-container::before {
           left: 0.5rem;
@@ -747,7 +764,6 @@ const LandingPage: React.FC = () => {
 
       <div className="relative z-10 vertical-grid-container">
         <Navbar />
-
 
         {/* Enhanced Hero Section */}
         <section className="relative px-4 sm:px-6 lg:px-8 pt-32 sm:pt-36 md:pt-24 lg:pt-32 pb-12 sm:pb-16 md:pb-20 lg:pb-24 bg-gray-50 min-h-screen">
@@ -760,8 +776,10 @@ const LandingPage: React.FC = () => {
                 transition={{ duration: 0.8, ease: "easeOut" }}
                 className="text-left -mt-4 sm:-mt-6 md:-mt-8 lg:-mt-12 mb-8 lg:mb-0"
               >
-                <h1 className="font-archivo text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-semibold text-black tracking-tight leading-[1.1] mb-6 sm:mb-8">
-                  <div className="mb-4 sm:mb-6 text-[2.5rem] sm:text-3xl md:text-5xl lg:text-5xl xl:text-6xl">Get mentioned by</div>
+                <h1 className="font-archivo text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-medium text-black tracking-tight leading-[1.1] mb-6 sm:mb-8">
+                  <div className="mb-4 sm:mb-6 text-[2.5rem] sm:text-3xl md:text-5xl lg:text-5xl xl:text-6xl font-medium">
+                    Get mentioned by
+                  </div>
                   <div className="h-[60px] sm:h-[70px] md:h-[80px] lg:h-[90px] flex items-center justify-start">
                     <AnimatePresence mode="wait">
                       <motion.div
@@ -774,44 +792,64 @@ const LandingPage: React.FC = () => {
                       >
                         <div
                           className="flex items-center justify-start"
-                          style={{
-                            height: isLargeScreen 
-                              ? logoConfig[currentTextIndex]?.height.lg 
-                              : isMediumScreen 
-                                ? logoConfig[currentTextIndex]?.height.md 
-                                : logoConfig[currentTextIndex]?.height.sm,
-                            filter: "brightness(0)",
-                            maskImage: `url(${
-                              failedLogos.has(currentTextIndex) 
-                                ? getPngFallback(logoConfig[currentTextIndex]?.name) 
-                                : logoConfig[currentTextIndex]?.path
-                            })`,
-                            WebkitMaskImage: `url(${
-                              failedLogos.has(currentTextIndex) 
-                                ? getPngFallback(logoConfig[currentTextIndex]?.name) 
-                                : logoConfig[currentTextIndex]?.path
-                            })`,
-                            maskRepeat: "no-repeat",
-                            WebkitMaskRepeat: "no-repeat",
-                            maskSize: "contain",
-                            WebkitMaskSize: "contain",
-                            maskPosition: "left center",
-                            WebkitMaskPosition: "left center",
-                            backgroundColor: "currentColor",
-                            width: "auto",
-                            minWidth: isLargeScreen ? "200px" : isMediumScreen ? "160px" : "120px",
-                            aspectRatio: logoConfig[currentTextIndex]?.name === "Perplexity" ? "4/1" : "auto",
-                          } as React.CSSProperties}
+                          style={
+                            {
+                              height: isLargeScreen
+                                ? logoConfig[currentTextIndex]?.height.lg
+                                : isMediumScreen
+                                  ? logoConfig[currentTextIndex]?.height.md
+                                  : logoConfig[currentTextIndex]?.height.sm,
+                              filter: "brightness(0)",
+                              maskImage: `url(${
+                                failedLogos.has(currentTextIndex)
+                                  ? getPngFallback(
+                                      logoConfig[currentTextIndex]?.name
+                                    )
+                                  : logoConfig[currentTextIndex]?.path
+                              })`,
+                              WebkitMaskImage: `url(${
+                                failedLogos.has(currentTextIndex)
+                                  ? getPngFallback(
+                                      logoConfig[currentTextIndex]?.name
+                                    )
+                                  : logoConfig[currentTextIndex]?.path
+                              })`,
+                              maskRepeat: "no-repeat",
+                              WebkitMaskRepeat: "no-repeat",
+                              maskSize: "contain",
+                              WebkitMaskSize: "contain",
+                              maskPosition: "left center",
+                              WebkitMaskPosition: "left center",
+                              backgroundColor: "currentColor",
+                              width: "auto",
+                              minWidth: isLargeScreen
+                                ? "200px"
+                                : isMediumScreen
+                                  ? "160px"
+                                  : "120px",
+                              aspectRatio:
+                                logoConfig[currentTextIndex]?.name ===
+                                "Perplexity"
+                                  ? "4/1"
+                                  : "auto",
+                            } as React.CSSProperties
+                          }
                           onError={() => {
-                            console.error(`Failed to load logo: ${logoConfig[currentTextIndex]?.path}, switching to PNG fallback`);
-                            setFailedLogos(prev => new Set(prev).add(currentTextIndex));
+                            console.error(
+                              `Failed to load logo: ${logoConfig[currentTextIndex]?.path}, switching to PNG fallback`
+                            );
+                            setFailedLogos((prev) =>
+                              new Set(prev).add(currentTextIndex)
+                            );
                           }}
                         >
                           {/* Fallback content */}
                           <img
                             src={
-                              failedLogos.has(currentTextIndex) 
-                                ? getPngFallback(logoConfig[currentTextIndex]?.name) 
+                              failedLogos.has(currentTextIndex)
+                                ? getPngFallback(
+                                    logoConfig[currentTextIndex]?.name
+                                  )
                                 : logoConfig[currentTextIndex]?.path
                             }
                             alt={logoConfig[currentTextIndex]?.name}
@@ -822,8 +860,12 @@ const LandingPage: React.FC = () => {
                             }}
                             onError={() => {
                               if (!failedLogos.has(currentTextIndex)) {
-                                console.error(`Failed to load img: ${logoConfig[currentTextIndex]?.path}, switching to PNG fallback`);
-                                setFailedLogos(prev => new Set(prev).add(currentTextIndex));
+                                console.error(
+                                  `Failed to load img: ${logoConfig[currentTextIndex]?.path}, switching to PNG fallback`
+                                );
+                                setFailedLogos((prev) =>
+                                  new Set(prev).add(currentTextIndex)
+                                );
                               }
                             }}
                           />
@@ -853,7 +895,7 @@ const LandingPage: React.FC = () => {
                 >
                   <button
                     onClick={user ? handleDashboard : handleGetStarted}
-                    className="px-6 sm:px-8 py-3 sm:py-4 bg-black hover:bg-gray-800 text-white rounded-xl font-semibold text-base sm:text-lg shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200 group"
+                    className="px-6 sm:px-8 py-3 sm:py-4 bg-black hover:bg-gray-800 text-white rounded-xl font-medium text-base sm:text-lg shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200 group"
                   >
                     <span className="flex items-center justify-center">
                       <span>{user ? "View Dashboard" : "Start Tracking"}</span>
@@ -862,7 +904,7 @@ const LandingPage: React.FC = () => {
                   </button>
                   <button
                     onClick={() => navigate("/research")}
-                    className="px-6 sm:px-8 py-3 sm:py-4 border-2 border-gray-300 hover:border-gray-400 text-gray-800 bg-white hover:bg-gray-50 rounded-xl font-semibold text-base sm:text-lg shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200"
+                    className="px-6 sm:px-8 py-3 sm:py-4 border-2 border-gray-300 hover:border-gray-400 text-gray-800 bg-white hover:bg-gray-50 rounded-xl font-medium text-base sm:text-lg shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200"
                   >
                     Learn More
                   </button>
@@ -1455,7 +1497,7 @@ const LandingPage: React.FC = () => {
                 </motion.div>
               </motion.div>
             </div>
-            
+
             {/* Mobile CTA Buttons - Below Chart Cards */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -1539,8 +1581,11 @@ const LandingPage: React.FC = () => {
                     format: (num: number) => num.toString(),
                   },
                 ].map((stat, index) => (
-                  <div key={index} className="text-center p-6 sm:p-8 bg-white border border-gray-200 rounded-2xl hover:shadow-lg transition-all duration-300">
-                    <div className="text-3xl sm:text-4xl md:text-4xl lg:text-5xl font-bold text-black mb-2">
+                  <div
+                    key={index}
+                    className="text-center p-6 sm:p-8 bg-white border border-gray-200 rounded-2xl hover:shadow-lg transition-all duration-300"
+                  >
+                    <div className="text-3xl sm:text-4xl md:text-4xl lg:text-5xl font-medium text-black mb-2">
                       {stat.format(stat.value)}
                       {stat.suffix}
                     </div>
@@ -1555,7 +1600,10 @@ const LandingPage: React.FC = () => {
         </motion.section>
 
         {/* Process Steps Section - Wave.co Style */}
-        <section ref={stepsContainerRef} className="relative py-12 sm:py-14 md:py-16 lg:py-20">
+        <section
+          ref={stepsContainerRef}
+          className="relative py-12 sm:py-14 md:py-16 lg:py-20"
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Two Column Layout */}
             <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr] lg:grid-cols-2 gap-8 sm:gap-10 md:gap-12 lg:gap-16">
@@ -1573,7 +1621,10 @@ const LandingPage: React.FC = () => {
                       { title: "Analyze" },
                       { title: "Optimize" },
                     ].map((step, index) => (
-                      <div key={index} className="relative pl-0 md:pl-10 text-center md:text-left">
+                      <div
+                        key={index}
+                        className="relative pl-0 md:pl-10 text-center md:text-left"
+                      >
                         {/* Dot */}
                         <div
                           className={`hidden md:block absolute left-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full transition-all duration-300 ${
@@ -1584,7 +1635,7 @@ const LandingPage: React.FC = () => {
                         />
 
                         <h3
-                          className={`text-3xl font-semibold transition-colors duration-300 ${
+                          className={`text-3xl font-medium transition-colors duration-300 ${
                             index === currentStep
                               ? "text-black"
                               : "text-black/60"
@@ -1611,9 +1662,15 @@ const LandingPage: React.FC = () => {
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
                   >
-                    <h3 className={`md:hidden text-3xl font-semibold text-center mt-8 mb-4 transition-all duration-300 ${
-                      currentStep === 0 ? "text-black scale-105" : "text-black/60 scale-100"
-                    }`}>Monitor</h3>
+                    <h3
+                      className={`md:hidden text-3xl font-medium text-center mt-8 mb-4 transition-all duration-300 ${
+                        currentStep === 0
+                          ? "text-black scale-105"
+                          : "text-black/60 scale-100"
+                      }`}
+                    >
+                      Monitor
+                    </h3>
                     <div
                       className={`relative w-full h-80 bg-white rounded-3xl overflow-hidden border transition-all duration-500 shadow-lg ${
                         currentStep === 0
@@ -1624,30 +1681,63 @@ const LandingPage: React.FC = () => {
                       {/* Top Ranking Questions Card Content */}
                       <div className="p-6 h-full flex flex-col">
                         <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-lg font-semibold text-gray-800">Top Ranking Prompts</h3>
+                          <h3 className="text-lg font-medium text-gray-800">
+                            Top Ranking Prompts
+                          </h3>
                         </div>
-                        
+
                         <div className="flex-1 space-y-3 overflow-hidden">
                           {[
-                            { question: "What are the best AI visibility tracking tools for businesses?", mentions: 12, trend: "up" },
-                            { question: "How can I track my brand mentions in AI search results?", mentions: 8, trend: "up" },
-                            { question: "Which platforms offer AI-powered SEO analytics?", mentions: 6, trend: "down" },
-                            { question: "How do I improve my brand's visibility in ChatGPT responses?", mentions: 4, trend: "up" }
+                            {
+                              question:
+                                "What are the best AI visibility tracking tools for businesses?",
+                              mentions: 12,
+                              trend: "up",
+                            },
+                            {
+                              question:
+                                "How can I track my brand mentions in AI search results?",
+                              mentions: 8,
+                              trend: "up",
+                            },
+                            {
+                              question:
+                                "Which platforms offer AI-powered SEO analytics?",
+                              mentions: 6,
+                              trend: "down",
+                            },
+                            {
+                              question:
+                                "How do I improve my brand's visibility in ChatGPT responses?",
+                              mentions: 4,
+                              trend: "up",
+                            },
                           ].map((item, index) => (
-                            <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100 transition-colors">
+                            <div
+                              key={index}
+                              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100 transition-colors"
+                            >
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-gray-900 truncate">
                                   {item.question}
                                 </p>
                                 <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-xs text-gray-500">{item.mentions} mentions</span>
-                                  <span className={`text-xs flex items-center gap-1 ${item.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
-                                    {item.trend === 'up' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                                    {item.trend === 'up' ? '+12%' : '-8%'}
+                                  <span className="text-xs text-gray-500">
+                                    {item.mentions} mentions
+                                  </span>
+                                  <span
+                                    className={`text-xs flex items-center gap-1 ${item.trend === "up" ? "text-green-500" : "text-red-500"}`}
+                                  >
+                                    {item.trend === "up" ? (
+                                      <ChevronUp className="h-3 w-3" />
+                                    ) : (
+                                      <ChevronDown className="h-3 w-3" />
+                                    )}
+                                    {item.trend === "up" ? "+12%" : "-8%"}
                                   </span>
                                 </div>
                               </div>
-                              <div className="text-lg font-bold text-gray-600 ml-2">
+                              <div className="text-lg font-medium text-gray-600 ml-2">
                                 #{index + 1}
                               </div>
                             </div>
@@ -1666,9 +1756,15 @@ const LandingPage: React.FC = () => {
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
                   >
-                    <h3 className={`md:hidden text-3xl font-semibold text-center mt-8 mb-4 transition-all duration-300 ${
-                      currentStep === 1 ? "text-black scale-105" : "text-black/60 scale-100"
-                    }`}>Analyze</h3>
+                    <h3
+                      className={`md:hidden text-3xl font-medium text-center mt-8 mb-4 transition-all duration-300 ${
+                        currentStep === 1
+                          ? "text-black scale-105"
+                          : "text-black/60 scale-100"
+                      }`}
+                    >
+                      Analyze
+                    </h3>
                     <div
                       className={`relative w-full h-80 bg-white rounded-3xl overflow-hidden border transition-all duration-500 shadow-lg ${
                         currentStep === 1
@@ -1679,9 +1775,11 @@ const LandingPage: React.FC = () => {
                       {/* Responses Card Content */}
                       <div className="p-6 h-full flex flex-col">
                         <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-lg font-semibold text-gray-800">AI Response Analysis</h3>
+                          <h3 className="text-lg font-medium text-gray-800">
+                            AI Response Analysis
+                          </h3>
                         </div>
-                        
+
                         <div className="flex-1 overflow-hidden">
                           {/* Chat-style conversation matching MockResponsesPage */}
                           <div className="space-y-4 h-full overflow-y-auto">
@@ -1690,7 +1788,8 @@ const LandingPage: React.FC = () => {
                               <div className="flex items-start gap-2 max-w-[80%]">
                                 <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-2xl shadow-md px-3 py-2 rounded-tr-md">
                                   <p className="text-xs text-gray-900 leading-relaxed">
-                                    What are the best AI visibility tracking tools for businesses?
+                                    What are the best AI visibility tracking
+                                    tools for businesses?
                                   </p>
                                 </div>
                                 <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
@@ -1698,35 +1797,69 @@ const LandingPage: React.FC = () => {
                                 </div>
                               </div>
                             </div>
-                            
+
                             {/* AI Response */}
                             <div className="flex justify-start">
                               <div className="flex items-start gap-2 max-w-[80%]">
                                 <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center flex-shrink-0 border border-gray-200">
-                                  <img src="https://openai.com/favicon.ico" alt="ChatGPT" className="w-4 h-4 rounded object-contain" />
+                                  <img
+                                    src="https://openai.com/favicon.ico"
+                                    alt="ChatGPT"
+                                    className="w-4 h-4 rounded object-contain"
+                                  />
                                 </div>
                                 <div className="flex flex-col">
                                   <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-2xl shadow-md px-3 py-2 rounded-tl-md">
                                     <div className="flex items-center justify-between gap-2 mb-1">
-                                      <span className="text-xs font-medium text-gray-600">ChatGPT</span>
+                                      <span className="text-xs font-medium text-gray-600">
+                                        ChatGPT
+                                      </span>
                                     </div>
                                     <div className="text-xs text-gray-900 leading-relaxed">
-                                      <span className="hidden sm:inline">For AI visibility tracking, <strong>Serplexity</strong> leads the market with comprehensive monitoring across ChatGPT, Claude, and Gemini. It provides detailed analytics on brand mentions and competitive positioning. The platform offers real-time insights for optimization.</span>
-                                      <span className="sm:hidden">For AI visibility tracking, <strong>Serplexity</strong> leads with monitoring across ChatGPT, Claude, and Gemini. Real-time insights for optimization.</span>
+                                      <span className="hidden sm:inline">
+                                        For AI visibility tracking,{" "}
+                                        <strong>Serplexity</strong> leads the
+                                        market with comprehensive monitoring
+                                        across ChatGPT, Claude, and Gemini. It
+                                        provides detailed analytics on brand
+                                        mentions and competitive positioning.
+                                        The platform offers real-time insights
+                                        for optimization.
+                                      </span>
+                                      <span className="sm:hidden">
+                                        For AI visibility tracking,{" "}
+                                        <strong>Serplexity</strong> leads with
+                                        monitoring across ChatGPT, Claude, and
+                                        Gemini. Real-time insights for
+                                        optimization.
+                                      </span>
                                     </div>
                                   </div>
-                                  
+
                                   {/* Mentions and Citations - below the chat bubble */}
                                   <div className="mt-2 flex items-center gap-3 px-3">
                                     <div className="flex items-center gap-1">
-                                      <span className="text-xs text-gray-500 font-medium">Mentions:</span>
+                                      <span className="text-xs text-gray-500 font-medium">
+                                        Mentions:
+                                      </span>
                                       <div className="flex items-center gap-0.5">
                                         {[
-                                          { name: 'Serplexity', website: 'serplexity.com' },
-                                          { name: 'Profound', website: 'tryprofound.com' },
-                                          { name: 'Daydream', website: 'withdaydream.com' }
+                                          {
+                                            name: "Serplexity",
+                                            website: "serplexity.com",
+                                          },
+                                          {
+                                            name: "Profound",
+                                            website: "tryprofound.com",
+                                          },
+                                          {
+                                            name: "Daydream",
+                                            website: "withdaydream.com",
+                                          },
                                         ].map((brand, index) => {
-                                          const logoResult = getCompanyLogo(brand.website);
+                                          const logoResult = getCompanyLogo(
+                                            brand.website
+                                          );
                                           return (
                                             <div
                                               key={`${brand.name}-${index}`}
@@ -1744,9 +1877,11 @@ const LandingPage: React.FC = () => {
                                                 }}
                                                 onError={(e) => {
                                                   // Fallback to first letter if logo fails
-                                                  const target = e.target as HTMLImageElement;
-                                                  target.style.display = 'none';
-                                                  const parent = target.parentElement;
+                                                  const target =
+                                                    e.target as HTMLImageElement;
+                                                  target.style.display = "none";
+                                                  const parent =
+                                                    target.parentElement;
                                                   if (parent) {
                                                     parent.innerHTML = `<span class="text-xs font-bold text-gray-600">${brand.name[0]}</span>`;
                                                   }
@@ -1759,8 +1894,12 @@ const LandingPage: React.FC = () => {
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-1">
-                                      <span className="text-xs text-gray-500 font-medium">Citations:</span>
-                                      <span className="text-xs text-gray-500">3</span>
+                                      <span className="text-xs text-gray-500 font-medium">
+                                        Citations:
+                                      </span>
+                                      <span className="text-xs text-gray-500">
+                                        3
+                                      </span>
                                     </div>
                                   </div>
                                 </div>
@@ -1781,9 +1920,15 @@ const LandingPage: React.FC = () => {
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
                   >
-                    <h3 className={`md:hidden text-3xl font-semibold text-center mt-8 mb-4 transition-all duration-300 ${
-                      currentStep === 2 ? "text-black scale-105" : "text-black/60 scale-100"
-                    }`}>Optimize</h3>
+                    <h3
+                      className={`md:hidden text-3xl font-medium text-center mt-8 mb-4 transition-all duration-300 ${
+                        currentStep === 2
+                          ? "text-black scale-105"
+                          : "text-black/60 scale-100"
+                      }`}
+                    >
+                      Optimize
+                    </h3>
                     <div
                       className={`relative w-full h-80 bg-white rounded-3xl overflow-hidden border transition-all duration-500 shadow-lg ${
                         currentStep === 2
@@ -1794,70 +1939,113 @@ const LandingPage: React.FC = () => {
                       {/* Visibility Tasks Card Content */}
                       <div className="p-6 h-full flex flex-col">
                         <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-lg font-semibold text-gray-800">Brand Visibility Tasks</h3>
+                          <h3 className="text-lg font-medium text-gray-800">
+                            Brand Visibility Tasks
+                          </h3>
                         </div>
-                        
+
                         <div className="flex-1 min-h-0">
                           {/* Full Kanban Board matching MockVisibilityTasksPage */}
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 h-full">
                             {/* Not Started Column - Hidden on Mobile */}
                             <div className="hidden md:flex flex-col h-full min-h-0">
                               <div className="flex items-center justify-between p-3 bg-gray-100 rounded-t-lg border-b border-gray-200">
-                                <h4 className="text-xs font-semibold text-gray-900">Not Started</h4>
-                                <span className="text-xs font-medium text-gray-600 bg-white/60 px-2 py-1 rounded-full">1</span>
+                                <h4 className="text-xs font-medium text-gray-900">
+                                  Not Started
+                                </h4>
+                                <span className="text-xs font-medium text-gray-600 bg-white/60 px-2 py-1 rounded-full">
+                                  1
+                                </span>
                               </div>
                               <div className="flex-1 p-2 space-y-2 overflow-y-auto">
                                 <div className="group relative bg-white rounded-lg p-3 shadow-md border border-gray-100 hover:shadow-lg transition-all duration-200">
                                   <div className="flex items-start justify-between mb-2">
-                                    <h5 className="text-xs font-semibold text-gray-800 leading-tight pr-4">Verify robots.txt & llms.txt</h5>
-                                    <span className="text-xs px-0.5 py-0 rounded font-medium border flex-shrink-0 bg-red-50 text-red-700 border-red-200 text-[10px]">High</span>
+                                    <h5 className="text-xs font-medium text-gray-800 leading-tight pr-4">
+                                      Verify robots.txt & llms.txt
+                                    </h5>
+                                    <span className="text-xs px-0.5 py-0 rounded font-medium border flex-shrink-0 bg-red-50 text-red-700 border-red-200 text-[10px]">
+                                      High
+                                    </span>
                                   </div>
-                                  <p className="text-xs text-gray-600 mb-3 line-clamp-2 leading-relaxed">Navigate to your website's robots.txt and create llms.txt with brand description...</p>
+                                  <p className="text-xs text-gray-600 mb-3 line-clamp-2 leading-relaxed">
+                                    Navigate to your website's robots.txt and
+                                    create llms.txt with brand description...
+                                  </p>
                                   <div className="flex items-center gap-1">
-                                    <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md border border-gray-200 font-medium">Technical SEO</span>
+                                    <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md border border-gray-200 font-medium">
+                                      Technical SEO
+                                    </span>
                                   </div>
                                 </div>
                               </div>
                             </div>
-                            
+
                             {/* In Progress Column */}
                             <div className="flex flex-col h-full min-h-0">
                               <div className="flex items-center justify-between p-3 bg-blue-100 rounded-t-lg border-b border-gray-200">
-                                <h4 className="text-xs font-semibold text-gray-900">In Progress</h4>
-                                <span className="text-xs font-medium text-gray-600 bg-white/60 px-2 py-1 rounded-full">1</span>
+                                <h4 className="text-xs font-medium text-gray-900">
+                                  In Progress
+                                </h4>
+                                <span className="text-xs font-medium text-gray-600 bg-white/60 px-2 py-1 rounded-full">
+                                  1
+                                </span>
                               </div>
                               <div className="flex-1 p-2 space-y-2 overflow-y-auto">
                                 <div className="group relative bg-white rounded-lg p-3 shadow-md border border-gray-100 hover:shadow-lg transition-all duration-200">
                                   <div className="flex items-start justify-between mb-2">
-                                    <h5 className="text-xs font-semibold text-gray-800 leading-tight pr-4">Implement Schema Markup</h5>
-                                    <span className="text-xs px-0.5 py-0 rounded font-medium border flex-shrink-0 bg-red-50 text-red-700 border-red-200 text-[10px]">High</span>
+                                    <h5 className="text-xs font-medium text-gray-800 leading-tight pr-4">
+                                      Implement Schema Markup
+                                    </h5>
+                                    <span className="text-xs px-0.5 py-0 rounded font-medium border flex-shrink-0 bg-red-50 text-red-700 border-red-200 text-[10px]">
+                                      High
+                                    </span>
                                   </div>
-                                  <p className="text-xs text-gray-600 mb-3 line-clamp-2 leading-relaxed">Use schema markup generator for Organization, Product and Article...</p>
+                                  <p className="text-xs text-gray-600 mb-3 line-clamp-2 leading-relaxed">
+                                    Use schema markup generator for
+                                    Organization, Product and Article...
+                                  </p>
                                   <div className="flex items-center gap-1">
-                                    <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md border border-gray-200 font-medium">Technical SEO</span>
+                                    <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md border border-gray-200 font-medium">
+                                      Technical SEO
+                                    </span>
                                   </div>
                                 </div>
                               </div>
                             </div>
-                            
+
                             {/* Completed Column */}
                             <div className="flex flex-col h-full min-h-0">
                               <div className="flex items-center justify-between p-3 bg-blue-200 rounded-t-lg border-b border-gray-200">
-                                <h4 className="text-xs font-semibold text-gray-900">Completed</h4>
-                                <span className="text-xs font-medium text-gray-600 bg-white/60 px-2 py-1 rounded-full">1</span>
+                                <h4 className="text-xs font-medium text-gray-900">
+                                  Completed
+                                </h4>
+                                <span className="text-xs font-medium text-gray-600 bg-white/60 px-2 py-1 rounded-full">
+                                  1
+                                </span>
                               </div>
                               <div className="flex-1 p-2 space-y-2 overflow-y-auto">
                                 <div className="group relative bg-white rounded-lg p-3 shadow-md border border-gray-100 hover:shadow-lg transition-all duration-200">
                                   <div className="flex items-start justify-between mb-2">
-                                    <h5 className="text-xs font-semibold text-gray-800 leading-tight pr-4">
-                                      <span className="lg:hidden">Brand Pages</span>
-                                      <span className="hidden lg:inline">Create Brand Pages</span>
+                                    <h5 className="text-xs font-medium text-gray-800 leading-tight pr-4">
+                                      <span className="lg:hidden">
+                                        Brand Pages
+                                      </span>
+                                      <span className="hidden lg:inline">
+                                        Create Brand Pages
+                                      </span>
                                     </h5>
-                                    <span className="text-xs px-0.5 py-0 rounded font-medium border flex-shrink-0 bg-red-50 text-red-700 border-red-200 text-[10px]">High</span>
+                                    <span className="text-xs px-0.5 py-0 rounded font-medium border flex-shrink-0 bg-red-50 text-red-700 border-red-200 text-[10px]">
+                                      High
+                                    </span>
                                   </div>
-                                  <p className="text-xs text-gray-600 mb-3 line-clamp-2 leading-relaxed">Research top 10 queries where competitors rank but you don't...</p>
+                                  <p className="text-xs text-gray-600 mb-3 line-clamp-2 leading-relaxed">
+                                    Research top 10 queries where competitors
+                                    rank but you don't...
+                                  </p>
                                   <div className="flex items-center gap-1">
-                                    <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md border border-gray-200 font-medium">Content & Messaging</span>
+                                    <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md border border-gray-200 font-medium">
+                                      Content & Messaging
+                                    </span>
                                   </div>
                                 </div>
                               </div>
@@ -1888,7 +2076,7 @@ const LandingPage: React.FC = () => {
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="text-2xl sm:text-3xl md:text-4xl font-bold text-black mb-4"
+                className="text-2xl sm:text-3xl md:text-4xl font-medium text-black mb-4"
               >
                 Your Brand Visibility Metrics, All In One Place
               </motion.h2>
@@ -1903,7 +2091,10 @@ const LandingPage: React.FC = () => {
               </motion.p>
             </div>
 
-            <div id="product-preview" className="hidden sm:block dashboard-preview-container">
+            <div
+              id="product-preview"
+              className="hidden sm:block dashboard-preview-container"
+            >
               {/* Dashboard Preview */}
               <motion.div
                 initial={{ opacity: 0, y: 30 }}
@@ -1923,7 +2114,7 @@ const LandingPage: React.FC = () => {
           <section id="research" className="pt-12 md:pt-16 pb-12 md:pb-16">
             <div className="max-w-6xl mx-auto px-6 lg:px-8">
               <div className="text-center mb-16">
-                <h2 className="text-4xl font-bold tracking-tight text-black mb-4">
+                <h2 className="text-4xl font-medium tracking-tight text-black mb-4">
                   Latest Research & Insights
                 </h2>
                 <p className="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto">
@@ -2002,7 +2193,7 @@ const LandingPage: React.FC = () => {
                             </div>
 
                             {/* Title */}
-                            <h3 className="text-xl font-semibold text-black group-hover:text-gray-800 transition-colors line-clamp-2">
+                            <h3 className="text-xl font-medium text-black group-hover:text-gray-800 transition-colors line-clamp-2">
                               {post.title}
                             </h3>
 
@@ -2088,7 +2279,7 @@ const LandingPage: React.FC = () => {
                           </div>
 
                           {/* Title */}
-                          <h3 className="text-xl font-semibold text-black group-hover:text-gray-800 transition-colors line-clamp-2">
+                          <h3 className="text-xl font-medium text-black group-hover:text-gray-800 transition-colors line-clamp-2">
                             {post.title}
                           </h3>
 
@@ -2159,7 +2350,7 @@ const LandingPage: React.FC = () => {
                     <table className="w-full min-w-[640px]">
                       <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
-                          <th className="px-6 md:px-8 py-6 text-left text-base md:text-lg font-semibold text-black">
+                          <th className="px-6 md:px-8 py-6 text-left text-base md:text-lg font-medium text-black">
                             <div className="flex items-center gap-2">
                               <Target className="w-5 h-5 text-gray-600" />
                               Capabilities
@@ -2167,7 +2358,7 @@ const LandingPage: React.FC = () => {
                           </th>
                           <th className="px-6 md:px-8 py-6 text-center">
                             <div className="flex flex-col items-center gap-1">
-                              <span className="text-base md:text-lg font-semibold text-black">
+                              <span className="text-base md:text-lg font-medium text-black">
                                 Serplexity Pro
                               </span>
                               <span className="text-xs text-gray-600 font-normal">
@@ -2175,7 +2366,7 @@ const LandingPage: React.FC = () => {
                               </span>
                             </div>
                           </th>
-                          <th className="px-6 md:px-8 py-6 text-center text-base md:text-lg font-semibold text-black">
+                          <th className="px-6 md:px-8 py-6 text-center text-base md:text-lg font-medium text-black">
                             <div className="flex flex-col items-center gap-1">
                               <span>Traditional SEO</span>
                               <span className="text-xs text-gray-600 font-normal">
@@ -2183,7 +2374,7 @@ const LandingPage: React.FC = () => {
                               </span>
                             </div>
                           </th>
-                          <th className="px-6 md:px-8 py-6 text-center text-base md:text-lg font-semibold text-black">
+                          <th className="px-6 md:px-8 py-6 text-center text-base md:text-lg font-medium text-black">
                             <div className="flex flex-col items-center gap-1">
                               <span>Content Agencies</span>
                               <span className="text-xs text-gray-600 font-normal">
@@ -2223,7 +2414,7 @@ const LandingPage: React.FC = () => {
                           >
                             <td className="px-6 md:px-8 py-6">
                               <div>
-                                <div className="text-base font-semibold text-black group-hover:text-gray-900 transition-colors">
+                                <div className="text-base font-medium text-black group-hover:text-gray-900 transition-colors">
                                   {feature.name}
                                 </div>
                                 <div className="text-sm text-gray-600 mt-1">
@@ -2268,7 +2459,7 @@ const LandingPage: React.FC = () => {
                   <div className="bg-gray-50 border-t border-gray-200 px-6 md:px-8 py-6">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                       <div className="text-center md:text-left">
-                        <p className="text-black font-semibold">
+                        <p className="text-black font-medium">
                           Ready to enhance your visibility?
                         </p>
                         <p className="text-gray-600 text-sm">
@@ -2298,7 +2489,7 @@ const LandingPage: React.FC = () => {
           <section id="pricing" className="py-20 md:py-24 hidden md:block">
             <div className="max-w-6xl mx-auto px-6 lg:px-8">
               <div className="text-center mb-16">
-                <h2 className="text-4xl font-bold tracking-tight text-black mb-4">
+                <h2 className="text-4xl font-medium tracking-tight text-black mb-4">
                   Simple, Transparent Pricing
                 </h2>
                 <p className="text-lg md:text-xl text-gray-600">
@@ -2370,7 +2561,7 @@ const LandingPage: React.FC = () => {
                           <h3 className="text-lg font-semibold text-black mb-2">
                             {plan.name}
                           </h3>
-                          <div className="text-3xl font-bold text-black mb-2">
+                          <div className="text-3xl font-medium text-black mb-2">
                             {plan.price}
                             {plan.pricePeriod && (
                               <span className="text-sm font-medium text-gray-600">
@@ -2429,10 +2620,13 @@ const LandingPage: React.FC = () => {
 
         {/* FAQ Accordion Section */}
         <SlideIn>
-          <section id="faq" className="pt-10 sm:pt-12 md:pt-16 pb-10 sm:pb-12 md:pb-16">
+          <section
+            id="faq"
+            className="pt-10 sm:pt-12 md:pt-16 pb-10 sm:pb-12 md:pb-16"
+          >
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="text-center mb-10 sm:mb-12 md:mb-16">
-                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-black mb-4">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-medium tracking-tight text-black mb-4">
                   Frequently Asked Questions
                 </h2>
                 <p className="text-base sm:text-lg md:text-xl text-gray-600">
@@ -2476,7 +2670,10 @@ const LandingPage: React.FC = () => {
                     mobileHidden: true,
                   },
                 ].map((column, i) => (
-                  <div key={i} className={column.mobileHidden ? "hidden sm:block" : ""}>
+                  <div
+                    key={i}
+                    className={column.mobileHidden ? "hidden sm:block" : ""}
+                  >
                     <h3 className="font-semibold text-black mb-4">
                       {column.title}
                     </h3>
@@ -2536,7 +2733,7 @@ const LandingPage: React.FC = () => {
                     alt="Serplexity"
                     className="w-6 h-6 mr-2"
                   />
-                  <span className="text-lg font-bold text-black">
+                  <span className="text-lg font-medium text-black">
                     Serplexity
                   </span>
                 </div>
@@ -2550,7 +2747,7 @@ const LandingPage: React.FC = () => {
                       alt="Serplexity"
                       className="w-6 h-6 mr-2"
                     />
-                    <span className="text-lg font-bold text-black">
+                    <span className="text-lg font-medium text-black">
                       Serplexity
                     </span>
                   </div>
