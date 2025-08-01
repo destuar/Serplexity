@@ -86,8 +86,11 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 # DON'T copy .prisma from builder - let production generate its own
 
-# Copy Python agents
-COPY backend/src/pydantic_agents/ ./pydantic_agents/
+# Copy Python agents with proper structure
+COPY backend/src/pydantic_agents/ ./src/pydantic_agents/
+
+# Set Python path for module imports
+ENV PYTHONPATH="/app:/app/src:$PYTHONPATH"
 
 # Copy startup script
 COPY backend/start.sh ./start.sh
