@@ -123,22 +123,22 @@ const LandingPage: React.FC = () => {
         path: isMobile
           ? "/perplexity_logo.png"
           : "/logo-perplexity-1024x258.svg",
-        height: { lg: "100px", md: "80px", sm: "60px" },
+        height: { lg: "130px", md: "104px", sm: "85px" },
       },
       {
         name: "Gemini",
         path: isMobile ? "/gemini_logo.png" : "/gemini_logo.svg",
-        height: { lg: "60px", md: "50px", sm: "38px" },
+        height: { lg: "60px", md: "50px", sm: "32px" },
       },
       {
         name: "Claude",
         path: isMobile ? "/claude_logo.png" : "/claude_logo.svg",
-        height: { lg: "60px", md: "50px", sm: "40px" },
+        height: { lg: "60px", md: "50px", sm: "34px" },
       },
       {
         name: "Grok",
         path: isMobile ? "/grok_logo.png" : "/Grok-feb-2025-logo.svg",
-        height: { lg: "90px", md: "72px", sm: "55px" },
+        height: { lg: "90px", md: "72px", sm: "65px" },
       },
     ],
     [isMobile]
@@ -1004,6 +1004,7 @@ const LandingPage: React.FC = () => {
                       width: "clamp(12rem, 20vw, 18rem)",
                       height: "clamp(3.5rem, 5.5vw, 5.5rem)",
                       marginLeft: "-2rem",
+                      marginTop: "0.25rem",
                     }}
                   >
                     <AnimatePresence mode="wait">
@@ -1039,12 +1040,29 @@ const LandingPage: React.FC = () => {
                               WebkitMaskRepeat: "no-repeat",
                               maskSize: "contain",
                               WebkitMaskSize: "contain",
-                              maskPosition: "center center",
-                              WebkitMaskPosition: "center center",
+                              maskPosition: logoConfig[currentTextIndex]?.name === "Perplexity"
+                                ? "calc(50% + 6px) center"
+                                : logoConfig[currentTextIndex]?.name === "Grok"
+                                ? "calc(50% - 4px) center"
+                                : "center center",
+                              WebkitMaskPosition: logoConfig[currentTextIndex]?.name === "Perplexity"
+                                ? "calc(50% + 6px) center"
+                                : logoConfig[currentTextIndex]?.name === "Grok"
+                                ? "calc(50% - 4px) center"
+                                : "center center",
                               backgroundColor: "currentColor",
                               width: "auto",
-                              minWidth: "clamp(8rem, 12vw, 12rem)",
-                              maxWidth: "clamp(10rem, 15vw, 15rem)",
+                              minWidth: logoConfig[currentTextIndex]?.name === "Perplexity" 
+                                ? "clamp(10rem, 16vw, 16rem)" 
+                                : "clamp(8rem, 12vw, 12rem)",
+                              maxWidth: logoConfig[currentTextIndex]?.name === "Perplexity"
+                                ? "clamp(12rem, 20vw, 20rem)"
+                                : "clamp(10rem, 15vw, 15rem)",
+                              transform: logoConfig[currentTextIndex]?.name === "Perplexity"
+                                ? "translateX(12px)"
+                                : logoConfig[currentTextIndex]?.name === "Grok"
+                                ? "translateX(-8px)"
+                                : "translateX(0px)",
                             } as React.CSSProperties
                           }
                           onError={() => {
@@ -1160,7 +1178,10 @@ const LandingPage: React.FC = () => {
                   <div className="mb-4 sm:mb-6 text-[2.5rem] sm:text-3xl md:text-5xl lg:text-5xl xl:text-6xl font-medium">
                     Get mentioned by
                   </div>
-                  <div className="h-[60px] sm:h-[70px] md:h-[80px] lg:h-[90px] flex items-center justify-start">
+                  <div 
+                    className="h-[60px] sm:h-[70px] md:h-[80px] lg:h-[90px] flex items-center justify-start"
+                    style={{ marginTop: "0.25rem" }}
+                  >
                     <AnimatePresence mode="wait">
                       <motion.div
                         key={currentTextIndex}
@@ -1174,7 +1195,15 @@ const LandingPage: React.FC = () => {
                           className="flex items-center justify-start"
                           style={
                             {
-                              height: "clamp(3rem, 8vw, 6rem)",
+                              height: logoConfig[currentTextIndex]?.name === "Perplexity"
+                                ? "clamp(3.5rem, 9vw, 6.5rem)"
+                                : logoConfig[currentTextIndex]?.name === "Grok"
+                                ? "clamp(3.2rem, 8.5vw, 6.2rem)"  
+                                : logoConfig[currentTextIndex]?.name === "Gemini"
+                                ? "clamp(2.5rem, 7vw, 5.5rem)"
+                                : logoConfig[currentTextIndex]?.name === "Claude"
+                                ? "clamp(2.7rem, 7.5vw, 5.7rem)"
+                                : "clamp(3rem, 8vw, 6rem)",
                               filter: "brightness(0)",
                               maskImage: `url(${
                                 failedLogos.has(currentTextIndex)
@@ -1198,7 +1227,15 @@ const LandingPage: React.FC = () => {
                               WebkitMaskPosition: "left center",
                               backgroundColor: "currentColor",
                               width: "auto",
-                              minWidth: "clamp(7.5rem, 15vw, 12.5rem)",
+                              minWidth: logoConfig[currentTextIndex]?.name === "Perplexity"
+                                ? "clamp(9rem, 18vw, 15rem)"
+                                : logoConfig[currentTextIndex]?.name === "Grok"
+                                ? "clamp(8.5rem, 16vw, 13.5rem)"
+                                : logoConfig[currentTextIndex]?.name === "Gemini"
+                                ? "clamp(6.5rem, 13vw, 11rem)"
+                                : logoConfig[currentTextIndex]?.name === "Claude"
+                                ? "clamp(6.8rem, 13.5vw, 11.5rem)"
+                                : "clamp(7.5rem, 15vw, 12.5rem)",
                               aspectRatio:
                                 logoConfig[currentTextIndex]?.name ===
                                 "Perplexity"
