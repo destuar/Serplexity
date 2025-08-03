@@ -14,7 +14,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { databaseService } from '../config/database';
+import { SecretsProviderFactory } from '../services/secretsProvider';
 import { dbCache } from '../config/dbCache';
 import logger from '../utils/logger';
 
@@ -87,28 +87,22 @@ class AutoRecoveryService {
     try {
       logger.info(`[AutoRecovery] Starting recovery attempt ${this.recoveryState.attemptCount}/${this.MAX_RECOVERY_ATTEMPTS}`);
       
-      // 1. Trigger database service recovery (refreshes credentials)
-      const serviceRecovered = await databaseService.handleAuthFailure();
+      // 1. Clear secrets cache to force fresh credential fetch
+      const secretsProvider = await SecretsProviderFactory.createFromEnvironment();
+      secretsProvider.clearCache();
+      logger.info("[AutoRecovery] Secrets cache cleared");
       
-      if (serviceRecovered) {
-        // 2. Refresh ALL cached database clients (this is the critical missing piece!)
-        logger.info("[AutoRecovery] Refreshing cached database clients...");
-        await dbCache.refreshAllClients();
-        
-        // 3. Test the connection to verify recovery
-        const connectionWorking = await databaseService.testConnection();
-        
-        if (connectionWorking) {
-          logger.info("[AutoRecovery] Complete recovery successful - credentials + cache refreshed");
-          this.resetRecoveryState();
-          return true;
-        } else {
-          logger.warn("[AutoRecovery] Recovery completed but connection test failed");
-        }
-      }
-
-      logger.warn(`[AutoRecovery] Recovery attempt ${this.recoveryState.attemptCount} failed`);
-      return false;
+      // 2. Refresh ALL cached database clients (this is the critical missing piece!)
+      logger.info("[AutoRecovery] Refreshing cached database clients...");
+      await dbCache.refreshAllClients();
+      
+      // 3. Test the connection to verify recovery
+      const testClient = await dbCache.getPrimaryClient();
+      await testClient.$queryRaw`SELECT 1 as recovery_test`;
+      
+      logger.info("[AutoRecovery] Complete recovery successful - credentials + cache refreshed");
+      this.resetRecoveryState();
+      return true;
 
     } catch (error) {
       logger.error("[AutoRecovery] Recovery attempt threw error", { error });
@@ -202,7 +196,9 @@ export const healthCheckWithRecovery = async (): Promise<{
   recovery?: any;
 }> => {
   try {
-    const dbHealthy = await databaseService.testConnection();
+    const testClient = await dbCache.getPrimaryClient();
+    await testClient.$queryRaw`SELECT 1 as health_test`;
+    const dbHealthy = true;
     
     if (dbHealthy) {
       return {
@@ -221,6 +217,17 @@ export const healthCheckWithRecovery = async (): Promise<{
       };
     }
   } catch (error) {
+    // Check if this is an auth error that we can recover from
+    if (autoRecoveryService.isAuthFailure(error)) {
+      logger.warn("[HealthCheck] Auth failure detected during health check", { error: error.message });
+      const recovered = await autoRecoveryService.attemptRecovery();
+      return {
+        status: recovered ? 'recovering' : 'unhealthy',
+        database: recovered,
+        recovery: autoRecoveryService.getRecoveryStatus(),
+      };
+    }
+    
     logger.error("[HealthCheck] Health check failed", { error });
     return {
       status: 'unhealthy',

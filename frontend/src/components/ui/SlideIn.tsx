@@ -47,7 +47,7 @@ export const SlideIn: React.FC<SlideInProps> = ({
       },
       { 
         threshold: 0.1,
-        rootMargin: '0px 0px -50px 0px'
+        rootMargin: '0px 0px 50px 0px'
       }
     );
 
@@ -64,11 +64,11 @@ export const SlideIn: React.FC<SlideInProps> = ({
   }, [delay, once]);
 
   return (
-    <div ref={ref} className={cn('overflow-hidden', className)}>
+    <div ref={ref} className={cn(className)}>
       <div
         className={cn(
-          'transition-transform duration-1000 ease-[cubic-bezier(0.2,0.8,0.2,1)]',
-          isVisible ? 'translate-y-0' : 'translate-y-full',
+          'transition-all duration-800 ease-out',
+          isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0',
         )}
       >
         {children}

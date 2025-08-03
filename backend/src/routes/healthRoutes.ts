@@ -537,4 +537,58 @@ router.get("/dependencies", async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * 10x ENGINEER: Secret rotation monitoring status endpoint
+ */
+router.get("/rotation", async (req: Request, res: Response) => {
+  try {
+    const { SecretRotationMonitor } = await import("../services/secretRotationMonitor");
+    const monitor = SecretRotationMonitor.getInstance();
+    const status = monitor.getStatus();
+    
+    res.status(200).json({
+      status: "OK",
+      secretRotation: {
+        monitoring: status.isRunning ? "ACTIVE" : "INACTIVE",
+        lastKnownVersion: status.lastKnownSecretVersion,
+        metrics: status.metrics,
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    logger.error("[HealthCheck] Secret rotation status check failed", { error });
+    res.status(503).json({
+      status: "ERROR",
+      error: (error as Error).message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+/**
+ * 10x ENGINEER: Manual secret rotation trigger for testing
+ */
+router.post("/rotation/trigger", async (req: Request, res: Response) => {
+  try {
+    const { SecretRotationMonitor } = await import("../services/secretRotationMonitor");
+    const monitor = SecretRotationMonitor.getInstance();
+    
+    logger.info("[HealthCheck] Manual rotation check triggered via API");
+    await monitor.forceRotationCheck();
+    
+    res.status(200).json({
+      status: "OK",
+      message: "Rotation check triggered successfully",
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    logger.error("[HealthCheck] Manual rotation trigger failed", { error });
+    res.status(500).json({
+      status: "ERROR",
+      error: (error as Error).message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
 export default router;

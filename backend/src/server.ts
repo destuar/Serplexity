@@ -63,6 +63,11 @@ const startServer = async () => {
     await initializeHealthCheckScheduler(redis);
     console.log("✅ Health check scheduler initialized - auto-recovery active!");
 
+    // 10x ENGINEER: Initialize proactive secret rotation monitoring
+    const { initializeSecretRotationMonitor } = await import('./services/secretRotationMonitor');
+    initializeSecretRotationMonitor();
+    console.log("🔐 Secret rotation monitor initialized - proactive AWS rotation handling active!");
+
     server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
       console.log("🚀 Automated daily reporting system is active!");

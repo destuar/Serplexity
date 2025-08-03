@@ -247,7 +247,7 @@ const DashboardPreviewCarousel: React.FC = () => {
       >
         {/* Removed glow effect */}
         <div
-          className="relative bg-black backdrop-blur-xl rounded-lg md:rounded-xl aspect-[32/17] overflow-hidden shadow-2xl drop-shadow-2xl focus:outline-none"
+          className="relative bg-white rounded-lg md:rounded-xl aspect-[32/17] overflow-hidden border border-gray-200 shadow-lg focus:outline-none"
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
@@ -261,7 +261,7 @@ const DashboardPreviewCarousel: React.FC = () => {
             {infiniteSlides.map((slide, index) => (
               <div
                 key={`${slide.isClone ? "clone" : "original"}-${index}`}
-                className="w-full flex-shrink-0 h-full bg-gray-50 overflow-hidden"
+                className="w-full flex-shrink-0 h-full overflow-hidden"
                 aria-hidden={index !== displayIndex}
               >
                 <div

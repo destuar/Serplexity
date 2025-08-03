@@ -20,7 +20,6 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
-  Target,
   User,
   X,
 } from "lucide-react";
@@ -34,11 +33,10 @@ import { useAuth } from "../hooks/useAuth";
 import { loadStripe } from "@stripe/stripe-js";
 import DashboardPreviewCarousel from "../components/landing/DashboardPreviewCarousel";
 import { Accordion } from "../components/ui/Accordion";
-import { SlideIn } from "../components/ui/SlideIn";
 import { useBlogPosts } from "../hooks/useBlogPosts";
-import { useMediaQuery } from "../hooks/useMediaQuery";
 import { getCompanyLogo } from "../lib/logoService";
 import { createCheckoutSession } from "../services/paymentService";
+import { MODEL_CONFIGS } from "../types/dashboard";
 import {
   estimateReadTime,
   extractFirstCategory,
@@ -51,8 +49,6 @@ const LandingPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState<string | null>(null);
-  const isLargeScreen = useMediaQuery("(min-width: 1024px)");
-  const isMediumScreen = useMediaQuery("(min-width: 768px)");
   const {
     posts: blogPosts,
     loading: postsLoading,
@@ -61,21 +57,31 @@ const LandingPage: React.FC = () => {
 
   // Rotating text state
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
-  const rotatingTexts = [
-    "ChatGPT",
-    "Perplexity",
-    "Gemini",
-    "Claude",
-    "Copilot",
-    "DeepSeek",
-    "Grok",
-  ];
+  const rotatingTexts = ["ChatGPT", "Perplexity", "Gemini", "Claude", "Grok"];
 
   // Mobile detection hook
   const [isMobile, setIsMobile] = useState(false);
 
   // Track failed logo loads for fallback to PNG
   const [failedLogos, setFailedLogos] = useState<Set<number>>(new Set());
+
+  // Model logo URLs for the 6 icons (extending MODEL_CONFIGS with missing ones)
+  const modelIconUrls = {
+    ChatGPT:
+      MODEL_CONFIGS["gpt-4.1-mini"]?.logoUrl ||
+      "https://openai.com/favicon.ico",
+    Claude:
+      MODEL_CONFIGS["claude-3-5-haiku-20241022"]?.logoUrl ||
+      "https://claude.ai/favicon.ico",
+    Gemini:
+      MODEL_CONFIGS["gemini-2.5-flash"]?.logoUrl ||
+      "https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg",
+    Perplexity:
+      MODEL_CONFIGS["sonar"]?.logoUrl ||
+      "https://www.perplexity.ai/favicon.svg",
+    Copilot: "https://copilot.microsoft.com/favicon.ico",
+    Grok: "https://grok.com/favicon.ico",
+  };
 
   // Get PNG fallback path for a logo
   const getPngFallback = (logoName: string) => {
@@ -84,8 +90,6 @@ const LandingPage: React.FC = () => {
       Perplexity: "/perplexity_logo.png",
       Gemini: "/gemini_logo.png",
       Claude: "/claude_logo.png",
-      Copilot: "/copilot-logo.png",
-      DeepSeek: "/DeepSeek_logo.png",
       Grok: "/grok_logo.png",
     };
     return (
@@ -130,16 +134,6 @@ const LandingPage: React.FC = () => {
         name: "Claude",
         path: isMobile ? "/claude_logo.png" : "/claude_logo.svg",
         height: { lg: "60px", md: "50px", sm: "40px" },
-      },
-      {
-        name: "Copilot",
-        path: isMobile ? "/copilot-logo.png" : "/copilot-logo.svg",
-        height: { lg: "75px", md: "60px", sm: "48px" },
-      },
-      {
-        name: "DeepSeek",
-        path: isMobile ? "/DeepSeek_logo.png" : "/DeepSeek_logo.svg",
-        height: { lg: "85px", md: "68px", sm: "52px" },
       },
       {
         name: "Grok",
@@ -290,162 +284,167 @@ const LandingPage: React.FC = () => {
 
   const faqItems = [
     {
-      question: "What is AI Answer Optimization (AIO)?",
+      question: "How can AI search optimization differentiate our agency from competitors?",
       answer: (
         <>
           <p className="mb-4">
-            AI Answer Optimization is the process of increasing the likelihood
-            that large-language-model search experiences—Google AI Overviews,
-            ChatGPT, Perplexity, Claude and others—{" "}
-            <strong>quote your content directly</strong> (rather than just
-            listing your site).
+            AI search optimization positions your agency at the forefront of the next evolution in search, giving you a significant competitive edge. While most agencies are still focused on traditional search engines, you'll be helping clients dominate the AI-powered search landscape that's rapidly gaining market share.
           </p>
           <p className="mb-4">
-            Unlike traditional SEO, the goal isn't only to rank; it's to become
-            a trusted <em>source</em> inside the answer itself.
+            <strong>Agency Benefit:</strong> Offer a cutting-edge service that 95% of your competitors don't understand yet, allowing you to command premium pricing and attract forward-thinking clients who value innovation.
           </p>
           <p>
-            That means structuring pages so that LLMs can parse, cite, and
-            attribute them with confidence.
+            <strong>Next Step:</strong> Schedule a demo to see how brands are already measuring and improving their AI search performance with Share of Voice, Inclusion Rate, and Average Position metrics.
           </p>
         </>
       ),
     },
     {
-      question: "How does Serplexity measure AI visibility?",
+      question: "What ROI can we expect when offering AI search services to clients?",
       answer: (
         <>
           <p className="mb-4">
-            Our dashboard ingests the full text of AI answers and turns it into
-            quantitative metrics:
+            Agencies typically see 30-50% higher profit margins on AI search optimization services compared to traditional SEO, due to the specialized expertise and premium positioning. Most agencies price AI search optimization at 20-40% premium over traditional SEO services, with monthly retainers ranging from $3,000-$15,000+ depending on client size and scope.
           </p>
-          <ul className="space-y-2 list-disc list-inside text-gray-700 mb-4">
-            <li>
-              <span className="font-semibold text-gray-900">
-                Share of Voice:
-              </span>{" "}
-              The percentage of words—and citations—attributed to your brand
-              versus competitors (visualised in the <em>Share of Voice</em> pie
-              card).
-            </li>
-            <li>
-              <span className="font-semibold text-gray-900">
-                Inclusion Rate:
-              </span>{" "}
-              How often your domain appears across the monitored query set
-              (tracked in the <em>Average Inclusion Rate</em> card).
-            </li>
-            <li>
-              <span className="font-semibold text-gray-900">
-                Average Position:
-              </span>{" "}
-              Where your first mention lands inside the answer narrative (early
-              sentences vs. footnotes).
-            </li>
-            <li>
-              <span className="font-semibold text-gray-900">
-                Sentiment &amp; Topic Scores:
-              </span>{" "}
-              A multi-category radar chart showing how engines describe your
-              brand (quality, price, trust, etc.).
-            </li>
-          </ul>
+          <p className="mb-4">
+            <strong>Client Impact:</strong> Clients see measurable improvements in brand visibility across AI search platforms, with some seeing 200-400% increases in AI answer inclusion rates within 90 days.
+          </p>
           <p>
-            These metrics update automatically whenever a new report is
-            generated.
+            <strong>Next Step:</strong> Request our agency pricing guide which includes suggested service packages, pricing models, and ROI calculations to share with prospects.
           </p>
         </>
       ),
     },
     {
-      question: "Which AI engines and models are included?",
-      answer: (
-        <>
-          <p className="mb-4">We currently monitor answers from:</p>
-          <ul className="space-y-2 list-disc list-inside text-gray-700 mb-4">
-            <li>Google Search (AI Overviews / Gemini-powered responses)</li>
-            <li>OpenAI ChatGPT (GPT-4.1 &amp; GPT-4o)</li>
-            <li>Perplexity Sonar</li>
-            <li>Anthropic Claude</li>
-          </ul>
-          <p>
-            The list expands as new engines gain adoption. You can filter
-            results by model inside the dashboard filter bar.
-          </p>
-        </>
-      ),
-    },
-    {
-      question: "Where do the keywords and questions come from?",
+      question: "How long does it take to onboard our team and start offering services?",
       answer: (
         <>
           <p className="mb-4">
-            Our <em>Top Ranking Questions</em> card reveals the exact prompts
-            that surface your brand. We start with your existing SEO keyword
-            set, layer in engine-specific query logs, and continuously discover
-            new conversational questions surfaced by the models.
+            Most agencies are up and running with AI search optimization services within 2-3 weeks. Your existing SEO and digital marketing team already has 80% of the skills needed. We provide comprehensive training on AI search concepts, platform usage, and client reporting - no advanced technical background required.
+          </p>
+          <p className="mb-4">
+            <strong>Agency Benefit:</strong> Leverage your existing team expertise rather than hiring new specialists, reducing costs while expanding service capabilities.
           </p>
           <p>
-            That means you're not guessing what people ask AI—you see the real
-            language users type (and speak).
+            <strong>Next Step:</strong> Schedule a team training session where we'll walk your key team members through the platform and certification process.
           </p>
         </>
       ),
     },
     {
-      question: "How do optimization recommendations work?",
+      question: "How does AI search optimization integrate with our existing SEO services?",
       answer: (
         <>
           <p className="mb-4">
-            Every daily report is paired with an <em>Optimization Checklist</em>{" "}
-            that highlights missing citations, answer gaps, and on-page tweaks
-            (structure, schema, language) proven to increase LLM recall.
+            AI search optimization complements traditional SEO perfectly - it's an additional layer that helps clients dominate both traditional and AI-powered search. Many optimization strategies overlap, making it a natural service expansion.
+          </p>
+          <p className="mb-4">
+            <strong>Agency Benefit:</strong> Upsell existing SEO clients with AI search services, increasing average client value by 40-60% without proportional increases in service delivery costs.
           </p>
           <p>
-            The checklist is generated automatically from your latest visibility
-            data—no manual auditing required.
-          </p>
-        </>
-      ),
-    },
-    {
-      question: "Will AIO hurt my traditional SEO rankings?",
-      answer: (
-        <>
-          <p>
-            No. The structural changes that help language models—clear headers,
-            concise summaries, trustworthy sources—also align with Google's
-            best-practice guidance for page experience. Most clients see flat or
-            positive organic traffic alongside rising AI visibility.
+            <strong>Next Step:</strong> Let us show you how to audit an existing SEO client for AI search opportunities and present the expansion as a strategic evolution of their current program.
           </p>
         </>
       ),
     },
     {
-      question: "How quickly can I expect to see improvements?",
+      question: "What metrics and reports can we provide to demonstrate client success?",
       answer: (
         <>
+          <p className="mb-4">
+            Provide concrete metrics like Share of Voice, Inclusion Rate, Average Position, competitive visibility comparisons, and AI search sentiment analysis. These metrics clearly show improvement and competitive position across ChatGPT, Perplexity, Claude, and Google AI Overviews.
+          </p>
+          <p className="mb-4">
+            <strong>Agency Benefit:</strong> Clear, measurable results make client renewals easier and justify premium pricing for specialized services.
+          </p>
           <p>
-            Because AI answer indices refresh faster than classic search, brands
-            often see citation lifts within one to two reporting cycles
-            (typically days, not months). Competitive markets or large content
-            backlogs can take longer, but progress is visible in the dashboard
-            as it happens.
+            <strong>Next Step:</strong> Review sample client dashboards and reports to see how we present data in an executive-friendly format that drives action and investment.
+          </p>
+        </>
+      ),
+    },
+    {
+      question: "How do we explain AI search optimization to clients who are new to the concept?",
+      answer: (
+        <>
+          <p className="mb-4">
+            Position AI search as "the next evolution of search" that's already happening - ChatGPT, Perplexity, and other AI tools are answering millions of queries daily. Frame it as being prepared for where search is going, not chasing a trend.
+          </p>
+          <p className="mb-4">
+            <strong>Client Impact:</strong> Explain that AI search isn't replacing traditional search immediately - it's capturing additional market share. Smart brands optimize for both to capture the full search opportunity as user behavior evolves.
+          </p>
+          <p>
+            <strong>Next Step:</strong> Use our client education presentation template that includes real examples and case studies to make the concept immediately understandable and compelling.
+          </p>
+        </>
+      ),
+    },
+    {
+      question: "Which types of clients benefit most from AI search optimization?",
+      answer: (
+        <>
+          <p className="mb-4">
+            B2B companies, e-commerce brands, healthcare organizations, financial services, and professional services see the greatest impact from AI search optimization. These industries have high-value search queries where AI engines are increasingly providing direct answers instead of traditional search results.
+          </p>
+          <p className="mb-4">
+            <strong>Agency Benefit:</strong> Target high-value client segments who are willing to invest in innovative marketing strategies and can afford premium service packages.
+          </p>
+          <p>
+            <strong>Next Step:</strong> Audit your current client roster to identify which businesses would be ideal candidates for AI search optimization based on their industry and search behavior patterns.
+          </p>
+        </>
+      ),
+    },
+    {
+      question: "Is AI search optimization mature enough for mainstream client adoption?",
+      answer: (
+        <>
+          <p className="mb-4">
+            Yes - AI search tools already handle over 100 million queries monthly and are growing 300% year-over-year. Major brands are already investing heavily in AI search presence, making this a proven market opportunity rather than early experimentation.
+          </p>
+          <p className="mb-4">
+            <strong>Client Impact:</strong> Early adopters establish thought leadership, capture market share before competitors understand the opportunity, and build sustainable competitive moats through superior AI search visibility.
+          </p>
+          <p>
+            <strong>Next Step:</strong> Review our market research report showing AI search adoption rates, user behavior trends, and competitive landscape analysis.
+          </p>
+        </>
+      ),
+    },
+    {
+      question: "What tools and resources do you provide to support our team?",
+      answer: (
+        <>
+          <p className="mb-4">
+            We provide the complete Serplexity platform, comprehensive training materials, white-label client reports, sales enablement resources, and ongoing support from our team of AI search optimization experts.
+          </p>
+          <p className="mb-4">
+            <strong>Agency Benefit:</strong> Complete toolkit for selling, implementing, and delivering AI search services without having to build internal expertise from scratch. Serplexity integrates with major SEO platforms, analytics tools, and reporting systems through APIs and data exports.
+          </p>
+          <p>
+            <strong>Next Step:</strong> Access our agency resource portal to see examples of client reports, sales materials, and training content we provide to partners.
+          </p>
+        </>
+      ),
+    },
+    {
+      question: "What data do we need from clients to get started?",
+      answer: (
+        <>
+          <p className="mb-4">
+            We need basic brand information, key search terms, competitor lists, and any existing search performance data. Most of this information agencies already have from traditional SEO and marketing work.
+          </p>
+          <p className="mb-4">
+            <strong>Agency Benefit:</strong> Minimal additional data collection requirements mean you can start serving clients immediately without lengthy onboarding processes. We maintain SOC 2 compliance and enterprise-grade security protocols for client data protection.
+          </p>
+          <p>
+            <strong>Next Step:</strong> Review our client onboarding checklist to understand exactly what information is needed and how to collect it efficiently.
           </p>
         </>
       ),
     },
   ];
 
-  const _companyLogos = [
-    { file: "Google_Gemini_logo.svg.png", name: "Google Gemini" },
-    { file: "logo-perplexity-1024x258.png", name: "Perplexity" },
-    { file: "OpenAI_Logo.svg.png", name: "OpenAI" },
-    { file: "Anthropic-Logo.wine.svg", name: "Anthropic" },
-    { file: "copilot-logo.png", name: "GitHub Copilot" },
-    { file: "Grok-feb-2025-logo.svg.png", name: "Grok" },
-    { file: "DeepSeek_logo.svg.png", name: "DeepSeek" },
-  ];
 
   // Logos are referenced directly in the component
 
@@ -524,13 +523,13 @@ const LandingPage: React.FC = () => {
         z-index: 2;
       }
 
-      /* Contained grid glow */
-      .dashboard-preview-container::before {
+      /* Contained grid glow - DISABLED */
+      /* .dashboard-preview-container::before {
         content: '';
         position: absolute;
         top: 0;
-        left: 6rem;  /* Align with vertical grid lines */
-        right: 6rem; /* Align with vertical grid lines */
+        left: 6rem;
+        right: 6rem;
         bottom: 0;
         background:
           radial-gradient(
@@ -550,10 +549,10 @@ const LandingPage: React.FC = () => {
         z-index: -1;
         opacity: 0;
         animation: containedGlow 2.5s ease-out 1.2s forwards;
-      }
+      } */
 
-      /* Enhanced ambient glow for dashboard content */
-      .dashboard-preview-content::before {
+      /* Enhanced ambient glow for dashboard content - DISABLED */
+      /* .dashboard-preview-content::before {
         content: '';
         position: absolute;
         top: -1rem;
@@ -570,7 +569,7 @@ const LandingPage: React.FC = () => {
         z-index: -1;
         opacity: 0;
         animation: ambientGlow 2s ease-out 1.5s forwards;
-      }
+      } */
 
       @keyframes containedGlow {
         0% {
@@ -765,15 +764,396 @@ const LandingPage: React.FC = () => {
       <div className="relative z-10 vertical-grid-container">
         <Navbar />
 
+        {/* New Full-Screen Section */}
+        <section className="relative h-screen items-start justify-center pt-24 bg-gray-50 text-gray-900 overflow-hidden hidden md:flex">
+          {/* Unified Design Canvas Container */}
+          <div
+            className="absolute inset-0 w-full h-full"
+            style={{ aspectRatio: "16/9" }}
+          >
+            {/* Left Vector */}
+            <div className="absolute left-0 top-[50.5%] transform -translate-y-1/2 w-1/2 h-auto opacity-70 z-0">
+              <img
+                src="/left_vector.svg"
+                alt="Left decorative vector"
+                className="w-full h-auto"
+                style={{ filter: "grayscale(100%) brightness(0.4)" }}
+              />
+            </div>
+
+            {/* Right Vector */}
+            <div className="absolute right-0 top-[50.5%] transform -translate-y-1/2 w-1/2 h-auto opacity-70 z-0">
+              <img
+                src="/right_vector.svg"
+                alt="Right decorative vector"
+                className="w-full h-auto"
+                style={{ filter: "grayscale(100%) brightness(0.4)" }}
+              />
+            </div>
+
+            {/* Model Icons positioned within the design canvas using percentage coordinates with proportional sizing */}
+            {/* Top-left icon - ChatGPT */}
+            <div
+              className="bg-white rounded-lg flex items-center justify-center absolute shadow-lg z-10"
+              style={{
+                top: "46%",
+                left: "21%",
+                transform: "translate(-50%, -50%)",
+                width: "3vw",
+                height: "3vw",
+                minWidth: "36px",
+                minHeight: "36px",
+                maxWidth: "60px",
+                maxHeight: "60px",
+              }}
+            >
+              <img
+                src={modelIconUrls.ChatGPT}
+                alt="ChatGPT"
+                className="object-contain"
+                style={{
+                  width: "65%",
+                  height: "65%",
+                }}
+              />
+            </div>
+
+            {/* Left middle icon - Claude */}
+            <div
+              className="bg-white rounded-lg flex items-center justify-center absolute shadow-lg z-10"
+              style={{
+                top: "64%",
+                left: "34%",
+                transform: "translate(-50%, -50%)",
+                width: "3vw",
+                height: "3vw",
+                minWidth: "36px",
+                minHeight: "36px",
+                maxWidth: "60px",
+                maxHeight: "60px",
+              }}
+            >
+              <img
+                src={modelIconUrls.Claude}
+                alt="Claude"
+                className="object-contain"
+                style={{
+                  width: "65%",
+                  height: "65%",
+                }}
+              />
+            </div>
+
+            {/* Left bottom icon - Gemini */}
+            <div
+              className="bg-white rounded-lg flex items-center justify-center absolute shadow-lg z-10"
+              style={{
+                top: "81%",
+                left: "15%",
+                transform: "translate(-50%, -50%)",
+                width: "3vw",
+                height: "3vw",
+                minWidth: "36px",
+                minHeight: "36px",
+                maxWidth: "60px",
+                maxHeight: "60px",
+              }}
+            >
+              <img
+                src={modelIconUrls.Gemini}
+                alt="Gemini"
+                className="object-contain"
+                style={{
+                  width: "65%",
+                  height: "65%",
+                }}
+              />
+            </div>
+
+            {/* Top-right icon - Perplexity */}
+            <div
+              className="bg-white rounded-lg flex items-center justify-center absolute shadow-lg z-10"
+              style={{
+                top: "39%",
+                left: "90%",
+                transform: "translate(-50%, -50%)",
+                width: "3vw",
+                height: "3vw",
+                minWidth: "36px",
+                minHeight: "36px",
+                maxWidth: "60px",
+                maxHeight: "60px",
+              }}
+            >
+              <img
+                src={modelIconUrls.Perplexity}
+                alt="Perplexity"
+                className="object-contain"
+                style={{
+                  width: "65%",
+                  height: "65%",
+                }}
+              />
+            </div>
+
+            {/* Right middle icon - Copilot */}
+            <div
+              className="bg-white rounded-lg flex items-center justify-center absolute shadow-lg z-10"
+              style={{
+                top: "56%",
+                left: "77%",
+                transform: "translate(-50%, -50%)",
+                width: "3vw",
+                height: "3vw",
+                minWidth: "36px",
+                minHeight: "36px",
+                maxWidth: "60px",
+                maxHeight: "60px",
+              }}
+            >
+              <img
+                src={modelIconUrls.Copilot}
+                alt="Copilot"
+                className="object-contain"
+                style={{
+                  width: "65%",
+                  height: "65%",
+                }}
+              />
+            </div>
+
+            {/* Right bottom icon - Grok */}
+            <div
+              className="bg-white rounded-lg flex items-center justify-center absolute shadow-lg z-10"
+              style={{
+                top: "72%",
+                left: "72%",
+                transform: "translate(-50%, -50%)",
+                width: "3vw",
+                height: "3vw",
+                minWidth: "36px",
+                minHeight: "36px",
+                maxWidth: "60px",
+                maxHeight: "60px",
+              }}
+            >
+              <img
+                src={modelIconUrls.Grok}
+                alt="Grok"
+                className="object-contain"
+                style={{
+                  width: "65%",
+                  height: "65%",
+                }}
+              />
+            </div>
+
+            {/* Center Icon - Serplexity Logo positioned within design canvas */}
+            <div
+              className="absolute flex items-center justify-center z-20"
+              style={{
+                top: "66%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                width: "4vw",
+                height: "4vw",
+                minWidth: "48px",
+                minHeight: "48px",
+                maxWidth: "80px",
+                maxHeight: "80px",
+              }}
+            >
+              <img
+                src="/Serplexity.svg"
+                alt="Serplexity Logo"
+                className="object-contain"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                }}
+              />
+            </div>
+          </div>
+
+          <div
+            className="relative z-10 mx-auto text-center"
+            style={{
+              width: "clamp(320px, 90vw, 1400px)",
+              padding: "0 clamp(1rem, 4vw, 3rem)",
+              marginTop: "clamp(2rem, 4vw, 4rem)",
+            }}
+          >
+            <div>
+              <h1
+                className="font-semibold text-gray-900 mx-auto leading-tight"
+                style={{
+                  fontSize: "clamp(2.1rem, 4.3vw, 3.4rem)",
+                  marginBottom: "clamp(0.5rem, 1vw, 1rem)",
+                }}
+              >
+                <div
+                  className="flex items-center justify-center"
+                  style={{
+                    gap: "clamp(0.5rem, 1vw, 1rem)",
+                  }}
+                >
+                  <span>Get mentioned by</span>
+                  <div
+                    className="flex items-center justify-center"
+                    style={{
+                      width: "clamp(12rem, 20vw, 18rem)",
+                      height: "clamp(3.5rem, 5.5vw, 5.5rem)",
+                      marginLeft: "-2rem",
+                    }}
+                  >
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={currentTextIndex}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.5, ease: "easeInOut" }}
+                        className="relative w-full h-full flex items-center justify-center"
+                      >
+                        <div
+                          className="flex items-center justify-center"
+                          style={
+                            {
+                              height: "clamp(3rem, 4.5vw, 4.5rem)",
+                              filter: "brightness(0)",
+                              maskImage: `url(${
+                                failedLogos.has(currentTextIndex)
+                                  ? getPngFallback(
+                                      logoConfig[currentTextIndex]?.name
+                                    )
+                                  : logoConfig[currentTextIndex]?.path
+                              })`,
+                              WebkitMaskImage: `url(${
+                                failedLogos.has(currentTextIndex)
+                                  ? getPngFallback(
+                                      logoConfig[currentTextIndex]?.name
+                                    )
+                                  : logoConfig[currentTextIndex]?.path
+                              })`,
+                              maskRepeat: "no-repeat",
+                              WebkitMaskRepeat: "no-repeat",
+                              maskSize: "contain",
+                              WebkitMaskSize: "contain",
+                              maskPosition: "center center",
+                              WebkitMaskPosition: "center center",
+                              backgroundColor: "currentColor",
+                              width: "auto",
+                              minWidth: "clamp(8rem, 12vw, 12rem)",
+                              maxWidth: "clamp(10rem, 15vw, 15rem)",
+                            } as React.CSSProperties
+                          }
+                          onError={() => {
+                            console.error(
+                              `Failed to load logo: ${logoConfig[currentTextIndex]?.path}, switching to PNG fallback`
+                            );
+                            setFailedLogos((prev) =>
+                              new Set(prev).add(currentTextIndex)
+                            );
+                          }}
+                        >
+                          {/* Fallback content */}
+                          <img
+                            src={
+                              failedLogos.has(currentTextIndex)
+                                ? getPngFallback(
+                                    logoConfig[currentTextIndex]?.name
+                                  )
+                                : logoConfig[currentTextIndex]?.path
+                            }
+                            alt={logoConfig[currentTextIndex]?.name}
+                            className="w-auto object-contain max-h-full opacity-0"
+                            style={{
+                              height: "100%",
+                              maxWidth: "100%",
+                            }}
+                            onError={() => {
+                              if (!failedLogos.has(currentTextIndex)) {
+                                console.error(
+                                  `Failed to load img: ${logoConfig[currentTextIndex]?.path}, switching to PNG fallback`
+                                );
+                                setFailedLogos((prev) =>
+                                  new Set(prev).add(currentTextIndex)
+                                );
+                              }
+                            }}
+                          />
+                        </div>
+                      </motion.div>
+                    </AnimatePresence>
+                  </div>
+                </div>
+              </h1>
+              <p
+                className="text-gray-600 mx-auto"
+                style={{
+                  fontSize: "clamp(0.9rem, 2.2vw, 1.35rem)",
+                  marginBottom: "clamp(0.75rem, 1.5vw, 1.5rem)",
+                  maxWidth: "clamp(300px, 60vw, 800px)",
+                }}
+              >
+                The all-in-one brand SEO software for AI search engines.
+              </p>
+
+              {/* Call to Action Buttons */}
+              <div
+                className="flex flex-col sm:flex-row justify-center items-center"
+                style={{
+                  gap: "clamp(0.5rem, 1vw, 1rem)",
+                  marginBottom: "clamp(0.75rem, 1.5vw, 1.5rem)",
+                }}
+              >
+                <button
+                  onClick={user ? handleDashboard : handleGetStarted}
+                  className="bg-black hover:bg-gray-800 text-white rounded-xl font-medium shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200 group"
+                  style={{
+                    padding:
+                      "clamp(0.75rem, 1.5vw, 1rem) clamp(1.5rem, 3vw, 2rem)",
+                    fontSize: "clamp(1rem, 2vw, 1.125rem)",
+                  }}
+                >
+                  <span className="flex items-center justify-center">
+                    <span>{user ? "View Dashboard" : "Start Tracking"}</span>
+                  </span>
+                </button>
+              </div>
+
+              {/* Bottom Text - moved above Brand Icons */}
+              <div>
+                <p
+                  className="text-gray-500"
+                  style={{ fontSize: "clamp(0.875rem, 1.5vw, 1rem)" }}
+                >
+                  What should you be optimizing?{" "}
+                  <span
+                    className="font-bold cursor-pointer hover:text-black transition-colors inline-flex items-center"
+                    onClick={() => navigate("/research")}
+                    style={{ gap: "clamp(0.25rem, 0.5vw, 0.5rem)" }}
+                  >
+                    Learn more
+                    <ArrowRight
+                      style={{
+                        width: "clamp(0.875rem, 1.5vw, 1rem)",
+                        height: "clamp(0.875rem, 1.5vw, 1rem)",
+                      }}
+                    />
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Enhanced Hero Section */}
-        <section className="relative px-4 sm:px-6 lg:px-8 pt-32 sm:pt-36 md:pt-24 lg:pt-32 pb-12 sm:pb-16 md:pb-20 lg:pb-24 bg-gray-50 min-h-screen">
+        <section className="relative px-4 sm:px-6 lg:px-8 pt-32 sm:pt-36 md:pt-24 lg:pt-32 pb-12 sm:pb-16 md:pb-20 lg:pb-24 bg-gray-50 min-h-screen md:hidden">
           <div className="max-w-7xl mx-auto">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-10 md:gap-12 lg:gap-16 items-center min-h-[70vh] sm:min-h-[75vh] md:min-h-[80vh]">
               {/* Left Column - Content */}
-              <motion.div
-                initial={{ opacity: 0, x: -50 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.8, ease: "easeOut" }}
+              <div
                 className="text-left -mt-4 sm:-mt-6 md:-mt-8 lg:-mt-12 mb-8 lg:mb-0"
               >
                 <h1 className="font-archivo text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-medium text-black tracking-tight leading-[1.1] mb-6 sm:mb-8">
@@ -794,11 +1174,7 @@ const LandingPage: React.FC = () => {
                           className="flex items-center justify-start"
                           style={
                             {
-                              height: isLargeScreen
-                                ? logoConfig[currentTextIndex]?.height.lg
-                                : isMediumScreen
-                                  ? logoConfig[currentTextIndex]?.height.md
-                                  : logoConfig[currentTextIndex]?.height.sm,
+                              height: "clamp(3rem, 8vw, 6rem)",
                               filter: "brightness(0)",
                               maskImage: `url(${
                                 failedLogos.has(currentTextIndex)
@@ -822,11 +1198,7 @@ const LandingPage: React.FC = () => {
                               WebkitMaskPosition: "left center",
                               backgroundColor: "currentColor",
                               width: "auto",
-                              minWidth: isLargeScreen
-                                ? "200px"
-                                : isMediumScreen
-                                  ? "160px"
-                                  : "120px",
+                              minWidth: "clamp(7.5rem, 15vw, 12.5rem)",
                               aspectRatio:
                                 logoConfig[currentTextIndex]?.name ===
                                 "Perplexity"
@@ -875,22 +1247,16 @@ const LandingPage: React.FC = () => {
                   </div>
                 </h1>
 
-                <motion.p
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: 0.2 }}
+                <p
                   className="text-base sm:text-lg md:text-xl text-gray-600 max-w-lg -mb-2 md:-mb-8 lg:mb-6 leading-relaxed"
                 >
                   Track your brand's visibility across AI search engines.
                   Monitor mentions and citations, optimize content, and grow
-                  your organic search traffic.
-                </motion.p>
+                  your organic search traffic
+                </p>
 
                 {/* CTA Buttons - Desktop Only */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: 0.4 }}
+                <div
                   className="hidden lg:flex flex-col sm:flex-row gap-3 sm:gap-4"
                 >
                   <button
@@ -899,17 +1265,10 @@ const LandingPage: React.FC = () => {
                   >
                     <span className="flex items-center justify-center">
                       <span>{user ? "View Dashboard" : "Start Tracking"}</span>
-                      <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
                     </span>
                   </button>
-                  <button
-                    onClick={() => navigate("/research")}
-                    className="px-6 sm:px-8 py-3 sm:py-4 border-2 border-gray-300 hover:border-gray-400 text-gray-800 bg-white hover:bg-gray-50 rounded-xl font-medium text-base sm:text-lg shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200"
-                  >
-                    Learn More
-                  </button>
-                </motion.div>
-              </motion.div>
+                </div>
+              </div>
 
               {/* Right Column - Stacked Chart Cards (Desktop Only) */}
               <style>{`
@@ -1044,14 +1403,16 @@ const LandingPage: React.FC = () => {
           `}</style>
               <motion.div
                 initial={{ opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
                 transition={{ duration: 0.8, delay: 0.3 }}
                 className="relative h-[400px] sm:h-[450px] md:h-[400px] lg:h-[600px] w-full mt-0 lg:mt-0"
               >
                 {/* Blank Card 1 - Back card */}
                 <motion.div
                   initial={{ opacity: 0, y: 40, rotate: -3 }}
-                  animate={{ opacity: 1, y: 0, rotate: -3 }}
+                  whileInView={{ opacity: 1, y: 0, rotate: -3 }}
+                  viewport={{ once: true }}
                   transition={{ duration: 0.6, delay: 0.5 }}
                   className="absolute top-0 md:top-[-6rem] lg:top-[-0.5rem] left-4 sm:left-8 md:right-8 lg:left-16 w-64 sm:w-68 md:w-72 h-40 sm:h-44 md:h-48 bg-white rounded-2xl overflow-hidden shadow-lg lg:shadow-2xl transform rotate-[-3deg] z-10"
                 >
@@ -1174,7 +1535,8 @@ const LandingPage: React.FC = () => {
                 {/* Blank Card 2 - Middle card */}
                 <motion.div
                   initial={{ opacity: 0, y: 40, rotate: 2 }}
-                  animate={{ opacity: 1, y: 0, rotate: 2 }}
+                  whileInView={{ opacity: 1, y: 0, rotate: 2 }}
+                  viewport={{ once: true }}
                   transition={{ duration: 0.6, delay: 0.7 }}
                   className="absolute top-20 sm:top-24 md:top-[1rem] lg:top-[7rem] right-0 md:right-8 lg:right-0 w-64 sm:w-68 md:w-72 h-40 sm:h-44 md:h-48 bg-white rounded-2xl overflow-hidden shadow-lg lg:shadow-2xl transform rotate-[2deg] z-20"
                 >
@@ -1427,7 +1789,8 @@ const LandingPage: React.FC = () => {
                 {/* Blank Card 3 - Bottom card */}
                 <motion.div
                   initial={{ opacity: 0, y: 40, rotate: 0 }}
-                  animate={{ opacity: 1, y: 0, rotate: 0 }}
+                  whileInView={{ opacity: 1, y: 0, rotate: 0 }}
+                  viewport={{ once: true }}
                   transition={{ duration: 0.6, delay: 0.9 }}
                   className="absolute bottom-16 sm:bottom-18 md:top-[12rem] lg:top-[20rem] left-8 sm:left-20 md:left-[4rem] lg:left-40 w-64 sm:w-68 md:w-72 h-40 sm:h-44 md:h-48 bg-white rounded-2xl overflow-hidden shadow-lg lg:shadow-2xl transform rotate-[0deg] z-30"
                 >
@@ -1499,10 +1862,7 @@ const LandingPage: React.FC = () => {
             </div>
 
             {/* Mobile CTA Buttons - Below Chart Cards */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.6 }}
+            <div
               className="lg:hidden flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center -mt-2 md:-mt-16 px-4"
             >
               <button
@@ -1511,7 +1871,6 @@ const LandingPage: React.FC = () => {
               >
                 <span className="flex items-center justify-center">
                   <span>{user ? "View Dashboard" : "Start Tracking"}</span>
-                  <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </span>
               </button>
               <button
@@ -1520,7 +1879,7 @@ const LandingPage: React.FC = () => {
               >
                 Learn More
               </button>
-            </motion.div>
+            </div>
           </div>
         </section>
 
@@ -1528,74 +1887,62 @@ const LandingPage: React.FC = () => {
         <motion.section
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
-          onViewportEnter={() => setStatsVisible(true)}
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
           className="py-8 sm:py-12 md:py-16 lg:py-20"
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div
-              className="bg-black rounded-2xl sm:rounded-3xl p-6 sm:p-8 md:p-12 lg:p-16"
-              style={{ boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)" }}
-            >
-              <div className="text-center mb-10 sm:mb-12 md:mb-16">
-                <motion.h2
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.6 }}
-                  className="text-xl sm:text-2xl md:text-4xl font-bold text-white mb-4"
-                >
-                  The All-In-One Brand SEO Software For AI Search Engines
-                </motion.h2>
-                <motion.p
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.6, delay: 0.1 }}
-                  className="hidden sm:block text-base sm:text-lg md:text-xl text-gray-300"
-                >
-                  Join leading companies already optimizing for the future of
-                  search
-                </motion.p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
-                {[
-                  {
-                    label: "Responses Analyzed",
-                    value: minutesProcessed,
-                    suffix: "+",
-                    format: (num: number) => num.toLocaleString(),
-                  },
-                  {
-                    label: "Companies Mentioned",
-                    value: queriesOptimized,
-                    suffix: "K+",
-                    format: (num: number) => Math.floor(num / 1000).toString(),
-                  },
-                  {
-                    label: "Brands Enhanced",
-                    value: brandsHelped,
-                    suffix: "+",
-                    format: (num: number) => num.toString(),
-                  },
-                ].map((stat, index) => (
-                  <div
-                    key={index}
-                    className="text-center p-6 sm:p-8 bg-white border border-gray-200 rounded-2xl hover:shadow-lg transition-all duration-300"
-                  >
-                    <div className="text-3xl sm:text-4xl md:text-4xl lg:text-5xl font-medium text-black mb-2">
-                      {stat.format(stat.value)}
-                      {stat.suffix}
-                    </div>
-                    <div className="text-sm sm:text-base text-gray-600 font-medium">
-                      {stat.label}
-                    </div>
-                  </div>
-                ))}
-              </div>
+            {/* Section Header */}
+            <div className="text-center mb-8 sm:mb-12 md:mb-16">
+              <motion.h2 
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8 }}
+                className="text-4xl font-medium tracking-tight text-black mb-4"
+              >
+                Join leading brands already optimizing for AI search
+              </motion.h2>
             </div>
+            <motion.div 
+              className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8"
+              onViewportEnter={() => setStatsVisible(true)}
+              viewport={{ once: true }}
+            >
+              {[
+                {
+                  label: "Responses Analyzed",
+                  value: minutesProcessed,
+                  suffix: "+",
+                  format: (num: number) => num.toLocaleString(),
+                },
+                {
+                  label: "Companies Mentioned",
+                  value: queriesOptimized,
+                  suffix: "K+",
+                  format: (num: number) => Math.floor(num / 1000).toString(),
+                },
+                {
+                  label: "Brands Enhanced",
+                  value: brandsHelped,
+                  suffix: "+",
+                  format: (num: number) => num.toString(),
+                },
+              ].map((stat, index) => (
+                <div
+                  key={index}
+                  className="text-center p-6 sm:p-8 bg-white rounded-2xl border border-gray-200 shadow-lg transition-all duration-300"
+                >
+                  <div className="text-3xl sm:text-4xl md:text-4xl lg:text-5xl font-medium text-black mb-2">
+                    {stat.format(stat.value)}
+                    {stat.suffix}
+                  </div>
+                  <div className="text-sm sm:text-base text-gray-600 font-medium">
+                    {stat.label}
+                  </div>
+                </div>
+              ))}
+            </motion.div>
           </div>
         </motion.section>
 
@@ -1610,7 +1957,7 @@ const LandingPage: React.FC = () => {
               {/* Left Column - Sticky Navigation */}
               <div className="relative">
                 {/* Vertical Line - full height of parent */}
-                <div className="absolute left-1.5 top-0 h-full w-0.5 bg-black hidden md:block" />
+                <div className="absolute left-[3.8rem] top-4 bottom-4 w-0.5 bg-black hidden md:block" />
 
                 {/* Sticky container for the text */}
                 <div className="hidden md:block md:sticky md:top-36 mb-8 md:mb-0">
@@ -1623,11 +1970,11 @@ const LandingPage: React.FC = () => {
                     ].map((step, index) => (
                       <div
                         key={index}
-                        className="relative pl-0 md:pl-10 text-center md:text-left"
+                        className="relative pl-0 md:pl-24 text-center md:text-left"
                       >
                         {/* Dot */}
                         <div
-                          className={`hidden md:block absolute left-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full transition-all duration-300 ${
+                          className={`hidden md:block absolute left-14 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full transition-all duration-300 ${
                             index === currentStep
                               ? "bg-black scale-110 shadow-lg"
                               : "bg-black/30"
@@ -1672,10 +2019,10 @@ const LandingPage: React.FC = () => {
                       Monitor
                     </h3>
                     <div
-                      className={`relative w-full h-80 bg-white rounded-3xl overflow-hidden border transition-all duration-500 shadow-lg ${
+                      className={`relative w-full h-80 bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden transition-all duration-500 ${
                         currentStep === 0
-                          ? "border-gray-300 scale-105 opacity-100"
-                          : "border-gray-200 opacity-40 scale-95 md:opacity-100"
+                          ? "scale-105 opacity-100"
+                          : "opacity-40 scale-95 md:opacity-100"
                       }`}
                     >
                       {/* Top Ranking Questions Card Content */}
@@ -1766,10 +2113,10 @@ const LandingPage: React.FC = () => {
                       Analyze
                     </h3>
                     <div
-                      className={`relative w-full h-80 bg-white rounded-3xl overflow-hidden border transition-all duration-500 shadow-lg ${
+                      className={`relative w-full h-80 bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden transition-all duration-500 ${
                         currentStep === 1
-                          ? "border-gray-300 scale-105 opacity-100"
-                          : "border-gray-200 opacity-40 scale-95 md:opacity-100"
+                          ? "scale-105 opacity-100"
+                          : "opacity-40 scale-95 md:opacity-100"
                       }`}
                     >
                       {/* Responses Card Content */}
@@ -1930,10 +2277,10 @@ const LandingPage: React.FC = () => {
                       Optimize
                     </h3>
                     <div
-                      className={`relative w-full h-80 bg-white rounded-3xl overflow-hidden border transition-all duration-500 shadow-lg ${
+                      className={`relative w-full h-80 bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden transition-all duration-500 ${
                         currentStep === 2
-                          ? "border-gray-300 scale-105 opacity-100"
-                          : "border-gray-200 opacity-40 scale-95 md:opacity-100"
+                          ? "scale-105 opacity-100"
+                          : "opacity-40 scale-95 md:opacity-100"
                       }`}
                     >
                       {/* Visibility Tasks Card Content */}
@@ -2110,16 +2457,22 @@ const LandingPage: React.FC = () => {
         </motion.section>
 
         {/* Research Section */}
-        <SlideIn>
-          <section id="research" className="pt-12 md:pt-16 pb-12 md:pb-16">
+        <motion.section 
+          id="research" 
+          className="pt-12 md:pt-16 pb-12 md:pb-16"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+        >
             <div className="max-w-6xl mx-auto px-6 lg:px-8">
               <div className="text-center mb-16">
                 <h2 className="text-4xl font-medium tracking-tight text-black mb-4">
                   Latest Research & Insights
                 </h2>
-                <p className="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto">
+                <p className="text-lg md:text-xl text-gray-600">
                   Access state of the industry reports and leading research on
-                  AI search.
+                  AI search
                 </p>
               </div>
 
@@ -2321,22 +2674,24 @@ const LandingPage: React.FC = () => {
                 </button>
               </div>
             </div>
-          </section>
-        </SlideIn>
+        </motion.section>
 
         {/* Comparison Table Section */}
-        <SlideIn>
-          <section
-            id="comparison"
-            className="pt-12 md:pt-16 pb-20 md:pb-24 relative hidden md:block"
-          >
+        <motion.section
+          id="comparison"
+          className="pt-12 md:pt-16 pb-20 md:pb-24 relative hidden md:block"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+        >
             <div className="max-w-6xl mx-auto px-6 lg:px-8">
               <div className="text-center mb-20">
-                <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-black mb-6">
+                <h2 className="text-4xl font-medium tracking-tight text-black mb-4">
                   Why Traditional SEO{" "}
                   <span className="text-black">Isn't Enough</span>
                 </h2>
-                <p className="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto">
+                <p className="text-lg md:text-xl text-gray-600">
                   As generative engines reshape search, brands need a new
                   playbook
                 </p>
@@ -2351,10 +2706,6 @@ const LandingPage: React.FC = () => {
                       <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
                           <th className="px-6 md:px-8 py-6 text-left text-base md:text-lg font-medium text-black">
-                            <div className="flex items-center gap-2">
-                              <Target className="w-5 h-5 text-gray-600" />
-                              Capabilities
-                            </div>
                           </th>
                           <th className="px-6 md:px-8 py-6 text-center">
                             <div className="flex flex-col items-center gap-1">
@@ -2387,25 +2738,46 @@ const LandingPage: React.FC = () => {
                       <tbody className="divide-y divide-gray-200">
                         {[
                           {
-                            name: "Track AI Search Mentions",
-                            description: "Direct quotes in AI responses",
+                            name: "White-label Client Dashboards",
+                            description: "Custom-branded reports and dashboards for your agency clients",
+                            traditional: false,
+                            agencies: false,
                           },
                           {
-                            name: "LLM Content Optimization",
-                            description: "AI-ready content structure",
+                            name: "AI Visibility Metrics Suite",
+                            description: "Share of Voice, Inclusion Rate, and Average Position tracking across all AI engines",
+                            traditional: false,
+                            agencies: false,
                           },
                           {
-                            name: "Competitor Benchmarking",
-                            description:
-                              "Track the competitors' Share of Voice",
+                            name: "Multi-Engine AI Monitoring",
+                            description: "Track across ChatGPT, Perplexity, Claude, Google AI Overviews",
+                            traditional: false,
+                            agencies: false,
                           },
                           {
-                            name: "Sentence-Level Attribution",
-                            description: "Precise citation analysis",
+                            name: "AI Sentiment Analysis",
+                            description: "Monitor how AI engines describe your brand's sentiment and topics",
+                            traditional: false,
+                            agencies: false,
                           },
                           {
-                            name: "Adaptive Growth Strategy",
-                            description: "Win the evolving AI landscape",
+                            name: "Real-time Citation Attribution",
+                            description: "See exactly which content gets quoted by AI engines",
+                            traditional: false,
+                            agencies: false,
+                          },
+                          {
+                            name: "Competitive Intelligence",
+                            description: "Compare your AI visibility against competitors in real-time",
+                            traditional: false,
+                            agencies: false,
+                          },
+                          {
+                            name: "Traditional SEO Tracking",
+                            description: "Standard search rankings and keyword monitoring",
+                            traditional: true,
+                            agencies: true,
                           },
                         ].map((feature, i) => (
                           <tr
@@ -2431,20 +2803,26 @@ const LandingPage: React.FC = () => {
                             </td>
                             <td className="px-6 md:px-8 py-6 text-center">
                               <div className="flex justify-center">
-                                <div className="w-8 h-8 rounded-full bg-gray-500/20 flex items-center justify-center group-hover:bg-gray-500/30 transition-colors">
-                                  <X className="w-5 h-5 text-gray-400" />
-                                </div>
+                                {feature.traditional ? (
+                                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center group-hover:bg-blue-500/30 transition-colors">
+                                    <Check className="w-5 h-5 text-blue-400" />
+                                  </div>
+                                ) : (
+                                  <div className="w-8 h-8 rounded-full bg-gray-500/20 flex items-center justify-center group-hover:bg-gray-500/30 transition-colors">
+                                    <X className="w-5 h-5 text-gray-400" />
+                                  </div>
+                                )}
                               </div>
                             </td>
                             <td className="px-6 md:px-8 py-6 text-center">
                               <div className="flex justify-center">
-                                {i === 0 || i === 2 || i === 3 || i === 4 ? (
-                                  <div className="w-8 h-8 rounded-full bg-gray-500/20 flex items-center justify-center group-hover:bg-gray-500/30 transition-colors">
-                                    <X className="w-5 h-5 text-gray-400" />
-                                  </div>
-                                ) : (
+                                {feature.agencies ? (
                                   <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center group-hover:bg-blue-500/30 transition-colors">
                                     <Check className="w-5 h-5 text-blue-400" />
+                                  </div>
+                                ) : (
+                                  <div className="w-8 h-8 rounded-full bg-gray-500/20 flex items-center justify-center group-hover:bg-gray-500/30 transition-colors">
+                                    <X className="w-5 h-5 text-gray-400" />
                                   </div>
                                 )}
                               </div>
@@ -2463,7 +2841,7 @@ const LandingPage: React.FC = () => {
                           Ready to enhance your visibility?
                         </p>
                         <p className="text-gray-600 text-sm">
-                          Join the brands already leveraging GEO for competitive
+                          Join the brands already leveraging AI search for competitive
                           advantage
                         </p>
                       </div>
@@ -2473,7 +2851,6 @@ const LandingPage: React.FC = () => {
                           className="bg-black hover:bg-gray-800 text-white px-6 py-3 rounded-full font-semibold transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2"
                         >
                           {user ? "View Dashboard" : "Get Started Today"}
-                          <ArrowRight className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
@@ -2481,27 +2858,28 @@ const LandingPage: React.FC = () => {
                 </div>
               </div>
             </div>
-          </section>
-        </SlideIn>
+        </motion.section>
 
         {/* Pricing Section */}
-        <SlideIn>
-          <section id="pricing" className="py-20 md:py-24 hidden md:block">
+        <motion.section
+          id="pricing" 
+          className="py-20 md:py-24 hidden md:block"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+        >
             <div className="max-w-6xl mx-auto px-6 lg:px-8">
               <div className="text-center mb-16">
                 <h2 className="text-4xl font-medium tracking-tight text-black mb-4">
                   Simple, Transparent Pricing
                 </h2>
                 <p className="text-lg md:text-xl text-gray-600">
-                  Choose the plan that's right for your brand's growth.
+                  Choose the plan that's right for your brand's growth
                 </p>
               </div>
 
-              {/* Enhanced White Container */}
-              <div className="relative bg-white rounded-3xl shadow-lg border border-gray-200 p-6 md:p-8 overflow-hidden">
-                {/* Inner content */}
-                <div className="relative">
-                  <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
                     {[
                       {
                         name: "Serplexity Pro",
@@ -2611,34 +2989,32 @@ const LandingPage: React.FC = () => {
                         </button>
                       </div>
                     ))}
-                  </div>
-                </div>
               </div>
             </div>
-          </section>
-        </SlideIn>
+        </motion.section>
 
         {/* FAQ Accordion Section */}
-        <SlideIn>
-          <section
-            id="faq"
-            className="pt-10 sm:pt-12 md:pt-16 pb-10 sm:pb-12 md:pb-16"
-          >
+        <motion.section
+          id="faq"
+          className="pt-10 sm:pt-12 md:pt-16 pb-10 sm:pb-12 md:pb-16"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+        >
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="text-center mb-10 sm:mb-12 md:mb-16">
                 <h2 className="text-2xl sm:text-3xl md:text-4xl font-medium tracking-tight text-black mb-4">
-                  Frequently Asked Questions
+                  Agency Partner Questions
                 </h2>
                 <p className="text-base sm:text-lg md:text-xl text-gray-600">
-                  Everything you need to know about Generative Engine
-                  Optimization
+                  Everything agencies need to know about offering AI search optimization services
                 </p>
               </div>
 
               <Accordion items={faqItems} />
             </div>
-          </section>
-        </SlideIn>
+        </motion.section>
 
         {/* Landing Page Footer */}
         <footer className="bg-transparent">

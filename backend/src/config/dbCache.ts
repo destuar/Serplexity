@@ -29,6 +29,7 @@ class DatabaseCache {
   async getPrimaryClient(): Promise<PrismaClient> {
     if (!this.primaryClient) {
       this.primaryClient = await getDbClient();
+      this.setupAuthErrorHandling(this.primaryClient);
     }
     return this.primaryClient;
   }
@@ -36,6 +37,7 @@ class DatabaseCache {
   async getReplicaClient(): Promise<PrismaClient> {
     if (!this.replicaClient) {
       this.replicaClient = await getReadDbClient();
+      this.setupAuthErrorHandling(this.replicaClient);
     }
     return this.replicaClient;
   }
@@ -74,6 +76,29 @@ class DatabaseCache {
     } finally {
       this.refreshInProgress = false;
     }
+  }
+
+  /**
+   * Setup Prisma middleware to catch auth errors and trigger auto-recovery
+   */
+  private setupAuthErrorHandling(client: PrismaClient): void {
+    client.$use(async (params, next) => {
+      try {
+        return await next(params);
+      } catch (error) {
+        if (this.isAuthenticationError(error)) {
+          logger.error('[DatabaseCache] Auth error detected in Prisma operation', {
+            operation: params.action,
+            model: params.model,
+            error: (error as Error).message,
+          });
+          
+          // Don't auto-recover here to avoid infinite loops
+          // Let the Express error handler middleware handle it
+        }
+        throw error;
+      }
+    });
   }
 
   /**
