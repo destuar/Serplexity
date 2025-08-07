@@ -24,7 +24,16 @@ declare module "express-serve-static-core" {
       stripeCustomerId: string | null;
       trialStartedAt?: Date | null;
       trialEndsAt?: Date | null;
-      companyId?: string;
+      companies?: Array<{
+        id: string;
+        name: string;
+        website: string | null;
+        industry: string | null;
+        userId: string;
+        createdAt: Date;
+        updatedAt: Date;
+        competitors?: Array<any>;
+      }>;
     };
   }
 }

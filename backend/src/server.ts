@@ -10,7 +10,7 @@
  * - ./config/db: Singleton Prisma client instance.
  * - ./config/tracing: OpenTelemetry tracing initialization.
  * - ./queues/reportWorker: Initializes the report generation worker.
- * - ./queues/archiveWorker: Initializes the archive worker.
+ * - ./queues/archiveWorker: Initializes the archive worker. (PAUSED)
  * - ./queues/masterSchedulerWorker: Initializes the master scheduler worker.
  * - ./queues/backupSchedulerWorker: Initializes the backup scheduler worker.
  * - ./queues/masterScheduler: Schedules the daily report trigger.
@@ -23,9 +23,11 @@ import env from "./config/env";
 import { dbCache } from "./config/dbCache";
 import SystemValidator from "./startup/systemValidator";
 import "./queues/reportWorker"; // This initializes and starts the worker process
-import "./queues/archiveWorker"; // This initializes and starts the archive worker process
+// import "./queues/archiveWorker"; // PAUSED: This initializes and starts the archive worker process
 import "./queues/masterSchedulerWorker"; // This initializes the daily report scheduler worker
 import "./queues/backupSchedulerWorker"; // This initializes the backup scheduler worker
+import "./queues/webAuditWorker"; // This initializes and starts the web audit worker process
+import "./queues/websiteAnalyticsWorker"; // This initializes and starts the website analytics worker process
 import "./queues/reportEvents"; // Initializes the report event listener
 import { scheduleDailyReportTrigger } from "./queues/masterScheduler";
 import { scheduleBackupDailyReportTrigger } from "./queues/backupScheduler";
@@ -63,10 +65,9 @@ const startServer = async () => {
     await initializeHealthCheckScheduler(redis);
     console.log("✅ Health check scheduler initialized - auto-recovery active!");
 
-    // 10x ENGINEER: Initialize proactive secret rotation monitoring
-    const { initializeSecretRotationMonitor } = await import('./services/secretRotationMonitor');
-    initializeSecretRotationMonitor();
-    console.log("🔐 Secret rotation monitor initialized - proactive AWS rotation handling active!");
+    // Secret rotation monitoring disabled - was causing errors with environment provider
+    // TODO: Re-enable when AWS secrets provider detection is more robust
+    console.log("🔐 Secret rotation monitor disabled - manual rotation monitoring active!");
 
     server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);

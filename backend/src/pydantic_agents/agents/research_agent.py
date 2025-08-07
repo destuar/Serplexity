@@ -34,7 +34,7 @@ class CompanyInput(BaseModel):
 
 class CompanyResearchAgent(BaseAgent):
 
-    def __init__(self, provider: str = "auto"):
+    def __init__(self, provider: str = "perplexity"):
         """Initialize with centralized model configuration for company research"""
         # Use centralized configuration instead of hardcoding sonar
         default_model_config = get_default_model_for_task(ModelTask.COMPANY_RESEARCH)

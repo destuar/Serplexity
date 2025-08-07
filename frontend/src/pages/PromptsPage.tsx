@@ -458,7 +458,10 @@ const PromptsPage: React.FC = () => {
   // Set breadcrumb for this page
   useEffect(() => {
     if (!isEmbedded) {
-      setBreadcrumbs([{ label: 'Prompts' }]);
+      setBreadcrumbs([
+        { label: 'AI Performance' },
+        { label: 'Prompts' }
+      ]);
     }
   }, [isEmbedded, setBreadcrumbs]);
 

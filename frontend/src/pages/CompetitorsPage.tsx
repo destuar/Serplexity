@@ -450,7 +450,10 @@ const CompetitorsPage = () => {
 
   // Set breadcrumb for this page
   useEffect(() => {
-    setBreadcrumbs([{ label: 'Competitors' }]);
+    setBreadcrumbs([
+      { label: 'AI Performance' },
+      { label: 'Competitors' }
+    ]);
   }, [setBreadcrumbs]);
 
   const loadCompetitors = useCallback(async () => {

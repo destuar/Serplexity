@@ -1,11 +1,20 @@
 # PydanticAI Dependencies
-# Core PydanticAI framework with all provider support
-pydantic-ai[openai,anthropic,gemini,groq,logfire]==0.4.6
+# Core PydanticAI framework - use specific provider dependencies to avoid conflicts
+pydantic-ai==0.4.6
+openai>=1.92.0
+anthropic>=0.52.0
+google-genai>=1.24.0
+groq>=0.19.0
 
 # Additional dependencies for our implementation
-pydantic==2.11.7
-typing_extensions==4.12.2
-asyncio==3.4.3
+pydantic>=2.11.7
+typing_extensions>=4.12.2
+# asyncio removed - conflicts with pydantic-ai dependencies
+
+# FastAPI service dependencies - use compatible versions
+fastapi>=0.115.0,<0.117.0
+starlette>=0.40.0,<0.48.0
+uvicorn[standard]>=0.34.0,<0.36.0
 
 # Development dependencies
 pytest==8.3.4

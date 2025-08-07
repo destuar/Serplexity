@@ -45,6 +45,8 @@ import searchRouter from "./routes/searchRoutes";
 import userRouter from "./routes/userRoutes";
 import blogRouter from "./routes/blogRoutes";
 import healthRouter from "./routes/healthRoutes";
+import webAuditRouter from "./routes/webAuditRoutes";
+import websiteAnalyticsRouter from "./routes/websiteAnalyticsRoutes";
 import env from "./config/env";
 import { stripeWebhook } from "./controllers/paymentController";
 import { dbCache } from "./config/dbCache";
@@ -264,6 +266,8 @@ app.use("/api/payments", paymentRouter);
 app.use("/api/reports", reportRouter);
 app.use("/api/users", userRouter);
 app.use("/api/search", searchRouter);
+app.use("/api/web-audit", webAuditRouter);
+app.use("/api/website-analytics", websiteAnalyticsRouter);
 
 // Blog routes (mixed public/admin)
 app.use("/api/blog", blogRouter);

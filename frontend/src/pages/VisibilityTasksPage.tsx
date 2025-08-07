@@ -21,6 +21,7 @@ import WelcomePrompt from "../components/ui/WelcomePrompt";
 import { useCompany } from "../contexts/CompanyContext";
 import { useDashboard } from "../hooks/useDashboard";
 import { useReportGeneration } from "../hooks/useReportGeneration";
+import { useNavigation } from "../hooks/useNavigation";
 import {
   OptimizationTask,
   TaskStatus,
@@ -29,6 +30,7 @@ import {
 
 const VisibilityTasksPage: React.FC = () => {
   const { selectedCompany } = useCompany();
+  const { setBreadcrumbs } = useNavigation();
   const { data, loading, hasReport, refreshing, refreshData, lastUpdated } =
     useDashboard();
   const {
@@ -45,6 +47,14 @@ const VisibilityTasksPage: React.FC = () => {
     null
   );
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Set breadcrumbs
+  useEffect(() => {
+    setBreadcrumbs([
+      { label: 'Action Center' },
+      { label: 'Visibility Tasks' }
+    ]);
+  }, [setBreadcrumbs]);
 
   // Sync tasks from dashboard data
   useEffect(() => {

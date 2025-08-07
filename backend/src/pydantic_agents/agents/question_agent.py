@@ -36,7 +36,7 @@ class CustomerQuestions(BaseModel):
 
 class GenQuestionAgent(BaseAgent):
 
-    def __init__(self, provider: str = "auto"):
+    def __init__(self, provider: str = "openai"):
         """Initialize with centralized model configuration for question generation"""
         # Use centralized configuration instead of hardcoded model
         default_model_config = get_default_model_for_task(ModelTask.QUESTION_GENERATION)

@@ -62,12 +62,13 @@ const sdk = new NodeSDK({
   ],
 });
 
-try {
-  sdk.start();
-  logger.info("OpenTelemetry tracing initialized successfully");
-} catch (error) {
-  logger.error("Error initializing OpenTelemetry tracing", { error });
-}
+// Temporarily disabled to remove logfire dependency
+// try {
+//   sdk.start();
+//   logger.info("OpenTelemetry tracing initialized successfully");
+// } catch (error) {
+//   logger.error("Error initializing OpenTelemetry tracing", { error });
+// }
 
 process.on("SIGTERM", () => {
   sdk

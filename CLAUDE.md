@@ -231,6 +231,13 @@ AWS_ACCESS_KEY_ID=your_access_key
 AWS_SECRET_ACCESS_KEY=your_secret_key
 AWS_REGION=us-east-1
 
+# Email Alerting (Optional - for system failure notifications)
+SMTP_HOST=smtp.gmail.com               # SMTP server hostname
+SMTP_PORT=587                          # SMTP port (587 for TLS, 465 for SSL)
+SMTP_USER=your-email@gmail.com         # SMTP username
+SMTP_PASSWORD=your-app-password        # SMTP password or app password
+SMTP_FROM_EMAIL=alerts@yourcompany.com # From email address for alerts
+
 # Other required variables
 REDIS_HOST=localhost
 REDIS_PORT=6379
@@ -365,6 +372,38 @@ NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.
 NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
 
+## Development Best Practices from Cursor Rules
+
+### Code Quality Principles
+- Write clean, simple, readable code with clear reasoning
+- Implement features in the simplest possible way possible
+- Keep files small and focused (<200 lines)
+- Test after every meaningful change  
+- Use clear, consistent naming conventions
+- ALWAYS ask follow-up questions to clarify requirements before coding
+- Write modular, well-documented code with explanatory comments
+- One abstraction layer per file - controllers call services, services call utils/db
+
+### Error Handling Best Practices
+- DO NOT JUMP TO CONCLUSIONS when debugging - consider multiple possible causes
+- Make only minimal necessary changes when fixing issues
+- Use structured logging with appropriate log levels (debug/info/warn/error)
+- Implement proper error boundaries in React components
+- Prefer async/await + try/catch patterns over promises
+
+### Project-Specific Conventions
+- All prompts MUST live in `backend/src/prompts/` for auditability
+- Use explicit TypeScript types everywhere - `any` is banned
+- Include LOTS of explanatory comments - document the "why" not just the "what"
+- Follow feature-based directory structure in both backend and frontend
+- All new code must include unit tests and pass lint checks
+
+### File Organization Rules
+- Backend services: Pure, reusable business logic (unit test these directly)
+- Controllers: Thin request/response orchestration (keep business-logic free)
+- Queues: Import registers worker (side-effect) - never import from here in regular code
+- Frontend: Feature-based structure for components/pages/contexts/hooks
+
 ## Additional Important Guidelines
 
 ### Development Best Practices
@@ -414,6 +453,13 @@ The system uses 9 specialized PydanticAI agents in `backend/src/pydantic_agents/
 - **Website Agent** (`website_agent.py`): Enriches website data and metadata
 - **Question Agent** (`question_agent.py`): Generates and processes research questions
 - **Fanout Agent** (`fanout_agent.py`): Coordinates parallel processing across multiple AI models
+
+**Python Agent Integration**:
+- PydanticAI 0.4.6 with multi-provider support (OpenAI, Anthropic, Gemini, Groq)
+- Structured output validation using Pydantic schemas
+- Logfire integration for observability and debugging
+- FastAPI service wrapper for Node.js integration
+- Health monitoring via `npm run ops:health`
 
 ### Project Business Domain
 This is **Serplexity**, a Generative Engine Optimization (GEO) platform that helps brands measure and grow visibility inside AI search engines. Key business concepts:

@@ -59,7 +59,10 @@ const OverviewPage = () => {
   // Set initial breadcrumb
   useEffect(() => {
     if (!isEmbedded) {
-      setBreadcrumbs([{ label: 'Dashboard' }]);
+      setBreadcrumbs([
+        { label: 'AI Performance' },
+        { label: 'Dashboard' }
+      ]);
     }
   }, [isEmbedded, setBreadcrumbs]);
 

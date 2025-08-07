@@ -39,7 +39,7 @@
 
 import env from "./env";
 import logger from "../utils/logger";
-import { trackLLMUsage, trackPerformance, trackError } from "./logfire";
+import { trackLLMUsage, trackPerformance, trackError } from "./logfire-stubs";
 import { LLM_PRICING, CostCalculator, CostReporter } from "./llmPricing";
 import { MODELS, ModelTask } from "./models";
 

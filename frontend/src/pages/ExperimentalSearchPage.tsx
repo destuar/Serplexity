@@ -12,17 +12,27 @@
  * @exports
  * - ExperimentalSearchPage: The main experimental search page component.
  */
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import GoogleSerpPane from "../components/experimental/GoogleSerpPane";
 import LlmSerpPane from "../components/experimental/LlmSerpPane";
 import SearchBar from "../components/experimental/SearchBar";
+import { useNavigation } from "../hooks/useNavigation";
 
 const ExperimentalSearchPage: React.FC = () => {
+  const { setBreadcrumbs } = useNavigation();
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
 
   // Local model selection state (default to ChatGPT)
   const [selectedModel, setSelectedModel] = useState<string>("gpt-4.1-mini");
+
+  // Set breadcrumbs
+  useEffect(() => {
+    setBreadcrumbs([
+      { label: 'AI Content Tools' },
+      { label: 'Experimental Search' }
+    ]);
+  }, [setBreadcrumbs]);
 
   const handleSubmit = () => {
     if (query.trim()) {

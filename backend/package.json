@@ -11,7 +11,7 @@
     "lint:fix": "eslint \"src/**/*.ts\" --ignore-pattern \"src/__tests__/**\" --fix",
     "typecheck": "tsc --noEmit",
     "generate": "npx prisma generate",
-    "prisma:dev": "ts-node scripts/run-with-secrets.ts npx prisma",
+    "prisma:dev": "ts-node src/scripts/run-with-secrets.ts npx prisma",
     "migrate:dev": "npm run prisma:dev -- migrate dev",
     "studio:dev": "npm run prisma:dev -- studio",
     "test": "npm run test:pre-deploy",
@@ -26,7 +26,7 @@
     "ops:health": "ts-node src/scripts/pydantic-health-check.ts",
     "ops:monitor": "ts-node src/scripts/monitor-redis-queues.ts",
     "ops:repair": "ts-node src/scripts/repair-failed-reports.ts",
-    "queue-report": "ts-node scripts/run-with-secrets.ts 'ts-node --transpile-only src/scripts/queue-today-report.ts'"
+    "queue-report": "ts-node src/scripts/run-with-secrets.ts 'ts-node --transpile-only src/scripts/queue-today-report.ts'"
   },
   "keywords": [],
   "author": "",
@@ -53,6 +53,7 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "express-rate-limit": "^7.5.1",
+    "googleapis": "^155.0.0",
     "helmet": "^8.1.0",
     "ioredis": "^5.6.1",
     "jsonwebtoken": "^9.0.2",

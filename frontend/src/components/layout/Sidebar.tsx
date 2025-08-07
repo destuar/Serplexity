@@ -25,6 +25,9 @@ import {
   MessageSquare,
   Users,
   Search,
+  Eye,
+  SearchCheck,
+  FileText,
 } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -58,6 +61,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const { closeEmbeddedPageForRoute } = useNavigation();
   const [openSections, setOpenSections] = useState({
     aiPerformance: true,
+    seoPerformance: true,
     actionCenter: true,
     aiContentTools: true,
   });
@@ -199,8 +203,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                   </span>
                 </div>
                 <ChevronDown
-                  size={14}
-                  className={`transition-transform duration-200 text-gray-600 flex-shrink-0 ${
+                  size={16}
+                  className={`transition-transform duration-200 text-gray-400 flex-shrink-0 ${
                     isCompanyDropdownOpen ? "rotate-180" : ""
                   }`}
                 />
@@ -319,11 +323,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                       AI Performance
                     </span>
                   </div>
-                  {openSections.aiPerformance ? (
-                    <ChevronDown className="text-gray-400" size={16} />
-                  ) : (
-                    <ChevronRight className="text-gray-400" size={16} />
-                  )}
+                  <div className="-mr-1">
+                    {openSections.aiPerformance ? (
+                      <ChevronDown className="text-gray-400" size={16} />
+                    ) : (
+                      <ChevronRight className="text-gray-400" size={16} />
+                    )}
+                  </div>
                 </div>
               )}
               {(isDesktopCollapsed || openSections.aiPerformance) && (
@@ -376,6 +382,46 @@ const Sidebar: React.FC<SidebarProps> = ({
               {!isDesktopCollapsed && (
                 <div
                   className={getSectionHeaderClass()}
+                  onClick={(e) => handleSectionClick("seoPerformance", e)}
+                >
+                  <div className="flex items-center">
+                    <span className="text-sm text-gray-500 font-medium">
+                      SEO Performance
+                    </span>
+                  </div>
+                  <div className="-mr-1">
+                    {openSections.seoPerformance ? (
+                      <ChevronDown className="text-gray-400" size={16} />
+                    ) : (
+                      <ChevronRight className="text-gray-400" size={16} />
+                    )}
+                  </div>
+                </div>
+              )}
+              {(isDesktopCollapsed || openSections.seoPerformance) && (
+                <nav
+                  className={`flex flex-col space-y-1 ${!isDesktopCollapsed ? "mt-2" : ""}`}
+                >
+                  <Link
+                    to="/visibility-analytics"
+                    className={getLinkClass("/visibility-analytics")}
+                    onClick={(e) => {
+                      if (isDesktopCollapsed) e.stopPropagation();
+                      closeEmbeddedPageForRoute("/visibility-analytics");
+                    }}
+                  >
+                    <Eye className="text-gray-600" size={16} />
+                    {!isDesktopCollapsed && (
+                      <span className="text-sm font-medium">Visitor Analytics</span>
+                    )}
+                  </Link>
+                </nav>
+              )}
+            </div>
+            <div>
+              {!isDesktopCollapsed && (
+                <div
+                  className={getSectionHeaderClass()}
                   onClick={(e) => handleSectionClick("actionCenter", e)}
                 >
                   <div className="flex items-center">
@@ -383,17 +429,32 @@ const Sidebar: React.FC<SidebarProps> = ({
                       Action Center
                     </span>
                   </div>
-                  {openSections.actionCenter ? (
-                    <ChevronDown className="text-gray-400" size={16} />
-                  ) : (
-                    <ChevronRight className="text-gray-400" size={16} />
-                  )}
+                  <div className="-mr-1">
+                    {openSections.actionCenter ? (
+                      <ChevronDown className="text-gray-400" size={16} />
+                    ) : (
+                      <ChevronRight className="text-gray-400" size={16} />
+                    )}
+                  </div>
                 </div>
               )}
               {(isDesktopCollapsed || openSections.actionCenter) && (
                 <nav
                   className={`flex flex-col space-y-1 ${!isDesktopCollapsed ? "mt-2" : ""}`}
                 >
+                  <Link
+                    to="/web-audit"
+                    className={getLinkClass("/web-audit")}
+                    onClick={(e) => {
+                      if (isDesktopCollapsed) e.stopPropagation();
+                      closeEmbeddedPageForRoute("/web-audit");
+                    }}
+                  >
+                    <SearchCheck className="text-gray-600" size={16} />
+                    {!isDesktopCollapsed && (
+                      <span className="text-sm">Web Audit</span>
+                    )}
+                  </Link>
                   <Link
                     to="/visibility-tasks"
                     className={getLinkClass("/visibility-tasks")}
@@ -402,6 +463,19 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <Flag className="text-gray-600" size={16} />
                     {!isDesktopCollapsed && (
                       <span className="text-sm">Visibility Tasks</span>
+                    )}
+                  </Link>
+                  <Link
+                    to="/visibility-report"
+                    className={getLinkClass("/visibility-report")}
+                    onClick={(e) => {
+                      if (isDesktopCollapsed) e.stopPropagation();
+                      closeEmbeddedPageForRoute("/visibility-report");
+                    }}
+                  >
+                    <FileText className="text-gray-600" size={16} />
+                    {!isDesktopCollapsed && (
+                      <span className="text-sm">Visibility Report</span>
                     )}
                   </Link>
                 </nav>
@@ -418,11 +492,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                       AI Content Tools
                     </span>
                   </div>
-                  {openSections.aiContentTools ? (
-                    <ChevronDown className="text-gray-400" size={16} />
-                  ) : (
-                    <ChevronRight className="text-gray-400" size={16} />
-                  )}
+                  <div className="-mr-1">
+                    {openSections.aiContentTools ? (
+                      <ChevronDown className="text-gray-400" size={16} />
+                    ) : (
+                      <ChevronRight className="text-gray-400" size={16} />
+                    )}
+                  </div>
                 </div>
               )}
               {(isDesktopCollapsed || openSections.aiContentTools) && (

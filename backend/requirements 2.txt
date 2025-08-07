@@ -1,0 +1,19 @@
+# PydanticAI Dependencies
+# Core PydanticAI framework with all provider support
+pydantic-ai[openai,anthropic,gemini,groq]==0.4.6
+
+# Additional dependencies for our implementation
+pydantic>=2.11.7
+typing_extensions>=4.12.2
+# asyncio removed - conflicts with pydantic-ai dependencies
+
+# FastAPI service dependencies - use compatible versions
+fastapi>=0.115.0,<0.117.0
+starlette>=0.40.0,<0.48.0
+uvicorn[standard]>=0.34.0,<0.36.0
+
+# Development dependencies
+pytest==8.3.4
+pytest-asyncio==0.24.0
+black==24.10.0
+mypy==1.13.0

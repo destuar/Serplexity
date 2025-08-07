@@ -9,6 +9,7 @@
 import { SecretsProviderFactory } from './secretsProvider';
 import { dbCache } from '../config/dbCache';
 import logger from '../utils/logger';
+import { logError } from '../utils/errorSerialization';
 
 interface RotationMetrics {
   rotationsDetected: number;
@@ -59,7 +60,12 @@ export class SecretRotationMonitor {
       try {
         await this.performRotationCheck();
       } catch (error) {
-        logger.error('[SecretRotationMonitor] Monitoring check failed', { error });
+        logError(
+          logger,
+          '[SecretRotationMonitor] Monitoring check failed',
+          error,
+          { intervalMs, isRunning: this.isRunning }
+        );
       }
     }, intervalMs);
   }
@@ -109,15 +115,44 @@ export class SecretRotationMonitor {
       await this.testDatabaseHealth();
 
     } catch (error) {
+      const serializedError = error instanceof Error 
+        ? {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+          }
+        : { 
+            type: typeof error,
+            value: String(error),
+            raw: error 
+          };
+
       logger.error('[SecretRotationMonitor] Rotation check failed', { 
-        error,
-        durationMs: Date.now() - startTime 
+        error: serializedError,
+        durationMs: Date.now() - startTime,
+        lastKnownVersion: this.lastKnownSecretVersion,
+        metrics: this.metrics
       });
 
       // If this is an auth error, trigger recovery
       if (dbCache.isAuthenticationError(error)) {
         logger.warn('[SecretRotationMonitor] Auth error detected during check, triggering recovery');
-        await this.handleRotationEvent('unknown');
+        try {
+          await this.handleRotationEvent('unknown');
+        } catch (recoveryError) {
+          const serializedRecoveryError = recoveryError instanceof Error 
+            ? {
+                name: recoveryError.name,
+                message: recoveryError.message,
+                stack: recoveryError.stack
+              }
+            : String(recoveryError);
+          
+          logger.error('[SecretRotationMonitor] Recovery attempt failed', {
+            originalError: serializedError,
+            recoveryError: serializedRecoveryError
+          });
+        }
       }
     }
   }
@@ -158,10 +193,25 @@ export class SecretRotationMonitor {
       const duration = Date.now() - startTime;
       this.metrics.failedRecoveries++;
       
+      const serializedError = error instanceof Error 
+        ? {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+          }
+        : { 
+            type: typeof error,
+            value: String(error),
+            raw: error 
+          };
+      
       logger.error('[SecretRotationMonitor] Rotation handling failed', {
         newVersion,
-        error,
+        error: serializedError,
         durationMs: duration,
+        totalRotations: this.metrics.rotationsDetected,
+        successfulRecoveries: this.metrics.successfulRecoveries,
+        failedRecoveries: this.metrics.failedRecoveries
       });
       
       throw error;

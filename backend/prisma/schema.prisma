@@ -47,6 +47,8 @@ model Company {
   sentimentOverTime    SentimentOverTime[]
   shareOfVoiceHistory  ShareOfVoiceHistory[]
   optimizationTasks    VisibilityOptimizationTask[]
+  webAuditRuns         WebAuditRun[]
+  analyticsIntegrations AnalyticsIntegration[]
 
   @@index([userId])
 }
@@ -328,6 +330,86 @@ model BlogMedia {
   blogPost   BlogPost @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
 
   @@index([blogPostId])
+}
+
+model WebAuditRun {
+  id               String    @id @default(cuid())
+  companyId        String
+  url              String
+  status           String    // 'queued', 'running', 'completed', 'failed'
+  requestedAt      DateTime  @default(now())
+  completedAt      DateTime?
+  
+  // Core Scores (0-100)
+  performanceScore Int?
+  seoScore         Int?
+  geoScore         Int?
+  accessibilityScore Int?
+  securityScore    Int?
+  
+  // Technical Results
+  performance      Json?     // Core Web Vitals, load times
+  seoTechnical     Json?     // robots.txt, meta tags, headers
+  geoOptimization  Json?     // Schema markup, AI-readable content
+  accessibility    Json?     // WCAG compliance checks
+  security         Json?     // HTTPS, headers, vulnerabilities
+  
+  // Error handling
+  errorMessage     String?
+  
+  company          Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  @@index([companyId])
+  @@index([status])
+  @@index([requestedAt])
+}
+
+model AnalyticsIntegration {
+  id                 String    @id @default(cuid())
+  companyId          String
+  integrationName    String    // "google_search_console" | "manual_tracking"
+  status             String    // "pending" | "verified" | "active" | "failed"
+  verificationMethod String?   // "meta_tag" | "dns_record" | "file_upload" | "oauth"
+  verificationToken  String?
+  gscPropertyUrl     String?   // For GSC integration
+  accessToken        String?   // Encrypted OAuth token
+  refreshToken       String?   // Encrypted OAuth refresh token
+  trackingCode       String?   // Generated tracking snippet
+  lastSyncAt         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  company            Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  analyticsData      AnalyticsData[]
+
+  @@index([companyId])
+  @@index([status])
+  @@index([integrationName])
+}
+
+model AnalyticsData {
+  id            String    @id @default(cuid())
+  integrationId String
+  date          DateTime
+  source        String    // "search_console" | "manual_tracking"
+  query         String?   // Search query (GSC)
+  page          String?   // Landing page URL
+  impressions   Int?
+  clicks        Int?
+  ctr           Float?    // Click-through rate
+  position      Float?    // Average position
+  searchVolume  Int?      // Estimated search volume
+  attribution   Json?     // Attribution data
+  deviceType    String?   // "desktop" | "mobile" | "tablet"
+  country       String?   // Country code
+  createdAt     DateTime  @default(now())
+  integration   AnalyticsIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@index([integrationId])
+  @@index([date])
+  @@index([source])
+  @@index([query])
+  @@index([page])
+  @@index([integrationId, date])
 }
 
 enum Role {

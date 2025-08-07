@@ -42,7 +42,7 @@ class WebSearchSentimentAgent(BaseAgent):
     web search tools and provides comprehensive metadata about the search process.
     """
     
-    def __init__(self, provider: str = "auto", enable_web_search: bool = True):
+    def __init__(self, provider: str = "openai", enable_web_search: bool = True):
         """
         Initialize the web search sentiment agent.
         

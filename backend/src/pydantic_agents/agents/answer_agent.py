@@ -58,7 +58,7 @@ class QuestionInput(BaseModel):
     enable_web_search: bool = True
 
 class QuestionAnsweringAgent(BaseAgent):
-    def __init__(self, provider: str = "auto", enable_web_search: bool = True):
+    def __init__(self, provider: str = "openai", enable_web_search: bool = True):
         self.provider = provider
         self.enable_web_search = enable_web_search
         self.web_search_config = WebSearchConfig.for_task("question_answering", provider)

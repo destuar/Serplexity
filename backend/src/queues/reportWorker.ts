@@ -28,7 +28,6 @@ import {
 import { ModelTask, LLM_CONFIG } from "../config/models";
 import { CostCalculator } from "../config/llmPricing";
 import { computeAndPersistMetrics } from "../services/metricsService";
-import { initializeLogfire } from "../config/logfire";
 import { checkRedisHealth } from "../config/redis";
 import { dbCache } from "../config/dbCache";
 
@@ -254,18 +253,6 @@ validateWorkerDependencies().then(() => {
   }
 });
 
-// Initialize Logfire
-(async () => {
-  try {
-    await initializeLogfire({
-      serviceName: "report-worker",
-      enableAutoInstrumentation: false,
-    });
-    console.log("Logfire initialized for report worker");
-  } catch (error) {
-    console.error("Failed to initialize Logfire for report worker", error);
-  }
-})();
 
 /**
  * Calculate USD cost from ACTUAL token usage and web searches

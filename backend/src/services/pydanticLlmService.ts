@@ -43,7 +43,7 @@ import {
   trackError,
   createSpan,
   initializeLogfire,
-} from "../config/logfire";
+} from "../config/logfire-stubs";
 import DependencyValidator from "./dependencyValidator";
 
 // Initialize Logfire for the PydanticAI service
