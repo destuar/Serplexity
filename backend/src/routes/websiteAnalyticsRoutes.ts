@@ -9,9 +9,9 @@
  * - Manage their analytics integrations
  */
 
-import { Router } from 'express';
-import { authenticate } from '../middleware/authMiddleware';
-import * as websiteAnalyticsController from '../controllers/websiteAnalyticsController';
+import { Router } from "express";
+import * as websiteAnalyticsController from "../controllers/websiteAnalyticsController";
+import { authenticate } from "../middleware/authMiddleware";
 
 const router = Router();
 
@@ -19,23 +19,39 @@ const router = Router();
 router.use(authenticate);
 
 // Integration management routes
-router.post('/integrations', websiteAnalyticsController.createIntegration);
-router.get('/integrations', websiteAnalyticsController.getIntegrations);
-router.delete('/integrations/:integrationId', websiteAnalyticsController.deleteIntegration);
+router.post("/integrations", websiteAnalyticsController.createIntegration);
+router.get("/integrations", websiteAnalyticsController.getIntegrations);
+router.delete(
+  "/integrations/:integrationId",
+  websiteAnalyticsController.deleteIntegration
+);
 
 // Verification routes
-router.post('/integrations/:integrationId/verify', websiteAnalyticsController.verifyIntegration);
-router.get('/integrations/:integrationId/health', websiteAnalyticsController.getIntegrationHealth);
+router.post(
+  "/integrations/:integrationId/verify",
+  websiteAnalyticsController.verifyIntegration
+);
+router.get(
+  "/integrations/:integrationId/health",
+  websiteAnalyticsController.getIntegrationHealth
+);
 
-// Google Search Console specific routes
-router.get('/oauth/callback', websiteAnalyticsController.handleOAuthCallback);
-router.get('/integrations/:integrationId/properties', websiteAnalyticsController.getGSCProperties);
-router.post('/integrations/:integrationId/sync', websiteAnalyticsController.syncIntegrationData);
+// OAuth callback works for both GSC and GA4 (controller detects by integration type)
+router.get("/oauth/callback", websiteAnalyticsController.handleOAuthCallback);
+router.get(
+  "/integrations/:integrationId/properties",
+  websiteAnalyticsController.getGSCProperties
+);
+router.post(
+  "/integrations/:integrationId/sync",
+  websiteAnalyticsController.syncIntegrationData
+);
 
 // Analytics data routes
-router.get('/metrics', websiteAnalyticsController.getMetrics);
+router.get("/metrics", websiteAnalyticsController.getMetrics);
+router.get("/ga4/metrics", websiteAnalyticsController.getGa4Metrics);
 
 // Manual tracking route (for JavaScript tracking code on user websites)
-router.post('/track', websiteAnalyticsController.trackEvent);
+router.post("/track", websiteAnalyticsController.trackEvent);
 
 export default router;

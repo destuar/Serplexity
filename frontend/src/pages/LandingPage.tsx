@@ -3013,7 +3013,6 @@ const LandingPage: React.FC = () => {
                               <div
                                 className={`animate-spin rounded-full h-3 w-3 border-2 ${plan.popular ? "border-white border-t-transparent" : "border-gray-800 border-t-transparent"}`}
                               ></div>
-                              Processing...
                             </>
                           ) : (
                             <>

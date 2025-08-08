@@ -33,7 +33,7 @@ const TopRankingQuestionsCard = () => {
   if (error) {
     return (
       <LiquidGlassCard className="h-full">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Top Ranking Questions</h3>
+        <h3 className="text-sm font-medium text-gray-900 mb-4">Top Ranking Questions</h3>
         <div className="flex-1 flex items-center justify-center">
           <p className="text-red-500 text-sm">{error}</p>
         </div>
@@ -44,7 +44,7 @@ const TopRankingQuestionsCard = () => {
   if (!questions.length) {
     return (
       <LiquidGlassCard className="h-full">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Top Ranking Questions</h3>
+        <h3 className="text-sm font-medium text-gray-900 mb-4">Top Ranking Questions</h3>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <p className="text-gray-500 text-sm font-medium">Your company did not appear in this model's search results</p>
@@ -57,7 +57,7 @@ const TopRankingQuestionsCard = () => {
   return (
     <LiquidGlassCard className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-800">Top Ranking Questions</h3>
+        <h3 className="text-sm font-medium text-gray-900">Top Ranking Questions</h3>
       </div>
       
       <div className="flex-1 space-y-2 mb-1">

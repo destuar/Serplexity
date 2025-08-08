@@ -1,14 +1,14 @@
 /**
  * @file auditScorer.ts
  * @description Audit scoring and recommendation engine
- * 
+ *
  * Calculates scores and generates actionable recommendations based on:
  * - Performance analysis results
  * - SEO technical analysis
  * - GEO optimization analysis
  * - Accessibility analysis
  * - Security analysis
- * 
+ *
  * @dependencies
  * - Analysis result interfaces
  * - Recommendation generation logic
@@ -101,7 +101,7 @@ class AuditScorer {
     const lcpScore = this.scoreLCP(performance.coreWebVitals.lcp);
     const fidScore = this.scoreFID(performance.coreWebVitals.fid);
     const clsScore = this.scoreCLS(performance.coreWebVitals.cls);
-    
+
     score += (lcpScore + fidScore + clsScore) * 40 / 300; // Normalize to 40 points
 
     // Load time (25 points)
@@ -197,7 +197,7 @@ class AuditScorer {
     // Schema markup (30 points)
     if (geo.schemaMarkup.totalSchemas > 0) {
       score += 15;
-      
+
       const validSchemas = geo.schemaMarkup.jsonLd.filter(schema => schema.valid).length;
       const schemaQuality = validSchemas / Math.max(1, geo.schemaMarkup.totalSchemas);
       score += schemaQuality * 15;
@@ -245,7 +245,7 @@ class AuditScorer {
     // Apply penalties for critical issues
     const criticalIssues = accessibility.issues.filter(issue => issue.severity === 'critical');
     const criticalPenalty = criticalIssues.reduce((penalty, issue) => penalty + issue.count * 10, 0);
-    
+
     score -= criticalPenalty;
 
     // Factor in alt text coverage
@@ -268,11 +268,11 @@ class AuditScorer {
     // HTTPS implementation (35 points)
     if (security.https.enabled) {
       score += 20;
-      
+
       if (security.https.certificateValid) {
         score += 10;
       }
-      
+
       if (security.https.hsts) {
         score += 5;
       }
@@ -287,7 +287,7 @@ class AuditScorer {
 
     // Vulnerability penalties (25 points base, minus penalties)
     let vulnerabilityPenalty = 0;
-    
+
     for (const vuln of security.vulnerabilities) {
       switch (vuln.severity) {
         case 'critical':
@@ -449,7 +449,7 @@ class AuditScorer {
 
   // Recommendation generation methods would be implemented here
   // (Performance, SEO, GEO, Accessibility, Security recommendations)
-  
+
   private generatePerformanceRecommendations(performance: PerformanceResults, score: number): Recommendation[] {
     const recommendations: Recommendation[] = [];
 
@@ -523,7 +523,7 @@ class AuditScorer {
         category: 'seo',
         priority: 'high',
         title: 'Optimize Page Title',
-        description: seo.metaTags.title.exists 
+        description: seo.metaTags.title.exists
           ? `Title length is ${seo.metaTags.title.length} characters. Optimize to 30-60 characters.`
           : 'Add a descriptive page title (30-60 characters)',
         impact: 'Critical for search rankings and click-through rates',

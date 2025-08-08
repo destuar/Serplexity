@@ -68,10 +68,10 @@ export function serializeError(error: unknown): Record<string, any> {
  * @param context - Additional context to include
  */
 export function logError(
-  logger: { error: (message: string, meta?: any) => void },
+  logger: { error: (message: string, meta?: Record<string, unknown>) => void },
   message: string,
   error: unknown,
-  context: Record<string, any> = {}
+  context: Record<string, unknown> = {}
 ): void {
   logger.error(message, {
     error: serializeError(error),
@@ -88,18 +88,18 @@ export function logError(
  * @param context - Additional context to include
  */
 export function logWarning(
-  logger: { warn: (message: string, meta?: any) => void },
+  logger: { warn: (message: string, meta?: Record<string, unknown>) => void },
   message: string,
   error?: unknown,
-  context: Record<string, any> = {}
+  context: Record<string, unknown> = {}
 ): void {
-  const logData = {
+  const logData: Record<string, unknown> = {
     ...context,
     timestamp: new Date().toISOString()
   };
 
   if (error) {
-    logData.error = serializeError(error);
+    logData['error'] = serializeError(error);
   }
 
   logger.warn(message, logData);

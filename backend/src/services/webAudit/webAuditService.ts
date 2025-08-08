@@ -1,14 +1,14 @@
 /**
  * @file webAuditService.ts
  * @description Core web audit orchestration service
- * 
+ *
  * Provides comprehensive website analysis including:
  * - Performance analysis via PageSpeed Insights API
- * - Technical SEO analysis 
+ * - Technical SEO analysis
  * - GEO optimization scoring
  * - Accessibility analysis
  * - Security analysis
- * 
+ *
  * @dependencies
  * - performanceAnalyzer: PageSpeed Insights integration
  * - seoAnalyzer: Technical SEO checks
@@ -18,18 +18,19 @@
  * - auditScorer: Score calculation engine
  */
 
-import { z } from "zod";
 import { Queue } from "bullmq";
-import logger from "../../utils/logger";
+import { z } from "zod";
 import { getDbClient } from "../../config/database";
-import { performanceAnalyzer } from "./analyzers/performanceAnalyzer";
-import { seoAnalyzer } from "./analyzers/seoAnalyzer";
-import { geoAnalyzer } from "./analyzers/geoAnalyzer";
-import { accessibilityAnalyzer } from "./analyzers/accessibilityAnalyzer";
-import { securityAnalyzer } from "./analyzers/securityAnalyzer";
-import { auditScorer } from "./scoring/auditScorer";
-import { redis } from "../../config/redis";
 import env from "../../config/env";
+import { redis } from "../../config/redis";
+import logger from "../../utils/logger";
+import { accessibilityAnalyzer } from "./analyzers/accessibilityAnalyzer";
+import { geoAnalyzer } from "./analyzers/geoAnalyzer";
+import { performanceAnalyzer } from "./analyzers/performanceAnalyzer";
+import { securityAnalyzer } from "./analyzers/securityAnalyzer";
+import { seoAnalyzer } from "./analyzers/seoAnalyzer";
+import { auditScorer } from "./scoring/auditScorer";
+// redis connection provided by ../../config/redis
 
 // Queue setup
 const WEB_AUDIT_QUEUE_NAME = `${env.BULLMQ_QUEUE_PREFIX}web-audit`;
@@ -40,7 +41,7 @@ const webAuditQueue = new Queue(WEB_AUDIT_QUEUE_NAME, {
     removeOnFail: 100,
     attempts: 3,
     backoff: {
-      type: 'exponential',
+      type: "exponential",
       delay: 2000,
     },
   },
@@ -55,6 +56,7 @@ export interface AuditConfig {
   includeGEO: boolean;
   includeAccessibility: boolean;
   includeSecurity: boolean;
+  summaryOnly?: boolean; // if true, store only scores, skip heavy details
 }
 
 export interface AuditResult {
@@ -93,6 +95,10 @@ export interface PerformanceResults {
   resourceCount: number;
   mobileScore: number;
   desktopScore: number;
+  /** Time To First Byte (ms), if available */
+  ttfb?: number;
+  /** Interaction to Next Paint (ms), if available */
+  inp?: number;
   opportunities: Array<{
     title: string;
     description: string;
@@ -116,6 +122,16 @@ export interface SEOResults {
       accessible: boolean;
       urlCount: number;
     };
+    /** From <meta name="robots"> */
+    robotsMeta?: {
+      noindex: boolean;
+      nofollow: boolean;
+    };
+    /** From X-Robots-Tag response header */
+    xRobotsTag?: {
+      noindex: boolean;
+      nofollow: boolean;
+    };
   };
   metaTags: {
     title: {
@@ -137,6 +153,13 @@ export interface SEOResults {
     };
     internalLinks: number;
     canonicalTag: boolean;
+  };
+  social?: {
+    openGraph: boolean;
+    twitterCard: boolean;
+  };
+  i18n?: {
+    hreflangCount: number;
   };
 }
 
@@ -164,12 +187,12 @@ export interface GEOResults {
 
 export interface AccessibilityResults {
   wcagCompliance: {
-    level: 'A' | 'AA' | 'AAA' | 'FAIL';
+    level: "A" | "AA" | "AAA" | "FAIL";
     score: number;
   };
   issues: Array<{
     type: string;
-    severity: 'critical' | 'serious' | 'moderate' | 'minor';
+    severity: "critical" | "serious" | "moderate" | "minor";
     count: number;
     description: string;
   }>;
@@ -200,18 +223,18 @@ export interface SecurityResults {
   };
   vulnerabilities: Array<{
     type: string;
-    severity: 'critical' | 'high' | 'medium' | 'low';
+    severity: "critical" | "high" | "medium" | "low";
     description: string;
   }>;
 }
 
 export interface Recommendation {
-  category: 'performance' | 'seo' | 'geo' | 'accessibility' | 'security';
-  priority: 'critical' | 'high' | 'medium' | 'low';
+  category: "performance" | "seo" | "geo" | "accessibility" | "security";
+  priority: "critical" | "high" | "medium" | "low";
   title: string;
   description: string;
   impact: string;
-  effort: 'low' | 'medium' | 'high';
+  effort: "low" | "medium" | "high";
   resources?: string[];
 }
 
@@ -222,8 +245,9 @@ const AuditConfigSchema = z.object({
   includePerformance: z.boolean().default(true),
   includeSEO: z.boolean().default(true),
   includeGEO: z.boolean().default(true),
-  includeAccessibility: z.boolean().default(true),
+  includeAccessibility: z.boolean().default(false),
   includeSecurity: z.boolean().default(true),
+  summaryOnly: z.boolean().optional().default(false),
 });
 
 /**
@@ -231,11 +255,11 @@ const AuditConfigSchema = z.object({
  */
 export async function startWebAudit(config: AuditConfig): Promise<string> {
   const startTime = Date.now();
-  
+
   try {
     // Validate input
     const validatedConfig = AuditConfigSchema.parse(config);
-    
+
     logger.info("Starting web audit", {
       url: validatedConfig.url,
       companyId: validatedConfig.companyId,
@@ -245,7 +269,7 @@ export async function startWebAudit(config: AuditConfig): Promise<string> {
         geo: validatedConfig.includeGEO,
         accessibility: validatedConfig.includeAccessibility,
         security: validatedConfig.includeSecurity,
-      }
+      },
     });
 
     // Create audit run record
@@ -254,26 +278,31 @@ export async function startWebAudit(config: AuditConfig): Promise<string> {
       data: {
         companyId: validatedConfig.companyId,
         url: validatedConfig.url,
-        status: 'queued',
+        status: "queued",
       },
     });
 
     // Queue the job for background processing
-    await webAuditQueue.add('processWebAudit', {
-      auditId: auditRun.id,
-      url: validatedConfig.url,
-      options: {
-        includePerformance: validatedConfig.includePerformance,
-        includeSEO: validatedConfig.includeSEO,
-        includeGEO: validatedConfig.includeGEO,
-        includeAccessibility: validatedConfig.includeAccessibility,
-        includeSecurity: validatedConfig.includeSecurity,
+    await webAuditQueue.add(
+      "processWebAudit",
+      {
+        auditId: auditRun.id,
+        url: validatedConfig.url,
+        options: {
+          includePerformance: validatedConfig.includePerformance,
+          includeSEO: validatedConfig.includeSEO,
+          includeGEO: validatedConfig.includeGEO,
+          includeAccessibility: validatedConfig.includeAccessibility,
+          includeSecurity: validatedConfig.includeSecurity,
+          summaryOnly: validatedConfig.summaryOnly,
+        },
+        companyId: validatedConfig.companyId,
       },
-      companyId: validatedConfig.companyId,
-    }, {
-      jobId: auditRun.id, // Use audit ID as job ID for easy tracking
-      delay: 0, // Start immediately
-    });
+      {
+        jobId: auditRun.id, // Use audit ID as job ID for easy tracking
+        delay: 0, // Start immediately
+      }
+    );
 
     logger.info("Web audit queued successfully", {
       auditId: auditRun.id,
@@ -287,7 +316,9 @@ export async function startWebAudit(config: AuditConfig): Promise<string> {
       url: config.url,
       error: error instanceof Error ? error.message : String(error),
     });
-    throw new Error(`Failed to start web audit: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Failed to start web audit: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
@@ -295,14 +326,15 @@ export async function startWebAudit(config: AuditConfig): Promise<string> {
  * Process web audit (called by worker)
  */
 export async function processAudit(
-  auditId: string, 
-  url: string, 
+  auditId: string,
+  url: string,
   options: {
     includePerformance: boolean;
     includeSEO: boolean;
     includeGEO: boolean;
     includeAccessibility: boolean;
     includeSecurity: boolean;
+    summaryOnly?: boolean;
   },
   companyId: string
 ): Promise<AuditResult> {
@@ -313,7 +345,7 @@ export async function processAudit(
     // Update status to running
     await prisma.webAuditRun.update({
       where: { id: auditId },
-      data: { status: 'running' },
+      data: { status: "running" },
     });
 
     logger.info("Processing web audit", {
@@ -331,23 +363,32 @@ export async function processAudit(
     ]);
 
     // Extract results
-    const [performanceResult, seoResult, geoResult, accessibilityResult, securityResult] = analyses;
+    const [
+      performanceResult,
+      seoResult,
+      geoResult,
+      accessibilityResult,
+      securityResult,
+    ] = analyses;
 
-    const details: AuditResult['details'] = {};
-    
-    if (performanceResult.status === 'fulfilled' && performanceResult.value) {
+    const details: AuditResult["details"] = {};
+
+    if (performanceResult.status === "fulfilled" && performanceResult.value) {
       details.performance = performanceResult.value;
     }
-    if (seoResult.status === 'fulfilled' && seoResult.value) {
+    if (seoResult.status === "fulfilled" && seoResult.value) {
       details.seo = seoResult.value;
     }
-    if (geoResult.status === 'fulfilled' && geoResult.value) {
+    if (geoResult.status === "fulfilled" && geoResult.value) {
       details.geo = geoResult.value;
     }
-    if (accessibilityResult.status === 'fulfilled' && accessibilityResult.value) {
+    if (
+      accessibilityResult.status === "fulfilled" &&
+      accessibilityResult.value
+    ) {
       details.accessibility = accessibilityResult.value;
     }
-    if (securityResult.status === 'fulfilled' && securityResult.value) {
+    if (securityResult.status === "fulfilled" && securityResult.value) {
       details.security = securityResult.value;
     }
 
@@ -355,25 +396,47 @@ export async function processAudit(
     const scores = auditScorer.calculateScores(details);
 
     // Generate recommendations
-    const recommendations = auditScorer.generateRecommendations(details, scores);
+    const recommendations = auditScorer.generateRecommendations(
+      details,
+      scores
+    );
 
     // Update database with results
+    const baseUpdate: any = {
+      status: "completed",
+      completedAt: new Date(),
+      performanceScore: scores.performance,
+      seoScore: scores.seo,
+      geoScore: scores.geo,
+      accessibilityScore: scores.accessibility,
+      securityScore: scores.security,
+    };
+
+    if (!options.summaryOnly) {
+      if (details.performance) {
+        baseUpdate.performance = JSON.parse(
+          JSON.stringify(details.performance)
+        );
+      }
+      if (details.seo) {
+        baseUpdate.seoTechnical = JSON.parse(JSON.stringify(details.seo));
+      }
+      if (details.geo) {
+        baseUpdate.geoOptimization = JSON.parse(JSON.stringify(details.geo));
+      }
+      if (details.accessibility) {
+        baseUpdate.accessibility = JSON.parse(
+          JSON.stringify(details.accessibility)
+        );
+      }
+      if (details.security) {
+        baseUpdate.security = JSON.parse(JSON.stringify(details.security));
+      }
+    }
+
     await prisma.webAuditRun.update({
       where: { id: auditId },
-      data: {
-        status: 'completed',
-        completedAt: new Date(),
-        performanceScore: scores.performance,
-        seoScore: scores.seo,
-        geoScore: scores.geo,
-        accessibilityScore: scores.accessibility,
-        securityScore: scores.security,
-        performance: details.performance ? JSON.parse(JSON.stringify(details.performance)) : {},
-        seoTechnical: details.seo ? JSON.parse(JSON.stringify(details.seo)) : {},
-        geoOptimization: details.geo ? JSON.parse(JSON.stringify(details.geo)) : {},
-        accessibility: details.accessibility ? JSON.parse(JSON.stringify(details.accessibility)) : {},
-        security: details.security ? JSON.parse(JSON.stringify(details.security)) : {},
-      },
+      data: baseUpdate,
     });
 
     const processingTime = Date.now() - startTime;
@@ -405,7 +468,6 @@ export async function processAudit(
         timestamp: new Date(),
       },
     };
-
   } catch (error) {
     logger.error("Web audit processing failed", {
       auditId,
@@ -418,7 +480,7 @@ export async function processAudit(
     await prisma.webAuditRun.update({
       where: { id: auditId },
       data: {
-        status: 'failed',
+        status: "failed",
         completedAt: new Date(),
         errorMessage: error instanceof Error ? error.message : String(error),
       },
@@ -429,9 +491,46 @@ export async function processAudit(
 }
 
 /**
+ * Compute summary scores for a URL without persisting details
+ */
+export async function computeSummaryScores(url: string): Promise<{
+  performance: number;
+  seo: number;
+  geo: number;
+  security: number;
+  overall: number;
+}> {
+  const analyses = await Promise.allSettled([
+    performanceAnalyzer.analyze(url),
+    seoAnalyzer.analyze(url),
+    geoAnalyzer.analyze(url),
+    securityAnalyzer.analyze(url),
+  ]);
+
+  const [perf, seo, geo, sec] = analyses;
+  const details: any = {};
+  if (perf.status === "fulfilled" && perf.value)
+    details.performance = perf.value;
+  if (seo.status === "fulfilled" && seo.value) details.seo = seo.value;
+  if (geo.status === "fulfilled" && geo.value) details.geo = geo.value;
+  if (sec.status === "fulfilled" && sec.value) details.security = sec.value;
+
+  const scores = auditScorer.calculateScores(details);
+  return {
+    performance: scores.performance,
+    seo: scores.seo,
+    geo: scores.geo,
+    security: scores.security,
+    overall: scores.overall,
+  };
+}
+
+/**
  * Get audit status and results
  */
-export async function getWebAuditResult(auditId: string): Promise<AuditResult | null> {
+export async function getWebAuditResult(
+  auditId: string
+): Promise<AuditResult | null> {
   try {
     const prisma = await getDbClient();
     const auditRun = await prisma.webAuditRun.findUnique({
@@ -443,7 +542,7 @@ export async function getWebAuditResult(auditId: string): Promise<AuditResult | 
       return null;
     }
 
-    if (auditRun.status !== 'completed') {
+    if (auditRun.status !== "completed") {
       return {
         id: auditRun.id,
         scores: {
@@ -473,23 +572,46 @@ export async function getWebAuditResult(auditId: string): Promise<AuditResult | 
       security: auditRun.securityScore || 0,
       overall: Math.round(
         ((auditRun.performanceScore || 0) +
-         (auditRun.seoScore || 0) +
-         (auditRun.geoScore || 0) +
-         (auditRun.accessibilityScore || 0) +
-         (auditRun.securityScore || 0)) / 5
+          (auditRun.seoScore || 0) +
+          (auditRun.geoScore || 0) +
+          (auditRun.securityScore || 0)) /
+          4
       ),
     };
 
+    // Treat empty objects persisted in JSON columns as undefined to avoid
+    // downstream recommendation generation errors
+    const isNonEmptyObject = (obj: unknown): boolean => {
+      return (
+        !!obj &&
+        typeof obj === "object" &&
+        Object.keys(obj as object).length > 0
+      );
+    };
+
     const details = {
-      performance: auditRun.performance as unknown as PerformanceResults || undefined,
-      seo: auditRun.seoTechnical as unknown as SEOResults || undefined,
-      geo: auditRun.geoOptimization as unknown as GEOResults || undefined,
-      accessibility: auditRun.accessibility as unknown as AccessibilityResults || undefined,
-      security: auditRun.security as unknown as SecurityResults || undefined,
+      performance: isNonEmptyObject(auditRun.performance)
+        ? (auditRun.performance as unknown as PerformanceResults)
+        : undefined,
+      seo: isNonEmptyObject(auditRun.seoTechnical)
+        ? (auditRun.seoTechnical as unknown as SEOResults)
+        : undefined,
+      geo: isNonEmptyObject(auditRun.geoOptimization)
+        ? (auditRun.geoOptimization as unknown as GEOResults)
+        : undefined,
+      accessibility: isNonEmptyObject(auditRun.accessibility)
+        ? (auditRun.accessibility as unknown as AccessibilityResults)
+        : undefined,
+      security: isNonEmptyObject(auditRun.security)
+        ? (auditRun.security as unknown as SecurityResults)
+        : undefined,
     };
 
     // Generate fresh recommendations based on results
-    const recommendations = auditScorer.generateRecommendations(details, scores);
+    const recommendations = auditScorer.generateRecommendations(
+      details,
+      scores
+    );
 
     return {
       id: auditRun.id,
@@ -497,50 +619,53 @@ export async function getWebAuditResult(auditId: string): Promise<AuditResult | 
       details,
       recommendations,
       metadata: {
-        analysisTime: auditRun.completedAt 
+        analysisTime: auditRun.completedAt
           ? auditRun.completedAt.getTime() - auditRun.requestedAt.getTime()
           : 0,
         url: auditRun.url,
         timestamp: auditRun.requestedAt,
       },
     };
-
   } catch (error) {
     logger.error("Failed to get web audit result", {
       auditId,
       error: error instanceof Error ? error.message : String(error),
     });
-    throw new Error(`Failed to get audit result: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Failed to get audit result: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
 /**
  * Get audit history for a company
  */
-export async function getWebAuditHistory(companyId: string): Promise<Array<{
-  id: string;
-  url: string;
-  status: string;
-  requestedAt: Date;
-  completedAt: Date | null;
-  scores: {
-    performance: number | null;
-    seo: number | null;
-    geo: number | null;
-    accessibility: number | null;
-    security: number | null;
-    overall: number | null;
-  };
-}>> {
+export async function getWebAuditHistory(companyId: string): Promise<
+  Array<{
+    id: string;
+    url: string;
+    status: string;
+    requestedAt: Date;
+    completedAt: Date | null;
+    scores: {
+      performance: number | null;
+      seo: number | null;
+      geo: number | null;
+      accessibility: number | null;
+      security: number | null;
+      overall: number | null;
+    };
+  }>
+> {
   try {
     const prisma = await getDbClient();
     const auditRuns = await prisma.webAuditRun.findMany({
       where: { companyId },
-      orderBy: { requestedAt: 'desc' },
+      orderBy: { requestedAt: "desc" },
       take: 50, // Limit to recent 50 audits
     });
 
-    return auditRuns.map(run => ({
+    return auditRuns.map((run) => ({
       id: run.id,
       url: run.url,
       status: run.status,
@@ -552,28 +677,42 @@ export async function getWebAuditHistory(companyId: string): Promise<Array<{
         geo: run.geoScore,
         accessibility: run.accessibilityScore,
         security: run.securityScore,
-        overall: run.performanceScore && run.seoScore && run.geoScore && run.accessibilityScore && run.securityScore
-          ? Math.round((run.performanceScore + run.seoScore + run.geoScore + run.accessibilityScore + run.securityScore) / 5)
-          : null,
+        overall:
+          run.performanceScore !== null &&
+          run.seoScore !== null &&
+          run.geoScore !== null &&
+          run.securityScore !== null
+            ? Math.round(
+                ((run.performanceScore || 0) +
+                  (run.seoScore || 0) +
+                  (run.geoScore || 0) +
+                  (run.securityScore || 0)) /
+                  4
+              )
+            : null,
       },
     }));
-
   } catch (error) {
     logger.error("Failed to get web audit history", {
       companyId,
       error: error instanceof Error ? error.message : String(error),
     });
-    throw new Error(`Failed to get audit history: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Failed to get audit history: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
 /**
  * Delete an audit run
  */
-export async function deleteWebAudit(auditId: string, companyId: string): Promise<void> {
+export async function deleteWebAudit(
+  auditId: string,
+  companyId: string
+): Promise<void> {
   try {
     const prisma = await getDbClient();
-    
+
     await prisma.webAuditRun.deleteMany({
       where: {
         id: auditId,
@@ -582,14 +721,15 @@ export async function deleteWebAudit(auditId: string, companyId: string): Promis
     });
 
     logger.info("Web audit deleted", { auditId, companyId });
-
   } catch (error) {
     logger.error("Failed to delete web audit", {
       auditId,
       companyId,
       error: error instanceof Error ? error.message : String(error),
     });
-    throw new Error(`Failed to delete audit: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Failed to delete audit: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 

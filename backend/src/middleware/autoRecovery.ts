@@ -46,13 +46,19 @@ class AutoRecoveryService {
   /**
    * Check if error is a database authentication failure
    */
-  isAuthFailure(error: any): boolean {
+  isAuthFailure(error: unknown): boolean {
+    if (!error || typeof error !== 'object') return false;
+    const errorObj = error as Record<string, unknown>;
+    const code = typeof errorObj['code'] === 'string' ? errorObj['code'] : '';
+    const message = typeof errorObj['message'] === 'string' ? errorObj['message'] : '';
+    const meta = errorObj.meta as Record<string, unknown> | undefined;
+    
     return (
-      error?.code === 'P1000' ||
-      error?.message?.includes('Authentication failed') ||
-      error?.message?.includes('password authentication failed') ||
-      error?.message?.includes('database credentials') ||
-      (error?.meta?.modelName && error?.code === 'P1000')
+      code === 'P1000' ||
+      message.includes('Authentication failed') ||
+      message.includes('password authentication failed') ||
+      message.includes('database credentials') ||
+      (meta?.modelName && code === 'P1000')
     );
   }
 
@@ -141,7 +147,7 @@ const autoRecoveryService = AutoRecoveryService.getInstance();
  * Express middleware for automatic database authentication recovery
  */
 export const autoRecoveryMiddleware = async (
-  error: any,
+  error: unknown,
   req: Request,
   res: Response,
   next: NextFunction
@@ -193,7 +199,13 @@ export const autoRecoveryMiddleware = async (
 export const healthCheckWithRecovery = async (): Promise<{
   status: 'healthy' | 'recovering' | 'unhealthy';
   database: boolean;
-  recovery?: any;
+  recovery?: {
+    status: string;
+    attemptCount: number;
+    lastAttempt: number;
+    cooldownRemaining: number;
+    attemptsRemaining: number;
+  };
 }> => {
   try {
     const testClient = await dbCache.getPrimaryClient();

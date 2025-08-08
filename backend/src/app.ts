@@ -79,7 +79,7 @@ app.use(
 // Global rate limiting - DISABLED in test environment
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === "test" ? 0 : 1000, // Disable in test environment
+  max: env['NODE_ENV'] === "test" ? 0 : 1000, // Disable in test environment
   message: {
     error: "Too many requests from this IP, please try again later.",
   },
@@ -90,7 +90,7 @@ const globalLimiter = rateLimit({
     return (
       req.path === "/api/health" ||
       req.path === "/api/health/deep" ||
-      process.env.NODE_ENV === "test"
+      env['NODE_ENV'] === "test"
     );
   },
 });
@@ -98,7 +98,7 @@ const globalLimiter = rateLimit({
 // Authentication rate limiting (stricter) - DISABLED in test environment
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === "test" ? 0 : 100, // Disable in test environment, increased to industry standard of 100
+  max: env['NODE_ENV'] === "test" ? 0 : 100, // Disable in test environment, increased to industry standard of 100
   message: {
     error: "Too many authentication attempts, please try again later.",
   },
@@ -107,14 +107,14 @@ const authLimiter = rateLimit({
   skipSuccessfulRequests: true, // Don't count successful requests
   skip: (_req) => {
     // Skip rate limiting in test environment
-    return process.env.NODE_ENV === "test";
+    return env['NODE_ENV'] === "test";
   },
 });
 
 app.use(globalLimiter);
 
 const corsOptions = {
-  origin: (origin, callback) => {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
@@ -157,11 +157,11 @@ app.use(cookieParser());
 // Initialize Passport
 app.use(passport.initialize());
 
-app.get("/api/health", (req: Request, res: Response) => {
+app.get("/api/health", (_req: Request, res: Response) => {
   res.status(200).json({ status: "UP" });
 });
 
-app.get("/api/health/deep", async (req: Request, res: Response) => {
+app.get("/api/health/deep", async (_req: Request, res: Response) => {
   try {
     // Use auto-recovery health check
     const healthResult = await healthCheckWithRecovery();
@@ -200,7 +200,7 @@ app.get("/api/health/deep", async (req: Request, res: Response) => {
 });
 
 // 10x IMPROVEMENT: Comprehensive health check endpoint
-app.get("/healthz", async (req, res) => {
+app.get("/healthz", async (_req, res) => {
   const startTime = Date.now();
   const checks: Record<string, unknown> = {};
   
@@ -210,18 +210,18 @@ app.get("/healthz", async (req, res) => {
       const { getPrismaClient } = await import("./config/dbCache");
       const prisma = await getPrismaClient();
       await prisma.$queryRaw`SELECT 1`;
-      checks.database = { status: "healthy", latency: Date.now() - startTime };
+      checks['database'] = { status: "healthy", latency: Date.now() - startTime };
     } catch (error) {
-      checks.database = { status: "unhealthy", error: (error as Error).message };
+      checks['database'] = { status: "unhealthy", error: (error as Error).message };
     }
     
     // Redis health
     try {
       const { checkRedisHealth } = await import("./config/redis");
       const redisHealth = await checkRedisHealth();
-      checks.redis = redisHealth;
+      checks['redis'] = redisHealth;
     } catch (error) {
-      checks.redis = { status: "unhealthy", error: (error as Error).message };
+      checks['redis'] = { status: "unhealthy", error: (error as Error).message };
     }
     
     // PydanticAI service health (optional - don't fail overall health if down)
@@ -229,12 +229,12 @@ app.get("/healthz", async (req, res) => {
       const { pydanticLlmService } = await import("./services/pydanticLlmService");
       const providers = pydanticLlmService.getAvailableProviders();
       const healthyProviders = (providers as PydanticProvider[]).filter(p => p.status === 'available').length;
-      checks.pydantic_ai = { status: healthyProviders > 0 ? "healthy" : "degraded", availableProviders: healthyProviders };
+      checks['pydantic_ai'] = { status: healthyProviders > 0 ? "healthy" : "degraded", availableProviders: healthyProviders };
     } catch {
-      checks.pydantic_ai = { status: "degraded", error: "Service unavailable - first-time reports will fail" };
+      checks['pydantic_ai'] = { status: "degraded", error: "Service unavailable - first-time reports will fail" };
     }
     
-    const allHealthy = (checks.database as { status: string }).status === "healthy" && (checks.redis as { status: string }).status === "healthy";
+    const allHealthy = (checks['database'] as { status: string }).status === "healthy" && (checks['redis'] as { status: string }).status === "healthy";
     const httpStatus = allHealthy ? 200 : 503;
     
     res.status(httpStatus).json({
@@ -272,7 +272,7 @@ app.use("/api/website-analytics", websiteAnalyticsRouter);
 // Blog routes (mixed public/admin)
 app.use("/api/blog", blogRouter);
 
-app.get("/", (req: Request, res: Response) => {
+app.get("/", (_req: Request, res: Response) => {
   res.send("Hello from the Serplexity backend!");
 });
 

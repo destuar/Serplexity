@@ -32,15 +32,15 @@ const AccordionItem: React.FC<AccordionItemProps> = ({
   onClick,
 }) => {
   return (
-    <div className="bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden transition-all duration-300">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden transition-all duration-300">
       <button
         onClick={onClick}
-        className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 transition-colors duration-200"
+        className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-gray-50 transition-colors duration-200"
       >
-        <span className="font-medium text-black text-lg">{question}</span>
+        <span className="font-medium text-gray-900 text-sm">{question}</span>
         <ChevronDown
           className={cn(
-            "h-5 w-5 text-gray-600 transition-transform duration-300 flex-shrink-0",
+            "h-4 w-4 text-gray-600 transition-transform duration-300 flex-shrink-0",
             { "transform rotate-180": isOpen }
           )}
         />
@@ -52,7 +52,7 @@ const AccordionItem: React.FC<AccordionItemProps> = ({
         }}
         className="overflow-hidden"
       >
-        <div className="px-6 pb-6 pt-2 text-gray-600 leading-relaxed">
+        <div className="px-4 pb-4 pt-1 text-sm text-gray-700 leading-relaxed">
           {children}
         </div>
       </div>

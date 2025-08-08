@@ -198,15 +198,6 @@ export const getCompetitorRankings = async (companyId: string, filters?: { dateR
   return data;
 };
 
-export const getAverageInclusionRate = async (companyId: string, filters?: { dateRange?: string; aiModel?: string }): Promise<{ averageInclusionRate: number | null; change: number | null; }> => {
-  const params = new URLSearchParams();
-  if (filters?.dateRange) params.append('dateRange', filters.dateRange);
-  if (filters?.aiModel) params.append('aiModel', filters.aiModel);
-  
-  const { data } = await apiClient.get(`/companies/${companyId}/metrics/air?${params.toString()}`);
-  return data;
-};
-
 export const getAveragePosition = async (companyId: string, filters?: { dateRange?: string; aiModel?: string }): Promise<{ averagePosition: number | null; change: number | null; }> => {
   const params = new URLSearchParams();
   if (filters?.dateRange) params.append('dateRange', filters.dateRange);

@@ -14,29 +14,30 @@
  * - Sidebar: The main sidebar navigation component.
  */
 import {
+  BarChart3,
+  Check,
   ChevronDown,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  Flag,
-  Plus,
-  Check,
-  BarChart3,
-  MessageSquare,
-  Users,
-  Search,
   Eye,
-  SearchCheck,
   FileText,
+  Flag,
+  MessageSquare,
+  Plus,
+  Search,
+  SearchCheck,
+  TrendingUp,
+  Users,
 } from "lucide-react";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 // Note: textClasses import removed as it's unused
 import { useCompany } from "../../hooks/useCompany";
 import { useNavigation } from "../../hooks/useNavigation";
+import { Company } from "../../types/schemas";
 import CompanyLogo from "../company/CompanyLogo";
 import CompanyProfileForm from "../company/CompanyProfileForm";
-import { Company } from "../../types/schemas";
 
 interface SidebarProps {
   isDesktopCollapsed: boolean;
@@ -403,6 +404,21 @@ const Sidebar: React.FC<SidebarProps> = ({
                   className={`flex flex-col space-y-1 ${!isDesktopCollapsed ? "mt-2" : ""}`}
                 >
                   <Link
+                    to="/visitor-analytics"
+                    className={getLinkClass("/visitor-analytics")}
+                    onClick={(e) => {
+                      if (isDesktopCollapsed) e.stopPropagation();
+                      closeEmbeddedPageForRoute("/visitor-analytics");
+                    }}
+                  >
+                    <Eye className="text-gray-600" size={16} />
+                    {!isDesktopCollapsed && (
+                      <span className="text-sm font-medium">
+                        Web Analytics
+                      </span>
+                    )}
+                  </Link>
+                  <Link
                     to="/visibility-analytics"
                     className={getLinkClass("/visibility-analytics")}
                     onClick={(e) => {
@@ -410,9 +426,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                       closeEmbeddedPageForRoute("/visibility-analytics");
                     }}
                   >
-                    <Eye className="text-gray-600" size={16} />
+                    <TrendingUp className="text-gray-600" size={16} />
                     {!isDesktopCollapsed && (
-                      <span className="text-sm font-medium">Visitor Analytics</span>
+                      <span className="text-sm font-medium">SEO Rankings</span>
                     )}
                   </Link>
                 </nav>

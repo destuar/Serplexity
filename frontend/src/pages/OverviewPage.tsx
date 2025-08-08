@@ -12,7 +12,8 @@
  * @exports
  * - OverviewPage: The main overview page component.
  */
-import { Calendar, Sparkles, RefreshCw, Loader } from "lucide-react";
+import { Calendar, Sparkles, RefreshCw } from "lucide-react";
+import { InlineSpinner } from "../components/ui/InlineSpinner";
 // Note: dashboardClasses import removed as it's unused
 import { useCompany } from "../contexts/CompanyContext";
 import { useDashboard } from "../hooks/useDashboard";
@@ -114,7 +115,6 @@ const OverviewPage = () => {
   // Check if all critical data is loaded
   const isDashboardFullyLoaded = data && 
     data.shareOfVoice !== undefined &&
-    data.averageInclusionRate !== undefined &&
     data.averagePosition !== undefined &&
     data.competitorRankings !== undefined &&
     data.topQuestions !== undefined &&
@@ -166,10 +166,7 @@ const OverviewPage = () => {
                 className={`flex items-center justify-center w-full lg:w-auto gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium col-span-2 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-black`}
               >
                 {refreshing ? (
-                  <>
-                    <Loader size={16} className="animate-spin" />
-                    <span className="whitespace-nowrap">Refreshing...</span>
-                  </>
+                  <InlineSpinner size={16} />
                 ) : (
                   <>
                     <RefreshCw size={16} />
@@ -194,9 +191,8 @@ const OverviewPage = () => {
               {/* Subtle loading overlay for filter changes */}
               {filterLoading && (
                 <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
-                  <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-lg px-4 py-2 flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-sm font-medium text-gray-700">Updating...</span>
+                  <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-lg px-4 py-2 flex items-center justify-center">
+                    <InlineSpinner size={16} />
                   </div>
                 </div>
               )}

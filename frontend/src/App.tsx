@@ -20,39 +20,40 @@
  * @exports
  * - App: The main React application component.
  */
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { CompanyProvider } from './contexts/CompanyContext';
-import { DashboardProvider } from './contexts/DashboardContext';
-import { NavigationProvider } from './contexts/NavigationContext';
-import CompanyGuard from './components/company/CompanyGuard';
+import React from "react";
+import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
+import CompanyGuard from "./components/company/CompanyGuard";
+import { CompanyProvider } from "./contexts/CompanyContext";
+import { DashboardProvider } from "./contexts/DashboardContext";
+import { NavigationProvider } from "./contexts/NavigationContext";
 // import PaymentGuard from './components/auth/PaymentGuard'; // Replaced with FreemiumGuard
 // import FreemiumGuard from './components/auth/FreemiumGuard'; // Not used in main routing anymore
-import TrialBanner from './components/ui/TrialBanner';
-import DashboardLayout from './components/layout/DashboardLayout';
-import OverviewPage from './pages/OverviewPage';
+import DashboardLayout from "./components/layout/DashboardLayout";
+import TrialBanner from "./components/ui/TrialBanner";
+import OverviewPage from "./pages/OverviewPage";
 
-import VisibilityTasksPage from './pages/VisibilityTasksPage';
-import VisibilityReportPage from './pages/VisibilityReportPage';
-import WebAuditPage from './pages/WebAuditPage';
-import SeoAnalyticsPage from './pages/SeoAnalyticsPage';
-import PromptsPage from './pages/PromptsPage';
-import CompetitorsPage from './pages/CompetitorsPage';
+import CompetitorsPage from "./pages/CompetitorsPage";
+import PromptsPage from "./pages/PromptsPage";
+import SeoAnalyticsPage from "./pages/SeoAnalyticsPage";
+import VisibilityReportPage from "./pages/VisibilityReportPage";
+import VisibilityTasksPage from "./pages/VisibilityTasksPage";
+import VisitorAnalyticsPage from "./pages/VisitorAnalyticsPage";
+import WebAuditPage from "./pages/WebAuditPage";
 
-import LandingPage from './pages/LandingPage';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import OAuthCallbackPage from './pages/OAuthCallbackPage';
-import CompanyOnboardingPage from './pages/CompanyOnboardingPage';
-import ProtectedRoute from './components/auth/ProtectedRoute';
-import PaymentPage from './pages/PaymentPage';
-import TermsOfServicePage from './pages/TermsOfServicePage';
-import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
-import ExperimentalSearchPage from './pages/ExperimentalSearchPage';
-import ResearchPage from './pages/ResearchPage';
-import BlogPostPage from './pages/BlogPostPage';
-import BlogEditorPage from './pages/BlogEditorPage';
-import { usePageTracking, useSessionTracking } from './hooks/useAnalytics';
+import ProtectedRoute from "./components/auth/ProtectedRoute";
+import { usePageTracking, useSessionTracking } from "./hooks/useAnalytics";
+import BlogEditorPage from "./pages/BlogEditorPage";
+import BlogPostPage from "./pages/BlogPostPage";
+import CompanyOnboardingPage from "./pages/CompanyOnboardingPage";
+import ExperimentalSearchPage from "./pages/ExperimentalSearchPage";
+import LandingPage from "./pages/LandingPage";
+import LoginPage from "./pages/LoginPage";
+import OAuthCallbackPage from "./pages/OAuthCallbackPage";
+import PaymentPage from "./pages/PaymentPage";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+import RegisterPage from "./pages/RegisterPage";
+import ResearchPage from "./pages/ResearchPage";
+import TermsOfServicePage from "./pages/TermsOfServicePage";
 
 const DashboardRoutes: React.FC = () => (
   <NavigationProvider>
@@ -61,17 +62,30 @@ const DashboardRoutes: React.FC = () => (
       <div className="flex-1 min-h-0">
         <DashboardLayout>
           <Routes>
-        <Route path="/overview" element={<OverviewPage />} />
-        <Route path="/dashboard" element={<OverviewPage />} />
-        <Route path="/visibility-tasks" element={<VisibilityTasksPage />} />
-        <Route path="/visibility-report" element={<VisibilityReportPage />} />
-        <Route path="/web-audit" element={<WebAuditPage />} />
-        <Route path="/visibility-analytics" element={<SeoAnalyticsPage />} />
-        <Route path="/response-details" element={<PromptsPage />} />
-        <Route path="/prompts" element={<PromptsPage />} />
-        <Route path="/competitors" element={<CompetitorsPage />} />
+            <Route path="/overview" element={<OverviewPage />} />
+            <Route path="/dashboard" element={<OverviewPage />} />
+            <Route path="/visibility-tasks" element={<VisibilityTasksPage />} />
+            <Route
+              path="/visibility-report"
+              element={<VisibilityReportPage />}
+            />
+            <Route path="/web-audit" element={<WebAuditPage />} />
+            <Route
+              path="/visitor-analytics"
+              element={<VisitorAnalyticsPage />}
+            />
+            <Route
+              path="/visibility-analytics"
+              element={<SeoAnalyticsPage />}
+            />
+            <Route path="/response-details" element={<PromptsPage />} />
+            <Route path="/prompts" element={<PromptsPage />} />
+            <Route path="/competitors" element={<CompetitorsPage />} />
 
-        <Route path="/experimental-search" element={<ExperimentalSearchPage />} />
+            <Route
+              path="/experimental-search"
+              element={<ExperimentalSearchPage />}
+            />
           </Routes>
         </DashboardLayout>
       </div>
@@ -98,7 +112,9 @@ const ProtectedArea: React.FC = () => (
   </CompanyProvider>
 );
 
-const AnalyticsWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const AnalyticsWrapper: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   usePageTracking();
   useSessionTracking();
   return <>{children}</>;

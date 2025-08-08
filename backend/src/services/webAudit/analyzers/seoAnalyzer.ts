@@ -1,14 +1,14 @@
 /**
  * @file seoAnalyzer.ts
  * @description Technical SEO analysis through direct URL inspection
- * 
+ *
  * Analyzes technical SEO factors including:
  * - robots.txt and llms.txt presence and configuration
  * - Meta tags optimization
  * - Header structure and hierarchy
  * - Sitemap presence and validation
  * - Internal linking structure
- * 
+ *
  * @dependencies
  * - axios for HTTP requests
  * - cheerio for DOM parsing
@@ -23,7 +23,8 @@ import { SEOResults } from "../webAuditService";
 
 class SEOAnalyzer {
   private readonly timeout = 10000; // 10 second timeout
-  private readonly userAgent = 'Serplexity-WebAudit/1.0 (+https://serplexity.com)';
+  private readonly userAgent =
+    "Serplexity-WebAudit/1.0 (+https://serplexity.com)";
 
   /**
    * Analyze technical SEO factors
@@ -39,16 +40,26 @@ class SEOAnalyzer {
       const baseUrl = `${parsedUrl.protocol}//${parsedUrl.hostname}`;
 
       // Run analysis tasks in parallel
-      const [pageAnalysis, robotsAnalysis, sitemapAnalysis] = await Promise.allSettled([
-        this.analyzePage(url),
-        this.analyzeRobotsTxt(baseUrl),
-        this.analyzeSitemap(baseUrl),
-      ]);
+      const [pageAnalysis, robotsAnalysis, sitemapAnalysis] =
+        await Promise.allSettled([
+          this.analyzePage(url),
+          this.analyzeRobotsTxt(baseUrl),
+          this.analyzeSitemap(baseUrl),
+        ]);
 
       // Extract results
-      const pageData = pageAnalysis.status === 'fulfilled' ? pageAnalysis.value : this.getDefaultPageData();
-      const robotsData = robotsAnalysis.status === 'fulfilled' ? robotsAnalysis.value : this.getDefaultRobotsData();
-      const sitemapData = sitemapAnalysis.status === 'fulfilled' ? sitemapAnalysis.value : this.getDefaultSitemapData();
+      const pageData =
+        pageAnalysis.status === "fulfilled"
+          ? pageAnalysis.value
+          : this.getDefaultPageData();
+      const robotsData =
+        robotsAnalysis.status === "fulfilled"
+          ? robotsAnalysis.value
+          : this.getDefaultRobotsData();
+      const sitemapData =
+        sitemapAnalysis.status === "fulfilled"
+          ? sitemapAnalysis.value
+          : this.getDefaultSitemapData();
 
       // Check for llms.txt
       const llmsTxtData = await this.analyzeLlmsTxt(baseUrl);
@@ -76,10 +87,9 @@ class SEOAnalyzer {
       });
 
       return result;
-
     } catch (error) {
       const analysisTime = Date.now() - startTime;
-      
+
       logger.error("SEO analysis failed", {
         url,
         analysisTime,
@@ -95,12 +105,12 @@ class SEOAnalyzer {
    * Analyze main page content and structure
    */
   private async analyzePage(url: string): Promise<{
-    metaTags: SEOResults['metaTags'];
-    structure: SEOResults['structure'];
+    metaTags: SEOResults["metaTags"];
+    structure: SEOResults["structure"];
   }> {
     const response = await axios.get(url, {
       timeout: this.timeout,
-      headers: { 'User-Agent': this.userAgent },
+      headers: { "User-Agent": this.userAgent },
       maxRedirects: 5,
     });
 
@@ -111,7 +121,8 @@ class SEOAnalyzer {
     const metaTags = this.analyzeMetaTags($);
 
     // Analyze page structure
-    const structure = this.analyzePageStructure($);
+    const hostname = new URL(url).hostname;
+    const structure = this.analyzePageStructure($, hostname);
 
     return { metaTags, structure };
   }
@@ -119,9 +130,9 @@ class SEOAnalyzer {
   /**
    * Analyze meta tags
    */
-  private analyzeMetaTags($: cheerio.CheerioAPI): SEOResults['metaTags'] {
+  private analyzeMetaTags($: cheerio.CheerioAPI): SEOResults["metaTags"] {
     // Title tag analysis
-    const titleElement = $('title').first();
+    const titleElement = $("title").first();
     const titleText = titleElement.text().trim();
     const titleExists = titleText.length > 0;
     const titleLength = titleText.length;
@@ -129,10 +140,11 @@ class SEOAnalyzer {
 
     // Meta description analysis
     const descriptionElement = $('meta[name="description"]').first();
-    const descriptionText = descriptionElement.attr('content') || '';
+    const descriptionText = descriptionElement.attr("content") || "";
     const descriptionExists = descriptionText.length > 0;
     const descriptionLength = descriptionText.length;
-    const descriptionOptimized = descriptionLength >= 120 && descriptionLength <= 160; // Google's recommended range
+    const descriptionOptimized =
+      descriptionLength >= 120 && descriptionLength <= 160; // Google's recommended range
 
     // Meta keywords (largely deprecated but still check)
     const keywordsExists = $('meta[name="keywords"]').length > 0;
@@ -155,20 +167,23 @@ class SEOAnalyzer {
   /**
    * Analyze page structure
    */
-  private analyzePageStructure($: cheerio.CheerioAPI): SEOResults['structure'] {
+  private analyzePageStructure(
+    $: cheerio.CheerioAPI,
+    hostname: string
+  ): SEOResults["structure"] {
     // Heading analysis
-    const h1Elements = $('h1');
+    const h1Elements = $("h1");
     const h1Count = h1Elements.length;
-    
+
     // Check heading hierarchy
-    const headings = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
+    const headings = ["h1", "h2", "h3", "h4", "h5", "h6"];
     let properHierarchy = true;
     let lastLevel = 0;
 
     for (const heading of headings) {
       const elements = $(heading);
       if (elements.length > 0) {
-        const currentLevel = parseInt(heading.replace('h', ''));
+        const currentLevel = parseInt(heading.replace("h", ""));
         if (lastLevel > 0 && currentLevel > lastLevel + 1) {
           properHierarchy = false;
           break;
@@ -177,10 +192,17 @@ class SEOAnalyzer {
       }
     }
 
-    // Internal links analysis
-    const internalLinks = $('a[href]').filter((_, element) => {
-      const href = $(element).attr('href') || '';
-      return href.startsWith('/') || href.startsWith('#') || href.includes(window?.location?.hostname || '');
+    // Internal links analysis (server-side safe; avoid window)
+    const internalLinks = $("a[href]").filter((_, element) => {
+      const href = ($(element).attr("href") || "").toLowerCase();
+      const host = (hostname || "").toLowerCase();
+      if (!href) return false;
+      // Treat relative or same-host absolute URLs as internal
+      return (
+        href.startsWith("/") ||
+        href.startsWith("#") ||
+        (host && href.includes(host))
+      );
     });
     const internalLinksCount = internalLinks.length;
 
@@ -200,13 +222,15 @@ class SEOAnalyzer {
   /**
    * Analyze robots.txt file
    */
-  private async analyzeRobotsTxt(baseUrl: string): Promise<SEOResults['technical']['robotsTxt']> {
+  private async analyzeRobotsTxt(
+    baseUrl: string
+  ): Promise<SEOResults["technical"]["robotsTxt"]> {
     const robotsUrl = `${baseUrl}/robots.txt`;
-    
+
     try {
       const response = await axios.get(robotsUrl, {
         timeout: this.timeout,
-        headers: { 'User-Agent': this.userAgent },
+        headers: { "User-Agent": this.userAgent },
         validateStatus: (status) => status < 500, // Don't throw on 4xx errors
       });
 
@@ -230,7 +254,9 @@ class SEOAnalyzer {
       return {
         exists: false,
         accessible: false,
-        errors: [`Failed to fetch robots.txt: ${error instanceof Error ? error.message : String(error)}`],
+        errors: [
+          `Failed to fetch robots.txt: ${error instanceof Error ? error.message : String(error)}`,
+        ],
       };
     }
   }
@@ -238,13 +264,15 @@ class SEOAnalyzer {
   /**
    * Analyze llms.txt file (AI training opt-out)
    */
-  private async analyzeLlmsTxt(baseUrl: string): Promise<SEOResults['technical']['llmsTxt']> {
+  private async analyzeLlmsTxt(
+    baseUrl: string
+  ): Promise<SEOResults["technical"]["llmsTxt"]> {
     const llmsUrl = `${baseUrl}/llms.txt`;
-    
+
     try {
       const response = await axios.get(llmsUrl, {
         timeout: this.timeout,
-        headers: { 'User-Agent': this.userAgent },
+        headers: { "User-Agent": this.userAgent },
         validateStatus: (status) => status < 500,
       });
 
@@ -263,7 +291,9 @@ class SEOAnalyzer {
   /**
    * Analyze XML sitemap
    */
-  private async analyzeSitemap(baseUrl: string): Promise<SEOResults['technical']['sitemap']> {
+  private async analyzeSitemap(
+    baseUrl: string
+  ): Promise<SEOResults["technical"]["sitemap"]> {
     // Common sitemap locations
     const sitemapUrls = [
       `${baseUrl}/sitemap.xml`,
@@ -276,13 +306,13 @@ class SEOAnalyzer {
       try {
         const response = await axios.get(sitemapUrl, {
           timeout: this.timeout,
-          headers: { 'User-Agent': this.userAgent },
+          headers: { "User-Agent": this.userAgent },
           validateStatus: (status) => status < 500,
         });
 
         if (response.status === 200) {
           const urlCount = this.parseSitemapUrlCount(response.data);
-          
+
           return {
             exists: true,
             accessible: true,
@@ -299,24 +329,24 @@ class SEOAnalyzer {
     try {
       const robotsResponse = await axios.get(`${baseUrl}/robots.txt`, {
         timeout: this.timeout,
-        headers: { 'User-Agent': this.userAgent },
+        headers: { "User-Agent": this.userAgent },
         validateStatus: (status) => status < 500,
       });
 
       if (robotsResponse.status === 200) {
         const robotsContent = robotsResponse.data;
         const sitemapMatch = robotsContent.match(/Sitemap:\s*(.+)/i);
-        
+
         if (sitemapMatch) {
           const sitemapUrl = sitemapMatch[1].trim();
           try {
             const response = await axios.get(sitemapUrl, {
               timeout: this.timeout,
-              headers: { 'User-Agent': this.userAgent },
+              headers: { "User-Agent": this.userAgent },
             });
 
             const urlCount = this.parseSitemapUrlCount(response.data);
-            
+
             return {
               exists: true,
               accessible: true,
@@ -348,53 +378,53 @@ class SEOAnalyzer {
    */
   private validateRobotsTxt(content: string): string[] {
     const errors: string[] = [];
-    const lines = content.split('\n').map(line => line.trim());
+    const lines = content.split("\n").map((line) => line.trim());
 
     let hasUserAgent = false;
-    let currentUserAgent = '';
+    let currentUserAgent = "";
 
     for (const line of lines) {
-      if (line.startsWith('#') || line === '') {
+      if (line.startsWith("#") || line === "") {
         continue; // Skip comments and empty lines
       }
 
-      if (line.toLowerCase().startsWith('user-agent:')) {
+      if (line.toLowerCase().startsWith("user-agent:")) {
         hasUserAgent = true;
         currentUserAgent = line.substring(11).trim();
-        
+
         if (!currentUserAgent) {
-          errors.push('Empty User-agent directive found');
+          errors.push("Empty User-agent directive found");
         }
-      } else if (line.toLowerCase().startsWith('disallow:')) {
+      } else if (line.toLowerCase().startsWith("disallow:")) {
         if (!hasUserAgent) {
-          errors.push('Disallow directive without preceding User-agent');
+          errors.push("Disallow directive without preceding User-agent");
         }
-      } else if (line.toLowerCase().startsWith('allow:')) {
+      } else if (line.toLowerCase().startsWith("allow:")) {
         if (!hasUserAgent) {
-          errors.push('Allow directive without preceding User-agent');
+          errors.push("Allow directive without preceding User-agent");
         }
-      } else if (line.toLowerCase().startsWith('sitemap:')) {
+      } else if (line.toLowerCase().startsWith("sitemap:")) {
         // Sitemap can appear anywhere
         const sitemapUrl = line.substring(8).trim();
-        if (!sitemapUrl.startsWith('http')) {
-          errors.push('Invalid sitemap URL format');
+        if (!sitemapUrl.startsWith("http")) {
+          errors.push("Invalid sitemap URL format");
         }
-      } else if (line.toLowerCase().startsWith('crawl-delay:')) {
+      } else if (line.toLowerCase().startsWith("crawl-delay:")) {
         if (!hasUserAgent) {
-          errors.push('Crawl-delay directive without preceding User-agent');
+          errors.push("Crawl-delay directive without preceding User-agent");
         }
         const delay = line.substring(12).trim();
         if (isNaN(Number(delay))) {
-          errors.push('Invalid crawl-delay value');
+          errors.push("Invalid crawl-delay value");
         }
       } else {
         // Unknown directive
-        errors.push(`Unknown directive: ${line.split(':')[0]}`);
+        errors.push(`Unknown directive: ${line.split(":")[0]}`);
       }
     }
 
     if (!hasUserAgent) {
-      errors.push('No User-agent directive found');
+      errors.push("No User-agent directive found");
     }
 
     return errors;
@@ -406,17 +436,17 @@ class SEOAnalyzer {
   private parseSitemapUrlCount(xmlContent: string): number {
     try {
       const $ = cheerio.load(xmlContent, { xmlMode: true });
-      
+
       // Count <url> elements in regular sitemap
-      const urlCount = $('url').length;
-      
+      const urlCount = $("url").length;
+
       if (urlCount > 0) {
         return urlCount;
       }
 
       // Count <sitemap> elements in sitemap index
-      const sitemapCount = $('sitemap').length;
-      
+      const sitemapCount = $("sitemap").length;
+
       return sitemapCount; // Approximate count for sitemap index
     } catch (error) {
       logger.warn("Failed to parse sitemap XML", {
@@ -451,7 +481,7 @@ class SEOAnalyzer {
     return {
       exists: false,
       accessible: false,
-      errors: ['Failed to analyze robots.txt'],
+      errors: ["Failed to analyze robots.txt"],
     };
   }
 

@@ -12,6 +12,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import Card from '../ui/Card';
+import { InlineSpinner } from '../ui/InlineSpinner';
 
 interface Props {
   query: string;
@@ -47,7 +48,9 @@ const GoogleSerpPane: React.FC<Props> = ({ query }) => {
         </div>
       </div>
       {loading && (
-        <div className="absolute inset-0 bg-white/50 flex items-center justify-center text-sm text-gray-600">Loading Google…</div>
+        <div className="absolute inset-0 bg-white/50 flex items-center justify-center">
+          <InlineSpinner size={20} />
+        </div>
       )}
     </Card>
   );

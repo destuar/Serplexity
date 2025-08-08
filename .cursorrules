@@ -1,0 +1,107 @@
+Serplexity Cursor Rules
+
+Purpose
+
+- Align AI coding assistants with Serplexity’s architecture, workflows, and guardrails.
+- Produce production-grade code with zero technical debt, validated by tests and linters.
+
+Mindset
+
+- Think like a senior/“10x” engineer: design-first, simplify, and prove correctness with tests.
+- Work step-by-step and validate each step (build/tests/lints) before moving on.
+- Prefer the smallest viable, composable change. Keep edits tight and focused.
+
+Repository Overview
+
+- backend/: Express + TypeScript API, Prisma/Postgres, BullMQ/Redis, PydanticAI (Python)
+- frontend/: React + Vite + Tailwind dashboard
+- infra/: Docker, compose, and ops
+- Path aliases: backend @/ → backend/src, frontend @ → frontend/src
+
+Non-Negotiables
+
+- Controllers are thin; business logic lives in services; utilities are pure and reusable.
+- All prompt TypeScript files live in backend/src/prompts/ (import via @/prompts/\*).
+- Secrets are retrieved via AWS Secrets Manager flows (scripts/run-with-secrets.ts). Do not add new .env secrets.
+- Never hand-edit migration SQL. Use Prisma migrate commands.
+- Keep files focused (≈≤200 LOC). Extract helpers early. No massive “god” files.
+- TypeScript must be explicit. Avoid any and unsafe casts.
+- Every change ships with tests as appropriate and passes lint/typecheck. No TODOs left behind.
+- Respect multi-tenant boundaries (companyId). Enforce auth, rate limits, and validation.
+- Queue workers/schedulers self-register on import; never import them from app code paths.
+
+Quality Gates
+
+- Backend: Jest (serial), ≥70% coverage. Mock AWS/Redis/Prisma/external APIs.
+- Frontend: Vitest + RTL, ≥70% coverage.
+- Before completing: run build, tests, and linters relevant to the change; fix what you broke.
+
+Working Style in Cursor
+
+- Explore first using semantic search. Split multi-part questions into focused sub-queries.
+- Parallelize reads/searches to accelerate context gathering.
+- After substantive edits, run the right test/build commands (non-interactive). Assume no TTY.
+- Keep answers concise. Use fenced code only for relevant snippets. Cite exact files/lines when referencing code.
+- Propose concrete terminal commands with absolute paths for this repo.
+
+Backend Essentials (see backend/.cursorrules)
+
+- Port 8001. Prisma via scripts/run-with-secrets.ts; BullMQ config in src/config/bullmq.ts.
+- Python agents managed by backend/start.sh. Keep Node/Python boundaries explicit.
+
+Frontend Essentials (see frontend/.cursorrules)
+
+- Port 3000; Vite proxies /api → backend. Theme: tech-forward, space, glassmorphism.
+- Feature-first composition; small components; explicit types; avoid props drilling (use contexts/hooks).
+
+Security & Compliance
+
+- Never commit secrets. Prefer AWS Secrets Manager as source of truth.
+- JWT auth, company isolation, rate limiting, Helmet, and Zod input validation must remain intact.
+- Avoid dynamic code execution in hot paths; keep control-flow predictable.
+
+Operational Guardrails
+
+- Use provided npm scripts; don’t invent bespoke commands if a script already exists.
+- Prefer idempotent ops scripts; add dry-runs when reasonable.
+
+Command Cheatsheet (absolute paths)
+
+- Backend
+  - cd /Users/diegoestuar/Desktop/Serplexity/backend && npm install
+  - cd /Users/diegoestuar/Desktop/Serplexity/backend && npm run dev
+  - cd /Users/diegoestuar/Desktop/Serplexity/backend && npm run build && npm run typecheck && npm run lint
+  - cd /Users/diegoestuar/Desktop/Serplexity/backend && npm test
+  - cd /Users/diegoestuar/Desktop/Serplexity/backend && npm run migrate:dev && npm run generate && npm run studio:dev
+- Frontend
+  - cd /Users/diegoestuar/Desktop/Serplexity/frontend && npm install
+  - cd /Users/diegoestuar/Desktop/Serplexity/frontend && npm run dev
+  - cd /Users/diegoestuar/Desktop/Serplexity/frontend && npm run build && npm run lint
+  - cd /Users/diegoestuar/Desktop/Serplexity/frontend && npm run test
+
+Editing Rules
+
+- Keep diffs minimal. Add needed imports; remove unused you introduce. Do not reformat unrelated code.
+- Avoid casual public API changes. If necessary, update all call sites and tests in the same edit.
+- Handle errors and edge cases first; prefer guard clauses; write clear, intention-revealing names.
+
+Troubleshooting Quicklist
+
+- Ports: backend 8001, frontend 3000.
+- Prisma: after schema edits, npm run generate and migrate. If client mismatched, regenerate.
+- Queues: verify Redis and BULLMQ_QUEUE_PREFIX.
+- Agents: use backend/start.sh to ensure venv and Python deps.
+
+What Not To Do
+
+- Don’t add new secret usage in .env; integrate with AWS Secrets flows.
+- Don’t bypass logging/validation/guards.
+- Don’t commit reformat-only or sweeping unrelated edits.
+
+Frontend Design North Star
+
+- Tech-forward, space, futuristic, liquid glass. Prioritize brand expression over SEO trade-offs.
+
+Exit Criteria for Any Task
+
+- Build passes, tests pass, lints clean, types valid, behavior verified as needed. Provide a short, high-signal summary.

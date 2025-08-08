@@ -49,9 +49,10 @@ class DatabaseService {
     state: "closed",
   };
 
-  private readonly MAX_RETRIES = 3;
-  private readonly CIRCUIT_BREAKER_THRESHOLD = 5;
-  private readonly CIRCUIT_BREAKER_TIMEOUT = 30 * 1000; // 30 seconds
+  // Circuit breaker configuration constants
+  private static readonly MAX_RETRIES = 3;
+  private static readonly CIRCUIT_BREAKER_THRESHOLD = 5;
+  private static readonly CIRCUIT_BREAKER_TIMEOUT = 30 * 1000; // 30 seconds
 
   private constructor() {
     // Lazy initialization of secrets provider
@@ -188,11 +189,16 @@ class DatabaseService {
   /**
    * Check if error is an authentication failure
    */
-  private isAuthFailure(error: any): boolean {
+  private isAuthFailure(error: unknown): boolean {
+    if (!error || typeof error !== 'object') return false;
+    const errorObj = error as Record<string, unknown>;
+    const code = typeof errorObj['code'] === 'string' ? errorObj['code'] : '';
+    const message = typeof errorObj['message'] === 'string' ? errorObj['message'] : '';
+    
     return (
-      error?.code === 'P1000' ||
-      error?.message?.includes('Authentication failed') ||
-      error?.message?.includes('password authentication failed')
+      code === 'P1000' ||
+      (message.includes('Authentication failed') ||
+       message.includes('password authentication failed'))
     );
   }
 

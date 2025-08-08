@@ -1,5 +1,5 @@
+import { beforeAll, beforeEach } from "@jest/globals";
 import { PrismaClient } from "@prisma/client";
-import { beforeAll, afterAll, beforeEach } from "@jest/globals";
 // import { masterSchedulerQueue } from '../queues/masterScheduler';
 
 // Mock Redis client
@@ -19,7 +19,8 @@ process.env.OPENAI_API_KEY = "test-openai-key";
 process.env.GEMINI_API_KEY = "test-gemini-key";
 process.env.ANTHROPIC_API_KEY = "test-anthropic-key";
 process.env.PERPLEXITY_API_KEY = "test-perplexity-key";
-process.env.LOGFIRE_TOKEN = "test-logfire-token-for-testing";
+// Explicitly disable any vendor-specific telemetry in tests
+process.env.DISABLE_LOGFIRE = "1";
 
 // Override AWS credentials with test values
 process.env.AWS_ACCESS_KEY_ID = "test-access-key";
@@ -68,7 +69,7 @@ beforeAll(async () => {
   ) {
     const actualDb = dbName?.[0]?.database_name || "unknown";
     throw new Error(
-      `SECURITY ERROR: Not connected to test database! Connected to: ${actualDb}`,
+      `SECURITY ERROR: Not connected to test database! Connected to: ${actualDb}`
     );
   }
 
@@ -91,7 +92,7 @@ async function cleanDatabaseWithRetry(maxRetries = 3) {
     } catch (error: unknown) {
       console.warn(
         `Database cleanup attempt ${attempt} failed:`,
-        error.message,
+        error.message
       );
 
       if (attempt === maxRetries) {
@@ -110,8 +111,8 @@ async function cleanDatabase() {
     await prisma.$transaction(async (tx) => {
       // Get all table names excluding migration table
       const tablenames = await tx.$queryRaw<Array<{ tablename: string }>>`
-        SELECT tablename FROM pg_tables 
-        WHERE schemaname='public' 
+        SELECT tablename FROM pg_tables
+        WHERE schemaname='public'
         AND tablename NOT LIKE '_prisma%'
       `;
 
@@ -126,17 +127,17 @@ async function cleanDatabase() {
 
       // Use TRUNCATE with CASCADE to handle foreign key constraints
       await tx.$executeRawUnsafe(
-        `TRUNCATE TABLE ${tables} RESTART IDENTITY CASCADE;`,
+        `TRUNCATE TABLE ${tables} RESTART IDENTITY CASCADE;`
       );
     });
 
     // Small delay to ensure transaction commits
     await new Promise((resolve) => setTimeout(resolve, 50));
-  } catch (error: any) {
+  } catch (error: unknown) {
     // If transaction fails, try individual table cleanup
     console.warn(
       "Transaction cleanup failed, trying individual cleanup:",
-      error.message,
+      error instanceof Error ? error.message : String(error)
     );
 
     try {

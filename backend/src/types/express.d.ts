@@ -32,7 +32,16 @@ declare module "express-serve-static-core" {
         userId: string;
         createdAt: Date;
         updatedAt: Date;
-        competitors?: Array<any>;
+        competitors?: Array<{
+          id: string;
+          name: string;
+          website: string;
+          isAccepted: boolean;
+          isGenerated: boolean;
+          companyId: string;
+          createdAt: Date;
+          updatedAt: Date;
+        }>;
       }>;
     };
   }

@@ -620,12 +620,12 @@ const RankingsCard = () => {
     <LiquidGlassCard>
       <div className="flex flex-col lg:flex-row h-full w-full">
         <div className="w-full lg:w-1/2 pr-0 lg:pr-4 border-r-0 lg:border-r border-b lg:border-b-0 border-gray-200 flex flex-col pb-4 lg:pb-0 mb-4 lg:mb-0">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Industry Ranking</h3>
+          <h3 className="text-sm font-medium text-gray-900 mb-4">Industry Ranking</h3>
           {renderIndustryRanking()}
         </div>
         <div className="w-full lg:w-1/2 pl-0 lg:pl-4 flex flex-col">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">
+            <h3 className="text-sm font-medium text-gray-900">
               {activeTab === 'mentions' ? 'Mentions' : 'Citations'}
             </h3>
             {renderIconTabs()}

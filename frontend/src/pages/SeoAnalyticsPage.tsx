@@ -4,9 +4,9 @@
  * Clean interface for website performance metrics and integration management.
  */
 import React, { useEffect, useState } from "react";
-import { useNavigation } from "../hooks/useNavigation";
-import IntegrationSetupWizard from "../components/analytics/IntegrationSetupWizard";
 import AnalyticsDashboard from "../components/analytics/AnalyticsDashboard";
+import IntegrationSetupWizard from "../components/analytics/IntegrationSetupWizard";
+import { useNavigation } from "../hooks/useNavigation";
 
 const SeoAnalyticsPage: React.FC = () => {
   const { setBreadcrumbs } = useNavigation();
@@ -14,25 +14,31 @@ const SeoAnalyticsPage: React.FC = () => {
   const [hasIntegrations, setHasIntegrations] = useState(false);
 
   useEffect(() => {
-    setBreadcrumbs([
-      { label: 'SEO Performance' },
-      { label: 'Website Analytics' }
-    ]);
+    setBreadcrumbs([{ label: "SEO Performance" }, { label: "SEO Rankings" }]);
   }, [setBreadcrumbs]);
 
   useEffect(() => {
     const checkIntegrations = async () => {
       try {
-        const response = await fetch('/api/website-analytics/integrations');
+        const response = await fetch("/api/website-analytics/integrations");
         if (response.ok) {
-          const integrations = await response.json();
-          setHasIntegrations(integrations.length > 0);
+          const data = await response.json();
+          const list = data.integrations ?? data;
+          setHasIntegrations(
+            Array.isArray(list)
+              ? list.some(
+                  (i: any) =>
+                    i.integrationName === "google_search_console" &&
+                    i.status === "active"
+                )
+              : false
+          );
         }
       } catch (error) {
-        console.error('Failed to check integrations:', error);
+        console.error("Failed to check integrations:", error);
       }
     };
-    
+
     checkIntegrations();
   }, []);
 
@@ -49,6 +55,7 @@ const SeoAnalyticsPage: React.FC = () => {
     return (
       <div className="h-full flex flex-col">
         <IntegrationSetupWizard
+          mode="gsc"
           onComplete={handleSetupComplete}
           onCancel={handleSetupCancel}
         />
@@ -60,6 +67,7 @@ const SeoAnalyticsPage: React.FC = () => {
     return (
       <div className="h-full flex flex-col">
         <IntegrationSetupWizard
+          mode="gsc"
           onComplete={handleSetupComplete}
           onCancel={handleSetupCancel}
         />
@@ -71,8 +79,11 @@ const SeoAnalyticsPage: React.FC = () => {
     <div className="h-full flex flex-col">
       <div className="flex-shrink-0 flex justify-between items-center mb-4">
         <div>
-          <h1 className="text-xl font-medium text-gray-900">Website Analytics</h1>
-          <p className="text-sm text-gray-600">Performance metrics and insights</p>
+          <h1 className="text-xl font-medium text-gray-900">SEO Rankings</h1>
+          <p className="text-sm text-gray-600">
+            Google Search Console metrics: queries, clicks, impressions,
+            positions
+          </p>
         </div>
         <button
           onClick={() => setShowSetupWizard(true)}
@@ -81,7 +92,7 @@ const SeoAnalyticsPage: React.FC = () => {
           Manage
         </button>
       </div>
-      
+
       <div className="flex-1 min-h-0">
         <AnalyticsDashboard />
       </div>

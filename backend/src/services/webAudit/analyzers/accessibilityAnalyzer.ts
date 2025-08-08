@@ -432,7 +432,7 @@ class AccessibilityAnalyzer {
   /**
    * Check if image is decorative
    */
-  private isDecorativeImage($element: cheerio.Cheerio<any>): boolean {
+  private isDecorativeImage($element: cheerio.Cheerio<cheerio.Element>): boolean {
     const role = $element.attr('role');
     const ariaHidden = $element.attr('aria-hidden');
     

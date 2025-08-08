@@ -14,6 +14,7 @@
  */
 import React, { useState } from 'react';
 import { X, Building, HelpCircle, Trash2, Edit, Mail, ArrowLeft, AlertTriangle, FileText } from 'lucide-react';
+import { InlineSpinner } from '../ui/InlineSpinner';
 // Note: buttonClasses and formClasses imports removed as they're unused
 import { useCompany } from '../../contexts/CompanyContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -174,8 +175,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                             disabled={generatingReport === company.id}
                             className="text-blue-600 border-blue-200 hover:bg-blue-50"
                           >
-                            <FileText className="w-4 h-4 mr-1" />
-                            {generatingReport === company.id ? 'Generating...' : 'Generate Report'}
+                            {generatingReport === company.id ? <InlineSpinner size={16} className="mr-1" /> : <FileText className="w-4 h-4 mr-1" />}
+                            {generatingReport === company.id ? '' : 'Generate Report'}
                           </Button>
                         )}
                         <Button

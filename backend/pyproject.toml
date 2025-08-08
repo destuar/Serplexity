@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "serplexity-backend-agents"
+version = "1.0.0"
+description = "PydanticAI agents for Serplexity backend"
+requires-python = ">=3.12"
+
+# Power of Ten Rule #10: ruff check --select ALL
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+src = ["src/pydantic_agents"]
+
+[tool.ruff.lint]
+# Select ALL rules as per Power of Ten Rule #10
+select = ["ALL"]
+ignore = [
+    # Allow print statements in agents (for debugging)
+    "T201",
+    # Allow TODO comments
+    "TD002", "TD003",
+    # Allow missing docstrings in some cases
+    "D100", "D101", "D102", "D103", "D104", "D105",
+    # Allow long function signatures for AI agents
+    "PLR0913",
+    # Allow complex expressions in AI processing
+    "PLR2004",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # Allow unused imports in __init__.py
+"*/tests/*" = ["S101", "PLR2004"]  # Allow assert and magic values in tests
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["pydantic_agents"]
+
+# Power of Ten Rule #10: bandit security scanning
+[tool.bandit]
+targets = ["src/pydantic_agents"]
+exclude_dirs = ["tests", "__pycache__", ".venv", "venv"]
+skips = ["B101"]  # Allow assert statements in development
+
+[tool.bandit.assert_used]
+skips = ["*/tests/*", "test_*.py"]

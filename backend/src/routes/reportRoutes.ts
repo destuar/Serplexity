@@ -17,21 +17,22 @@
  */
 import { Router } from "express";
 import {
-  createReport,
-  getReportStatus,
-  getLatestReport,
-  getCompetitorRankingsForReport,
-  getReportResponses,
-  getReportCitationDebug,
-  emergencyTriggerCompanyReport,
-  emergencyTriggerAllReports,
-  getSystemHealth,
-} from "../controllers/reportController";
-import {
+  addOptimizationTask,
   getCompanyOptimizationTasks,
   toggleOptimizationTaskCompletion,
   updateOptimizationTaskStatus,
 } from "../controllers/optimizationController";
+import {
+  createReport,
+  emergencyTriggerAllReports,
+  emergencyTriggerCompanyReport,
+  getCompetitorRankingsForReport,
+  getLatestReport,
+  getReportCitationDebug,
+  getReportResponses,
+  getReportStatus,
+  getSystemHealth,
+} from "../controllers/reportController";
 import { authenticate } from "../middleware/authMiddleware";
 import { freemiumGuard } from "../middleware/freemiumGuard";
 
@@ -49,7 +50,7 @@ router.get("/latest/:companyId", authenticate, getLatestReport);
 router.get(
   "/:runId/competitor-rankings",
   authenticate,
-  getCompetitorRankingsForReport,
+  getCompetitorRankingsForReport
 );
 
 router.get("/:runId/responses", authenticate, getReportResponses);
@@ -61,29 +62,34 @@ router.get("/:runId/citations/debug", authenticate, getReportCitationDebug);
 router.get(
   "/companies/:companyId/optimization-tasks",
   authenticate,
-  getCompanyOptimizationTasks,
+  getCompanyOptimizationTasks
+);
+router.post(
+  "/companies/:companyId/optimization-tasks",
+  authenticate,
+  addOptimizationTask
 );
 router.patch(
   "/reports/:reportRunId/tasks/:taskId/toggle",
   authenticate,
-  toggleOptimizationTaskCompletion,
+  toggleOptimizationTaskCompletion
 );
 router.patch(
   "/reports/:reportRunId/tasks/:taskId/status",
   authenticate,
-  updateOptimizationTaskStatus,
+  updateOptimizationTaskStatus
 );
 
 // Emergency endpoints (admin/system use - may need additional admin authentication in production)
 router.post(
   "/emergency/companies/:companyId/trigger-report",
   authenticate,
-  emergencyTriggerCompanyReport,
+  emergencyTriggerCompanyReport
 );
 router.post(
   "/emergency/trigger-all-reports",
   authenticate,
-  emergencyTriggerAllReports,
+  emergencyTriggerAllReports
 );
 
 // System health endpoint

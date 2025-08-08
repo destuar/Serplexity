@@ -19,15 +19,16 @@
 import { Request, Response } from "express";
 import { getDbClient } from "../config/database";
 import {
+  TaskStatus,
+  createOptimizationTask,
   getOptimizationTasks,
   toggleTaskCompletion,
   updateTaskStatus,
-  TaskStatus,
 } from "../services/optimizationTaskService";
 
 export const getCompanyOptimizationTasks = async (
   req: Request,
-  res: Response,
+  res: Response
 ) => {
   const prisma = await getDbClient();
   try {
@@ -47,7 +48,7 @@ export const getCompanyOptimizationTasks = async (
 
 export const toggleOptimizationTaskCompletion = async (
   req: Request,
-  res: Response,
+  res: Response
 ) => {
   const prisma = await getDbClient();
   try {
@@ -67,7 +68,7 @@ export const toggleOptimizationTaskCompletion = async (
 
 export const updateOptimizationTaskStatus = async (
   req: Request,
-  res: Response,
+  res: Response
 ) => {
   const prisma = await getDbClient();
   try {
@@ -89,6 +90,36 @@ export const updateOptimizationTaskStatus = async (
     console.error("Error updating task status:", error);
     res.status(500).json({
       error: "Failed to update task status",
+      details: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+export const addOptimizationTask = async (req: Request, res: Response) => {
+  const prisma = await getDbClient();
+  try {
+    const { companyId } = req.params;
+    const parsed = req.body as {
+      reportRunId?: string;
+      title: string;
+      description: string;
+      category: string;
+      priority: "High" | "Medium" | "Low";
+      impactMetric: "visibility" | "averagePosition" | "inclusionRate";
+      dependencies?: string[];
+    };
+
+    if (!parsed?.title || !parsed?.description) {
+      return res.status(400).json({ error: "Missing title or description" });
+    }
+
+    const task = await createOptimizationTask({ companyId, ...parsed }, prisma);
+
+    res.status(201).json({ task });
+  } catch (error) {
+    console.error("Error creating optimization task:", error);
+    res.status(500).json({
+      error: "Failed to create optimization task",
       details: error instanceof Error ? error.message : "Unknown error",
     });
   }

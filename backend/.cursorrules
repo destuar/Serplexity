@@ -1,0 +1,84 @@
+Serplexity Cursor Rules — Backend
+
+Stack & Structure
+
+- Express 4 + TypeScript 5; Prisma 6 + PostgreSQL; BullMQ 5 + Redis; Python PydanticAI agents.
+- Path alias: @/ → backend/src
+- Keep one abstraction layer per file: controllers → services → utils/db.
+
+Key Directories (do not violate boundaries)
+
+- src/controllers: Thin request/response orchestration; no business logic.
+- src/services: Business logic; unit-test here directly.
+- src/routes: Maps endpoints to controllers only.
+- src/utils: Logger, cache, helpers; no business logic.
+- src/queues: Queue instances, Workers, (optional) Schedulers. Importing registers workers (side-effect). Never import workers from regular code.
+- src/prompts: All prompt TypeScript files live here. Centralize LLM prompts.
+- src/pydantic_agents: Python agents. Managed via start.sh and scripts.
+
+Secrets & Environment
+
+- Source of truth: AWS Secrets Manager via src/scripts/run-with-secrets.ts.
+- Prefer npm run prisma:dev, migrate:dev, studio:dev which route through the secrets script.
+- Do not introduce new secrets via .env. For local non-secret config, keep minimal and documented.
+
+Database & Prisma
+
+- Never hand-edit migration SQL. Use migrate dev and generate.
+- After schema changes: npm run generate && npm run migrate:dev.
+- schema.prisma is authoritative; keep multi-tenant patterns (companyId) intact.
+
+Queues (BullMQ)
+
+- Connection/options in src/config/bullmq.ts. Do not duplicate.
+- Pattern per queue: <name>.ts (queue), <name>Worker.ts (worker), <name>Scheduler.ts (optional).
+- Honor BULLMQ_QUEUE_PREFIX for environment isolation.
+
+Python Agents
+
+- Use backend/start.sh for dev to ensure venv and Python deps.
+- Health checks and ops scripts exist (npm run ops:\*). Keep Node ↔ Python interface explicit and schema-validated.
+
+Auth, Security, Compliance
+
+- JWT auth with access/refresh; Google OAuth via Passport.
+- Enforce company-level isolation in queries; validate inputs with Zod.
+- Rate limiting and Helmet required on public endpoints. Never log secrets.
+
+Error Handling & Logging
+
+- Use structured logging (utils/logger). Prefer async/await with try/catch + narrowed errors.
+- Serialize errors via utils/errorSerialization where appropriate. Include correlation/request IDs.
+
+Testing & Quality
+
+- Run tests serially. Coverage target ≥70%.
+- Test types: unit (services/utils), agent tests, integration (end-to-end flows), production validation.
+- Mock AWS/Redis/Prisma/external APIs in unit tests; keep integration tests realistic but contained.
+
+Build & Commands (absolute paths)
+
+- Dev: cd /Users/diegoestuar/Desktop/Serplexity/backend && npm run dev
+- Build: cd /Users/diegoestuar/Desktop/Serplexity/backend && npm run build && npm run typecheck && npm run lint
+- Test: cd /Users/diegoestuar/Desktop/Serplexity/backend && npm test
+- Quick: cd /Users/diegoestuar/Desktop/Serplexity/backend && npm run test:quick
+- Agents:cd /Users/diegoestuar/Desktop/Serplexity/backend && npm run test:agents
+- Integr:cd /Users/diegoestuar/Desktop/Serplexity/backend && npm run test:integration
+- Prisma:cd /Users/diegoestuar/Desktop/Serplexity/backend && npm run migrate:dev && npm run generate && npm run studio:dev
+- Ops: cd /Users/diegoestuar/Desktop/Serplexity/backend && npm run ops:monitor && npm run ops:health && npm run ops:repair
+
+Coding Conventions
+
+- Explicit types; no any. Early returns; handle edge-cases first; meaningful names.
+- Keep files ≈≤200 LOC; extract modules early.
+- When changing public APIs, update all call sites and tests in the same edit.
+
+Performance & Safety
+
+- Avoid heavy sync work in request paths; use queues where appropriate.
+- Predictable loop bounds; no dynamic eval/Function in hot paths.
+- Use caching prudently (dbCache/cache) with clear invalidation.
+
+Exit Checklist per PR/edit
+
+- Build OK, typecheck OK, lint OK, tests OK; security considerations preserved; short change summary provided.

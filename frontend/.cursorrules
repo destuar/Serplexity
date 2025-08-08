@@ -1,0 +1,58 @@
+Serplexity Cursor Rules — Frontend
+
+Stack & Structure
+
+- React 18 + TypeScript + Vite 7 + Tailwind + Radix UI + Recharts.
+- Path alias: @ → frontend/src. Feature-first organization (components/pages/contexts/hooks/services/types).
+
+Design North Star
+
+- Tech-forward, space, futuristic, liquid glass (glassmorphism). Prioritize brand expression.
+- Accessible by default; keyboard navigation and ARIA attributes where applicable.
+
+Data & API
+
+- API client in lib/apiClient.ts; services under src/services. Do not call fetch directly in components.
+- Types in src/types; Zod for runtime validation when parsing untrusted data.
+- Auth tokens via contexts/hooks (AuthContext/useAuth). No secrets in client code.
+
+Components & State
+
+- Keep components small and composable; lift state thoughtfully; avoid props drilling via contexts.
+- Prefer controlled components with React Hook Form + Zod for forms.
+- Avoid unnecessary re-renders; memoize expensive computations; use stable keys.
+
+Routing
+
+- React Router; guard protected routes with components under components/auth (e.g., ProtectedRoute, FreemiumGuard, PaymentGuard).
+
+Testing & Quality
+
+- Vitest + RTL; JSDOM. Coverage target ≥70%.
+- Test components in isolation; add integration tests for key flows.
+
+Build & Commands (absolute paths)
+
+- Dev: cd /Users/diegoestuar/Desktop/Serplexity/frontend && npm run dev
+- Build: cd /Users/diegoestuar/Desktop/Serplexity/frontend && npm run build && npm run lint
+- Tests: cd /Users/diegoestuar/Desktop/Serplexity/frontend && npm run test
+- Preview:cd /Users/diegoestuar/Desktop/Serplexity/frontend && npm run preview
+
+Conventions
+
+- Use Tailwind utilities; keep classNames readable; factor repeated patterns into UI components under components/ui.
+- Keep files ≈≤200 LOC; extract logic into hooks under src/hooks.
+- No inline large JSON or static assets in code; place under public/ when appropriate.
+
+Performance
+
+- Lazy-load route-level pages; code-split large feature bundles.
+- Prefer derived data with useMemo; avoid excessive effect dependencies.
+
+Environment
+
+- Use VITE_API_URL for backend base URL. Do not hardcode endpoints.
+
+Exit Checklist per edit
+
+- Build OK, tests OK, lints clean, UX matches design north star, concise summary provided.

@@ -699,22 +699,7 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({
                     fill={color}
                     fillOpacity={0.2}
                     strokeWidth={chartData.length > 1 ? 2 : 0}
-                    dot={(props: {
-                      cx?: number;
-                      cy?: number;
-                      payload?: { isZeroPoint?: boolean };
-                    }) => {
-                      if (props.payload?.isZeroPoint) return <g />;
-                      return (
-                        <circle
-                          cx={props.cx}
-                          cy={props.cy}
-                          r={4}
-                          fill={color}
-                          strokeWidth={0}
-                        />
-                      );
-                    }}
+                    dot={false}
                     activeDot={(props: {
                       cx?: number;
                       cy?: number;
@@ -748,26 +733,7 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({
                 fill="#2563eb"
                 fillOpacity={0.1}
                 strokeWidth={chartData.length > 1 ? 2 : 0}
-                dot={(props: {
-                  cx?: number;
-                  cy?: number;
-                  payload?: { isZeroPoint?: boolean };
-                }) => {
-                  if (props.payload?.isZeroPoint) return <g />;
-                  const r = chartData.length === 1 ? 6 : 4;
-                  const strokeWidth = chartData.length === 1 ? 2 : 0;
-                  const stroke = chartData.length === 1 ? "#ffffff" : "#2563eb";
-                  return (
-                    <circle
-                      cx={props.cx}
-                      cy={props.cy}
-                      r={r}
-                      fill="#2563eb"
-                      strokeWidth={strokeWidth}
-                      stroke={stroke}
-                    />
-                  );
-                }}
+                dot={false}
                 activeDot={(props: {
                   cx?: number;
                   cy?: number;
@@ -880,7 +846,7 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
-            <h3 className="text-lg font-semibold text-gray-800">
+            <h3 className="text-sm font-medium text-gray-900">
               {getMetricLabel()}
             </h3>
             {currentValue !== null && typeof currentValue === "number" && (

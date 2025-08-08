@@ -6,38 +6,48 @@
  * (Google Search Console or manual tracking) and view website performance metrics.
  */
 
-import { Request, Response } from 'express';
-import { z } from 'zod';
-import logger from '../utils/logger';
-import { websiteAnalyticsService } from '../services/websiteAnalyticsService';
-import { googleSearchConsoleService } from '../services/googleSearchConsoleService';
+import { Request, Response } from "express";
+import { z } from "zod";
+import { googleAnalyticsService } from "../services/googleAnalyticsService";
+import { googleSearchConsoleService } from "../services/googleSearchConsoleService";
+import { websiteAnalyticsService } from "../services/websiteAnalyticsService";
+import logger from "../utils/logger";
 
 // Validation schemas
 const CreateIntegrationSchema = z.object({
-  integrationName: z.enum(['google_search_console', 'manual_tracking']),
-  verificationMethod: z.enum(['meta_tag', 'dns_record', 'file_upload', 'oauth']).optional(),
-  gscPropertyUrl: z.string().url().optional()
+  integrationName: z.enum(["google_search_console", "manual_tracking"]),
+  verificationMethod: z
+    .enum(["meta_tag", "dns_record", "file_upload", "oauth"])
+    .optional(),
+  gscPropertyUrl: z.string().url().optional(),
 });
 
 const GetMetricsSchema = z.object({
-  startDate: z.string().refine(date => !isNaN(Date.parse(date)), 'Invalid start date'),
-  endDate: z.string().refine(date => !isNaN(Date.parse(date)), 'Invalid end date'),
-  integrationId: z.string().optional()
+  startDate: z
+    .string()
+    .refine((date) => !isNaN(Date.parse(date)), "Invalid start date"),
+  endDate: z
+    .string()
+    .refine((date) => !isNaN(Date.parse(date)), "Invalid end date"),
+  integrationId: z.string().optional(),
 });
 
 const OAuthCallbackSchema = z.object({
   code: z.string(),
-  state: z.string().optional()
+  state: z.string().optional(),
 });
 
 /**
  * Create a new website analytics integration
  */
-export const createIntegration = async (req: Request, res: Response): Promise<void> => {
+export const createIntegration = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const companyId = req.user?.companyId;
     if (!companyId) {
-      res.status(401).json({ error: 'Company not found' });
+      res.status(401).json({ error: "Company not found" });
       return;
     }
 
@@ -45,34 +55,46 @@ export const createIntegration = async (req: Request, res: Response): Promise<vo
 
     const result = await websiteAnalyticsService.createIntegration({
       companyId,
-      ...validatedData
+      ...validatedData,
     });
 
-    if (validatedData.integrationName === 'google_search_console') {
+    if (validatedData.integrationName === "google_search_console") {
       // Return OAuth URL for Google Search Console
-      const authUrl = googleSearchConsoleService.getAuthUrl(result.integration.id);
+      const authUrl = googleSearchConsoleService.getAuthUrl(
+        result.integration.id
+      );
       res.json({
         ...result,
-        authUrl
+        authUrl,
+      });
+    } else if (
+      validatedData.integrationName === "google_analytics_4" &&
+      validatedData.verificationMethod === "oauth"
+    ) {
+      // Return OAuth URL for GA4
+      const authUrl = googleAnalyticsService.getAuthUrl(result.integration.id);
+      res.json({
+        ...result,
+        authUrl,
       });
     } else {
       // Return verification details for manual tracking
       res.json(result);
     }
   } catch (error) {
-    logger.error('Error creating website analytics integration:', error);
-    
+    logger.error("Error creating website analytics integration:", error);
+
     if (error instanceof z.ZodError) {
-      res.status(400).json({ 
-        error: 'Validation failed',
-        details: error.errors
+      res.status(400).json({
+        error: "Validation failed",
+        details: error.errors,
       });
       return;
     }
 
-    res.status(500).json({ 
-      error: 'Failed to create integration',
-      message: (error as Error).message
+    res.status(500).json({
+      error: "Failed to create integration",
+      message: (error as Error).message,
     });
   }
 };
@@ -80,24 +102,59 @@ export const createIntegration = async (req: Request, res: Response): Promise<vo
 /**
  * Handle Google OAuth callback
  */
-export const handleOAuthCallback = async (req: Request, res: Response): Promise<void> => {
+export const handleOAuthCallback = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const validatedData = OAuthCallbackSchema.parse(req.query);
     const integrationId = validatedData.state;
 
     if (!integrationId) {
-      res.status(400).json({ error: 'Missing integration ID in callback' });
+      res.status(400).json({ error: "Missing integration ID in callback" });
       return;
     }
 
-    await websiteAnalyticsService.completeOAuthIntegration(integrationId, validatedData.code);
+    // Determine integration type based on stored integration
+    const prisma = await (
+      await import("../config/dbCache")
+    ).dbCache.getPrimaryClient();
+    const integration = await prisma.analyticsIntegration.findUnique({
+      where: { id: integrationId },
+    });
+
+    if (!integration) {
+      res.status(404).json({ error: "Integration not found" });
+      return;
+    }
+
+    if (integration.integrationName === "google_search_console") {
+      await websiteAnalyticsService.completeOAuthIntegration(
+        integrationId,
+        validatedData.code
+      );
+    } else if (integration.integrationName === "google_analytics_4") {
+      // Exchange code for GA4 tokens and persist on the integration
+      const tokens = await googleAnalyticsService.getTokensFromCode(
+        validatedData.code
+      );
+      await prisma.analyticsIntegration.update({
+        where: { id: integrationId },
+        data: {
+          accessToken: tokens.access_token,
+          refreshToken: tokens.refresh_token,
+          status: "active",
+          verificationMethod: "oauth",
+        },
+      });
+    }
 
     // Redirect to frontend success page
     const redirectUrl = `${process.env.FRONTEND_URL}/analytics/integration/success?id=${integrationId}`;
     res.redirect(redirectUrl);
   } catch (error) {
-    logger.error('Error handling OAuth callback:', error);
-    
+    logger.error("Error handling OAuth callback:", error);
+
     // Redirect to frontend error page
     const errorUrl = `${process.env.FRONTEND_URL}/analytics/integration/error?message=${encodeURIComponent((error as Error).message)}`;
     res.redirect(errorUrl);
@@ -107,22 +164,26 @@ export const handleOAuthCallback = async (req: Request, res: Response): Promise<
 /**
  * Verify manual integration
  */
-export const verifyIntegration = async (req: Request, res: Response): Promise<void> => {
+export const verifyIntegration = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { integrationId } = req.params;
 
     if (!integrationId) {
-      res.status(400).json({ error: 'Integration ID is required' });
+      res.status(400).json({ error: "Integration ID is required" });
       return;
     }
 
-    const result = await websiteAnalyticsService.verifyManualIntegration(integrationId);
+    const result =
+      await websiteAnalyticsService.verifyManualIntegration(integrationId);
     res.json(result);
   } catch (error) {
-    logger.error('Error verifying integration:', error);
-    res.status(500).json({ 
-      error: 'Failed to verify integration',
-      message: (error as Error).message
+    logger.error("Error verifying integration:", error);
+    res.status(500).json({
+      error: "Failed to verify integration",
+      message: (error as Error).message,
     });
   }
 };
@@ -130,21 +191,25 @@ export const verifyIntegration = async (req: Request, res: Response): Promise<vo
 /**
  * Get company integrations
  */
-export const getIntegrations = async (req: Request, res: Response): Promise<void> => {
+export const getIntegrations = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const companyId = req.user?.companyId;
     if (!companyId) {
-      res.status(401).json({ error: 'Company not found' });
+      res.status(401).json({ error: "Company not found" });
       return;
     }
 
-    const integrations = await websiteAnalyticsService.getCompanyIntegrations(companyId);
+    const integrations =
+      await websiteAnalyticsService.getCompanyIntegrations(companyId);
     res.json({ integrations });
   } catch (error) {
-    logger.error('Error getting integrations:', error);
-    res.status(500).json({ 
-      error: 'Failed to get integrations',
-      message: (error as Error).message
+    logger.error("Error getting integrations:", error);
+    res.status(500).json({
+      error: "Failed to get integrations",
+      message: (error as Error).message,
     });
   }
 };
@@ -152,11 +217,14 @@ export const getIntegrations = async (req: Request, res: Response): Promise<void
 /**
  * Get website analytics metrics
  */
-export const getMetrics = async (req: Request, res: Response): Promise<void> => {
+export const getMetrics = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const companyId = req.user?.companyId;
     if (!companyId) {
-      res.status(401).json({ error: 'Company not found' });
+      res.status(401).json({ error: "Company not found" });
       return;
     }
 
@@ -174,42 +242,133 @@ export const getMetrics = async (req: Request, res: Response): Promise<void> => 
 
     res.json({ metrics });
   } catch (error) {
-    logger.error('Error getting website analytics metrics:', error);
-    
+    logger.error("Error getting website analytics metrics:", error);
+
     if (error instanceof z.ZodError) {
-      res.status(400).json({ 
-        error: 'Validation failed',
-        details: error.errors
+      res.status(400).json({
+        error: "Validation failed",
+        details: error.errors,
       });
       return;
     }
 
-    res.status(500).json({ 
-      error: 'Failed to get metrics',
-      message: (error as Error).message
+    res.status(500).json({
+      error: "Failed to get metrics",
+      message: (error as Error).message,
     });
+  }
+};
+
+/**
+ * Get GA4 (visitor) analytics metrics
+ * Requires: either a GA4 OAuth integration for the company or a provided propertyId
+ */
+export const getGa4Metrics = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const companyId = req.user?.companyId;
+    if (!companyId) {
+      res.status(401).json({ error: "Company not found" });
+      return;
+    }
+
+    const startDateParam = req.query.startDate as string;
+    const endDateParam = req.query.endDate as string;
+    const propertyIdParam = req.query.propertyId as string | undefined;
+
+    if (!startDateParam || !endDateParam) {
+      res
+        .status(400)
+        .json({ error: "startDate and endDate are required (YYYY-MM-DD)" });
+      return;
+    }
+
+    const prisma = await (
+      await import("../config/dbCache")
+    ).dbCache.getPrimaryClient();
+    const ga4Integration = await prisma.analyticsIntegration.findFirst({
+      where: {
+        companyId,
+        integrationName: "google_analytics_4",
+        status: "active",
+      },
+    });
+
+    if (!ga4Integration && !propertyIdParam) {
+      res
+        .status(404)
+        .json({
+          error:
+            "No active GA4 integration found. Connect GA4 or provide propertyId.",
+        });
+      return;
+    }
+
+    if (!ga4Integration?.accessToken && !propertyIdParam) {
+      res
+        .status(400)
+        .json({
+          error:
+            "GA4 OAuth not configured. Manual Measurement ID cannot fetch API metrics.",
+        });
+      return;
+    }
+
+    const propertyId = propertyIdParam || ga4Integration?.trackingCode; // optional: store propertyId in trackingCode when using OAuth
+    if (!propertyId) {
+      res
+        .status(400)
+        .json({
+          error:
+            "GA4 propertyId is required. Store it during integration or pass ?propertyId=",
+        });
+      return;
+    }
+
+    const tokens = { access_token: ga4Integration?.accessToken || "" };
+    const metrics = await googleAnalyticsService.getSummaryMetrics(
+      tokens.access_token,
+      propertyId,
+      startDateParam,
+      endDateParam
+    );
+
+    res.json({ metrics });
+  } catch (error) {
+    logger.error("Error getting GA4 metrics:", error);
+    res
+      .status(500)
+      .json({
+        error: "Failed to get GA4 metrics",
+        message: (error as Error).message,
+      });
   }
 };
 
 /**
  * Delete an integration
  */
-export const deleteIntegration = async (req: Request, res: Response): Promise<void> => {
+export const deleteIntegration = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { integrationId } = req.params;
 
     if (!integrationId) {
-      res.status(400).json({ error: 'Integration ID is required' });
+      res.status(400).json({ error: "Integration ID is required" });
       return;
     }
 
     await websiteAnalyticsService.deleteIntegration(integrationId);
     res.json({ success: true });
   } catch (error) {
-    logger.error('Error deleting integration:', error);
-    res.status(500).json({ 
-      error: 'Failed to delete integration',
-      message: (error as Error).message
+    logger.error("Error deleting integration:", error);
+    res.status(500).json({
+      error: "Failed to delete integration",
+      message: (error as Error).message,
     });
   }
 };
@@ -217,26 +376,29 @@ export const deleteIntegration = async (req: Request, res: Response): Promise<vo
 /**
  * Get Google Search Console properties for authenticated user
  */
-export const getGSCProperties = async (req: Request, res: Response): Promise<void> => {
+export const getGSCProperties = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { integrationId } = req.params;
 
     if (!integrationId) {
-      res.status(400).json({ error: 'Integration ID is required' });
+      res.status(400).json({ error: "Integration ID is required" });
       return;
     }
 
     // This would be called after OAuth to get available properties
     // For now, we'll return a placeholder - this would need the user's access token
-    res.json({ 
+    res.json({
       properties: [],
-      message: 'Properties will be available after OAuth completion'
+      message: "Properties will be available after OAuth completion",
     });
   } catch (error) {
-    logger.error('Error getting GSC properties:', error);
-    res.status(500).json({ 
-      error: 'Failed to get properties',
-      message: (error as Error).message
+    logger.error("Error getting GSC properties:", error);
+    res.status(500).json({
+      error: "Failed to get properties",
+      message: (error as Error).message,
     });
   }
 };
@@ -244,22 +406,25 @@ export const getGSCProperties = async (req: Request, res: Response): Promise<voi
 /**
  * Trigger manual data sync for Google Search Console integration
  */
-export const syncIntegrationData = async (req: Request, res: Response): Promise<void> => {
+export const syncIntegrationData = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { integrationId } = req.params;
 
     if (!integrationId) {
-      res.status(400).json({ error: 'Integration ID is required' });
+      res.status(400).json({ error: "Integration ID is required" });
       return;
     }
 
     await googleSearchConsoleService.syncIntegrationData(integrationId);
-    res.json({ success: true, message: 'Data sync initiated' });
+    res.json({ success: true, message: "Data sync initiated" });
   } catch (error) {
-    logger.error('Error syncing integration data:', error);
-    res.status(500).json({ 
-      error: 'Failed to sync data',
-      message: (error as Error).message
+    logger.error("Error syncing integration data:", error);
+    res.status(500).json({
+      error: "Failed to sync data",
+      message: (error as Error).message,
     });
   }
 };
@@ -267,12 +432,15 @@ export const syncIntegrationData = async (req: Request, res: Response): Promise<
 /**
  * Handle manual tracking events (for websites with Serplexity tracking code)
  */
-export const trackEvent = async (req: Request, res: Response): Promise<void> => {
+export const trackEvent = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { trackingId, event, data } = req.body;
 
     if (!trackingId || !event) {
-      res.status(400).json({ error: 'Tracking ID and event are required' });
+      res.status(400).json({ error: "Tracking ID and event are required" });
       return;
     }
 
@@ -280,14 +448,16 @@ export const trackEvent = async (req: Request, res: Response): Promise<void> => 
     // This would process events from the JavaScript tracking code
     // and store them in the AnalyticsData table
 
-    logger.info(`Received tracking event: ${event} for tracking ID: ${trackingId}`);
-    
+    logger.info(
+      `Received tracking event: ${event} for tracking ID: ${trackingId}`
+    );
+
     res.json({ success: true });
   } catch (error) {
-    logger.error('Error tracking event:', error);
-    res.status(500).json({ 
-      error: 'Failed to track event',
-      message: (error as Error).message
+    logger.error("Error tracking event:", error);
+    res.status(500).json({
+      error: "Failed to track event",
+      message: (error as Error).message,
     });
   }
 };
@@ -295,26 +465,30 @@ export const trackEvent = async (req: Request, res: Response): Promise<void> => 
 /**
  * Get integration health status
  */
-export const getIntegrationHealth = async (req: Request, res: Response): Promise<void> => {
+export const getIntegrationHealth = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { integrationId } = req.params;
 
     if (!integrationId) {
-      res.status(400).json({ error: 'Integration ID is required' });
+      res.status(400).json({ error: "Integration ID is required" });
       return;
     }
 
     const companyId = req.user?.companyId;
     if (!companyId) {
-      res.status(401).json({ error: 'Company not found' });
+      res.status(401).json({ error: "Company not found" });
       return;
     }
 
-    const integrations = await websiteAnalyticsService.getCompanyIntegrations(companyId);
-    const integration = integrations.find(i => i.id === integrationId);
+    const integrations =
+      await websiteAnalyticsService.getCompanyIntegrations(companyId);
+    const integration = integrations.find((i) => i.id === integrationId);
 
     if (!integration) {
-      res.status(404).json({ error: 'Integration not found' });
+      res.status(404).json({ error: "Integration not found" });
       return;
     }
 
@@ -322,13 +496,13 @@ export const getIntegrationHealth = async (req: Request, res: Response): Promise
       healthStatus: integration.healthStatus,
       healthMessage: integration.healthMessage,
       status: integration.status,
-      lastSyncAt: integration.lastSyncAt
+      lastSyncAt: integration.lastSyncAt,
     });
   } catch (error) {
-    logger.error('Error getting integration health:', error);
-    res.status(500).json({ 
-      error: 'Failed to get integration health',
-      message: (error as Error).message
+    logger.error("Error getting integration health:", error);
+    res.status(500).json({
+      error: "Failed to get integration health",
+      message: (error as Error).message,
     });
   }
 };

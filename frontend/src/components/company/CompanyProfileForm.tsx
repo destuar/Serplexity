@@ -457,7 +457,7 @@ const CompanyProfileForm: React.FC<CompanyProfileFormProps> = ({
             >
               {submitting && <InlineSpinner size={16} />}
               {submitting
-                ? "Saving..."
+                ? ""
                 : mode === "create"
                   ? "Create Company"
                   : "Save Changes"}

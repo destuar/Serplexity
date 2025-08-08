@@ -56,7 +56,7 @@ from .agents.website_agent import WebsiteEnrichmentAgent
 # Import base classes and config
 from .base_agent import BaseAgent
 from .config.models import LLM_CONFIG, get_all_models
-from .config.logfire_config import setup_logfire, is_logfire_available
+from .config.telemetry import track_agent_execution
 
 # Set up logging
 logging.basicConfig(
@@ -104,11 +104,11 @@ class ProviderStatusResponse(BaseModel):
 
 class AgentRegistry:
     """Registry for managing all available agents"""
-    
+
     def __init__(self):
         self.agents = {}
         self._initialize_agents()
-    
+
     def _initialize_agents(self):
         """Initialize all available agents"""
         try:
@@ -128,18 +128,18 @@ class AgentRegistry:
             logger.error(f"Failed to initialize agents: {e}")
             logger.error(traceback.format_exc())
             raise
-    
+
     def get_agent(self, agent_type: str) -> BaseAgent:
         """Get agent by type"""
         agent = self.agents.get(agent_type)
         if not agent:
             raise ValueError(f"Unknown agent type: {agent_type}")
         return agent
-    
+
     def list_agents(self) -> List[str]:
         """List all available agent types"""
         return list(self.agents.keys())
-    
+
     def health_check(self) -> Dict[str, str]:
         """Check health of all agents"""
         status = {}
@@ -162,21 +162,15 @@ async def lifespan(app: FastAPI):
     """Application lifespan handler"""
     # Startup
     logger.info("Starting PydanticAI Service...")
-    
-    # Initialize Logfire if available
-    if is_logfire_available():
-        try:
-            setup_logfire()
-            logger.info("Logfire initialized for PydanticAI Service")
-        except Exception as e:
-            logger.warning(f"Logfire initialization failed: {e}")
-    
+
+    # No vendor-specific telemetry initialization
+
     # Initialize agent registry
     app.state.agent_registry = AgentRegistry()
     logger.info("PydanticAI Service started successfully")
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down PydanticAI Service...")
 
@@ -211,16 +205,16 @@ async def health_check():
                 provider_status[model.id] = "available"
             except Exception:
                 provider_status[model.id] = "unknown"
-        
+
         # Check agents
         agent_status = app.state.agent_registry.health_check()
-        
+
         # Determine overall status
         healthy_providers = sum(1 for status in provider_status.values() if status == "available")
         healthy_agents = sum(1 for status in agent_status.values() if status == "healthy")
-        
+
         overall_status = "healthy" if healthy_providers > 0 and healthy_agents > 0 else "degraded"
-        
+
         return HealthCheckResponse(
             status=overall_status,
             providers=provider_status,
@@ -237,7 +231,7 @@ async def get_provider_status():
         models = get_all_models()
         provider_details = {}
         healthy_count = 0
-        
+
         for model in models:
             provider_details[model.id] = {
                 'status': 'available',
@@ -246,11 +240,11 @@ async def get_provider_status():
                 'last_check': datetime.now().isoformat()
             }
             healthy_count += 1
-        
+
         return ProviderStatusResponse(
             providers=provider_details,
             healthy_count=healthy_count,
-            total_count=len(providers)
+            total_count=len(provider_details)
         )
     except Exception as e:
         logger.error(f"Provider status check failed: {e}")
@@ -279,22 +273,22 @@ async def execute_agent(
     """Execute a specific agent"""
     request_id = str(uuid.uuid4())
     start_time = time.time()
-    
+
     try:
         logger.info(f"Executing agent {agent_type} with request {request_id}")
-        
+
         # Get agent
         agent = app.state.agent_registry.get_agent(agent_type)
-        
+
         # Execute agent
         result = await agent.execute_async(
             input_data=request.input_data,
             model_id=request.model_id,
             options=request.options
         )
-        
+
         execution_time = time.time() - start_time
-        
+
         # Log success metrics in background
         background_tasks.add_task(
             log_execution_metrics,
@@ -303,7 +297,7 @@ async def execute_agent(
             execution_time=execution_time,
             success=True
         )
-        
+
         return AgentExecutionResponse(
             success=True,
             data=result.model_dump() if hasattr(result, 'model_dump') else result,
@@ -316,14 +310,14 @@ async def execute_agent(
             agent_type=agent_type,
             request_id=request_id
         )
-        
+
     except Exception as e:
         execution_time = time.time() - start_time
         error_msg = str(e)
-        
+
         logger.error(f"Agent execution failed for {agent_type}: {error_msg}")
         logger.error(traceback.format_exc())
-        
+
         # Log error metrics in background
         background_tasks.add_task(
             log_execution_metrics,
@@ -333,7 +327,7 @@ async def execute_agent(
             success=False,
             error=error_msg
         )
-        
+
         return AgentExecutionResponse(
             success=False,
             error=error_msg,
@@ -351,7 +345,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     """Global exception handler"""
     logger.error(f"Unhandled exception: {exc}")
     logger.error(traceback.format_exc())
-    
+
     return JSONResponse(
         status_code=500,
         content={
@@ -372,25 +366,12 @@ async def log_execution_metrics(
 ):
     """Log execution metrics (background task)"""
     try:
-        if is_logfire_available():
-            # Log to Logfire if available
-            from .config.logfire_config import track_agent_execution
-            await track_agent_execution(
-                agent_type=agent_type,
-                execution_time=execution_time,
-                success=success,
-                metadata={
-                    "request_id": request_id,
-                    "error": error
-                }
-            )
-        
-        # Always log to standard logger
+        # Log to standard logger
         if success:
             logger.info(f"Agent {agent_type} executed successfully in {execution_time:.3f}s (request: {request_id})")
         else:
             logger.error(f"Agent {agent_type} failed after {execution_time:.3f}s: {error} (request: {request_id})")
-            
+
     except Exception as e:
         logger.error(f"Failed to log metrics: {e}")
 
@@ -402,9 +383,9 @@ if __name__ == "__main__":
     port = int(os.getenv("PYDANTIC_PORT", "8000"))
     log_level = os.getenv("PYDANTIC_LOG_LEVEL", "info")
     reload = os.getenv("PYDANTIC_RELOAD", "false").lower() == "true"
-    
+
     logger.info(f"Starting PydanticAI Service on {host}:{port}")
-    
+
     # Run the server
     uvicorn.run(
         "main:app",

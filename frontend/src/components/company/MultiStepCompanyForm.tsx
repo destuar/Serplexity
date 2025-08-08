@@ -368,7 +368,7 @@ const MultiStepCompanyForm: React.FC<MultiStepCompanyFormProps> = ({
           className="w-full flex h-11 items-center justify-center rounded-lg bg-black px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting && <InlineSpinner size={16} />}
-          {submitting ? 'Creating Company...' : 'Create Company'}
+          {submitting ? '' : 'Create Company'}
         </button>
 
         {/* Cancel Button */}

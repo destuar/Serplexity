@@ -26,7 +26,12 @@
     "ops:health": "ts-node src/scripts/pydantic-health-check.ts",
     "ops:monitor": "ts-node src/scripts/monitor-redis-queues.ts",
     "ops:repair": "ts-node src/scripts/repair-failed-reports.ts",
-    "queue-report": "ts-node src/scripts/run-with-secrets.ts 'ts-node --transpile-only src/scripts/queue-today-report.ts'"
+    "queue-report": "ts-node src/scripts/run-with-secrets.ts 'ts-node --transpile-only src/scripts/queue-today-report.ts'",
+    "python:check": "cd src/pydantic_agents && python -m mypy . && python -m ruff check . && python -m bandit -r .",
+    "python:lint": "cd src/pydantic_agents && python -m ruff check . --fix",
+    "python:format": "cd src/pydantic_agents && python -m ruff format .",
+    "lint:all": "npm run lint && npm run python:check",
+    "check:power-of-ten": "npm run typecheck && npm run lint:all && npm run test:quick"
   },
   "keywords": [],
   "author": "",
@@ -57,7 +62,6 @@
     "helmet": "^8.1.0",
     "ioredis": "^5.6.1",
     "jsonwebtoken": "^9.0.2",
-    "logfire": "^0.8.0",
     "morgan": "^1.10.0",
     "multer": "^2.0.1",
     "multer-s3": "^3.0.1",

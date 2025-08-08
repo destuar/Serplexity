@@ -5,7 +5,7 @@
  *
  * @dependencies
  * - react: For component rendering.
- * - LiquidGlassSpinner: For liquid glass design system spinner.
+ * - LiquidGlassSpinner: For standard gray spinner component.
  *
  * @exports
  * - BlankLoadingState: The main loading state component.

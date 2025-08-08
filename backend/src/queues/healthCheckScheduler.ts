@@ -29,7 +29,13 @@ interface HealthCheckResult {
   status: 'healthy' | 'recovering' | 'unhealthy';
   checks: {
     database: boolean;
-    recovery?: any;
+    recovery?: {
+      status: string;
+      attemptCount: number;
+      lastAttempt: number;
+      cooldownRemaining: number;
+      attemptsRemaining: number;
+    };
   };
   duration: number;
 }

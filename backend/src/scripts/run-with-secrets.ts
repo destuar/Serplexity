@@ -8,7 +8,7 @@ async function main() {
 
   if (providerType !== 'aws') {
     console.log('Not using AWS secrets, skipping secret retrieval.');
-    executeCommand(process.env.DATABASE_URL);
+    executeCommand(process.env['DATABASE_URL']);
     return;
   }
 

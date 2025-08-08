@@ -1,7 +1,7 @@
 /**
  * @file metricsService.ts
  * @description This file is responsible for computing and persisting various performance metrics for reports,
- * both overall and per AI model. It calculates metrics like Share of Voice, Average Inclusion Rate, Average Position,
+ * both overall and per AI model. It calculates metrics like Share of Voice, Average Position,
  * and Top Rankings, and stores them in the `ReportMetric` table. It also integrates with `dashboardService` to save
  * historical data points. This is a crucial component for providing comprehensive analytics and insights to users.
  *
@@ -22,7 +22,6 @@ import {
   calculateCitationRankings,
   saveSentimentOverTimePoint,
   saveShareOfVoiceHistoryPoint,
-  saveInclusionRateHistoryPoint,
 } from "./dashboardService";
 
 // Type definitions for metrics data structures
@@ -172,8 +171,6 @@ async function getPreviousReportMetric(
 export interface DashboardMetrics {
   shareOfVoice: number;
   shareOfVoiceChange: number | null;
-  averageInclusionRate: number;
-  averageInclusionChange: number | null;
   averagePosition: number;
   averagePositionChange: number | null;
   sentimentScore: SentimentRating | null;
@@ -238,44 +235,7 @@ async function calculateBrandShareOfVoice(
 }
 
 // Average Inclusion Rate: how often company is mentioned across all responses
-async function calculateAverageInclusionRate(
-  runId: string,
-  companyId: string,
-  filters?: { aiModel?: string },
-): Promise<{ rate: number; change: number | null }> {
-  const prismaReadReplica = await getReadDbClient();
-  const responses = await prismaReadReplica.response.findMany({
-    where: {
-      runId,
-      ...(filters?.aiModel && filters.aiModel !== "all"
-        ? { model: filters.aiModel }
-        : {}),
-    },
-    include: {
-      mentions: {
-        where: { companyId },
-      },
-    },
-  });
-
-  const total = responses.length;
-  const responsesWithMentions = responses.filter(
-    (r) => r.mentions.length > 0,
-  ).length;
-  const rate = total === 0 ? 0 : (responsesWithMentions / total) * 100;
-
-  const aiModel = filters?.aiModel ?? "all";
-  const previousMetric = await getPreviousReportMetric(
-    companyId,
-    runId,
-    aiModel,
-  );
-  const change = previousMetric
-    ? rate - previousMetric.averageInclusionRate
-    : null;
-
-  return { rate, change };
-}
+// Removed: Average Inclusion Rate calculation (AIR not used)
 
 // Average Position: average ranking when mentioned
 async function calculateAveragePosition(
@@ -407,12 +367,10 @@ export async function computeAndPersistMetrics(
 
     const [
       { shareOfVoice: allSoV, change: allSoVChange },
-      { rate: allInclusionRate, change: allInclusionChange },
       { position: allAvgPos, change: allAvgPosChange },
       { count: allTopRankings, change: allRankingsChange },
     ] = await Promise.all([
       calculateBrandShareOfVoice(reportId, companyId, { aiModel: "all" }),
-      calculateAverageInclusionRate(reportId, companyId, { aiModel: "all" }),
       calculateAveragePosition(reportId, companyId, { aiModel: "all" }),
       calculateTopRankings(reportId, companyId, { aiModel: "all" }),
     ]);
@@ -516,8 +474,6 @@ export async function computeAndPersistMetrics(
       update: {
         shareOfVoice: allSoV,
         shareOfVoiceChange: allSoVChange,
-        averageInclusionRate: allInclusionRate,
-        averageInclusionChange: allInclusionChange,
         averagePosition: allAvgPos,
         averagePositionChange: allAvgPosChange,
         topRankingsCount: allTopRankings,
@@ -534,8 +490,6 @@ export async function computeAndPersistMetrics(
         aiModel: "all",
         shareOfVoice: allSoV,
         shareOfVoiceChange: allSoVChange,
-        averageInclusionRate: allInclusionRate,
-        averageInclusionChange: allInclusionChange,
         averagePosition: allAvgPos,
         averagePositionChange: allAvgPosChange,
         topRankingsCount: allTopRankings,
@@ -573,15 +527,7 @@ export async function computeAndPersistMetrics(
       timezone,
     );
 
-    // Save inclusion rate history point for overall
-    await saveInclusionRateHistoryPoint(
-      companyId,
-      new Date(),
-      "all",
-      allInclusionRate,
-      reportId,
-      timezone,
-    );
+    // Removed: Inclusion rate history point (AIR not used)
 
     /******************************
      * Per-model metrics
@@ -591,12 +537,10 @@ export async function computeAndPersistMetrics(
 
       const [
         { shareOfVoice, change: sovChange },
-        { rate, change: inclusionChange },
         { position, change: avgPosChange },
         { count, change: rankingsChange },
       ] = await Promise.all([
         calculateBrandShareOfVoice(reportId, companyId, { aiModel: model }),
-        calculateAverageInclusionRate(reportId, companyId, { aiModel: model }),
         calculateAveragePosition(reportId, companyId, { aiModel: model }),
         calculateTopRankings(reportId, companyId, { aiModel: model }),
       ]);
@@ -690,8 +634,6 @@ export async function computeAndPersistMetrics(
         update: {
           shareOfVoice,
           shareOfVoiceChange: sovChange,
-          averageInclusionRate: rate,
-          averageInclusionChange: inclusionChange,
           averagePosition: position,
           averagePositionChange: avgPosChange,
           topRankingsCount: count,
@@ -708,8 +650,6 @@ export async function computeAndPersistMetrics(
           aiModel: model,
           shareOfVoice,
           shareOfVoiceChange: sovChange,
-          averageInclusionRate: rate,
-          averageInclusionChange: inclusionChange,
           averagePosition: position,
           averagePositionChange: avgPosChange,
           topRankingsCount: count,
@@ -746,15 +686,7 @@ export async function computeAndPersistMetrics(
         timezone,
       );
 
-      // Save inclusion rate history point for this model
-      await saveInclusionRateHistoryPoint(
-        companyId,
-        new Date(),
-        model,
-        rate,
-        reportId,
-        timezone,
-      );
+      // Removed: Inclusion rate history point for model (AIR not used)
     }
   } catch (error) {
     console.error(

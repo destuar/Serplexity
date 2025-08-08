@@ -11,7 +11,7 @@ enum LogLevel {
 }
 
 const getCurrentLogLevel = (): LogLevel => {
-  const level = process.env.LOG_LEVEL?.toUpperCase();
+  const level = process.env['LOG_LEVEL']?.toUpperCase();
   switch (level) {
     case "DEBUG":
       return LogLevel.DEBUG;

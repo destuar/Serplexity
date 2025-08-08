@@ -18,6 +18,13 @@ npm run generate               # Generate Prisma client after schema changes
 npm run prisma:dev             # Prisma commands with AWS Secrets Manager integration
 npm run migrate:dev            # Run Prisma database migrations (fetches AWS secrets)
 npm run studio:dev             # Open Prisma Studio (fetches AWS secrets)
+
+# Python-specific commands
+npm run python:check           # mypy + ruff + bandit checks for Python code
+npm run python:lint            # Ruff linting with auto-fix
+npm run python:format          # Ruff code formatting
+npm run lint:all               # Both TypeScript and Python linting
+npm run check:power-of-ten     # Full Power of Ten compliance check
 ```
 
 ### Frontend Development
@@ -148,9 +155,10 @@ npm test  # Runs both backend and frontend test suites
 
 ### Code Quality Checks
 ```bash
-# Backend
+# Backend (TypeScript + Python)
 cd backend
-npm run lint && npm run typecheck
+npm run lint:all && npm run typecheck     # Comprehensive linting for both TS and Python
+npm run check:power-of-ten                # Full Power of Ten compliance check
 
 # Frontend
 cd frontend
@@ -366,6 +374,61 @@ cd backend && npx jest src/__tests__/agents/ --testTimeout=60000  # Agent tests 
 cd backend && npx jest src/__tests__/integration/ --testTimeout=120000  # Integration tests only
 ```
 
+# Power of Ten Development Principles
+
+This project follows the modernized "Power of Ten" principles for TypeScript/Python/React development:
+
+## Core Safety Rules
+1. **Keep Control-Flow Trivial**: Forbid eval, Function(), dynamic imports in hot paths, user-generated SQL
+2. **Predictable Loop Bounds**: Express bounds as constants (MAX_BATCH_SIZE), replace while(true) with for...of
+3. **No Dynamic Allocation After Start-up**: Size connection pools at boot, cap heap via Docker --memory
+4. **Small Units (~60 LOC)**: Split monoliths into composables, enforce with ESLint max-lines-per-function
+5. **≥2 Assertions/Function**: Use Zod runtime guards + compile-time types, pydantic validators
+6. **Narrowest Data Scope**: Use const/let inside blocks, never store mutable state in modules
+7. **Handle Returns & Validate Inputs**: Await every promise, inspect HTTP status, type results as Optional[T]
+8. **Limit Meta-Programming**: Avoid Babel transforms, AST templates, Python metaclass acrobatics
+9. **No "Pointer-Equivalent" Obscurity**: No direct DOM mutation, restrict reflection (any casts, getattr)
+10. **Zero-Warning Policy**: tsc --strict, ESLint, mypy --strict, ruff check --select ALL, bandit
+
+## Quality Gates
+- **TypeScript Backend**: `npm run typecheck && npm run lint`
+- **Python Backend**: `npm run python:check` (includes mypy --strict, ruff check --select ALL, bandit -r)
+- **React Frontend**: `npm run build && npm run lint`
+- **Full Compliance Check**: `npm run check:power-of-ten`
+- **Pipeline**: GitHub Actions with secrets-scanning & Dependabot
+
+## Development Best Practices from Cursor Rules
+
+### Code Quality Principles
+- Write clean, simple, readable code with clear reasoning
+- Implement features in the simplest possible way possible
+- Keep files small and focused (<200 lines)
+- Test after every meaningful change  
+- Use clear, consistent naming conventions
+- ALWAYS ask follow-up questions to clarify requirements before coding
+- Write modular, well-documented code with explanatory comments
+- One abstraction layer per file - controllers call services, services call utils/db
+
+### Error Handling Best Practices
+- DO NOT JUMP TO CONCLUSIONS when debugging - consider multiple possible causes
+- Make only minimal necessary changes when fixing issues
+- Use structured logging with appropriate log levels (debug/info/warn/error)
+- Implement proper error boundaries in React components
+- Prefer async/await + try/catch patterns over promises
+
+### Project-Specific Conventions
+- All prompts MUST live in `backend/src/prompts/` for auditability
+- Use explicit TypeScript types everywhere - `any` is banned
+- Include LOTS of explanatory comments - document the "why" not just the "what"
+- Follow feature-based directory structure in both backend and frontend
+- All new code must include unit tests and pass lint checks
+
+### File Organization Rules
+- Backend services: Pure, reusable business logic (unit test these directly)
+- Controllers: Thin request/response orchestration (keep business-logic free)
+- Queues: Import registers worker (side-effect) - never import from here in regular code
+- Frontend: Feature-based structure for components/pages/contexts/hooks
+
 # important-instruction-reminders
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
@@ -463,8 +526,6 @@ The system uses 9 specialized PydanticAI agents in `backend/src/pydantic_agents/
 
 ### Project Business Domain
 This is **Serplexity**, a Generative Engine Optimization (GEO) platform that helps brands measure and grow visibility inside AI search engines. Key business concepts:
-- **PAWC**: Position-Adjusted Word Share metric
-- **AIR**: Answer Inclusion Rate metric  
 - **Brand visibility** in AI-generated search results
 - **Multi-tenant SaaS** with company-level data isolation
 - **Stripe billing** with freemium model

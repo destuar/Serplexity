@@ -11,52 +11,53 @@
  * @exports
  * - WelcomePrompt: The main welcome prompt component.
  */
-import React from 'react';
-import { Sparkles } from 'lucide-react';
-
+import { Sparkles } from "lucide-react";
+import React from "react";
 
 interface WelcomePromptProps {
   onGenerateReport: () => void;
   isGenerating: boolean;
+  // Accept both legacy underscored and current prop names
   _generationStatus?: string | null;
+  generationStatus?: string | null;
   progress?: number;
   isButtonDisabled?: boolean;
   _generationState?: string;
+  generationState?: string;
 }
 
 const WelcomePrompt: React.FC<WelcomePromptProps> = ({
   onGenerateReport,
   isGenerating,
-  _generationStatus,
+  _generationStatus, // kept for compatibility
+  generationStatus, // accepted but not currently used
   progress = 0,
-  isButtonDisabled = false
+  isButtonDisabled = false,
+  _generationState, // kept for compatibility
+  generationState, // accepted but not currently used
 }) => {
   return (
     <div className="flex-1 flex items-center justify-center p-6">
       <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md p-6 max-w-md w-full text-center">
         <div className="w-12 h-12 mx-auto mb-4">
-          <img
-            src="/Serplexity.svg"
-            alt="Serplexity"
-            className="w-12 h-12"
-          />
+          <img src="/Serplexity.svg" alt="Serplexity" className="w-12 h-12" />
         </div>
-        
+
         <h2 className="text-lg font-semibold text-gray-900 mb-2">
           Ready to get started?
         </h2>
-        
+
         <p className="text-sm text-gray-500 mb-6">
           Generate your first competitive intelligence report
         </p>
 
-        <button 
+        <button
           onClick={onGenerateReport}
           disabled={isButtonDisabled}
           className="w-full relative overflow-hidden flex items-center justify-center gap-3 px-4 py-3 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
         >
           {isGenerating && (
-            <div 
+            <div
               className="absolute inset-0 bg-white/20 transition-all duration-700 ease-out"
               style={{ width: `${Math.max(progress, 2)}%` }}
             />
@@ -77,4 +78,4 @@ const WelcomePrompt: React.FC<WelcomePromptProps> = ({
   );
 };
 
-export default WelcomePrompt; 
+export default WelcomePrompt;

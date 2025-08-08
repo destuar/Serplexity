@@ -9,8 +9,8 @@
  * @exports
  * - Various functions for report management operations.
  */
-import apiClient from '../lib/apiClient';
-import { DashboardData, DashboardFilters } from '../types/dashboard';
+import apiClient from "../lib/apiClient";
+import { DashboardData, DashboardFilters } from "../types/dashboard";
 
 interface TriggerReportResponse {
   message: string;
@@ -24,18 +24,24 @@ interface TriggerReportResponse {
  * @param force Optional flag to force generation even if one exists today.
  * @returns An object containing the message and the runId of the report job.
  */
-export const triggerReportGeneration = async (companyId: string, force?: boolean): Promise<TriggerReportResponse> => {
-  const params = force ? { force: 'true' } : {};
-  const { data } = await apiClient.post(`/reports/companies/${companyId}`, {}, { params });
+export const triggerReportGeneration = async (
+  companyId: string,
+  force?: boolean
+): Promise<TriggerReportResponse> => {
+  const params = force ? { force: "true" } : {};
+  const { data } = await apiClient.post(
+    `/reports/companies/${companyId}`,
+    {},
+    { params }
+  );
   return data;
 };
 
-
 interface ReportStatus {
-    status: string;
-    stepStatus: string;
-    createdAt: string;
-    updatedAt: string;
+  status: string;
+  stepStatus: string;
+  createdAt: string;
+  updatedAt: string;
 }
 /**
  * Fetches the status of a specific report run.
@@ -53,8 +59,13 @@ export const getReportStatus = async (runId: string): Promise<ReportStatus> => {
  * @param filters Optional filters for the report data.
  * @returns The latest dashboard data.
  */
-export const getLatestReport = async (companyId: string, filters?: Partial<DashboardFilters>): Promise<DashboardData> => {
-  const { data } = await apiClient.get(`/reports/latest/${companyId}`, { params: filters });
+export const getLatestReport = async (
+  companyId: string,
+  filters?: Partial<DashboardFilters>
+): Promise<DashboardData> => {
+  const { data } = await apiClient.get(`/reports/latest/${companyId}`, {
+    params: filters,
+  });
   return data;
 };
 
@@ -64,7 +75,7 @@ export interface CompetitorRanking {
   website?: string;
   shareOfVoice: number;
   change: number;
-  changeType: 'increase' | 'decrease' | 'stable';
+  changeType: "increase" | "decrease" | "stable";
   isUserCompany: boolean;
 }
 
@@ -75,14 +86,19 @@ export interface CompetitorRankingsResponse {
   userCompany: CompetitorRanking | null;
 }
 
-export const getCompetitorRankingsForReport = async (runId: string, companyId: string, aiModel?: string): Promise<CompetitorRankingsResponse> => {
-  const { data } = await apiClient.get(`/reports/${runId}/competitor-rankings`, {
-    params: { companyId, aiModel }
-  });
+export const getCompetitorRankingsForReport = async (
+  runId: string,
+  companyId: string,
+  aiModel?: string
+): Promise<CompetitorRankingsResponse> => {
+  const { data } = await apiClient.get(
+    `/reports/${runId}/competitor-rankings`,
+    {
+      params: { companyId, aiModel },
+    }
+  );
   return data;
 };
-
-
 
 export interface ReportResponse {
   question: string;
@@ -91,18 +107,25 @@ export interface ReportResponse {
   model: string;
 }
 
-export const getReportResponses = async (runId: string, companyId: string, aiModel?: string, page?: number, limit?: number): Promise<ReportResponse[]> => {
+export const getReportResponses = async (
+  runId: string,
+  companyId: string,
+  aiModel?: string,
+  page?: number,
+  limit?: number
+): Promise<ReportResponse[]> => {
   const { data } = await apiClient.get(`/reports/${runId}/responses`, {
-    params: { companyId, aiModel, page, limit }
+    params: { companyId, aiModel, page, limit },
   });
   return data;
 };
 
 // Optimization Tasks API
 export enum TaskStatus {
-  NOT_STARTED = 'NOT_STARTED',
-  IN_PROGRESS = 'IN_PROGRESS',
-  COMPLETED = 'COMPLETED'
+  NOT_STARTED = "NOT_STARTED",
+  IN_PROGRESS = "IN_PROGRESS",
+  COMPLETED = "COMPLETED",
+  CANCELLED = "CANCELLED",
 }
 
 export interface OptimizationTask {
@@ -112,7 +135,7 @@ export interface OptimizationTask {
   title: string;
   description: string;
   category: string;
-  priority: 'High' | 'Medium' | 'Low';
+  priority: "High" | "Medium" | "Low";
   impactMetric: string;
   dependencies: string[];
   status: TaskStatus;
@@ -122,19 +145,65 @@ export interface OptimizationTask {
   updatedAt: string;
 }
 
-export const getOptimizationTasks = async (companyId: string): Promise<OptimizationTask[]> => {
-  const { data } = await apiClient.get(`/reports/companies/${companyId}/optimization-tasks`);
+export const getOptimizationTasks = async (
+  companyId: string
+): Promise<OptimizationTask[]> => {
+  const { data } = await apiClient.get(
+    `/reports/companies/${companyId}/optimization-tasks`
+  );
   return data.tasks;
 };
 
-export const toggleTaskCompletion = async (reportRunId: string, taskId: string): Promise<OptimizationTask> => {
-  const { data } = await apiClient.patch(`/reports/reports/${reportRunId}/tasks/${taskId}/toggle`);
+// Delete a task by ID (if needed for removal UX)
+export const deleteOptimizationTask = async (
+  companyId: string,
+  taskId: string
+): Promise<void> => {
+  await apiClient.delete(
+    `/reports/companies/${companyId}/optimization-tasks/${taskId}`
+  );
+};
+
+export const toggleTaskCompletion = async (
+  reportRunId: string,
+  taskId: string
+): Promise<OptimizationTask> => {
+  const { data } = await apiClient.patch(
+    `/reports/reports/${reportRunId}/tasks/${taskId}/toggle`
+  );
   return data.task;
 };
 
-export const updateTaskStatus = async (reportRunId: string, taskId: string, status: TaskStatus): Promise<OptimizationTask> => {
-  const { data } = await apiClient.patch(`/reports/reports/${reportRunId}/tasks/${taskId}/status`, { status });
+export const updateTaskStatus = async (
+  reportRunId: string,
+  taskId: string,
+  status: TaskStatus
+): Promise<OptimizationTask> => {
+  const { data } = await apiClient.patch(
+    `/reports/reports/${reportRunId}/tasks/${taskId}/status`,
+    { status }
+  );
   return data.task;
 };
 
- 
+// Create a new optimization task for a company
+export interface AddOptimizationTaskRequest {
+  reportRunId?: string;
+  title: string;
+  description: string;
+  category: string; // e.g., "Technical SEO", "Content & Messaging"
+  priority: "High" | "Medium" | "Low";
+  impactMetric: "visibility" | "averagePosition" | "inclusionRate";
+  dependencies?: string[];
+}
+
+export const addOptimizationTask = async (
+  companyId: string,
+  payload: AddOptimizationTaskRequest
+): Promise<OptimizationTask> => {
+  const { data } = await apiClient.post(
+    `/reports/companies/${companyId}/optimization-tasks`,
+    payload
+  );
+  return data.task as OptimizationTask;
+};

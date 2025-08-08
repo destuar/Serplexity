@@ -26,6 +26,7 @@ import {
   deleteAudit,
   getAuditStatus,
   healthCheck,
+  getCompetitorScores,
 } from "../controllers/webAuditController";
 import { authenticate } from "../middleware/authMiddleware";
 
@@ -63,6 +64,14 @@ router.post("/companies/:companyId/start", authenticate, auditRateLimit, startAu
 
 // Get audit history for company
 router.get("/companies/:companyId/history", authenticate, resultRateLimit, getAuditHistory);
+
+// Get competitor latest scores (accepted competitors)
+router.get(
+  "/companies/:companyId/competitor-scores",
+  authenticate,
+  resultRateLimit,
+  getCompetitorScores
+);
 
 // Get audit status only (lightweight)
 router.get("/:id/status", authenticate, resultRateLimit, getAuditStatus);

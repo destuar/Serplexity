@@ -1,7 +1,7 @@
 /**
  * @file tracing.ts
- * @description This file initializes OpenTelemetry for distributed tracing with Logfire integration.
- * It configures the OTLP (OpenTelemetry Protocol) trace exporter to send data to Logfire when available,
+ * @description This file initializes OpenTelemetry for distributed tracing with a generic OTLP exporter.
+ * It configures the OTLP (OpenTelemetry Protocol) trace exporter to send data to a configured endpoint when available,
  * and automatically instruments Node.js modules to capture comprehensive telemetry data.
  *
  * @dependencies
@@ -13,36 +13,18 @@
  * @exports
  * - sdk: The initialized OpenTelemetry NodeSDK instance.
  */
-import { NodeSDK } from "@opentelemetry/sdk-node";
-import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { NodeSDK } from "@opentelemetry/sdk-node";
 import logger from "../utils/logger";
 
 // Configure tracing based on available observability platforms
-const logfireToken = process.env.LOGFIRE_TOKEN;
+const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT;
 const _environment = process.env.NODE_ENV || "development";
 
-let traceExporter: OTLPTraceExporter;
-
-if (logfireToken) {
-  // Use Logfire as the primary observability backend
-  logger.info("Configuring OpenTelemetry to send traces to Logfire");
-  traceExporter = new OTLPTraceExporter({
-    url: "https://logfire-api.pydantic.dev/v1/traces",
-    headers: {
-      Authorization: `Bearer ${logfireToken}`,
-      "Content-Type": "application/json",
-    },
-  });
-} else {
-  // Fallback to local or custom OTLP endpoint
-  logger.info("LOGFIRE_TOKEN not found, using fallback OTLP endpoint");
-  traceExporter = new OTLPTraceExporter({
-    url:
-      process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ||
-      "http://localhost:4318/v1/traces",
-  });
-}
+const traceExporter: OTLPTraceExporter = new OTLPTraceExporter({
+  url: otlpEndpoint || "http://localhost:4318/v1/traces",
+});
 
 const sdk = new NodeSDK({
   serviceName: "serplexity-backend",
@@ -62,7 +44,7 @@ const sdk = new NodeSDK({
   ],
 });
 
-// Temporarily disabled to remove logfire dependency
+// Initialization disabled by default; opt-in where needed
 // try {
 //   sdk.start();
 //   logger.info("OpenTelemetry tracing initialized successfully");

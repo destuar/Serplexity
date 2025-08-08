@@ -66,7 +66,7 @@ const SentimentScoreDisplayCard: React.FC<SentimentScoreDisplayCardProps> = ({ s
     return (
         <LiquidGlassCard className="h-full">
             <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-semibold text-gray-800">Sentiment Score</h3>
+                <h3 className="text-sm font-medium text-gray-900">Sentiment Score</h3>
                 {onSeeMore && (
                     <button
                         onClick={onSeeMore}

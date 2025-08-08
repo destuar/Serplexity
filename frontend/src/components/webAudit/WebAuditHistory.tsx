@@ -1,22 +1,23 @@
 /**
  * @file WebAuditHistory.tsx
  * @description Component for displaying web audit history
- * 
+ *
  * Shows list of previous audits with scores, dates, and quick access.
  * Includes filtering, sorting, and comparison capabilities.
  */
 
-import React, { useState, useEffect } from "react";
-import { 
-  History, 
-  ExternalLink, 
-  Trash2, 
+import {
   Calendar,
   Clock,
-  TrendingUp,
-  MoreVertical,
+  ExternalLink,
+  History,
   RefreshCw,
+  Trash2,
+  TrendingUp,
 } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { useCompany } from "../../contexts/CompanyContext";
+import apiClient from "../../lib/apiClient";
 import { AuditResult } from "../../pages/WebAuditPage";
 
 interface AuditHistoryItem {
@@ -43,27 +44,30 @@ const WebAuditHistory: React.FC<WebAuditHistoryProps> = ({ onViewAudit }) => {
   const [history, setHistory] = useState<AuditHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'date' | 'score' | 'url'>('date');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [sortBy, setSortBy] = useState<"date" | "score" | "url">("date");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const { selectedCompany } = useCompany();
 
   const fetchHistory = async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch('/api/web-audit/history', {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch audit history');
+      if (!selectedCompany?.id) {
+        setHistory([]);
+        setIsLoading(false);
+        return;
       }
 
-      const data = await response.json();
-      setHistory(data.data.audits || []);
+      const response = await apiClient.get(
+        `/web-audit/companies/${selectedCompany.id}/history`
+      );
+      setHistory(response.data.data.audits || []);
     } catch (error) {
-      console.error('Failed to fetch audit history:', error);
-      setError(error instanceof Error ? error.message : 'Failed to load history');
+      console.error("Failed to fetch audit history:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to load history"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -71,80 +75,66 @@ const WebAuditHistory: React.FC<WebAuditHistoryProps> = ({ onViewAudit }) => {
 
   useEffect(() => {
     fetchHistory();
-  }, []);
+  }, [selectedCompany?.id]);
 
   const handleViewAudit = async (auditId: string) => {
     try {
-      const response = await fetch(`/api/web-audit/${auditId}`, {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch audit details');
-      }
-
-      const data = await response.json();
-      onViewAudit(data.data);
+      const response = await apiClient.get(`/web-audit/${auditId}`);
+      onViewAudit(response.data.data);
     } catch (error) {
-      console.error('Failed to fetch audit details:', error);
+      console.error("Failed to fetch audit details:", error);
       // TODO: Show error toast
     }
   };
 
   const handleDeleteAudit = async (auditId: string) => {
-    if (!confirm('Are you sure you want to delete this audit?')) {
+    if (!confirm("Are you sure you want to delete this audit?")) {
       return;
     }
 
     try {
-      const response = await fetch(`/api/web-audit/${auditId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete audit');
-      }
-
-      // Refresh history
+      if (!selectedCompany?.id) throw new Error("No company selected");
+      await apiClient.delete(
+        `/web-audit/companies/${selectedCompany.id}/audits/${auditId}`
+      );
       await fetchHistory();
     } catch (error) {
-      console.error('Failed to delete audit:', error);
+      console.error("Failed to delete audit:", error);
       // TODO: Show error toast
     }
   };
 
   const getScoreColor = (score: number | null) => {
-    if (score === null) return 'text-gray-400';
-    if (score >= 90) return 'text-green-600';
-    if (score >= 75) return 'text-yellow-600';
-    if (score >= 50) return 'text-orange-600';
-    return 'text-red-600';
+    if (score === null) return "text-gray-400";
+    if (score >= 90) return "text-green-600";
+    if (score >= 75) return "text-yellow-600";
+    if (score >= 50) return "text-orange-600";
+    return "text-red-600";
   };
 
   const getScoreBgColor = (score: number | null) => {
-    if (score === null) return 'bg-gray-100';
-    if (score >= 90) return 'bg-green-100';
-    if (score >= 75) return 'bg-yellow-100';
-    if (score >= 50) return 'bg-orange-100';
-    return 'bg-red-100';
+    if (score === null) return "bg-gray-100";
+    if (score >= 90) return "bg-green-100";
+    if (score >= 75) return "bg-yellow-100";
+    if (score >= 50) return "bg-orange-100";
+    return "bg-red-100";
   };
 
   const formatDate = (date: Date | string) => {
     const d = new Date(date);
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     }).format(d);
   };
 
   const formatUrl = (url: string) => {
     try {
       const parsed = new URL(url);
-      return parsed.hostname + (parsed.pathname !== '/' ? parsed.pathname : '');
+      return parsed.hostname + (parsed.pathname !== "/" ? parsed.pathname : "");
     } catch {
       return url;
     }
@@ -154,15 +144,15 @@ const WebAuditHistory: React.FC<WebAuditHistoryProps> = ({ onViewAudit }) => {
     let aValue: any, bValue: any;
 
     switch (sortBy) {
-      case 'date':
+      case "date":
         aValue = new Date(a.requestedAt).getTime();
         bValue = new Date(b.requestedAt).getTime();
         break;
-      case 'score':
+      case "score":
         aValue = a.scores.overall || 0;
         bValue = b.scores.overall || 0;
         break;
-      case 'url':
+      case "url":
         aValue = a.url.toLowerCase();
         bValue = b.url.toLowerCase();
         break;
@@ -170,7 +160,7 @@ const WebAuditHistory: React.FC<WebAuditHistoryProps> = ({ onViewAudit }) => {
         return 0;
     }
 
-    if (sortOrder === 'asc') {
+    if (sortOrder === "asc") {
       return aValue > bValue ? 1 : -1;
     } else {
       return aValue < bValue ? 1 : -1;
@@ -196,7 +186,9 @@ const WebAuditHistory: React.FC<WebAuditHistoryProps> = ({ onViewAudit }) => {
             <History className="w-6 h-6 text-red-600" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-red-900">Failed to Load History</h3>
+            <h3 className="text-lg font-semibold text-red-900">
+              Failed to Load History
+            </h3>
             <p className="text-red-700 mb-4">{error}</p>
             <button
               onClick={fetchHistory}
@@ -222,19 +214,25 @@ const WebAuditHistory: React.FC<WebAuditHistoryProps> = ({ onViewAudit }) => {
             <div>
               <h3 className="text-xl font-bold text-gray-900">Audit History</h3>
               <p className="text-gray-600">
-                {history.length} {history.length === 1 ? 'audit' : 'audits'} performed
+                {history.length} {history.length === 1 ? "audit" : "audits"}{" "}
+                performed
               </p>
             </div>
           </div>
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <label htmlFor="sort-by" className="text-sm font-medium text-gray-700">
+              <label
+                htmlFor="sort-by"
+                className="text-sm font-medium text-gray-700"
+              >
                 Sort by:
               </label>
               <select
                 id="sort-by"
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as 'date' | 'score' | 'url')}
+                onChange={(e) =>
+                  setSortBy(e.target.value as "date" | "score" | "url")
+                }
                 className="border border-gray-300 rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="date">Date</option>
@@ -242,14 +240,16 @@ const WebAuditHistory: React.FC<WebAuditHistoryProps> = ({ onViewAudit }) => {
                 <option value="url">URL</option>
               </select>
               <button
-                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                onClick={() =>
+                  setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+                }
                 className="p-1 hover:bg-gray-100 rounded transition-colors"
-                title={`Sort ${sortOrder === 'asc' ? 'descending' : 'ascending'}`}
+                title={`Sort ${sortOrder === "asc" ? "descending" : "ascending"}`}
               >
-                <TrendingUp 
+                <TrendingUp
                   className={`w-4 h-4 text-gray-600 transition-transform ${
-                    sortOrder === 'desc' ? 'rotate-180' : ''
-                  }`} 
+                    sortOrder === "desc" ? "rotate-180" : ""
+                  }`}
                 />
               </button>
             </div>
@@ -269,14 +269,19 @@ const WebAuditHistory: React.FC<WebAuditHistoryProps> = ({ onViewAudit }) => {
         {sortedHistory.length === 0 ? (
           <div className="text-center py-12">
             <History className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h4 className="text-lg font-medium text-gray-900 mb-2">No audits yet</h4>
+            <h4 className="text-lg font-medium text-gray-900 mb-2">
+              No audits yet
+            </h4>
             <p className="text-gray-600">
               Start your first web audit to see results here.
             </p>
           </div>
         ) : (
           sortedHistory.map((audit) => (
-            <div key={audit.id} className="p-6 hover:bg-gray-50 transition-colors">
+            <div
+              key={audit.id}
+              className="p-6 hover:bg-gray-50 transition-colors"
+            >
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-4">
@@ -294,58 +299,91 @@ const WebAuditHistory: React.FC<WebAuditHistoryProps> = ({ onViewAudit }) => {
                             <Clock className="w-4 h-4" />
                             <span>
                               {Math.round(
-                                (new Date(audit.completedAt).getTime() - 
-                                 new Date(audit.requestedAt).getTime()) / 1000
-                              )}s
+                                (new Date(audit.completedAt).getTime() -
+                                  new Date(audit.requestedAt).getTime()) /
+                                  1000
+                              )}
+                              s
                             </span>
                           </div>
                         )}
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          audit.status === 'completed' 
-                            ? 'bg-green-100 text-green-800'
-                            : audit.status === 'failed'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            audit.status === "completed"
+                              ? "bg-green-100 text-green-800"
+                              : audit.status === "failed"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-yellow-100 text-yellow-800"
+                          }`}
+                        >
                           {audit.status}
                         </span>
                       </div>
                     </div>
-                    
-                    {audit.status === 'completed' && audit.scores.overall !== null && (
-                      <div className="flex items-center space-x-4">
-                        {/* Individual Scores */}
-                        <div className="flex items-center space-x-2">
-                          {[
-                            { key: 'performance', label: 'Perf', score: audit.scores.performance },
-                            { key: 'seo', label: 'SEO', score: audit.scores.seo },
-                            { key: 'geo', label: 'GEO', score: audit.scores.geo },
-                            { key: 'accessibility', label: 'A11y', score: audit.scores.accessibility },
-                            { key: 'security', label: 'Sec', score: audit.scores.security },
-                          ].map(({ key, label, score }) => (
-                            <div key={key} className="text-center">
-                              <div className={`text-xs font-medium ${getScoreColor(score)}`}>
-                                {score ?? '--'}
+
+                    {audit.status === "completed" &&
+                      audit.scores.overall !== null && (
+                        <div className="flex items-center space-x-4">
+                          {/* Individual Scores */}
+                          <div className="flex items-center space-x-2">
+                            {[
+                              {
+                                key: "performance",
+                                label: "Perf",
+                                score: audit.scores.performance,
+                              },
+                              {
+                                key: "seo",
+                                label: "SEO",
+                                score: audit.scores.seo,
+                              },
+                              {
+                                key: "geo",
+                                label: "GEO",
+                                score: audit.scores.geo,
+                              },
+                              {
+                                key: "accessibility",
+                                label: "A11y",
+                                score: audit.scores.accessibility,
+                              },
+                              {
+                                key: "security",
+                                label: "Sec",
+                                score: audit.scores.security,
+                              },
+                            ].map(({ key, label, score }) => (
+                              <div key={key} className="text-center">
+                                <div
+                                  className={`text-xs font-medium ${getScoreColor(score)}`}
+                                >
+                                  {score ?? "--"}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {label}
+                                </div>
                               </div>
-                              <div className="text-xs text-gray-500">{label}</div>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
+
+                          {/* Overall Score */}
+                          <div
+                            className={`flex items-center justify-center w-12 h-12 rounded-full ${getScoreBgColor(audit.scores.overall)}`}
+                          >
+                            <span
+                              className={`text-lg font-bold ${getScoreColor(audit.scores.overall)}`}
+                            >
+                              {audit.scores.overall}
+                            </span>
+                          </div>
                         </div>
-                        
-                        {/* Overall Score */}
-                        <div className={`flex items-center justify-center w-12 h-12 rounded-full ${getScoreBgColor(audit.scores.overall)}`}>
-                          <span className={`text-lg font-bold ${getScoreColor(audit.scores.overall)}`}>
-                            {audit.scores.overall}
-                          </span>
-                        </div>
-                      </div>
-                    )}
+                      )}
                   </div>
                 </div>
 
                 {/* Actions */}
                 <div className="flex items-center space-x-2 ml-4">
-                  {audit.status === 'completed' && (
+                  {audit.status === "completed" && (
                     <button
                       onClick={() => handleViewAudit(audit.id)}
                       className="flex items-center space-x-1 bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded-lg transition-colors"

@@ -17,7 +17,7 @@
  * - createCompany: Controller for creating a new company.
  * - getCompanies: Controller for fetching all companies for the authenticated user.
  * - getCompany: Controller for fetching a specific company by ID.
- * - getAverageInclusionRate: Controller for fetching the average inclusion rate.
+ *
  * - getAveragePosition: Controller for fetching the average position.
  * - getShareOfVoice: Controller for fetching the share of voice.
  * - getCompetitorRankings: Controller for fetching competitor rankings.
@@ -209,51 +209,8 @@ const findLatestRuns = async (companyId: string) => {
 };
 
 // --- Average Inclusion Rate (pre-computed) ---
-export const getAverageInclusionRate = async (req: Request, res: Response) => {
-  try {
-    const prismaReadReplica = await getReadPrismaClient();
-    const { id: companyId } = req.params;
-    const { aiModel } = req.query;
-    const userId = req.user?.id;
-
-    if (!userId) {
-      return res.status(401).json({ error: "User not authenticated" });
-    }
-
-    // Verify ownership
-    const company = await prismaReadReplica.company.findFirst({
-      where: { id: companyId, userId },
-    });
-    if (!company) {
-      return res
-        .status(404)
-        .json({ error: "Company not found or unauthorized" });
-    }
-
-    const { latestRun, previousRun } = await findLatestRuns(companyId);
-    if (!latestRun) {
-      return res.json({ averageInclusionRate: null, change: null });
-    }
-
-    const latestMetrics = await getFullReportMetrics(
-      latestRun.id,
-      (aiModel as string) || "all",
-    );
-    const previousMetrics = previousRun
-      ? await getFullReportMetrics(previousRun.id, (aiModel as string) || "all")
-      : null;
-
-    const latestRate = latestMetrics?.averageInclusionRate ?? null;
-    const prevRate = previousMetrics?.averageInclusionRate ?? null;
-    const change =
-      latestRate !== null && prevRate !== null ? latestRate - prevRate : null;
-
-    return res.json({ averageInclusionRate: latestRate, change });
-  } catch (error) {
-    console.error("[GET AIR ERROR]", error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-};
+// Note: Standalone AIR endpoints remain removed; we now rely on
+// inclusion rate history plus the latest precomputed averages in reports.
 
 // --- Average Position (pre-computed) ---
 export const getAveragePosition = async (req: Request, res: Response) => {
@@ -723,6 +680,10 @@ export const getShareOfVoiceHistory = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Get Inclusion Rate history with optional granularity
+ * Supports hourly, daily, and weekly aggregation similar to Share of Voice
+ */
 export const getInclusionRateHistory = async (req: Request, res: Response) => {
   try {
     const prismaReadReplica = await getReadPrismaClient();

@@ -12,7 +12,7 @@
  */
 
 import logger from "../utils/logger";
-import type { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
+import type { SecretsManagerClient, SecretsManagerClientConfig } from "@aws-sdk/client-secrets-manager";
 
 export interface DatabaseSecret {
   host: string;
@@ -163,6 +163,19 @@ export class AwsSecretsProvider extends SecretsProvider {
 
     const awsSecret = JSON.parse(response.SecretString);
 
+    const metadata: SecretMetadata = {
+      provider: this.providerName,
+      secretName: _secretName,
+    };
+
+    if (response.VersionId) {
+      metadata.version = response.VersionId;
+    }
+
+    if (response.CreatedDate) {
+      metadata.lastUpdated = response.CreatedDate;
+    }
+
     return {
       secret: {
         host: awsSecret.host,
@@ -171,12 +184,7 @@ export class AwsSecretsProvider extends SecretsProvider {
         password: awsSecret.password,
         database: awsSecret.dbname || awsSecret.database || "postgres",
       },
-      metadata: {
-        provider: this.providerName,
-        secretName: _secretName,
-        version: response.VersionId,
-        lastUpdated: response.CreatedDate,
-      },
+      metadata,
     };
   }
 
@@ -190,7 +198,7 @@ export class AwsSecretsProvider extends SecretsProvider {
     // Import environment configuration
     const env = (await import("../config/env")).default;
 
-    const config: Record<string, unknown> = {
+    const config: SecretsManagerClientConfig = {
       region: env.AWS_REGION,
     };
 

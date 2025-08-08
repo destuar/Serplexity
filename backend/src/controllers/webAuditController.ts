@@ -1,13 +1,13 @@
 /**
  * @file webAuditController.ts
  * @description Web audit controller for handling audit requests
- * 
+ *
  * Provides REST API endpoints for:
  * - Starting new web audits
  * - Checking audit status
  * - Retrieving audit results
  * - Managing audit history
- * 
+ *
  * @dependencies
  * - webAuditService: Core audit logic
  * - Request validation and error handling
@@ -16,8 +16,13 @@
 
 import { Request, Response } from "express";
 import { z } from "zod";
+import {
+  deleteWebAudit,
+  getWebAuditHistory,
+  getWebAuditResult,
+  startWebAudit,
+} from "../services/webAudit/webAuditService";
 import logger from "../utils/logger";
-import { startWebAudit, getWebAuditResult, getWebAuditHistory, deleteWebAudit } from "../services/webAudit/webAuditService";
 
 // Request validation schemas
 const StartAuditSchema = z.object({
@@ -68,7 +73,7 @@ export async function startAudit(req: Request, res: Response): Promise<void> {
     // Verify user has access to this company (following report controller pattern)
     const { getPrismaClient } = await import("../config/dbCache");
     const prisma = await getPrismaClient();
-    
+
     const company = await prisma.company.findFirst({
       where: {
         id: companyId,
@@ -97,20 +102,51 @@ export async function startAudit(req: Request, res: Response): Promise<void> {
         accessibility: validatedData.includeAccessibility,
         security: validatedData.includeSecurity,
       },
-      userAgent: req.get('User-Agent'),
+      userAgent: req.get("User-Agent"),
       ip: req.ip,
     });
 
-    // Start the audit
+    // Start the primary audit
     const auditId = await startWebAudit({
       url: validatedData.url,
       companyId,
       includePerformance: validatedData.includePerformance,
       includeSEO: validatedData.includeSEO,
       includeGEO: validatedData.includeGEO,
-      includeAccessibility: validatedData.includeAccessibility,
+      includeAccessibility: false, // accessibility excluded globally
       includeSecurity: validatedData.includeSecurity,
+      summaryOnly: false,
     });
+
+    // Optional fanout to accepted competitors (scores only)
+    const fanout = (req.query.fanout as string) === "accepted";
+    if (fanout) {
+      const competitors = await prisma.competitor.findMany({
+        where: { companyId, isAccepted: true },
+        select: { website: true },
+      });
+      const competitorWebsites = competitors
+        .map((c) => c.website)
+        .filter((w): w is string => typeof w === "string" && w.length > 0);
+
+      if (competitorWebsites.length > 0) {
+        // Fire-and-forget enqueue for competitor websites with summaryOnly
+        await Promise.allSettled(
+          competitorWebsites.map((site) =>
+            startWebAudit({
+              url: site,
+              companyId,
+              includePerformance: true,
+              includeSEO: true,
+              includeGEO: true,
+              includeAccessibility: false,
+              includeSecurity: true,
+              summaryOnly: true,
+            })
+          )
+        );
+      }
+    }
 
     const responseTime = Date.now() - startTime;
 
@@ -125,13 +161,12 @@ export async function startAudit(req: Request, res: Response): Promise<void> {
       success: true,
       data: {
         auditId,
-        status: 'queued',
-        estimatedTime: '2-3 minutes',
+        status: "queued",
+        estimatedTime: "2-3 minutes",
         url: validatedData.url,
       },
       message: "Web audit started successfully",
     });
-
   } catch (error) {
     const responseTime = Date.now() - startTime;
 
@@ -179,14 +214,37 @@ export async function getAudit(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    // TODO: For this endpoint, we may need to validate company access through the audit record
-    // since audit ID is the primary identifier, not company ID in URL
-    // For now, we'll rely on the audit service to validate company access
-
     logger.info("Getting web audit result", {
       auditId: id,
       userId,
     });
+
+    // Authorization: ensure the audit belongs to a company owned by this user
+    const { getPrismaClient } = await import("../config/dbCache");
+    const prisma = await getPrismaClient();
+    const audit = await prisma.webAuditRun.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        companyId: true,
+        company: { select: { userId: true } },
+      },
+    });
+
+    if (!audit) {
+      res.status(404).json({ error: "Not found", message: "Audit not found" });
+      return;
+    }
+
+    if (audit.company.userId !== userId) {
+      res
+        .status(403)
+        .json({
+          error: "Forbidden",
+          message: "You do not have access to this audit",
+        });
+      return;
+    }
 
     // Get audit result
     const result = await getWebAuditResult(id);
@@ -198,9 +256,6 @@ export async function getAudit(req: Request, res: Response): Promise<void> {
       });
       return;
     }
-
-    // TODO: Add authorization check to ensure user can access this audit
-    // For now, we trust the audit ID is sufficient
 
     const responseTime = Date.now() - startTime;
 
@@ -214,7 +269,6 @@ export async function getAudit(req: Request, res: Response): Promise<void> {
       success: true,
       data: result,
     });
-
   } catch (error) {
     const responseTime = Date.now() - startTime;
 
@@ -244,7 +298,10 @@ export async function getAudit(req: Request, res: Response): Promise<void> {
  * Get audit history for company
  * GET /api/web-audit/history
  */
-export async function getAuditHistory(req: Request, res: Response): Promise<void> {
+export async function getAuditHistory(
+  req: Request,
+  res: Response
+): Promise<void> {
   const startTime = Date.now();
 
   try {
@@ -271,7 +328,7 @@ export async function getAuditHistory(req: Request, res: Response): Promise<void
     // Verify user has access to this company
     const { getPrismaClient } = await import("../config/dbCache");
     const prisma = await getPrismaClient();
-    
+
     const company = await prisma.company.findFirst({
       where: {
         id: companyId,
@@ -309,7 +366,6 @@ export async function getAuditHistory(req: Request, res: Response): Promise<void
         total: history.length,
       },
     });
-
   } catch (error) {
     const responseTime = Date.now() - startTime;
 
@@ -323,6 +379,93 @@ export async function getAuditHistory(req: Request, res: Response): Promise<void
       error: "Internal server error",
       message: "Failed to retrieve audit history",
     });
+  }
+}
+
+/**
+ * Get competitor latest visibility scores (accepted competitors)
+ * GET /api/web-audit/companies/:companyId/competitor-scores
+ */
+export async function getCompetitorScores(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const userId = req.user?.id;
+    const companyId = req.params.companyId;
+    if (!userId) {
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
+    if (!companyId) {
+      res.status(400).json({ error: "Missing company ID" });
+      return;
+    }
+
+    const { getPrismaClient } = await import("../config/dbCache");
+    const prisma = await getPrismaClient();
+
+    const company = await prisma.company.findFirst({
+      where: { id: companyId, userId },
+    });
+    if (!company) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+
+    const competitors = await prisma.competitor.findMany({
+      where: { companyId, isAccepted: true },
+      select: { name: true, website: true },
+      orderBy: { name: "asc" },
+    });
+
+    const results = await Promise.all(
+      competitors.map(async (comp) => {
+        const run = await prisma.webAuditRun.findFirst({
+          where: { companyId, url: comp.website, status: "completed" },
+          orderBy: { completedAt: "desc" },
+        });
+        const scores = run
+          ? {
+              overall: Math.round(
+                ((run.performanceScore || 0) +
+                  (run.seoScore || 0) +
+                  (run.geoScore || 0) +
+                  (run.securityScore || 0)) /
+                  4
+              ),
+              performance: run.performanceScore || 0,
+              seo: run.seoScore || 0,
+              geo: run.geoScore || 0,
+              security: run.securityScore || 0,
+            }
+          : null;
+
+        return {
+          name: comp.name,
+          website: comp.website,
+          scores,
+          completedAt: run?.completedAt || null,
+        };
+      })
+    );
+
+    // Sort by overall desc (nulls last)
+    results.sort((a, b) => {
+      const ao = a.scores?.overall ?? -1;
+      const bo = b.scores?.overall ?? -1;
+      return bo - ao;
+    });
+
+    res.status(200).json({ success: true, data: { competitors: results } });
+  } catch (error) {
+    logger.error("Failed to get competitor scores", {
+      companyId: req.params.companyId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    res
+      .status(500)
+      .json({ error: "Internal server error", message: "Failed to retrieve competitor scores" });
   }
 }
 
@@ -358,7 +501,7 @@ export async function deleteAudit(req: Request, res: Response): Promise<void> {
     // Verify user has access to this company
     const { getPrismaClient } = await import("../config/dbCache");
     const prisma = await getPrismaClient();
-    
+
     const company = await prisma.company.findFirst({
       where: {
         id: companyId,
@@ -394,7 +537,6 @@ export async function deleteAudit(req: Request, res: Response): Promise<void> {
       success: true,
       message: "Audit deleted successfully",
     });
-
   } catch (error) {
     const responseTime = Date.now() - startTime;
 
@@ -425,7 +567,10 @@ export async function deleteAudit(req: Request, res: Response): Promise<void> {
  * Get audit status only (lightweight endpoint)
  * GET /api/web-audit/:id/status
  */
-export async function getAuditStatus(req: Request, res: Response): Promise<void> {
+export async function getAuditStatus(
+  req: Request,
+  res: Response
+): Promise<void> {
   const startTime = Date.now();
 
   try {
@@ -441,8 +586,32 @@ export async function getAuditStatus(req: Request, res: Response): Promise<void>
       return;
     }
 
-    // TODO: Similar to getAudit, we may need to validate company access through the audit record
-    // For now, we'll rely on the audit service to validate company access
+    // Authorization: ensure the audit belongs to a company owned by this user
+    const { getPrismaClient } = await import("../config/dbCache");
+    const prisma = await getPrismaClient();
+    const audit = await prisma.webAuditRun.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        companyId: true,
+        company: { select: { userId: true } },
+      },
+    });
+
+    if (!audit) {
+      res.status(404).json({ error: "Not found", message: "Audit not found" });
+      return;
+    }
+
+    if (audit.company.userId !== userId) {
+      res
+        .status(403)
+        .json({
+          error: "Forbidden",
+          message: "You do not have access to this audit",
+        });
+      return;
+    }
 
     // Get basic audit info (just status and metadata)
     const result = await getWebAuditResult(id);
@@ -461,7 +630,7 @@ export async function getAuditStatus(req: Request, res: Response): Promise<void>
     const statusInfo = {
       id: result.id,
       url: result.metadata.url,
-      status: result.scores.overall > 0 ? 'completed' : 'running',
+      status: result.scores.overall > 0 ? "completed" : "running",
       timestamp: result.metadata.timestamp,
       analysisTime: result.metadata.analysisTime,
       scores: result.scores.overall > 0 ? result.scores : undefined,
@@ -477,7 +646,6 @@ export async function getAuditStatus(req: Request, res: Response): Promise<void>
       status: statusInfo.status,
       responseTime,
     });
-
   } catch (error) {
     const responseTime = Date.now() - startTime;
 
@@ -502,9 +670,9 @@ export async function healthCheck(req: Request, res: Response): Promise<void> {
   try {
     // Basic health checks
     const checks = {
-      service: 'healthy',
+      service: "healthy",
       timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || 'development',
+      environment: process.env.NODE_ENV || "development",
     };
 
     // TODO: Add more sophisticated health checks
@@ -516,7 +684,6 @@ export async function healthCheck(req: Request, res: Response): Promise<void> {
       success: true,
       data: checks,
     });
-
   } catch (error) {
     logger.error("Health check failed", {
       error: error instanceof Error ? error.message : String(error),

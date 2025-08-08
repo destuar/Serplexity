@@ -64,6 +64,9 @@ const generateSlug = (title: string): string => {
     .trim();
 };
 
+// Power of Ten Rule #2: Predictable Loop Bounds
+const MAX_SLUG_ATTEMPTS = 1000; // Bounded iteration constant
+
 const ensureUniqueSlug = async (
   baseSlug: string,
   excludeId?: string
@@ -72,7 +75,8 @@ const ensureUniqueSlug = async (
   let slug = baseSlug;
   let counter = 1;
 
-  while (true) {
+  // Power of Ten Rule #2: Replace while(true) with bounded iteration
+  for (let attempt = 0; attempt < MAX_SLUG_ATTEMPTS; attempt++) {
     const existing = await prisma.blogPost.findUnique({
       where: { slug },
       select: { id: true },
@@ -85,6 +89,9 @@ const ensureUniqueSlug = async (
     slug = `${baseSlug}-${counter}`;
     counter++;
   }
+
+  // Fail-safe: If we hit the limit, use timestamp to ensure uniqueness
+  throw new Error(`Unable to generate unique slug after ${MAX_SLUG_ATTEMPTS} attempts for: ${baseSlug}`);
 };
 
 // Calculate reading time based on content

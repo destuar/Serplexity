@@ -3,16 +3,17 @@
  * Tests the Perplexity execution routing fix without any database dependencies
  */
 
-import { describe, it, expect, jest, beforeAll } from "@jest/globals";
+import { beforeAll, describe, expect, it, jest } from "@jest/globals";
 
 // Completely mock all external dependencies
 jest.mock("../../config/database", () => ({}));
-jest.mock("../../config/logfire", () => ({
+jest.mock("../../config/telemetry", () => ({
   initializeLogfire: jest.fn(),
+  initializeTelemetry: jest.fn(),
   trackLLMUsage: jest.fn(),
   trackPerformance: jest.fn(),
   trackError: jest.fn(),
-  createSpan: jest.fn(),
+  createSpan: jest.fn((_name: string, fn: any) => fn()),
 }));
 jest.mock("../../utils/logger", () => ({
   default: {

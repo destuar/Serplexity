@@ -49,9 +49,16 @@ class DatabaseCache {
   async refreshAllClients(): Promise<void> {
     if (this.refreshInProgress) {
       logger.info('[DatabaseCache] Refresh already in progress, waiting...');
-      // Wait for current refresh to complete
-      while (this.refreshInProgress) {
+      // Wait for current refresh to complete with maximum wait time (Power of Ten Rule #2)
+      const MAX_WAIT_ATTEMPTS = 300; // 30 seconds max wait (300 * 100ms)
+      let waitAttempts = 0;
+      while (this.refreshInProgress && waitAttempts < MAX_WAIT_ATTEMPTS) {
         await new Promise(resolve => setTimeout(resolve, 100));
+        waitAttempts++;
+      }
+      
+      if (this.refreshInProgress) {
+        logger.warn('[DatabaseCache] Refresh wait timeout exceeded, proceeding with potential race condition');
       }
       return;
     }
@@ -104,13 +111,18 @@ class DatabaseCache {
   /**
    * Check if an error is a database authentication failure
    */
-  isAuthenticationError(error: any): boolean {
+  isAuthenticationError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') return false;
+    const errorObj = error as Record<string, unknown>;
+    const code = typeof errorObj['code'] === 'string' ? errorObj['code'] : '';
+    const message = typeof errorObj['message'] === 'string' ? errorObj['message'] : '';
+    
     return (
-      error?.code === 'P1000' ||
-      error?.message?.includes('Authentication failed') ||
-      error?.message?.includes('password authentication failed') ||
-      error?.message?.includes('provided database credentials') ||
-      error?.message?.includes('are not valid')
+      code === 'P1000' ||
+      message.includes('Authentication failed') ||
+      message.includes('password authentication failed') ||
+      message.includes('provided database credentials') ||
+      message.includes('are not valid')
     );
   }
 

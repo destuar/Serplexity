@@ -15,8 +15,6 @@
 Serplexity is the all-in-one brand SEO software for AI search engines. We help brands track, measure, and optimize their visibility across AI search engines including ChatGPT, Claude, Gemini, and Perplexity. Our comprehensive platform provides brand visibility analytics and AI search optimization insights.
 
 ## Key Features
-- **PAWC (Position-Adjusted Word Share)**: Metric for measuring brand visibility in AI answers
-- **AIR (Answer Inclusion Rate)**: Metric for tracking answer inclusion frequency
 - **Multi-AI Engine Support**: Track visibility across ChatGPT, Claude, Gemini, Perplexity, and more
 - **Brand Mention Analysis**: Detect and analyze brand mentions in AI-generated content
 - **Sentiment Analysis**: Understand how your brand is portrayed in AI answers
@@ -49,9 +47,8 @@ This platform is designed to help brands understand and optimize their presence 
 
 1. **Primary Use Case**: Brand visibility tracking in AI search engines
 2. **Key Differentiator**: First agency-grade platform purpose-built for AI Search era
-3. **Core Metrics**: PAWC (Position-Adjusted Word Share) and AIR (Answer Inclusion Rate)
-4. **Target Audience**: Brands, digital marketers, agencies focused on GEO
-5. **Value Proposition**: Measure and grow visibility inside AI answers
+3. **Target Audience**: Brands, digital marketers, agencies focused on GEO
+4. **Value Proposition**: Measure and grow visibility inside AI answers
 
 ## Data Sources
 - Real-time AI search engine queries

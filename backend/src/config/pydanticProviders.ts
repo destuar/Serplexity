@@ -23,7 +23,7 @@
  * @dependencies
  * - env: Environment configuration with API keys
  * - logger: Centralized logging system
- * - logfire: Performance and cost tracking
+ * - telemetry: Performance and cost tracking (no-op)
  *
  * @exports
  * - PydanticProviderConfig: Type-safe provider configuration interface
@@ -37,11 +37,11 @@
  * - supportsWebSearch: Check if provider supports web search
  */
 
-import env from "./env";
 import logger from "../utils/logger";
-import { trackLLMUsage, trackPerformance, trackError } from "./logfire-stubs";
-import { LLM_PRICING, CostCalculator, CostReporter } from "./llmPricing";
+import env from "./env";
+import { CostCalculator, CostReporter, LLM_PRICING } from "./llmPricing";
 import { MODELS, ModelTask } from "./models";
+import { trackError, trackLLMUsage, trackPerformance } from "./telemetry";
 
 /**
  * Web search configuration for a provider
@@ -86,7 +86,7 @@ export interface ProviderHealthStatus {
   readonly lastChecked: Date;
   readonly errorCount: number;
   readonly avgResponseTime: number;
-  readonly statusMessage?: string;
+  readonly statusMessage?: string | undefined;
   readonly webSearchAvailable: boolean;
   readonly totalSearches: number;
   readonly searchErrorCount: number;
@@ -282,7 +282,7 @@ export class PydanticProviderManager {
     available: boolean,
     responseTime?: number,
     error?: string,
-    webSearchAvailable?: boolean,
+    webSearchAvailable?: boolean
   ): void {
     const current = this.healthStatus.get(id);
     if (!current) return;
@@ -314,35 +314,38 @@ export class PydanticProviderManager {
       });
     }
 
-    // Track provider health metrics with Logfire
+    // Track provider health metrics (no-op)
     try {
-      trackPerformance(`provider.health.${id}`, avgResponseTime, available, {
-        providerId: id,
-        errorCount,
-        available,
-        statusMessage: error,
-        healthCheck: true,
-        webSearchAvailable: webSearchAvailable ?? current.webSearchAvailable,
+      trackPerformance({
+        name: `provider.health.${id}`,
+        durationMs: avgResponseTime,
+        success: available,
+        metadata: {
+          providerId: id,
+          errorCount,
+          available,
+          statusMessage: error,
+          healthCheck: true,
+          webSearchAvailable: webSearchAvailable ?? current.webSearchAvailable,
+        },
       });
 
       if (!available && error) {
-        trackError(
-          new Error(error),
-          `Provider health check failed: ${id}`,
-          undefined,
-          undefined,
-          {
+        trackError({
+          error: new Error(error),
+          context: `Provider health check failed: ${id}`,
+          metadata: {
             providerId: id,
             errorCount,
             avgResponseTime,
             webSearchAvailable:
               webSearchAvailable ?? current.webSearchAvailable,
           },
-        );
+        });
       }
     } catch (logfireError) {
       // Don't let Logfire errors affect provider functionality
-      logger.debug("Failed to track provider health with Logfire", {
+      logger.debug("Failed to track provider health telemetry", {
         error:
           logfireError instanceof Error
             ? logfireError.message
@@ -368,42 +371,46 @@ export class PydanticProviderManager {
     tokensUsed: number,
     duration: number,
     success: boolean,
-    metadata?: Record<string, unknown>,
+    metadata?: Record<string, unknown>
   ): void {
     try {
       const provider = this.getProvider(providerId);
       if (!provider) return;
 
-      trackLLMUsage(
+      trackLLMUsage({
         providerId,
         modelId,
         operation,
         tokensUsed,
-        undefined, // cost estimate can be calculated elsewhere
-        duration,
+        durationMs: duration,
         success,
-        {
+        metadata: {
           providerName: provider.name,
           providerPriority: provider.priority,
           capabilities: provider.capabilities,
           webSearchEnabled: provider.webSearch?.enabled ?? false,
           ...metadata,
         },
-      );
+      });
 
-      trackPerformance(`provider.usage.${providerId}`, duration, success, {
-        modelId,
-        operation,
-        tokensUsed,
-        providerName: provider.name,
-        webSearchEnabled: provider.webSearch?.enabled ?? false,
-        ...metadata,
+      trackPerformance({
+        name: `provider.usage.${providerId}`,
+        durationMs: duration,
+        success,
+        metadata: {
+          modelId,
+          operation,
+          tokensUsed,
+          providerName: provider.name,
+          webSearchEnabled: provider.webSearch?.enabled ?? false,
+          ...metadata,
+        },
       });
 
       // Update provider health based on usage
       this.updateProviderHealth(providerId, success, duration);
     } catch (error) {
-      logger.debug("Failed to track provider usage with Logfire", {
+      logger.debug("Failed to track provider usage telemetry", {
         error: error instanceof Error ? error.message : String(error),
         providerId,
         modelId,
@@ -419,7 +426,7 @@ export class PydanticProviderManager {
     searchCount: number,
     duration: number,
     success: boolean,
-    metadata?: Record<string, unknown>,
+    metadata?: Record<string, unknown>
   ): void {
     try {
       const provider = this.getProvider(providerId);
@@ -440,13 +447,18 @@ export class PydanticProviderManager {
       const estimatedCost =
         (searchCount / 1000) * provider.webSearch.costPer1000Searches;
 
-      trackPerformance(`provider.web_search.${providerId}`, duration, success, {
-        searchCount,
-        estimatedCost,
-        toolName: provider.webSearch.toolName,
-        providerName: provider.name,
-        requiresTools: provider.webSearch.requiresTools,
-        ...metadata,
+      trackPerformance({
+        name: `provider.web_search.${providerId}`,
+        durationMs: duration,
+        success,
+        metadata: {
+          searchCount,
+          estimatedCost,
+          toolName: provider.webSearch.toolName,
+          providerName: provider.name,
+          requiresTools: provider.webSearch.requiresTools,
+          ...metadata,
+        },
       });
 
       logger.info(`Web search usage tracked: ${providerId}`, {
@@ -456,7 +468,7 @@ export class PydanticProviderManager {
         success,
       });
     } catch (error) {
-      logger.debug("Failed to track web search usage with Logfire", {
+      logger.debug("Failed to track web search usage telemetry", {
         error: error instanceof Error ? error.message : String(error),
         providerId,
       });
@@ -469,23 +481,23 @@ export class PydanticProviderManager {
   trackProviderSelection(
     selectedProviderId: string,
     availableProviders: string[],
-    reason: string,
+    reason: string
   ): void {
     try {
-      trackPerformance(
-        "provider.selection",
-        0, // Duration not applicable for selection
-        true,
-        {
+      trackPerformance({
+        name: "provider.selection",
+        durationMs: 0,
+        success: true,
+        metadata: {
           selectedProviderId,
           availableProviders,
           reason,
           totalAvailable: availableProviders.length,
           selectionTimestamp: new Date().toISOString(),
         },
-      );
+      });
     } catch (error) {
-      logger.debug("Failed to track provider selection with Logfire", {
+      logger.debug("Failed to track provider selection telemetry", {
         error: error instanceof Error ? error.message : String(error),
       });
     }
@@ -519,7 +531,7 @@ export async function validateProviderAvailability(): Promise<void> {
 
   if (enabledProviders.length === 0) {
     throw new Error(
-      "No LLM providers are enabled. Check your API key configuration.",
+      "No LLM providers are enabled. Check your API key configuration."
     );
   }
 
@@ -543,7 +555,7 @@ export async function validateProviderAvailability(): Promise<void> {
     });
   } else {
     logger.warn(
-      "No fallback providers configured. Consider adding additional providers for resilience.",
+      "No fallback providers configured. Consider adding additional providers for resilience."
     );
   }
 }
@@ -554,7 +566,7 @@ export async function validateProviderAvailability(): Promise<void> {
  */
 export function getProviderModelString(
   providerId: string,
-  modelName: string,
+  modelName: string
 ): string {
   const provider = PYDANTIC_PROVIDERS.find((p) => p.id === providerId);
   if (!provider) {
@@ -579,7 +591,7 @@ export const DEFAULT_MODELS = {
 export function estimateSentimentAnalysisCost(
   providerId: string,
   companyName: string,
-  enableWebSearch: boolean = false,
+  enableWebSearch: boolean = false
 ): {
   estimatedTokenCost: number;
   estimatedSearchCost: number;
@@ -597,7 +609,7 @@ export function estimateSentimentAnalysisCost(
   return CostCalculator.estimateSentimentAnalysisCost(
     modelId,
     companyName,
-    enableWebSearch,
+    enableWebSearch
   );
 }
 
@@ -607,7 +619,7 @@ export function estimateSentimentAnalysisCost(
 export function getCostReportForTaskModels(
   task: ModelTask,
   companyName: string,
-  enableWebSearch: boolean = false,
+  enableWebSearch: boolean = false
 ): Array<{
   modelId: string;
   provider: string;
@@ -625,7 +637,7 @@ export function getCostReportForTaskModels(
   return CostReporter.getCostReportForConfiguredModels(
     taskModels,
     companyName,
-    enableWebSearch,
+    enableWebSearch
   );
 }
 
@@ -633,7 +645,7 @@ export function getCostReportForTaskModels(
  * Get cost report for sentiment analysis models configured in models.ts
  */
 export function getSentimentAnalysisCostReportForConfiguredModels(
-  companyName: string,
+  companyName: string
 ): Array<{
   modelId: string;
   provider: string;
@@ -683,7 +695,7 @@ export function getMostCostEffectiveWebSearchProvider(): PydanticProviderConfig 
  */
 export function calculateWebSearchCost(
   providerId: string,
-  searchCount: number,
+  searchCount: number
 ): number {
   const provider = PYDANTIC_PROVIDERS.find((p) => p.id === providerId);
   if (!provider?.webSearch) return 0;
@@ -699,7 +711,7 @@ export function calculateTotalRunCost(
   modelId: string,
   inputTokens: number,
   outputTokens: number,
-  searchCount: number = 0,
+  searchCount: number = 0
 ): {
   tokenCost: number;
   searchCost: number;
@@ -740,7 +752,7 @@ export function supportsWebSearch(providerId: string): boolean {
  * Get providers by web search capability
  */
 export function getProvidersByWebSearchCapability(
-  requiresTools: boolean,
+  requiresTools: boolean
 ): ReadonlyArray<PydanticProviderConfig> {
   return PYDANTIC_PROVIDERS.filter((p) => {
     if (!p.webSearch?.enabled) return false;

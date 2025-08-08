@@ -13,7 +13,8 @@
  * - ModelComparisonPage: The main model comparison page component.
  */
 import { useState, useMemo } from 'react';
-import { Loader, Calendar, RefreshCw, ArrowUpDown, ChevronUp, ChevronDown, Sparkles } from 'lucide-react';
+import { Calendar, RefreshCw, ArrowUpDown, ChevronUp, ChevronDown, Sparkles } from 'lucide-react';
+import { InlineSpinner } from '../components/ui/InlineSpinner';
 import { chartColorArrays } from '../utils/colorClasses';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';
@@ -532,7 +533,7 @@ const ModelComparisonPage: React.FC = () => {
                 className="flex items-center justify-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-black transition-colors text-sm font-medium col-span-2 sm:col-span-3"
               >
                 {refreshing || loading ? (
-                  <><Loader size={16} className="animate-spin" /><span>Refreshing...</span></>
+                  <InlineSpinner size={16} />
                 ) : (
                   <><RefreshCw size={16} /><span>Refresh Data</span></>
                 )}

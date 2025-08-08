@@ -41,7 +41,7 @@ import { getDashboardData } from '../services/dashboardService';
 import { useCompany } from '../hooks/useCompany';
 import { DashboardContext } from '../hooks/useDashboard';
 import { useLocation } from 'react-router-dom';
-import { getShareOfVoiceHistory, getInclusionRateHistory, getTopRankingQuestions, TopRankingQuestion, CompetitorData, getAcceptedCompetitors } from '../services/companyService';
+import { getShareOfVoiceHistory, getTopRankingQuestions, TopRankingQuestion, CompetitorData, getAcceptedCompetitors } from '../services/companyService';
 import { 
   transformDashboardData,
   validateNormalizedData 
@@ -214,13 +214,9 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
       console.log('⚠️ NOTE: currentFilters does NOT include granularity - this returns RAW data');
       console.log('🔍 DashboardContext fetches data without granularity parameter');
       
-      const [sovHistory, inclusionHistory, detailedQuestionsData, acceptedCompetitorsData] = await Promise.all([
+      const [sovHistory, detailedQuestionsData, acceptedCompetitorsData] = await Promise.all([
         getShareOfVoiceHistory(selectedCompany.id, currentFilters).catch(err => {
           console.warn('[DashboardContext] Failed to fetch share of voice history:', err);
-          return []; // Return empty array on error
-        }),
-        getInclusionRateHistory(selectedCompany.id, currentFilters).catch(err => {
-          console.warn('[DashboardContext] Failed to fetch inclusion rate history:', err);
           return []; // Return empty array on error
         }),
         getTopRankingQuestions(selectedCompany.id, { aiModel: modelParam })
@@ -249,16 +245,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
         }
       );
 
-      DataPipelineMonitor.recordData(
-        `${selectedCompany.id}-inclusion-context-${currentFilters.dateRange}`,
-        inclusionHistory,
-        {
-          component: 'DashboardContext', 
-          operation: 'fetchInclusionRateHistory_RAW',
-          filters: { ...currentFilters, granularity: 'RAW' },
-          companyId: selectedCompany.id
-        }
-      );
+      // Inclusion rate removed
 
       // Validate the RAW data from DashboardContext
       validateDataPipeline(sovHistory, {
@@ -268,12 +255,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
         companyId: selectedCompany.id
       });
 
-      validateDataPipeline(inclusionHistory, {
-        component: 'DashboardContext',
-        operation: 'inclusionRateValidation_RAW', 
-        filters: currentFilters,
-        companyId: selectedCompany.id
-      });
+      // Inclusion rate removed
 
       console.groupEnd();
 
@@ -283,21 +265,15 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
         aiModel, // Preserve the aiModel field for filtering
       }));
 
-      const fullInclusionHistory = inclusionHistory.map(({ date, inclusionRate, aiModel }) => ({
-        date, // Keep original date format for filtering
-        inclusionRate,
-        aiModel, // Preserve the aiModel field for filtering
-      }));
-
       const mergedData: DashboardData = { 
         ...dashboardData, 
         shareOfVoiceHistory: fullHistory,
-        inclusionRateHistory: fullInclusionHistory
+        inclusionRateHistory: []
       };
 
       console.log('[DashboardContext] Data received from service:', mergedData);
       console.log(`[DashboardContext] ShareOfVoiceHistory count: ${mergedData.shareOfVoiceHistory?.length || 0}`);
-      console.log(`[DashboardContext] InclusionRateHistory count: ${mergedData.inclusionRateHistory?.length || 0}`);
+      // Inclusion rate removed
       console.log('[DashboardContext] SOV History sample:', mergedData.shareOfVoiceHistory?.slice(0, 3));
       console.log('[DashboardContext] Detailed questions received:', detailedQuestionsData);
       console.log('[DashboardContext] Accepted competitors received:', acceptedCompetitorsData);

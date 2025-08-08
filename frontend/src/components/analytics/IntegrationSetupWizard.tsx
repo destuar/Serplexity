@@ -3,27 +3,39 @@
  * @description Minimal setup wizard matching Serplexity's tech-forward design
  */
 
-import React, { useState } from 'react';
-import GoogleSearchConsoleConnector from './GoogleSearchConsoleConnector';
-import ManualTrackingSetup from './ManualTrackingSetup';
+import React, { useState } from "react";
+import GoogleAnalyticsConnector from "./GoogleAnalyticsConnector";
+import GoogleSearchConsoleConnector from "./GoogleSearchConsoleConnector";
+import GscManualVerification from "./GscManualVerification";
+import ManualTrackingSetup from "./ManualTrackingSetup";
 
 interface IntegrationSetupWizardProps {
   onComplete: () => void;
   onCancel: () => void;
+  mode?: "gsc" | "ga4";
 }
 
-type IntegrationType = 'google_search_console' | 'manual_tracking' | null;
+type IntegrationType =
+  | "google_search_console"
+  | "google_analytics_4"
+  | "manual_tracking"
+  | "gsc_manual"
+  | null;
 
 const IntegrationSetupWizard: React.FC<IntegrationSetupWizardProps> = ({
   onComplete,
-  onCancel
+  onCancel,
+  mode = "gsc",
 }) => {
-  const [currentStep, setCurrentStep] = useState<'selection' | 'setup'>('selection');
-  const [selectedIntegration, setSelectedIntegration] = useState<IntegrationType>(null);
+  const [currentStep, setCurrentStep] = useState<"selection" | "setup">(
+    "selection"
+  );
+  const [selectedIntegration, setSelectedIntegration] =
+    useState<IntegrationType>(null);
 
   const handleIntegrationSelect = (type: IntegrationType) => {
     setSelectedIntegration(type);
-    setCurrentStep('setup');
+    setCurrentStep("setup");
   };
 
   const handleSetupComplete = () => {
@@ -31,8 +43,8 @@ const IntegrationSetupWizard: React.FC<IntegrationSetupWizardProps> = ({
   };
 
   const handleBack = () => {
-    if (currentStep === 'setup') {
-      setCurrentStep('selection');
+    if (currentStep === "setup") {
+      setCurrentStep("selection");
       setSelectedIntegration(null);
     } else {
       onCancel();
@@ -41,7 +53,7 @@ const IntegrationSetupWizard: React.FC<IntegrationSetupWizardProps> = ({
 
   return (
     <div className="h-full flex flex-col">
-      {currentStep === 'selection' && (
+      {currentStep === "selection" && (
         <div className="flex-1 min-h-0 p-1 flex items-center justify-center">
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
@@ -54,57 +66,100 @@ const IntegrationSetupWizard: React.FC<IntegrationSetupWizardProps> = ({
             </div>
 
             <div className="grid md:grid-cols-2 gap-4 mb-8">
-              {/* Import from GSC */}
-              <div 
-                onClick={() => handleIntegrationSelect('google_search_console')}
-                className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 cursor-pointer transition-all p-6"
-              >
-                <h3 className="text-sm font-medium text-gray-900 mb-2">
-                  Import from GSC
-                </h3>
-                <div className="space-y-1 text-xs text-gray-500 mb-4">
-                  <div>• Automatic ownership verification</div>
-                  <div>• Quick and seamless integration</div>
-                  <div>• Edit project settings later</div>
-                </div>
-                
-                <div className="mt-4 pt-4 border-t border-white/20">
-                  <button className="w-full px-4 py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors">
-                    Import
-                  </button>
-                  <p className="text-xs text-gray-500 mt-2 text-center">
-                    We'll ask you to connect your Google Account and select which projects to import
-                  </p>
-                </div>
-              </div>
+              {mode === "gsc" && (
+                <>
+                  <div
+                    onClick={() =>
+                      handleIntegrationSelect("google_search_console")
+                    }
+                    className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 cursor-pointer transition-all p-6"
+                  >
+                    <h3 className="text-sm font-medium text-gray-900 mb-2">
+                      Connect Google
+                    </h3>
+                    <div className="space-y-1 text-xs text-gray-500 mb-4">
+                      <div>
+                        • OAuth to read rankings from verified properties
+                      </div>
+                      <div>• Uses company website by default</div>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-white/20">
+                      <button className="w-full px-4 py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors">
+                        Connect
+                      </button>
+                    </div>
+                  </div>
 
-              {/* Add manually */}
-              <div 
-                onClick={() => handleIntegrationSelect('manual_tracking')}
-                className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 cursor-pointer transition-all p-6"
-              >
-                <h3 className="text-sm font-medium text-gray-900 mb-2">
-                  Add manually
-                </h3>
-                <div className="space-y-1 text-xs text-gray-500 mb-4">
-                  <div>• Manual ownership verification required</div>
-                  <div>• Granular configuration control</div>
-                  <div>• Fully configure project during creation</div>
-                </div>
-                
-                <div className="mt-4 pt-4 border-t border-white/20">
-                  <button className="w-full px-4 py-2 bg-gray-600 text-white text-xs rounded-lg hover:bg-gray-700 transition-colors">
-                    Add manually
-                  </button>
-                </div>
-              </div>
+                  <div
+                    onClick={() => handleIntegrationSelect("gsc_manual")}
+                    className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 cursor-pointer transition-all p-6"
+                  >
+                    <h3 className="text-sm font-medium text-gray-900 mb-2">
+                      Verify Manually
+                    </h3>
+                    <div className="space-y-1 text-xs text-gray-500 mb-4">
+                      <div>• URL-prefix: HTML meta tag or HTML file</div>
+                      <div>• Domain: DNS TXT</div>
+                      <div>• Then connect Google to fetch data</div>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-white/20">
+                      <button className="w-full px-4 py-2 bg-gray-600 text-white text-xs rounded-lg hover:bg-gray-700 transition-colors">
+                        Start manual verification
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {mode === "ga4" && (
+                <>
+                  <div
+                    onClick={() =>
+                      handleIntegrationSelect("google_analytics_4")
+                    }
+                    className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 cursor-pointer transition-all p-6"
+                  >
+                    <h3 className="text-sm font-medium text-gray-900 mb-2">
+                      Connect GA4
+                    </h3>
+                    <div className="space-y-1 text-xs text-gray-500 mb-4">
+                      <div>• OAuth to read visitor metrics</div>
+                      <div>• Optional property selection</div>
+                      <div>• Or manual Measurement ID</div>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-white/20">
+                      <button className="w-full px-4 py-2 bg-black text-white text-xs rounded-lg hover:bg-gray-900 transition-colors">
+                        Connect
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    onClick={() => handleIntegrationSelect("manual_tracking")}
+                    className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 cursor-pointer transition-all p-6"
+                  >
+                    <h3 className="text-sm font-medium text-gray-900 mb-2">
+                      Serplexity Web Analytics Tag
+                    </h3>
+                    <div className="space-y-1 text-xs text-gray-500 mb-4">
+                      <div>• Lightweight pageview/session tracking</div>
+                      <div>• Time-on-page, top pages, device & country</div>
+                      <div>• No Google account required</div>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-white/20">
+                      <button className="w-full px-4 py-2 bg-gray-600 text-white text-xs rounded-lg hover:bg-gray-700 transition-colors">
+                        Add manually
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
-
           </div>
         </div>
       )}
 
-      {currentStep === 'setup' && (
+      {currentStep === "setup" && (
         <div className="h-full flex flex-col">
           <div className="flex-shrink-0 mb-4">
             <button
@@ -116,15 +171,29 @@ const IntegrationSetupWizard: React.FC<IntegrationSetupWizardProps> = ({
           </div>
 
           <div className="flex-1 min-h-0">
-            {selectedIntegration === 'google_search_console' && (
+            {selectedIntegration === "google_search_console" && (
               <GoogleSearchConsoleConnector
                 onComplete={handleSetupComplete}
                 onCancel={handleBack}
               />
             )}
 
-            {selectedIntegration === 'manual_tracking' && (
+            {selectedIntegration === "google_analytics_4" && (
+              <GoogleAnalyticsConnector
+                onComplete={handleSetupComplete}
+                onCancel={handleBack}
+              />
+            )}
+
+            {selectedIntegration === "manual_tracking" && (
               <ManualTrackingSetup
+                onComplete={handleSetupComplete}
+                onCancel={handleBack}
+              />
+            )}
+
+            {selectedIntegration === "gsc_manual" && (
+              <GscManualVerification
                 onComplete={handleSetupComplete}
                 onCancel={handleBack}
               />

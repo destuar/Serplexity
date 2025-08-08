@@ -33,8 +33,8 @@ passport.use(
       callbackURL: GOOGLE_CALLBACK_URL,
     },
     async (
-      accessToken: string,
-      refreshToken: string,
+      _accessToken: string,
+      _refreshToken: string,
       profile: Profile,
       done: VerifyCallback,
     ) => {

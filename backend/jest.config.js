@@ -9,9 +9,25 @@ module.exports = {
     '^.+\\.tsx?$': ['ts-jest', {
       isolatedModules: true,
       tsconfig: {
+        // Power of Ten Rule #10: Maintain strict TypeScript in tests
+        strict: true,
+        noImplicitAny: true,
+        strictNullChecks: true,
         skipLibCheck: true,
-        noImplicitAny: false,
       },
     }],
   },
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/__tests__/**',
+    '!src/**/*.d.ts',
+  ],
+  coverageThreshold: {
+    global: {
+      branches: 70,
+      functions: 70,
+      lines: 70,
+      statements: 70
+    }
+  }
 }; 

@@ -12,7 +12,8 @@
  * @exports
  * - SentimentAnalysisPage: The main sentiment analysis page component.
  */
-import { Sparkles, Calendar, RefreshCw, Loader } from 'lucide-react';
+import { Sparkles, Calendar, RefreshCw } from 'lucide-react';
+import { InlineSpinner } from '../components/ui/InlineSpinner';
 import { dashboardClasses } from '../utils/colorClasses';
 import { useCompany } from '../contexts/CompanyContext';
 import { useDashboard } from '../hooks/useDashboard';
@@ -93,10 +94,7 @@ const SentimentAnalysisPage: React.FC = () => {
                 className={`flex items-center justify-center gap-2 px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium ${dashboardClasses.refresh}`}
               >
                 {refreshing ? (
-                  <>
-                    <Loader size={16} className="animate-spin" />
-                    <span className="whitespace-nowrap">Refreshing...</span>
-                  </>
+                  <InlineSpinner size={16} />
                 ) : (
                   <>
                     <RefreshCw size={16} />
@@ -119,9 +117,8 @@ const SentimentAnalysisPage: React.FC = () => {
               {/* Subtle loading overlay for filter changes */}
               {filterLoading && (
                 <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
-                  <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-lg px-4 py-2 flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-sm font-medium text-gray-700">Updating...</span>
+                  <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-lg px-4 py-2 flex items-center justify-center">
+                    <InlineSpinner size={16} />
                   </div>
                 </div>
               )}
@@ -140,7 +137,7 @@ const SentimentAnalysisPage: React.FC = () => {
 
                 <div className="hidden lg:grid h-full w-full gap-4" style={{
                   gridTemplateColumns: 'repeat(48, 1fr)',
-                  gridTemplateRows: 'repeat(24, minmax(30px, 1fr))',
+                  gridTemplateRows: 'repeat(14, minmax(30px, 1fr))',
                   gridTemplateAreas: `
                     "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"
                     "s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s1 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2 s2"

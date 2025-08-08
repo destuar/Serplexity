@@ -1,14 +1,26 @@
 /**
  * @file WebAuditProgress.tsx
  * @description Component for showing audit progress and real-time updates
- * 
+ *
  * Displays progress bar, current analysis step, and estimated completion time.
  * Polls the backend for status updates and handles completion/error states.
  */
 
-import React, { useState, useEffect, useCallback } from "react";
-import { Clock, CheckCircle, AlertCircle, Loader2, Globe, Search, Shield, Eye, Gauge } from "lucide-react";
+import type { AxiosError } from "axios";
+import {
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  Eye,
+  Gauge,
+  Loader2,
+  Search,
+  Shield,
+} from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import apiClient from "../../lib/apiClient";
 import { AuditConfig, AuditResult } from "../../pages/WebAuditPage";
+import { InlineSpinner } from "../ui/InlineSpinner";
 
 interface WebAuditProgressProps {
   auditId: string;
@@ -27,90 +39,83 @@ const WebAuditProgress: React.FC<WebAuditProgressProps> = ({
   const [currentStep, setCurrentStep] = useState("Initializing audit...");
   const [elapsedTime, setElapsedTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const startTimeRef = useRef<number>(Date.now());
+  const nextDelayRef = useRef<number>(3000);
 
   const analysisSteps = [
     {
-      key: 'performance',
-      label: 'Performance Analysis',
-      description: 'Analyzing Core Web Vitals and load times',
+      key: "performance",
+      label: "Performance Analysis",
+      description: "Analyzing Core Web Vitals and load times",
       icon: Gauge,
-      color: 'orange',
+      color: "orange",
       enabled: config.includePerformance,
     },
     {
-      key: 'seo',
-      label: 'SEO Analysis', 
-      description: 'Checking technical SEO and meta tags',
+      key: "seo",
+      label: "SEO Analysis",
+      description: "Checking technical SEO and meta tags",
       icon: Search,
-      color: 'green',
+      color: "green",
       enabled: config.includeSEO,
     },
     {
-      key: 'geo',
-      label: 'GEO Analysis',
-      description: 'Analyzing AI optimization factors',
-      icon: Globe,
-      color: 'purple',
+      key: "geo",
+      label: "AI Search Analysis",
+      description: "Analyzing AI optimization factors",
+      icon: Sparkles,
+      color: "purple",
       enabled: config.includeGEO,
     },
     {
-      key: 'accessibility',
-      label: 'Accessibility Analysis',
-      description: 'Checking WCAG compliance',
+      key: "accessibility",
+      label: "Accessibility Analysis",
+      description: "Checking WCAG compliance",
       icon: Eye,
-      color: 'blue',
+      color: "blue",
       enabled: config.includeAccessibility,
     },
     {
-      key: 'security',
-      label: 'Security Analysis',
-      description: 'Scanning for vulnerabilities',
+      key: "security",
+      label: "Security Analysis",
+      description: "Scanning for vulnerabilities",
       icon: Shield,
-      color: 'red',
+      color: "red",
       enabled: config.includeSecurity,
     },
-  ].filter(step => step.enabled);
+  ].filter((step) => step.enabled);
 
-  const getCurrentStepIndex = useCallback((progress: number) => {
-    if (progress < 10) return -1; // Initializing
-    if (progress >= 95) return analysisSteps.length; // Finalizing
-    
-    const stepProgress = (progress - 10) / 80; // 10% for init, 10% for finalization
-    return Math.floor(stepProgress * analysisSteps.length);
-  }, [analysisSteps.length]);
+  const getCurrentStepIndex = useCallback(
+    (progress: number) => {
+      if (progress < 10) return -1; // Initializing
+      if (progress >= 95) return analysisSteps.length; // Finalizing
+
+      const stepProgress = (progress - 10) / 80; // 10% for init, 10% for finalization
+      return Math.floor(stepProgress * analysisSteps.length);
+    },
+    [analysisSteps.length]
+  );
 
   const pollAuditStatus = useCallback(async () => {
     try {
-      const response = await fetch(`/api/web-audit/${auditId}/status`, {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch audit status');
-      }
-
-      const data = await response.json();
+      const { data } = await apiClient.get(`/web-audit/${auditId}/status`);
       const statusInfo = data.data;
 
-      if (statusInfo.status === 'completed' && statusInfo.scores) {
+      if (statusInfo.status === "completed" && statusInfo.scores) {
         // Audit is complete, fetch full results
-        const resultsResponse = await fetch(`/api/web-audit/${auditId}`, {
-          credentials: 'include',
-        });
-
-        if (resultsResponse.ok) {
-          const resultsData = await resultsResponse.json();
-          onComplete(resultsData.data);
-        } else {
-          setError('Failed to fetch audit results');
-          onError();
-        }
-      } else if (statusInfo.status === 'failed') {
-        setError('Audit failed. Please try again.');
+        const resultsResponse = await apiClient.get(`/web-audit/${auditId}`);
+        onComplete(resultsResponse.data.data);
+        return;
+      } else if (statusInfo.status === "failed") {
+        setError("Audit failed. Please try again.");
         onError();
+        return;
       } else {
         // Still running, simulate progress based on elapsed time
-        const simulatedProgress = Math.min(90, (elapsedTime / 120) * 90); // 90% max, 2min expected
+        const elapsedSeconds = Math.floor(
+          (Date.now() - startTimeRef.current) / 1000
+        );
+        const simulatedProgress = Math.min(90, (elapsedSeconds / 120) * 90); // 90% max, 2min expected
         setProgress(simulatedProgress);
 
         const stepIndex = getCurrentStepIndex(simulatedProgress);
@@ -119,23 +124,49 @@ const WebAuditProgress: React.FC<WebAuditProgressProps> = ({
         } else if (stepIndex >= analysisSteps.length) {
           setCurrentStep("Finalizing results...");
         }
+        nextDelayRef.current = 3000; // reset delay on success
       }
-    } catch (error) {
-      console.error('Error polling audit status:', error);
-      setError('Lost connection to audit service');
+    } catch (error: unknown) {
+      const axiosErr = error as AxiosError;
+      const status = axiosErr.response?.status as number | undefined;
+      if (status === 429) {
+        // Rate limited: back off, do not surface error
+        nextDelayRef.current = Math.min(
+          (nextDelayRef.current || 3000) * 2,
+          10000
+        );
+        return;
+      }
+      if (status === 401 || status === 403 || (status && status >= 500)) {
+        // Transient/auth: let interceptors handle refresh; retry shortly
+        nextDelayRef.current = 5000;
+        return;
+      }
+      console.error("Error polling audit status:", error);
+      setError("Lost connection to audit service");
       onError();
     }
-  }, [auditId, elapsedTime, analysisSteps, getCurrentStepIndex, onComplete, onError]);
+  }, [auditId, analysisSteps, getCurrentStepIndex, onComplete, onError]);
 
-  // Poll for status updates
+  // Single-loop polling with adaptive backoff
   useEffect(() => {
-    const pollInterval = setInterval(pollAuditStatus, 3000); // Poll every 3 seconds
+    let cancelled = false;
+    startTimeRef.current = Date.now();
+    nextDelayRef.current = 3000;
 
-    // Initial poll
-    pollAuditStatus();
+    const loop = async () => {
+      if (cancelled) return;
+      await pollAuditStatus();
+      if (cancelled) return;
+      setTimeout(loop, nextDelayRef.current);
+    };
+    // Initial tick
+    loop();
 
-    return () => clearInterval(pollInterval);
-  }, [pollAuditStatus]);
+    return () => {
+      cancelled = true;
+    };
+  }, [auditId, pollAuditStatus]);
 
   // Track elapsed time
   useEffect(() => {
@@ -150,18 +181,18 @@ const WebAuditProgress: React.FC<WebAuditProgressProps> = ({
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   const getStepColor = (color: string) => {
     const colors = {
-      orange: 'bg-orange-500',
-      green: 'bg-green-500',
-      purple: 'bg-purple-500',
-      blue: 'bg-blue-500',
-      red: 'bg-red-500',
+      orange: "bg-orange-500",
+      green: "bg-green-500",
+      purple: "bg-purple-500",
+      blue: "bg-blue-500",
+      red: "bg-red-500",
     };
-    return colors[color as keyof typeof colors] || 'bg-gray-500';
+    return colors[color as keyof typeof colors] || "bg-gray-500";
   };
 
   if (error) {
@@ -199,7 +230,9 @@ const WebAuditProgress: React.FC<WebAuditProgressProps> = ({
                 <Loader2 className="w-6 h-6 text-white animate-spin" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-white">Analyzing Website</h2>
+                <h2 className="text-2xl font-bold text-white">
+                  Analyzing Website
+                </h2>
                 <p className="text-blue-100">{config.url}</p>
               </div>
             </div>
@@ -218,7 +251,9 @@ const WebAuditProgress: React.FC<WebAuditProgressProps> = ({
           {/* Overall Progress */}
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-medium text-gray-900">Overall Progress</h3>
+              <h3 className="text-lg font-medium text-gray-900">
+                Overall Progress
+              </h3>
               <span className="text-sm font-medium text-gray-600">
                 {Math.round(progress)}%
               </span>
@@ -234,12 +269,14 @@ const WebAuditProgress: React.FC<WebAuditProgressProps> = ({
 
           {/* Analysis Steps */}
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-900">Analysis Steps</h3>
+            <h3 className="text-lg font-medium text-gray-900">
+              Analysis Steps
+            </h3>
             <div className="grid grid-cols-1 gap-3">
               {analysisSteps.map((step, index) => {
                 const isCompleted = index < currentStepIndex;
                 const isCurrent = index === currentStepIndex;
-                const isPending = index > currentStepIndex;
+                // const isPending = index > currentStepIndex;
 
                 const IconComponent = step.icon;
 
@@ -248,19 +285,19 @@ const WebAuditProgress: React.FC<WebAuditProgressProps> = ({
                     key={step.key}
                     className={`flex items-center space-x-4 p-4 rounded-xl border transition-all ${
                       isCompleted
-                        ? 'bg-green-50 border-green-200'
+                        ? "bg-green-50 border-green-200"
                         : isCurrent
-                        ? 'bg-blue-50 border-blue-200'
-                        : 'bg-gray-50 border-gray-200'
+                          ? "bg-blue-50 border-blue-200"
+                          : "bg-gray-50 border-gray-200"
                     }`}
                   >
                     <div
                       className={`p-2 rounded-lg ${
                         isCompleted
-                          ? 'bg-green-500'
+                          ? "bg-green-500"
                           : isCurrent
-                          ? getStepColor(step.color)
-                          : 'bg-gray-400'
+                            ? getStepColor(step.color)
+                            : "bg-gray-400"
                       }`}
                     >
                       {isCompleted ? (
@@ -268,22 +305,24 @@ const WebAuditProgress: React.FC<WebAuditProgressProps> = ({
                       ) : (
                         <IconComponent
                           className={`w-5 h-5 text-white ${
-                            isCurrent ? 'animate-pulse' : ''
+                            isCurrent ? "animate-pulse" : ""
                           }`}
                         />
                       )}
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-medium text-gray-900">{step.label}</h4>
-                      <p className="text-sm text-gray-600">{step.description}</p>
+                      <h4 className="font-medium text-gray-900">
+                        {step.label}
+                      </h4>
+                      <p className="text-sm text-gray-600">
+                        {step.description}
+                      </p>
                     </div>
                     <div>
                       {isCompleted && (
                         <CheckCircle className="w-5 h-5 text-green-500" />
                       )}
-                      {isCurrent && (
-                        <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
-                      )}
+                      {isCurrent && <InlineSpinner size={20} />}
                     </div>
                   </div>
                 );
@@ -296,12 +335,13 @@ const WebAuditProgress: React.FC<WebAuditProgressProps> = ({
             <div className="flex items-center space-x-2">
               <Clock className="w-5 h-5 text-blue-600" />
               <div>
-                <p className="font-medium text-blue-900">Estimated Time Remaining</p>
+                <p className="font-medium text-blue-900">
+                  Estimated Time Remaining
+                </p>
                 <p className="text-sm text-blue-700">
-                  {progress < 90 
+                  {progress < 90
                     ? `${Math.max(0, 120 - elapsedTime)}s (typical audit takes 2-3 minutes)`
-                    : 'Almost done, finalizing results...'
-                  }
+                    : "Almost done, finalizing results..."}
                 </p>
               </div>
             </div>

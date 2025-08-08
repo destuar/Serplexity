@@ -22,6 +22,7 @@ import RichTextEditor from '../components/blog/RichTextEditor';
 import Card from '../components/ui/Card';
 import apiClient from '../lib/apiClient';
 import { toast } from 'sonner';
+import { InlineSpinner } from '../components/ui/InlineSpinner';
 
 interface ApiError {
   response?: {
@@ -385,16 +386,18 @@ const BlogEditorPage: React.FC = () => {
                 variant="secondary"
                 onClick={() => handleSave(false)}
                 disabled={saving || !post.title.trim() || !post.content.trim()}
-                className="px-6"
+                className="px-6 flex items-center gap-2"
               >
-                {saving ? 'Saving...' : 'Save Draft'}
+                {saving && <InlineSpinner size={16} />}
+                {saving ? '' : 'Save Draft'}
               </Button>
               <Button
                 onClick={() => handleSave(true)}
                 disabled={saving || !post.title.trim() || !post.content.trim()}
-                className="px-6 bg-[#7762ff] hover:bg-[#6650e6] text-white"
+                className="px-6 bg-[#7762ff] hover:bg-[#6650e6] text-white flex items-center gap-2"
               >
-                {saving ? 'Publishing...' : 'Publish'}
+                {saving && <InlineSpinner size={16} />}
+                {saving ? '' : 'Publish'}
               </Button>
               {isEditing && (
                 <Button
@@ -485,7 +488,9 @@ const BlogEditorPage: React.FC = () => {
                       <div className="flex flex-col items-center justify-center px-6 py-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors group-hover:bg-gray-50">
                         <div className="text-center">
                           {uploadingCover ? (
-                            <div className="text-sm text-gray-600">Uploading...</div>
+                            <div className="text-sm text-gray-600 flex items-center justify-center">
+                              <InlineSpinner size={16} />
+                            </div>
                           ) : (
                             <>
                               <svg className="mx-auto h-8 w-8 text-gray-400 mb-2" stroke="currentColor" fill="none" viewBox="0 0 48 48">
@@ -528,8 +533,9 @@ const BlogEditorPage: React.FC = () => {
                       </div>
                       <label className="block w-full cursor-pointer">
                         <div className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg hover:border-gray-400 transition-colors bg-gray-50 hover:bg-gray-100">
-                          <span className="text-sm text-gray-600 font-medium">
-                            {uploadingCover ? 'Uploading...' : 'Replace image'}
+                          <span className="text-sm text-gray-600 font-medium flex items-center gap-2">
+                            {uploadingCover && <InlineSpinner size={16} />}
+                            {uploadingCover ? '' : 'Replace image'}
                           </span>
                         </div>
                         <input

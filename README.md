@@ -244,15 +244,6 @@ Admin-friendly aliases are defined in `backend/package.json > scripts`.
 
 ---
 
-## Metrics Formulae
-| Metric | Formula |
-|--------|---------|
-| **PAWC** (Position-Adjusted Word Share) | \( \text{word share} \times e^{-k \times \text{slot}} \) |
-| **AIR** (Answer Inclusion Rate) | \( \frac{\text{queries with ≥1 citation}}{\text{total queries}} \) |
-| **Gap Index** | \( \text{traffic potential} \times (1 - \text{PAWC}) \) |
-
-> See `docs/fanout_implementation_plan.txt` for detailed pipeline design.
-
 ---
 
 ## Contributing

@@ -1,7 +1,7 @@
 import { getDbClient } from "../config/database";
 
 // Mock instances tracking for test cleanup
-const activeBullMQInstances = new Set<any>();
+const activeBullMQInstances = new Set<{ close: () => Promise<void> }>();
 
 export const addBullMQInstance = (instance: unknown) => {
   activeBullMQInstances.add(instance);

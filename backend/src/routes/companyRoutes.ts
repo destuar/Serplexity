@@ -19,7 +19,6 @@ import { subscriptionOnlyGuard } from "../middleware/freemiumGuard";
 import {
   createCompany,
   deleteCompany,
-  getAverageInclusionRate,
   getAveragePosition,
   getCompanies,
   getCompany,
@@ -61,7 +60,6 @@ router.put("/:id", updateCompany); // PUT /api/companies/:id - Update company
 router.delete("/:id", deleteCompany); // DELETE /api/companies/:id - Delete company
 
 // Metrics
-router.get("/:id/metrics/air", getAverageInclusionRate); // GET /api/companies/:id/metrics/air
 router.get("/:id/metrics/position", getAveragePosition); // GET /api/companies/:id/metrics/position
 router.get("/:id/metrics/share-of-voice", getShareOfVoice); // GET /api/companies/:id/metrics/share-of-voice
 router.get("/:id/metrics/competitor-rankings", getCompetitorRankings);

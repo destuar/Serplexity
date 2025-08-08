@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { InlineSpinner } from "../ui/InlineSpinner";
 import { z } from "zod";
 // Note: buttonClasses and formClasses imports removed as they're unused
 import { useNavigate } from "react-router-dom";
@@ -428,8 +429,9 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                     >
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={isUpdatingProfile}>
-                      {isUpdatingProfile ? "Saving..." : "Save Changes"}
+                    <Button type="submit" disabled={isUpdatingProfile} className="flex items-center gap-2">
+                      {isUpdatingProfile && <InlineSpinner size={16} />}
+                      {isUpdatingProfile ? "" : "Save Changes"}
                     </Button>
                   </div>
                 </form>
@@ -450,8 +452,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                     disabled={isSigningOut}
                     className="flex items-center text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
                   >
-                    <LogOut className="w-4 h-4 mr-2" />
-                    {isSigningOut ? "Signing out..." : "Sign Out"}
+                    {isSigningOut ? <InlineSpinner size={16} className="mr-2" /> : <LogOut className="w-4 h-4 mr-2" />}
+                    {isSigningOut ? "" : "Sign Out"}
                   </Button>
                 </div>
               </div>
@@ -637,8 +639,10 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                     type="button"
                     onClick={handleUpdateModels}
                     disabled={isUpdatingModels}
+                    className="flex items-center gap-2"
                   >
-                    {isUpdatingModels ? "Saving..." : "Save Preferences"}
+                    {isUpdatingModels && <InlineSpinner size={16} />}
+                    {isUpdatingModels ? "" : "Save Preferences"}
                   </Button>
                 </div>
               </div>
@@ -874,8 +878,9 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                     >
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={isChangingPassword}>
-                      {isChangingPassword ? "Changing..." : "Change Password"}
+                    <Button type="submit" disabled={isChangingPassword} className="flex items-center gap-2">
+                      {isChangingPassword && <InlineSpinner size={16} />}
+                      {isChangingPassword ? "" : "Change Password"}
                     </Button>
                   </div>
                 </form>

@@ -27,38 +27,34 @@
  * - AgentExecutionContext: Context interface for agent execution
  */
 
-import { spawn, ChildProcess } from "child_process";
+import { ChildProcess, spawn } from "child_process";
+import fs from "fs/promises";
+import path from "path";
 import { z } from "zod";
-import logger from "../utils/logger";
 import env from "../config/env";
 import {
   PydanticProviderConfig,
   providerManager,
 } from "../config/pydanticProviders";
-import path from "path";
-import fs from "fs/promises";
 import {
-  trackLLMUsage,
-  trackPerformance,
-  trackError,
   createSpan,
   initializeLogfire,
-} from "../config/logfire-stubs";
+  trackError,
+  trackLLMUsage,
+  trackPerformance,
+} from "../config/telemetry";
+import logger from "../utils/logger";
 import DependencyValidator from "./dependencyValidator";
 
-// Initialize Logfire for the PydanticAI service
+// Initialize telemetry for the PydanticAI service
 (async () => {
   try {
-    await initializeLogfire({
-      serviceName: "pydantic-llm-service",
-      enableAutoInstrumentation: false, // We use custom spans
-    });
-    logger.info("Logfire initialized for Pydantic LLM Service");
+    await initializeLogfire({ serviceName: "pydantic-llm-service" });
+    logger.info("Telemetry initialized for Pydantic LLM Service");
   } catch (error) {
-    logger.error(
-      "Failed to initialize Logfire for Pydantic LLM Service",
-      error,
-    );
+    logger.error("Failed to initialize telemetry for Pydantic LLM Service", {
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 })();
 
@@ -132,15 +128,19 @@ export class PydanticLlmService {
     new Map();
 
   private constructor() {
-    this.pythonPath = process.env.PYTHON_PATH || "python3";
+    this.pythonPath = process.env["PYTHON_PATH"] || "python3";
     // Always point to source directory for Python scripts
     // This works both in development and production since Python files don't get compiled
     this.scriptsPath = path.resolve(__dirname, "../../src/pydantic_agents");
     // Initialize Python environment asynchronously without blocking constructor
-    this.initializePythonEnvironment().catch(error => {
-      logger.error("Failed to initialize PydanticAI Python environment", { error });
+    this.initializePythonEnvironment().catch((error) => {
+      logger.error("Failed to initialize PydanticAI Python environment", {
+        error,
+      });
       // Mark all providers as unavailable in case of initialization failure
-      providerManager.markAllProvidersUnavailable("Python environment initialization failed");
+      providerManager.markAllProvidersUnavailable(
+        "Python environment initialization failed"
+      );
     });
   }
 
@@ -160,7 +160,7 @@ export class PydanticLlmService {
       await fs.mkdir(this.scriptsPath, { recursive: true });
 
       // Skip Python validation during tests
-      if (process.env.NODE_ENV === "test") {
+      if (process.env["NODE_ENV"] === "test") {
         logger.info("PydanticAI service initialized (test mode)");
         return;
       }
@@ -168,26 +168,32 @@ export class PydanticLlmService {
       // Use comprehensive dependency validation
       const validator = DependencyValidator.getInstance();
       const validation = await validator.validateAll(false);
-      
+
       if (validation.success) {
-        logger.info("✅ PydanticAI service initialized successfully - all dependencies validated", {
-          pythonPath: this.pythonPath,
-          scriptsPath: this.scriptsPath,
-          validationSummary: validator.getHealthSummary()
-        });
+        logger.info(
+          "✅ PydanticAI service initialized successfully - all dependencies validated",
+          {
+            pythonPath: this.pythonPath,
+            scriptsPath: this.scriptsPath,
+            validationSummary: validator.getHealthSummary(),
+          }
+        );
       } else {
         // Log detailed failure information
-        logger.error("❌ PydanticAI service running in degraded mode - dependency validation failed", {
-          criticalFailures: validation.criticalFailures,
-          warnings: validation.warnings,
-          pythonPath: this.pythonPath,
-          remediationSteps: this.generateRemediationSteps(validation.results)
-        });
-        
+        logger.error(
+          "❌ PydanticAI service running in degraded mode - dependency validation failed",
+          {
+            criticalFailures: validation.criticalFailures,
+            warnings: validation.warnings,
+            pythonPath: this.pythonPath,
+            remediationSteps: this.generateRemediationSteps(validation.results),
+          }
+        );
+
         // Mark all providers as unavailable with detailed reason
-        const failureReason = `Dependencies failed: ${validation.criticalFailures.join('; ')}`;
+        const failureReason = `Dependencies failed: ${validation.criticalFailures.join("; ")}`;
         providerManager.markAllProvidersUnavailable(failureReason);
-        
+
         // Attempt automated remediation if configured
         if (env.AUTO_REMEDIATE_DEPENDENCIES) {
           logger.info("🔧 Attempting automated dependency remediation...");
@@ -195,9 +201,13 @@ export class PydanticLlmService {
         }
       }
     } catch (error) {
-      logger.error("Failed to initialize PydanticAI service directory setup", { error });
+      logger.error("Failed to initialize PydanticAI service directory setup", {
+        error,
+      });
       // Mark all providers as unavailable but don't crash the service
-      providerManager.markAllProvidersUnavailable("Service directory setup failed");
+      providerManager.markAllProvidersUnavailable(
+        "Service directory setup failed"
+      );
     }
   }
 
@@ -206,68 +216,87 @@ export class PydanticLlmService {
    */
   private generateRemediationSteps(results: Map<string, unknown>): string[] {
     const steps: string[] = [];
-    
+
     for (const [checkName, result] of results) {
       const resultObj = result as { success?: boolean; remediation?: string };
       if (!resultObj.success && resultObj.remediation) {
         steps.push(`${checkName}: ${resultObj.remediation}`);
       }
     }
-    
+
     return steps;
   }
 
   /**
    * Attempt automated remediation for common dependency issues
    */
-  private async attemptAutomatedRemediation(results: Map<string, unknown>): Promise<void> {
-    const remediation = results.get('pydantic-ai-installation');
-    
-    const remediationObj = remediation as { success?: boolean; remediation?: string };
-    if (remediationObj && !remediationObj.success && remediationObj.remediation?.includes('pip3 install')) {
+  private async attemptAutomatedRemediation(
+    results: Map<string, unknown>
+  ): Promise<void> {
+    const remediation = results.get("pydantic-ai-installation");
+
+    const remediationObj = remediation as {
+      success?: boolean;
+      remediation?: string;
+    };
+    if (
+      remediationObj &&
+      !remediationObj.success &&
+      remediationObj.remediation?.includes("pip3 install")
+    ) {
       try {
-        logger.info("🔧 Attempting to install Python dependencies automatically...");
-        
+        logger.info(
+          "🔧 Attempting to install Python dependencies automatically..."
+        );
+
         const { spawn } = await import("child_process");
         const requirementsPath = path.join(process.cwd(), "requirements.txt");
-        
+
         return new Promise((resolve, reject) => {
-          const installProc = spawn("pip3", ["install", "-r", requirementsPath], {
-            stdio: ['ignore', 'pipe', 'pipe']
-          });
-          
+          const installProc = spawn(
+            "pip3",
+            ["install", "-r", requirementsPath],
+            {
+              stdio: ["ignore", "pipe", "pipe"],
+            }
+          );
+
           let output = "";
           let errorOutput = "";
-          
-          installProc.stdout?.on('data', (data) => {
+
+          installProc.stdout?.on("data", (data) => {
             output += data.toString();
           });
-          
-          installProc.stderr?.on('data', (data) => {
+
+          installProc.stderr?.on("data", (data) => {
             errorOutput += data.toString();
           });
-          
-          installProc.on('close', (code) => {
+
+          installProc.on("close", (code) => {
             if (code === 0) {
-              logger.info("✅ Python dependencies installed successfully", { output });
+              logger.info("✅ Python dependencies installed successfully", {
+                output,
+              });
               resolve();
             } else {
-              logger.error("❌ Failed to install Python dependencies", { 
-                exitCode: code, 
-                error: errorOutput 
+              logger.error("❌ Failed to install Python dependencies", {
+                exitCode: code,
+                error: errorOutput,
               });
               reject(new Error(`pip install failed with code ${code}`));
             }
           });
-          
-          installProc.on('error', (error) => {
-            logger.error("❌ pip install process failed", { error: error.message });
+
+          installProc.on("error", (error) => {
+            logger.error("❌ pip install process failed", {
+              error: error.message,
+            });
             reject(error);
           });
         });
       } catch (error) {
-        logger.error("❌ Automated remediation failed", { 
-          error: error instanceof Error ? error.message : 'Unknown error'
+        logger.error("❌ Automated remediation failed", {
+          error: error instanceof Error ? error.message : "Unknown error",
         });
       }
     }
@@ -276,7 +305,9 @@ export class PydanticLlmService {
   /**
    * Validate Python environment has required dependencies
    */
-  private async validatePythonEnvironment(): Promise<void> {
+  // Reserved for future use; currently unused to avoid flakiness in CI
+  // Intentionally not used
+  /* private async validatePythonEnvironment(): Promise<void> {
     return new Promise((resolve, reject) => {
       const validation = spawn(this.pythonPath, [
         "-c",
@@ -303,39 +334,39 @@ export class PydanticLlmService {
         reject(new Error(`Python validation failed: ${error.message}`));
       });
     });
-  }
+  } */
 
   /**
    * Extract clean JSON from mixed output (logging + JSON)
    */
   private extractJSONFromOutput(output: string): string {
     // Look for JSON content - typically starts with { and ends with }
-    const lines = output.split('\n');
+    const lines = output.split("\n");
     const jsonLines: string[] = [];
     let inJson = false;
     let braceCount = 0;
 
     for (const line of lines) {
       const trimmed = line.trim();
-      
+
       // Skip empty lines
       if (!trimmed) continue;
-      
+
       // Start of JSON
-      if (!inJson && trimmed.startsWith('{')) {
+      if (!inJson && trimmed.startsWith("{")) {
         inJson = true;
         braceCount = 0;
       }
-      
+
       if (inJson) {
         jsonLines.push(line);
-        
+
         // Count braces to determine end of JSON
         for (const char of trimmed) {
-          if (char === '{') braceCount++;
-          if (char === '}') braceCount--;
+          if (char === "{") braceCount++;
+          if (char === "}") braceCount--;
         }
-        
+
         // End of JSON object
         if (braceCount === 0) {
           break;
@@ -343,35 +374,38 @@ export class PydanticLlmService {
       }
     }
 
-    return jsonLines.length > 0 ? jsonLines.join('\n') : output;
+    return jsonLines.length > 0 ? jsonLines.join("\n") : output;
   }
 
   /**
    * Check if output contains only logging information
    */
   private isLoggingOutput(output: string): boolean {
-    if (!output || output.trim() === '') return false;
-    
+    if (!output || output.trim() === "") return false;
+
     const loggingPrefixes = [
-      'INFO:',
-      'DEBUG:',
-      'WARNING:',
-      'WARN:',
-      'ERROR:',
-      'CRITICAL:',
-      '[INFO]',
-      '[DEBUG]',
-      '[WARNING]',
-      '[ERROR]',
-      '[CRITICAL]'
+      "INFO:",
+      "DEBUG:",
+      "WARNING:",
+      "WARN:",
+      "ERROR:",
+      "CRITICAL:",
+      "[INFO]",
+      "[DEBUG]",
+      "[WARNING]",
+      "[ERROR]",
+      "[CRITICAL]",
     ];
-    
-    const lines = output.split('\n').filter(line => line.trim());
-    
+
+    const lines = output.split("\n").filter((line) => line.trim());
+
     // Check if all non-empty lines are logging
-    return lines.every(line => {
+    return lines.every((line) => {
       const trimmed = line.trim();
-      return trimmed === '' || loggingPrefixes.some(prefix => trimmed.startsWith(prefix));
+      return (
+        trimmed === "" ||
+        loggingPrefixes.some((prefix) => trimmed.startsWith(prefix))
+      );
     });
   }
 
@@ -379,35 +413,35 @@ export class PydanticLlmService {
    * Check if output contains ONLY logging (no real errors)
    */
   private isOnlyLoggingOutput(output: string): boolean {
-    if (!output || output.trim() === '') return true;
-    
-    const lines = output.split('\n').filter(line => line.trim());
-    
+    if (!output || output.trim() === "") return true;
+
+    const lines = output.split("\n").filter((line) => line.trim());
+
     // Real error indicators
     const errorIndicators = [
-      'Traceback (most recent call last):',
-      'Exception:',
-      'Error:',
-      'Failed:',
-      'ModuleNotFoundError:',
-      'ImportError:',
-      'AttributeError:',
-      'TypeError:',
-      'ValueError:',
-      'KeyError:',
-      'FileNotFoundError:',
-      'ConnectionError:',
-      'TimeoutError:',
-      'CRITICAL ERROR:',
-      'FATAL ERROR:'
+      "Traceback (most recent call last):",
+      "Exception:",
+      "Error:",
+      "Failed:",
+      "ModuleNotFoundError:",
+      "ImportError:",
+      "AttributeError:",
+      "TypeError:",
+      "ValueError:",
+      "KeyError:",
+      "FileNotFoundError:",
+      "ConnectionError:",
+      "TimeoutError:",
+      "CRITICAL ERROR:",
+      "FATAL ERROR:",
     ];
-    
+
     // Check if any line contains real error indicators
-    const hasRealError = lines.some(line => {
+    const hasRealError = lines.some((line) => {
       const trimmed = line.trim();
-      return errorIndicators.some(indicator => trimmed.includes(indicator));
+      return errorIndicators.some((indicator) => trimmed.includes(indicator));
     });
-    
+
     return !hasRealError;
   }
 
@@ -415,36 +449,38 @@ export class PydanticLlmService {
    * Extract actual error message from stderr, filtering out logging
    */
   private extractActualError(stderr: string): string {
-    if (!stderr || stderr.trim() === '') return '';
-    
-    const lines = stderr.split('\n');
+    if (!stderr || stderr.trim() === "") return "";
+
+    const lines = stderr.split("\n");
     const errorLines: string[] = [];
-    
+
     // Look for actual error patterns, not just logging
     for (const line of lines) {
       const trimmed = line.trim();
-      
+
       // Skip empty lines and pure logging
       if (!trimmed) continue;
-      
+
       // Keep lines that indicate real errors
-      if (trimmed.includes('Traceback') ||
-          trimmed.includes('Exception:') ||
-          trimmed.includes('Error:') ||
-          trimmed.includes('Failed:') ||
-          trimmed.includes('CRITICAL:') ||
-          trimmed.includes('FATAL:') ||
-          /\w+Error:/.test(trimmed)) {
+      if (
+        trimmed.includes("Traceback") ||
+        trimmed.includes("Exception:") ||
+        trimmed.includes("Error:") ||
+        trimmed.includes("Failed:") ||
+        trimmed.includes("CRITICAL:") ||
+        trimmed.includes("FATAL:") ||
+        /\w+Error:/.test(trimmed)
+      ) {
         errorLines.push(line);
       }
     }
-    
+
     // If no real errors found, but stderr has content, it might be logging
     if (errorLines.length === 0 && this.isLoggingOutput(stderr)) {
-      return ''; // Not a real error, just logging
+      return ""; // Not a real error, just logging
     }
-    
-    return errorLines.length > 0 ? errorLines.join('\n') : stderr;
+
+    return errorLines.length > 0 ? errorLines.join("\n") : stderr;
   }
 
   /**
@@ -454,7 +490,7 @@ export class PydanticLlmService {
     agentScript: string,
     inputData: unknown,
     outputSchema: z.ZodType<T> | null,
-    options: PydanticAgentOptions = {},
+    options: PydanticAgentOptions = {}
   ): Promise<PydanticResponse<T>> {
     const sessionId = this.generateSessionId();
 
@@ -484,7 +520,7 @@ export class PydanticLlmService {
           const result = await this.executeAgentInternal(
             agentScript,
             inputData,
-            options,
+            options
           );
 
           if (!result.success) {
@@ -495,7 +531,7 @@ export class PydanticLlmService {
           let resultData = result.data;
           if (!resultData) {
             logger.warn(
-              `PydanticAI agent ${agentScript} returned empty data, using default structure`,
+              `PydanticAI agent ${agentScript} returned empty data, using default structure`
             );
             // Provide default structure to prevent downstream errors
             resultData = {
@@ -506,7 +542,9 @@ export class PydanticLlmService {
 
           // Get provider ID for metadata
           const providerIdForMetadata =
-            result.providerId || options.modelId?.split(":")[0] || "unknown";
+            result.providerId ||
+            (options.modelId ? options.modelId.split(":")[0] : undefined) ||
+            "unknown";
 
           const response: PydanticResponse<T> = {
             data: resultData as T,
@@ -522,34 +560,33 @@ export class PydanticLlmService {
             },
           };
 
-          // Track successful execution with Logfire
-          trackLLMUsage(
-            result.providerId || "unknown",
-            result.modelUsed || "unknown",
-            agentScript,
-            result.tokensUsed || 0,
-            undefined, // cost estimate
-            result.executionTime,
-            true,
-            {
+          // Track successful execution
+          trackLLMUsage({
+            providerId: result.providerId || "unknown",
+            modelId: result.modelUsed || "unknown",
+            operation: agentScript,
+            tokensUsed: result.tokensUsed || 0,
+            durationMs: result.executionTime,
+            success: true,
+            metadata: {
               sessionId,
               agentScript,
               attemptCount: result.attemptCount,
               fallbackUsed: result.fallbackUsed,
             },
-          );
+          } as unknown as any);
 
-          trackPerformance(
-            `agent.${agentScript}`,
-            result.executionTime || 0,
-            true,
-            {
+          trackPerformance({
+            name: `agent.${agentScript}`,
+            durationMs: result.executionTime || 0,
+            success: true,
+            metadata: {
               sessionId,
               modelUsed: result.modelUsed,
               tokensUsed: result.tokensUsed,
               fallbackUsed: result.fallbackUsed,
             },
-          );
+          } as unknown as any);
 
           logger.info("PydanticAI agent execution completed successfully", {
             sessionId,
@@ -563,24 +600,27 @@ export class PydanticLlmService {
         } catch (error) {
           const executionTime = Date.now() - startTime;
 
-          // Track failed execution with Logfire
-          trackError(
-            error instanceof Error ? error : new Error(String(error)),
-            `PydanticAI agent execution failed: ${agentScript}`,
-            undefined,
-            undefined,
-            {
+          // Track failed execution
+          trackError({
+            error: error instanceof Error ? error : new Error(String(error)),
+            context: `PydanticAI agent execution failed: ${agentScript}`,
+            metadata: {
               sessionId,
               agentScript,
               executionTime,
               inputData: this.sanitizeInputData(inputData),
             },
-          );
+          } as unknown as any);
 
-          trackPerformance(`agent.${agentScript}`, executionTime, false, {
-            sessionId,
-            error: error instanceof Error ? error.message : String(error),
-          });
+          trackPerformance({
+            name: `agent.${agentScript}`,
+            durationMs: executionTime,
+            success: false,
+            metadata: {
+              sessionId,
+              error: error instanceof Error ? error.message : String(error),
+            },
+          } as unknown as any);
 
           logger.error("PydanticAI agent execution failed", {
             sessionId,
@@ -598,7 +638,7 @@ export class PydanticLlmService {
         "agent.script": agentScript,
         "agent.session_id": sessionId,
         "agent.input_size": JSON.stringify(inputData).length,
-      },
+      }
     );
   }
 
@@ -608,7 +648,7 @@ export class PydanticLlmService {
   private async executeAgentInternal(
     agentScript: string,
     inputData: unknown,
-    options: PydanticAgentOptions,
+    options: PydanticAgentOptions
   ): Promise<AgentExecutionResult> {
     const scriptPath = path.join(this.scriptsPath, "agents", agentScript);
     const maxRetries = options.retryAttempts || 3;
@@ -624,7 +664,7 @@ export class PydanticLlmService {
           inputData,
           providerId,
           options,
-          attempt,
+          attempt
         );
 
         if (result.success) {
@@ -639,7 +679,7 @@ export class PydanticLlmService {
             result.providerId,
             false,
             result.executionTime,
-            result.error,
+            result.error
           );
         }
       } catch (error) {
@@ -669,14 +709,14 @@ export class PydanticLlmService {
     inputData: unknown,
     providerId: string,
     options: PydanticAgentOptions,
-    attempt: number,
+    attempt: number
   ): Promise<AgentExecutionResult> {
     const startTime = Date.now();
 
     return new Promise((resolve) => {
       // Add the parent directory of pydantic_agents to PYTHONPATH for absolute imports
       const pythonPackageDir = path.resolve(__dirname, "../../src");
-      const existingPythonPath = process.env.PYTHONPATH || "";
+      const existingPythonPath = process.env["PYTHONPATH"] || "";
       const pythonPath = existingPythonPath
         ? `${pythonPackageDir}:${existingPythonPath}`
         : pythonPackageDir;
@@ -691,7 +731,7 @@ export class PydanticLlmService {
           ...process.env,
           PYTHONPATH: pythonPath,
           PYDANTIC_PROVIDER_ID: providerId,
-          PYDANTIC_MODEL_ID: options.modelId,
+          PYDANTIC_MODEL_ID: options.modelId ?? "",
           PYDANTIC_TEMPERATURE: options.temperature?.toString(),
           PYDANTIC_MAX_TOKENS: options.maxTokens?.toString(),
           PYDANTIC_SYSTEM_PROMPT: options.systemPrompt,
@@ -705,8 +745,12 @@ export class PydanticLlmService {
       });
 
       // Send input data with provider information
-      const enhancedInputData = {
-        ...(inputData as Record<string, unknown>),
+      const baseInput: Record<string, unknown> =
+        typeof inputData === "object" && inputData !== null
+          ? (inputData as Record<string, unknown>)
+          : { value: inputData as unknown };
+      const enhancedInputData: Record<string, unknown> = {
+        ...baseInput,
         provider: providerId,
       };
       pythonProcess.stdin?.write(JSON.stringify(enhancedInputData));
@@ -730,11 +774,11 @@ export class PydanticLlmService {
           try {
             // Clean stdout from any logging contamination
             const cleanStdout = this.extractJSONFromOutput(stdout);
-            const result = JSON.parse(cleanStdout);
+            const result: any = JSON.parse(cleanStdout);
 
             // Check for logging output in stderr
             const hasLoggingInStderr = this.isLoggingOutput(stderr);
-            
+
             if (hasLoggingInStderr) {
               // Logging in stderr is normal, not an error
               logger.debug(`Normal logging output captured for ${providerId}`);
@@ -744,12 +788,14 @@ export class PydanticLlmService {
             providerManager.updateProviderHealth(
               providerId,
               true,
-              executionTime,
+              executionTime
             );
 
             // Check if the Python agent returned an error even with exit code 0
             if (result.error && !result.result && !result.data) {
-              logger.warn(`Python agent returned error with exit code 0: ${result.error}`);
+              logger.warn(
+                `Python agent returned error with exit code 0: ${result.error}`
+              );
               resolve({
                 success: false,
                 error: result.error || "Python agent returned error",
@@ -780,10 +826,11 @@ export class PydanticLlmService {
           } catch (parseError) {
             // Try to extract actual error from stderr vs logging
             const actualError = this.extractActualError(stderr);
-            
+
             resolve({
               success: false,
-              error: actualError || `Failed to parse agent output: ${parseError}`,
+              error:
+                actualError || `Failed to parse agent output: ${parseError}`,
               executionTime,
               modelUsed: "unknown",
               tokensUsed: 0,
@@ -796,24 +843,28 @@ export class PydanticLlmService {
           // Process failed - but check if it's actually an error or just logging
           const actualError = this.extractActualError(stderr);
           const hasRealError = actualError && !this.isOnlyLoggingOutput(stderr);
-          
+
           if (!hasRealError) {
             // Script completed but with logging output - treat as success if we can parse JSON
             try {
               const cleanStdout = this.extractJSONFromOutput(stdout);
-              const result = JSON.parse(cleanStdout);
-              
+              const result: any = JSON.parse(cleanStdout);
+
               providerManager.updateProviderHealth(
                 providerId,
                 true,
-                executionTime,
+                executionTime
               );
-              
+
               resolve({
                 success: true,
                 data: result.result || result.data,
                 executionTime,
-                modelUsed: result.model_used || result.modelUsed || options.modelId || providerId,
+                modelUsed:
+                  result.model_used ||
+                  result.modelUsed ||
+                  options.modelId ||
+                  providerId,
                 tokensUsed: result.tokens_used || 0,
                 providerId,
                 attemptCount: attempt,
@@ -881,10 +932,10 @@ export class PydanticLlmService {
    */
   private selectProvider(
     providers: ReadonlyArray<PydanticProviderConfig>,
-    options: PydanticAgentOptions,
+    options: PydanticAgentOptions
   ): string {
     if (options.modelId) {
-      const [providerId] = options.modelId.split(":");
+      const [providerId] = String(options.modelId).split(":");
 
       // Handle special model ID mappings
       let actualProviderId = providerId;
@@ -893,13 +944,15 @@ export class PydanticLlmService {
       }
 
       const provider = providers.find((p) => p.id === actualProviderId);
-      if (provider) {
-        return actualProviderId;
+      if (provider && provider.id) {
+        return provider.id;
       }
     }
 
     // Return highest priority available provider
-    return providers[0]?.id || "openai";
+    return providers.length > 0 && providers[0] && providers[0].id
+      ? providers[0].id
+      : "openai";
   }
 
   /**
@@ -912,7 +965,9 @@ export class PydanticLlmService {
   /**
    * Sanitize options for logging (remove sensitive data)
    */
-  private sanitizeOptions(options: PydanticAgentOptions): Record<string, unknown> {
+  private sanitizeOptions(
+    options: PydanticAgentOptions
+  ): Record<string, unknown> {
     const { ...sanitized } = options;
     return sanitized;
   }
@@ -927,44 +982,25 @@ export class PydanticLlmService {
         : inputData;
     }
     if (typeof inputData === "object" && inputData !== null) {
-      const sanitized = { ...(inputData as Record<string, unknown>) };
+      const sanitized: Record<string, unknown> = {
+        ...(inputData as Record<string, unknown>),
+      };
       // Remove sensitive data from objects
-      if (sanitized.apiKey) {
-        sanitized.apiKey = "***";
-      }
-      if (sanitized.secret) {
-        sanitized.secret = "***";
-      }
-      if (sanitized.token) {
-        sanitized.token = "***";
-      }
-      if (sanitized.password) {
-        sanitized.password = "***";
-      }
-      if (sanitized.credentials) {
-        sanitized.credentials = "***";
-      }
-      if (sanitized.auth) {
-        sanitized.auth = "***";
-      }
-      if (sanitized.api_key) {
-        sanitized.api_key = "***";
-      }
-      if (sanitized.api_secret) {
-        sanitized.api_secret = "***";
-      }
-      if (sanitized.api_token) {
-        sanitized.api_token = "***";
-      }
-      if (sanitized.api_password) {
-        sanitized.api_password = "***";
-      }
-      if (sanitized.api_credentials) {
-        sanitized.api_credentials = "***";
-      }
-      if (sanitized.api_auth) {
-        sanitized.api_auth = "***";
-      }
+      const redact = (key: string) => {
+        if (key in sanitized) sanitized[key] = "***";
+      };
+      redact("apiKey");
+      redact("secret");
+      redact("token");
+      redact("password");
+      redact("credentials");
+      redact("auth");
+      redact("api_key");
+      redact("api_secret");
+      redact("api_token");
+      redact("api_password");
+      redact("api_credentials");
+      redact("api_auth");
       return sanitized;
     }
     return inputData;

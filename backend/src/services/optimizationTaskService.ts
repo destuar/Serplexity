@@ -17,6 +17,7 @@
  * - ✅ PRESET_TASKS: PRIMARY SOURCE for optimization tasks
  */
 import { PrismaClient } from "@prisma/client";
+import { randomUUID } from "crypto";
 import { z } from "zod";
 // NOTE: LLM imports removed - now using hardcoded preset tasks
 
@@ -26,7 +27,12 @@ interface PresetTask {
   id: string;
   title: string;
   description: string;
-  category: "Technical SEO" | "Content & Messaging" | "Brand Positioning" | "Link Building" | "Local SEO";
+  category:
+    | "Technical SEO"
+    | "Content & Messaging"
+    | "Brand Positioning"
+    | "Link Building"
+    | "Local SEO";
   priority: "High" | "Medium" | "Low";
   impact_metric: "inclusionRate" | "averagePosition" | "visibility";
 }
@@ -137,13 +143,13 @@ export async function generateOptimizationTasksAndSummary(
   runId: string,
   companyId: string,
   prisma: PrismaClient,
-  _forceTaskGeneration: boolean = false,
+  _forceTaskGeneration: boolean = false
 ): Promise<OptimizationTasksResult> {
   // DEPRECATED: This function should not be used - throw explicit error
   throw new Error(
     "DEPRECATED: generateOptimizationTasksAndSummary has been replaced by hardcoded preset tasks. " +
       "Use the preset tasks directly in reportWorker.ts instead. " +
-      "See reportWorker.ts for the current implementation pattern.",
+      "See reportWorker.ts for the current implementation pattern."
   );
 }
 
@@ -153,7 +159,7 @@ export async function persistOptimizationTasks(
   tasks: z.infer<typeof __TaskSchema>[],
   runId: string,
   companyId: string,
-  prisma: PrismaClient,
+  prisma: PrismaClient
 ): Promise<void> {
   const optimizationTasks = tasks.map((task) => ({
     id: task.id,
@@ -197,7 +203,7 @@ export async function persistOptimizationTasks(
 
 export async function getOptimizationTasks(
   companyId: string,
-  prisma: PrismaClient,
+  prisma: PrismaClient
 ) {
   return prisma.visibilityOptimizationTask.findMany({
     where: { companyId },
@@ -210,7 +216,7 @@ export async function getOptimizationTasks(
 
 export async function toggleTaskCompletion(
   taskId: string,
-  prisma: PrismaClient,
+  prisma: PrismaClient
 ) {
   const task = await prisma.visibilityOptimizationTask.findFirst({
     where: { taskId },
@@ -234,7 +240,7 @@ export async function toggleTaskCompletion(
 export async function updateTaskStatus(
   taskId: string,
   status: TaskStatus,
-  prisma: PrismaClient,
+  prisma: PrismaClient
 ) {
   const task = await prisma.visibilityOptimizationTask.findFirst({
     where: { taskId },
@@ -248,4 +254,67 @@ export async function updateTaskStatus(
       completedAt: status === TaskStatus.COMPLETED ? new Date() : null,
     },
   });
+}
+
+export async function createOptimizationTask(
+  params: {
+    companyId: string;
+    reportRunId?: string;
+    title: string;
+    description: string;
+    category: string;
+    priority: "High" | "Medium" | "Low";
+    impactMetric: "visibility" | "averagePosition" | "inclusionRate";
+    dependencies?: string[];
+  },
+  prisma: PrismaClient
+) {
+  const {
+    companyId,
+    reportRunId,
+    title,
+    description,
+    category,
+    priority,
+    impactMetric,
+    dependencies = [],
+  } = params;
+
+  let targetRunId = reportRunId;
+  if (!targetRunId) {
+    const latestRun = await prisma.reportRun.findFirst({
+      where: { companyId },
+      orderBy: { createdAt: "desc" },
+    });
+    if (latestRun) {
+      targetRunId = latestRun.id;
+    } else {
+      const created = await prisma.reportRun.create({
+        data: {
+          companyId,
+          status: "manual",
+        },
+      });
+      targetRunId = created.id;
+    }
+  }
+
+  const taskId = `WA-${randomUUID()}`;
+
+  const createdTask = await prisma.visibilityOptimizationTask.create({
+    data: {
+      taskId,
+      reportRunId: targetRunId!,
+      companyId,
+      title,
+      description,
+      category,
+      priority,
+      impactMetric,
+      dependencies: dependencies as unknown as object,
+      status: TaskStatus.NOT_STARTED,
+    },
+  });
+
+  return createdTask;
 }
