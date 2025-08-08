@@ -11,8 +11,11 @@
  * - Local development secrets
  */
 
+import type {
+  SecretsManagerClient,
+  SecretsManagerClientConfig,
+} from "@aws-sdk/client-secrets-manager";
 import logger from "../utils/logger";
-import type { SecretsManagerClient, SecretsManagerClientConfig } from "@aws-sdk/client-secrets-manager";
 
 export interface DatabaseSecret {
   host: string;
@@ -56,7 +59,7 @@ export abstract class SecretsProvider {
     const cached = this.cache.get(secretName);
     if (cached && Date.now() < cached.expiry) {
       logger.info(
-        `[SecretsProvider:${this.providerName}] Cache hit for secret: ${secretName}`,
+        `[SecretsProvider:${this.providerName}] Cache hit for secret: ${secretName}`
       );
       return cached.result;
     }
@@ -75,7 +78,7 @@ export abstract class SecretsProvider {
       {
         provider: this.providerName,
         host: result.secret.host,
-      },
+      }
     );
 
     return result;
@@ -127,9 +130,10 @@ export class AwsSecretsProvider extends SecretsProvider {
         throw new Error("Failed to initialize AWS SecretsManager client");
       }
       // Try to list secrets to test connection
-      const { SecretsManagerClient: _SecretsManagerClient, ListSecretsCommand } = await import(
-        "@aws-sdk/client-secrets-manager"
-      );
+      const {
+        SecretsManagerClient: _SecretsManagerClient,
+        ListSecretsCommand,
+      } = await import("@aws-sdk/client-secrets-manager");
       await this.client.send(new ListSecretsCommand({ MaxResults: 1 }));
       return true;
     } catch (error) {
@@ -152,12 +156,12 @@ export class AwsSecretsProvider extends SecretsProvider {
       new GetSecretValueCommand({
         SecretId: _secretName,
         VersionStage: "AWSCURRENT",
-      }),
+      })
     );
 
     if (!response.SecretString) {
       throw new Error(
-        `[AWS SecretsProvider] Secret ${_secretName} has no value`,
+        `[AWS SecretsProvider] Secret ${_secretName} has no value`
       );
     }
 
@@ -281,13 +285,13 @@ export class EnvironmentSecretsProvider extends SecretsProvider {
     } else if (_secretName === "database-replica") {
       if (!env.READ_REPLICA_URL) {
         throw new Error(
-          "[Environment SecretsProvider] READ_REPLICA_URL not set",
+          "[Environment SecretsProvider] READ_REPLICA_URL not set"
         );
       }
       connectionUrl = env.READ_REPLICA_URL;
     } else {
       throw new Error(
-        `[Environment SecretsProvider] Unknown secret: ${_secretName}`,
+        `[Environment SecretsProvider] Unknown secret: ${_secretName}`
       );
     }
 
@@ -341,7 +345,7 @@ export class SecretsProviderFactory {
         return new EnvironmentSecretsProvider();
       default:
         throw new Error(
-          `[SecretsProviderFactory] Unsupported provider type: ${type}`,
+          `[SecretsProviderFactory] Unsupported provider type: ${type}`
         );
     }
   }

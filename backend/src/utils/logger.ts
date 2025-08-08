@@ -11,7 +11,7 @@ enum LogLevel {
 }
 
 const getCurrentLogLevel = (): LogLevel => {
-  const level = process.env['LOG_LEVEL']?.toUpperCase();
+  const level = process.env["LOG_LEVEL"]?.toUpperCase();
   switch (level) {
     case "DEBUG":
       return LogLevel.DEBUG;
@@ -29,7 +29,7 @@ const getCurrentLogLevel = (): LogLevel => {
 const formatMessage = (
   level: string,
   message: string,
-  context?: Record<string, unknown>,
+  context?: Record<string, unknown>
 ): string => {
   const timestamp = new Date().toISOString();
   let formatted = `[${timestamp}] [${level}] ${message}`;
@@ -38,8 +38,8 @@ const formatMessage = (
     // Only show context if it's meaningful and not too verbose
     const cleanContext = Object.fromEntries(
       Object.entries(context).filter(
-        ([_, value]) => value !== undefined && value !== null && value !== "",
-      ),
+        ([_, value]) => value !== undefined && value !== null && value !== ""
+      )
     );
     if (Object.keys(cleanContext).length > 0) {
       formatted += ` | ${JSON.stringify(cleanContext)}`;
