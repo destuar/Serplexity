@@ -37,7 +37,12 @@ router.get(
 );
 
 // OAuth callback works for both GSC and GA4 (controller detects by integration type)
+// Support both legacy and new callback paths under this router base
 router.get("/oauth/callback", websiteAnalyticsController.handleOAuthCallback);
+router.get(
+  "/integrations/google/callback",
+  websiteAnalyticsController.handleOAuthCallback
+);
 router.get(
   "/integrations/:integrationId/properties",
   websiteAnalyticsController.getGSCProperties

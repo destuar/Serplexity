@@ -9,6 +9,7 @@ import React, { useMemo, useState } from "react";
 import { useCompany } from "../../hooks/useCompany";
 import { Button } from "../ui/Button";
 import Card from "../ui/Card";
+import InlineSpinner from "../ui/InlineSpinner";
 
 interface Props {
   onComplete: () => void;
@@ -135,7 +136,7 @@ const GscManualVerification: React.FC<Props> = ({ onComplete, onCancel }) => {
             >
               {isConnecting ? (
                 <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <InlineSpinner size={16} className="text-white" />
                   <span>Connecting…</span>
                 </div>
               ) : (
@@ -166,4 +167,3 @@ const GscManualVerification: React.FC<Props> = ({ onComplete, onCancel }) => {
 };
 
 export default GscManualVerification;
-

@@ -9,10 +9,10 @@
  * - Data transformation for storage
  */
 
-import { google } from 'googleapis';
-import logger from '../utils/logger';
-import { dbCache } from '../config/dbCache';
-import env from '../config/env';
+import { google } from "googleapis";
+import { dbCache } from "../config/dbCache";
+import env from "../config/env";
+import logger from "../utils/logger";
 
 export interface GSCPerformanceData {
   query?: string;
@@ -46,7 +46,8 @@ class GoogleSearchConsoleService {
     this.oauth2Client = new google.auth.OAuth2(
       env.GOOGLE_CLIENT_ID,
       env.GOOGLE_CLIENT_SECRET,
-      env.GOOGLE_CALLBACK_URL || `${env.FRONTEND_URL}/analytics/callback`
+      env.GOOGLE_CALLBACK_URL ||
+        `${env.FRONTEND_URL}/api/website-analytics/oauth/callback`
     );
   }
 
@@ -54,16 +55,13 @@ class GoogleSearchConsoleService {
    * Generate OAuth authorization URL for Google Search Console
    */
   getAuthUrl(state?: string): string {
-    const scopes = [
-      'https://www.googleapis.com/auth/webmasters.readonly',
-      'https://www.googleapis.com/auth/webmasters'
-    ];
+    const scopes = ["https://www.googleapis.com/auth/webmasters.readonly"];
 
     return this.oauth2Client.generateAuthUrl({
-      access_type: 'offline',
+      access_type: "offline",
       scope: scopes,
-      state: state || '',
-      prompt: 'consent' // Force consent to get refresh token
+      state: state || "",
+      prompt: "consent", // Force consent to get refresh token
     });
   }
 
@@ -73,20 +71,20 @@ class GoogleSearchConsoleService {
   async getTokensFromCode(code: string): Promise<GSCAuthTokens> {
     try {
       const { tokens } = await this.oauth2Client.getAccessToken(code);
-      
+
       if (!tokens.access_token) {
-        throw new Error('No access token received from Google');
+        throw new Error("No access token received from Google");
       }
 
       return {
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
-        scope: tokens.scope || '',
-        token_type: tokens.token_type || 'Bearer',
-        expiry_date: tokens.expiry_date
+        scope: tokens.scope || "",
+        token_type: tokens.token_type || "Bearer",
+        expiry_date: tokens.expiry_date,
       };
     } catch (error) {
-      logger.error('Error exchanging code for tokens:', error);
+      logger.error("Error exchanging code for tokens:", error);
       throw new Error(`Failed to get tokens: ${(error as Error).message}`);
     }
   }
@@ -102,12 +100,12 @@ class GoogleSearchConsoleService {
       return {
         access_token: credentials.access_token!,
         refresh_token: credentials.refresh_token || refreshToken,
-        scope: credentials.scope || '',
-        token_type: credentials.token_type || 'Bearer',
-        expiry_date: credentials.expiry_date
+        scope: credentials.scope || "",
+        token_type: credentials.token_type || "Bearer",
+        expiry_date: credentials.expiry_date,
       };
     } catch (error) {
-      logger.error('Error refreshing access token:', error);
+      logger.error("Error refreshing access token:", error);
       throw new Error(`Failed to refresh token: ${(error as Error).message}`);
     }
   }
@@ -118,16 +116,19 @@ class GoogleSearchConsoleService {
   async getProperties(accessToken: string): Promise<GSCPropertyInfo[]> {
     try {
       this.oauth2Client.setCredentials({ access_token: accessToken });
-      const webmasters = google.webmasters({ version: 'v3', auth: this.oauth2Client });
+      const webmasters = google.webmasters({
+        version: "v3",
+        auth: this.oauth2Client,
+      });
 
       const response = await webmasters.sites.list();
-      
-      return (response.data.siteEntry || []).map(site => ({
+
+      return (response.data.siteEntry || []).map((site) => ({
         siteUrl: site.siteUrl!,
-        permissionLevel: site.permissionLevel!
+        permissionLevel: site.permissionLevel!,
       }));
     } catch (error) {
-      logger.error('Error fetching Search Console properties:', error);
+      logger.error("Error fetching Search Console properties:", error);
       throw new Error(`Failed to get properties: ${(error as Error).message}`);
     }
   }
@@ -140,63 +141,68 @@ class GoogleSearchConsoleService {
     siteUrl: string,
     startDate: string,
     endDate: string,
-    dimensions: string[] = ['query', 'page'],
+    dimensions: string[] = ["query", "page"],
     filters?: Array<{ dimension: string; operator: string; expression: string }>
   ): Promise<GSCPerformanceData[]> {
     try {
       this.oauth2Client.setCredentials({ access_token: accessToken });
-      const webmasters = google.webmasters({ version: 'v3', auth: this.oauth2Client });
+      const webmasters = google.webmasters({
+        version: "v3",
+        auth: this.oauth2Client,
+      });
 
       const requestBody: any = {
         startDate,
         endDate,
         dimensions,
         rowLimit: 25000, // Maximum allowed by API
-        startRow: 0
+        startRow: 0,
       };
 
       if (filters && filters.length > 0) {
-        requestBody.dimensionFilterGroups = [{
-          filters: filters.map(filter => ({
-            dimension: filter.dimension,
-            operator: filter.operator,
-            expression: filter.expression
-          }))
-        }];
+        requestBody.dimensionFilterGroups = [
+          {
+            filters: filters.map((filter) => ({
+              dimension: filter.dimension,
+              operator: filter.operator,
+              expression: filter.expression,
+            })),
+          },
+        ];
       }
 
       const response = await webmasters.searchanalytics.query({
         siteUrl,
-        requestBody
+        requestBody,
       });
 
       if (!response.data.rows) {
         return [];
       }
 
-      return response.data.rows.map(row => {
+      return response.data.rows.map((row) => {
         const data: GSCPerformanceData = {
           clicks: row.clicks || 0,
           impressions: row.impressions || 0,
           ctr: row.ctr || 0,
           position: row.position || 0,
-          date: startDate // Simplified - in real usage, you'd need to handle date dimension
+          date: startDate, // Simplified - in real usage, you'd need to handle date dimension
         };
 
         // Map dimensions to data properties
         if (row.keys && dimensions) {
           dimensions.forEach((dimension, index) => {
             switch (dimension) {
-              case 'query':
+              case "query":
                 data.query = row.keys![index];
                 break;
-              case 'page':
+              case "page":
                 data.page = row.keys![index];
                 break;
-              case 'device':
+              case "device":
                 data.device = row.keys![index];
                 break;
-              case 'country':
+              case "country":
                 data.country = row.keys![index];
                 break;
             }
@@ -206,8 +212,10 @@ class GoogleSearchConsoleService {
         return data;
       });
     } catch (error) {
-      logger.error('Error fetching performance data:', error);
-      throw new Error(`Failed to get performance data: ${(error as Error).message}`);
+      logger.error("Error fetching performance data:", error);
+      throw new Error(
+        `Failed to get performance data: ${(error as Error).message}`
+      );
     }
   }
 
@@ -221,10 +229,10 @@ class GoogleSearchConsoleService {
     try {
       const prisma = await dbCache.getPrimaryClient();
 
-      const analyticsData = performanceData.map(data => ({
+      const analyticsData = performanceData.map((data) => ({
         integrationId,
         date: new Date(data.date),
-        source: 'search_console',
+        source: "search_console",
         query: data.query || null,
         page: data.page || null,
         impressions: data.impressions,
@@ -234,18 +242,20 @@ class GoogleSearchConsoleService {
         deviceType: data.device || null,
         country: data.country || null,
         searchVolume: null, // GSC doesn't provide search volume
-        attribution: null
+        attribution: null,
       }));
 
       // Use createMany for bulk insert, handling duplicates gracefully
       await prisma.analyticsData.createMany({
         data: analyticsData,
-        skipDuplicates: true
+        skipDuplicates: true,
       });
 
-      logger.info(`Stored ${analyticsData.length} analytics data points for integration ${integrationId}`);
+      logger.info(
+        `Stored ${analyticsData.length} analytics data points for integration ${integrationId}`
+      );
     } catch (error) {
-      logger.error('Error storing performance data:', error);
+      logger.error("Error storing performance data:", error);
       throw new Error(`Failed to store data: ${(error as Error).message}`);
     }
   }
@@ -256,18 +266,18 @@ class GoogleSearchConsoleService {
   async syncIntegrationData(integrationId: string): Promise<void> {
     try {
       const prisma = await dbCache.getPrimaryClient();
-      
+
       const integration = await prisma.analyticsIntegration.findUnique({
         where: { id: integrationId },
-        include: { company: true }
+        include: { company: true },
       });
 
-      if (!integration || integration.status !== 'active') {
-        throw new Error('Integration not found or not active');
+      if (!integration || integration.status !== "active") {
+        throw new Error("Integration not found or not active");
       }
 
       if (!integration.accessToken || !integration.gscPropertyUrl) {
-        throw new Error('Missing access token or property URL');
+        throw new Error("Missing access token or property URL");
       }
 
       // Calculate date range (last 30 days)
@@ -275,7 +285,7 @@ class GoogleSearchConsoleService {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - 30);
 
-      const formatDate = (date: Date) => date.toISOString().split('T')[0];
+      const formatDate = (date: Date) => date.toISOString().split("T")[0];
 
       // Fetch performance data
       const performanceData = await this.getPerformanceData(
@@ -283,7 +293,7 @@ class GoogleSearchConsoleService {
         integration.gscPropertyUrl,
         formatDate(startDate),
         formatDate(endDate),
-        ['query', 'page', 'device', 'country']
+        ["query", "page", "device", "country"]
       );
 
       // Store the data
@@ -292,7 +302,7 @@ class GoogleSearchConsoleService {
       // Update last sync timestamp
       await prisma.analyticsIntegration.update({
         where: { id: integrationId },
-        data: { lastSyncAt: new Date() }
+        data: { lastSyncAt: new Date() },
       });
 
       logger.info(`Successfully synced data for integration ${integrationId}`);
@@ -305,15 +315,21 @@ class GoogleSearchConsoleService {
   /**
    * Validate Search Console access for a property
    */
-  async validatePropertyAccess(accessToken: string, siteUrl: string): Promise<boolean> {
+  async validatePropertyAccess(
+    accessToken: string,
+    siteUrl: string
+  ): Promise<boolean> {
     try {
       const properties = await this.getProperties(accessToken);
-      return properties.some(prop => 
-        prop.siteUrl === siteUrl && 
-        ['siteOwner', 'siteFullUser', 'siteRestrictedUser'].includes(prop.permissionLevel)
+      return properties.some(
+        (prop) =>
+          prop.siteUrl === siteUrl &&
+          ["siteOwner", "siteFullUser", "siteRestrictedUser"].includes(
+            prop.permissionLevel
+          )
       );
     } catch (error) {
-      logger.error('Error validating property access:', error);
+      logger.error("Error validating property access:", error);
       return false;
     }
   }

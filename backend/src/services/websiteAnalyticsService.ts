@@ -15,6 +15,7 @@ import { randomBytes } from "crypto";
 import { dbCache } from "../config/dbCache";
 import logger from "../utils/logger";
 import { analyticsVerificationService } from "./analyticsVerificationService";
+import { googleOAuthTokenService } from "./googleOAuthTokenService";
 import { googleSearchConsoleService } from "./googleSearchConsoleService";
 
 export interface CreateIntegrationRequest {
@@ -253,12 +254,20 @@ class WebsiteAnalyticsService {
         }
       }
 
-      // Update integration with tokens
+      // Persist tokens centrally (scoped to company)
+      const scopes = (tokens.scope || "").split(/[\s,]+/).filter(Boolean);
+      await googleOAuthTokenService.upsertToken(
+        integration.companyId,
+        scopes,
+        tokens.access_token,
+        tokens.refresh_token,
+        tokens.expiry_date
+      );
+
+      // Mark integration active
       await prisma.analyticsIntegration.update({
         where: { id: integrationId },
         data: {
-          accessToken: tokens.access_token,
-          refreshToken: tokens.refresh_token,
           status: "active",
           verificationMethod: "oauth",
         },

@@ -109,11 +109,6 @@ const CompetitorListItem: React.FC<{
                     <h3 className="text-sm font-semibold text-gray-900 truncate">
                       {competitor.name}
                     </h3>
-                    {isUserCompany && (
-                      <span className="inline-block px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                        Your brand
-                      </span>
-                    )}
                     {isSuggested && (
                       <span className="inline-block px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
                         Suggested

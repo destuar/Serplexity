@@ -6,6 +6,7 @@
 import React, { useState } from "react";
 import { Button } from "../ui/Button";
 import Card from "../ui/Card";
+import InlineSpinner from "../ui/InlineSpinner";
 import { Input } from "../ui/Input";
 
 interface Props {
@@ -103,8 +104,8 @@ const GoogleAnalyticsConnector: React.FC<Props> = ({
             >
               {isConnecting ? (
                 <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Connecting...</span>
+                  <InlineSpinner size={16} className="text-white" />
+                  <span>Connecting…</span>
                 </div>
               ) : (
                 <div className="flex items-center space-x-2">

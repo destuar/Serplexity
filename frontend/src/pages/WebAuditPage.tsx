@@ -12,13 +12,7 @@
  * @exports
  * - WebAuditPage: The main web audit page component.
  */
-import {
-  Calendar,
-  ChevronRight,
-  ExternalLink,
-  Globe,
-  Play,
-} from "lucide-react";
+import { Calendar, ChevronRight, ExternalLink, Play } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import FilterDropdown from "../components/dashboard/FilterDropdown";
 import { InlineSpinner } from "../components/ui/InlineSpinner";
@@ -165,10 +159,12 @@ const CompetitorScoresList: React.FC = () => {
                   {c.scores.overall}
                 </div>
               ) : (
-                <span
-                  className="inline-block w-2.5 h-2.5 rounded-full bg-yellow-400"
-                  title="In progress"
-                />
+                <div
+                  className="h-7 px-2 bg-white/60 backdrop-blur-sm border border-white/30 rounded-md text-xs font-semibold flex items-center text-gray-400"
+                  title="No score yet"
+                >
+                  —
+                </div>
               )}
             </div>
           ))}
@@ -518,7 +514,11 @@ const WebAuditPage: React.FC = () => {
                 ]);
               }}
             />
-          ) : null}
+          ) : (
+            <div className="h-full flex items-center justify-center">
+              <InlineSpinner size={24} />
+            </div>
+          )}
         </div>
       </div>
     );
@@ -694,14 +694,10 @@ const WebAuditPage: React.FC = () => {
                       <InlineSpinner size={24} />
                     </div>
                   ) : companyOnlyHistory.length === 0 ? (
-                    <div className="p-10 text-center">
-                      <Globe className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <h4 className="text-lg font-medium text-gray-900 mb-2">
-                        No audits yet
-                      </h4>
-                      <p className="text-gray-600">
-                        Run your first audit to see results here.
-                      </p>
+                    <div className="h-[calc(100%-40px)] flex items-center justify-center px-2 py-6 text-center">
+                      <span className="text-sm text-gray-500">
+                        No completed audits yet.
+                      </span>
                     </div>
                   ) : (
                     <div className="space-y-1">

@@ -154,13 +154,16 @@ export const getOptimizationTasks = async (
   return data.tasks;
 };
 
-// Delete a task by ID (if needed for removal UX)
+// Delete (cancel) a task by ID by marking status as CANCELLED
 export const deleteOptimizationTask = async (
-  companyId: string,
+  reportRunId: string,
   taskId: string
 ): Promise<void> => {
-  await apiClient.delete(
-    `/reports/companies/${companyId}/optimization-tasks/${taskId}`
+  await apiClient.patch(
+    `/reports/reports/${reportRunId}/tasks/${taskId}/status`,
+    {
+      status: TaskStatus.CANCELLED,
+    }
   );
 };
 

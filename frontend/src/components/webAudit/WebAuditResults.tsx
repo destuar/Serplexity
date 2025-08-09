@@ -25,6 +25,7 @@ import {
   updateTaskStatus,
 } from "../../services/reportService";
 import FilterDropdown from "../dashboard/FilterDropdown";
+import { InlineSpinner } from "../ui/InlineSpinner";
 
 interface WebAuditResultsProps {
   result: AuditResult;
@@ -287,6 +288,9 @@ const WebAuditResults: React.FC<WebAuditResultsProps> = ({
     if (!selectedCompany?.id) return;
     const key = getRecommendationKey(rec);
     if (addedTaskKeys.has(key) || existingTaskTitles.has(key)) return; // Already added; no-op
+    if (pendingTaskOps.has(key)) return; // Prevent duplicate submissions
+    setPendingTaskOps((prev) => new Set(prev).add(key));
+    setLastOpAt((prev) => new Map(prev).set(key, Date.now()));
     try {
       const task = await addOptimizationTask(selectedCompany.id, {
         title: rec.title,
@@ -320,6 +324,12 @@ const WebAuditResults: React.FC<WebAuditResultsProps> = ({
     } catch (e) {
       // Optional: toast error (silent fail for now)
       console.error("Failed to add task", e);
+    } finally {
+      setPendingTaskOps((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
     }
   };
 
@@ -612,7 +622,9 @@ const WebAuditResults: React.FC<WebAuditResultsProps> = ({
                                   isAdded ? "Added to tasks" : "Add to tasks"
                                 }
                               >
-                                {isAdded ? (
+                                {pendingTaskOps.has(recKey) ? (
+                                  <InlineSpinner size={16} />
+                                ) : isAdded ? (
                                   <Check className="w-4 h-4 text-gray-500" />
                                 ) : (
                                   "Add to Tasks"

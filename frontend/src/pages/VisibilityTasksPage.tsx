@@ -20,8 +20,8 @@ import BlankLoadingState from "../components/ui/BlankLoadingState";
 import WelcomePrompt from "../components/ui/WelcomePrompt";
 import { useCompany } from "../contexts/CompanyContext";
 import { useDashboard } from "../hooks/useDashboard";
-import { useReportGeneration } from "../hooks/useReportGeneration";
 import { useNavigation } from "../hooks/useNavigation";
+import { useReportGeneration } from "../hooks/useReportGeneration";
 import {
   OptimizationTask,
   TaskStatus,
@@ -47,13 +47,11 @@ const VisibilityTasksPage: React.FC = () => {
     null
   );
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
 
   // Set breadcrumbs
   useEffect(() => {
-    setBreadcrumbs([
-      { label: 'Action Center' },
-      { label: 'Visibility Tasks' }
-    ]);
+    setBreadcrumbs([{ label: "Action Center" }, { label: "Visibility Tasks" }]);
   }, [setBreadcrumbs]);
 
   // Sync tasks from dashboard data
@@ -64,6 +62,41 @@ const VisibilityTasksPage: React.FC = () => {
       setTasks([]);
     }
   }, [data?.optimizationTasks]);
+
+  // Handle delete events from KanbanTaskCard (via window event)
+  useEffect(() => {
+    const handler = async (e: Event) => {
+      const custom = e as CustomEvent<{ task: OptimizationTask }>;
+      const task = custom.detail?.task;
+      if (!task || !selectedCompany?.id) return;
+      setDeletingTaskId(task.taskId);
+      // Optimistically remove from UI
+      setTasks((prev) => prev.filter((t) => t.taskId !== task.taskId));
+      try {
+        const { deleteOptimizationTask } = await import(
+          "../services/reportService"
+        );
+        // Use reportRunId when available to call status update endpoint
+        await deleteOptimizationTask(task.reportRunId, task.taskId);
+        // Silent refresh
+        refreshData();
+      } catch (err) {
+        // Rollback on error
+        setTasks((prev) =>
+          data?.optimizationTasks ? data.optimizationTasks : prev
+        );
+        console.error("Failed to delete task", err);
+      } finally {
+        setDeletingTaskId(null);
+      }
+    };
+    window.addEventListener("visibility-task-delete", handler as EventListener);
+    return () =>
+      window.removeEventListener(
+        "visibility-task-delete",
+        handler as EventListener
+      );
+  }, [selectedCompany?.id, refreshData, data?.optimizationTasks]);
 
   const handleRefresh = () => {
     refreshData();

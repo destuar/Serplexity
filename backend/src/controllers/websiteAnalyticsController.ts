@@ -9,7 +9,9 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { googleAnalyticsService } from "../services/googleAnalyticsService";
+import { googleOAuthTokenService } from "../services/googleOAuthTokenService";
 import { googleSearchConsoleService } from "../services/googleSearchConsoleService";
+import { syncSchedulerService } from "../services/syncSchedulerService";
 import { websiteAnalyticsService } from "../services/websiteAnalyticsService";
 import logger from "../utils/logger";
 
@@ -134,29 +136,54 @@ export const handleOAuthCallback = async (
         validatedData.code
       );
     } else if (integration.integrationName === "google_analytics_4") {
-      // Exchange code for GA4 tokens and persist on the integration
+      // Exchange code for GA4 tokens and persist using centralized token store
       const tokens = await googleAnalyticsService.getTokensFromCode(
         validatedData.code
+      );
+      if (!integration.companyId) {
+        res.status(400).json({ error: "Integration missing companyId" });
+        return;
+      }
+      const scopes = (tokens.scope || "").split(/[\s,]+/).filter(Boolean);
+      await googleOAuthTokenService.upsertToken(
+        integration.companyId,
+        scopes,
+        tokens.access_token,
+        tokens.refresh_token,
+        tokens.expiry_date
       );
       await prisma.analyticsIntegration.update({
         where: { id: integrationId },
         data: {
-          accessToken: tokens.access_token,
-          refreshToken: tokens.refresh_token,
           status: "active",
           verificationMethod: "oauth",
         },
       });
+
+      // Schedule initial GA4 backfill if property was hinted
+      if (integration.trackingCode) {
+        try {
+          await syncSchedulerService.enqueueGa4Backfill(
+            integration.companyId,
+            integration.trackingCode,
+            90
+          );
+        } catch (e) {
+          logger.warn("Failed to schedule GA4 backfill", { error: e });
+        }
+      }
     }
 
     // Redirect to frontend success page
-    const redirectUrl = `${process.env.FRONTEND_URL}/analytics/integration/success?id=${integrationId}`;
+    const env = (await import("../config/env")).default;
+    const redirectUrl = `${env.FRONTEND_URL}/analytics/integration/success?id=${integrationId}`;
     res.redirect(redirectUrl);
   } catch (error) {
     logger.error("Error handling OAuth callback:", error);
 
     // Redirect to frontend error page
-    const errorUrl = `${process.env.FRONTEND_URL}/analytics/integration/error?message=${encodeURIComponent((error as Error).message)}`;
+    const env = (await import("../config/env")).default;
+    const errorUrl = `${env.FRONTEND_URL}/analytics/integration/error?message=${encodeURIComponent((error as Error).message)}`;
     res.redirect(errorUrl);
   }
 };
@@ -297,39 +324,29 @@ export const getGa4Metrics = async (
     });
 
     if (!ga4Integration && !propertyIdParam) {
-      res
-        .status(404)
-        .json({
-          error:
-            "No active GA4 integration found. Connect GA4 or provide propertyId.",
-        });
+      res.status(404).json({
+        error:
+          "No active GA4 integration found. Connect GA4 or provide propertyId.",
+      });
       return;
     }
 
-    if (!ga4Integration?.accessToken && !propertyIdParam) {
-      res
-        .status(400)
-        .json({
-          error:
-            "GA4 OAuth not configured. Manual Measurement ID cannot fetch API metrics.",
-        });
-      return;
-    }
-
-    const propertyId = propertyIdParam || ga4Integration?.trackingCode; // optional: store propertyId in trackingCode when using OAuth
+    const propertyId = propertyIdParam || ga4Integration?.trackingCode; // if stored
     if (!propertyId) {
-      res
-        .status(400)
-        .json({
-          error:
-            "GA4 propertyId is required. Store it during integration or pass ?propertyId=",
-        });
+      res.status(400).json({
+        error:
+          "GA4 propertyId is required. Store it during integration or pass ?propertyId=",
+      });
       return;
     }
 
-    const tokens = { access_token: ga4Integration?.accessToken || "" };
+    const stored = await googleOAuthTokenService.getDecryptedToken(companyId);
+    if (!stored?.accessToken) {
+      res.status(400).json({ error: "No Google OAuth token. Reconnect GA4." });
+      return;
+    }
     const metrics = await googleAnalyticsService.getSummaryMetrics(
-      tokens.access_token,
+      stored.accessToken,
       propertyId,
       startDateParam,
       endDateParam
@@ -338,12 +355,10 @@ export const getGa4Metrics = async (
     res.json({ metrics });
   } catch (error) {
     logger.error("Error getting GA4 metrics:", error);
-    res
-      .status(500)
-      .json({
-        error: "Failed to get GA4 metrics",
-        message: (error as Error).message,
-      });
+    res.status(500).json({
+      error: "Failed to get GA4 metrics",
+      message: (error as Error).message,
+    });
   }
 };
 

@@ -7,20 +7,10 @@
  */
 
 import type { AxiosError } from "axios";
-import {
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  Eye,
-  Gauge,
-  Loader2,
-  Search,
-  Shield,
-} from "lucide-react";
+import { AlertCircle, CheckCircle, Loader2 } from "lucide-react";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import apiClient from "../../lib/apiClient";
 import { AuditConfig, AuditResult } from "../../pages/WebAuditPage";
-import { InlineSpinner } from "../ui/InlineSpinner";
 
 interface WebAuditProgressProps {
   auditId: string;
@@ -35,66 +25,29 @@ const WebAuditProgress: React.FC<WebAuditProgressProps> = ({
   onComplete,
   onError,
 }) => {
-  const [progress, setProgress] = useState(0);
-  const [currentStep, setCurrentStep] = useState("Initializing audit...");
+  const [progress, setProgress] = useState<number>(0);
+  // No step text; compact UI
   const [elapsedTime, setElapsedTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const startTimeRef = useRef<number>(Date.now());
   const nextDelayRef = useRef<number>(3000);
-
-  const analysisSteps = [
-    {
-      key: "performance",
-      label: "Performance Analysis",
-      description: "Analyzing Core Web Vitals and load times",
-      icon: Gauge,
-      color: "orange",
-      enabled: config.includePerformance,
-    },
-    {
-      key: "seo",
-      label: "SEO Analysis",
-      description: "Checking technical SEO and meta tags",
-      icon: Search,
-      color: "green",
-      enabled: config.includeSEO,
-    },
-    {
-      key: "geo",
-      label: "AI Search Analysis",
-      description: "Analyzing AI optimization factors",
-      icon: Sparkles,
-      color: "purple",
-      enabled: config.includeGEO,
-    },
-    {
-      key: "accessibility",
-      label: "Accessibility Analysis",
-      description: "Checking WCAG compliance",
-      icon: Eye,
-      color: "blue",
-      enabled: config.includeAccessibility,
-    },
-    {
-      key: "security",
-      label: "Security Analysis",
-      description: "Scanning for vulnerabilities",
-      icon: Shield,
-      color: "red",
-      enabled: config.includeSecurity,
-    },
-  ].filter((step) => step.enabled);
-
-  const getCurrentStepIndex = useCallback(
-    (progress: number) => {
-      if (progress < 10) return -1; // Initializing
-      if (progress >= 95) return analysisSteps.length; // Finalizing
-
-      const stepProgress = (progress - 10) / 80; // 10% for init, 10% for finalization
-      return Math.floor(stepProgress * analysisSteps.length);
-    },
-    [analysisSteps.length]
+  const isCompletedRef = useRef<boolean>(false);
+  const lastProgressRef = useRef<number>(0);
+  const targetProgressRef = useRef<number>(0);
+  const rafRef = useRef<number | null>(null);
+  const expectedDurationRef = useRef<number>(
+    // Heuristic expected duration in seconds based on included analyses
+    (() => {
+      let total = 0;
+      if (config.includePerformance) total += 70; // PSI + processing
+      if (config.includeSEO) total += 30;
+      if (config.includeGEO) total += 35;
+      if (config.includeAccessibility) total += 25;
+      if (config.includeSecurity) total += 30;
+      return Math.max(60, total || 90); // sensible minimum
+    })()
   );
+  // No fake step list; show accurate binary status (running/completed)
 
   const pollAuditStatus = useCallback(async () => {
     try {
@@ -104,49 +57,59 @@ const WebAuditProgress: React.FC<WebAuditProgressProps> = ({
       if (statusInfo.status === "completed" && statusInfo.scores) {
         // Audit is complete, fetch full results
         const resultsResponse = await apiClient.get(`/web-audit/${auditId}`);
-        onComplete(resultsResponse.data.data);
+        isCompletedRef.current = true;
+        lastProgressRef.current = 100;
+        targetProgressRef.current = 100;
+        setProgress(100);
+        // Briefly show the filled bar before switching views
+        setTimeout(() => onComplete(resultsResponse.data.data), 500);
         return;
       } else if (statusInfo.status === "failed") {
         setError("Audit failed. Please try again.");
         onError();
         return;
       } else {
-        // Still running, simulate progress based on elapsed time
-        const elapsedSeconds = Math.floor(
-          (Date.now() - startTimeRef.current) / 1000
-        );
-        const simulatedProgress = Math.min(90, (elapsedSeconds / 120) * 90); // 90% max, 2min expected
-        setProgress(simulatedProgress);
-
-        const stepIndex = getCurrentStepIndex(simulatedProgress);
-        if (stepIndex >= 0 && stepIndex < analysisSteps.length) {
-          setCurrentStep(analysisSteps[stepIndex].description);
-        } else if (stepIndex >= analysisSteps.length) {
-          setCurrentStep("Finalizing results...");
+        // Running: use backend progress if available, otherwise elapsed heuristic
+        if (typeof statusInfo.progress === "number") {
+          const clamped = Math.max(0, Math.min(95, statusInfo.progress));
+          const nextTarget = Math.max(targetProgressRef.current, clamped);
+          targetProgressRef.current = nextTarget;
         }
         nextDelayRef.current = 3000; // reset delay on success
       }
     } catch (error: unknown) {
       const axiosErr = error as AxiosError;
       const status = axiosErr.response?.status as number | undefined;
+      // Handle throttling
       if (status === 429) {
-        // Rate limited: back off, do not surface error
         nextDelayRef.current = Math.min(
           (nextDelayRef.current || 3000) * 2,
-          10000
+          15000
         );
         return;
       }
+      // Treat auth/server errors as transient; interceptors may refresh tokens
       if (status === 401 || status === 403 || (status && status >= 500)) {
-        // Transient/auth: let interceptors handle refresh; retry shortly
-        nextDelayRef.current = 5000;
+        nextDelayRef.current = Math.min(
+          (nextDelayRef.current || 3000) * 2,
+          15000
+        );
         return;
       }
+      // Network/connection refused or no response: keep UI alive, backoff and retry
+      if (!status || axiosErr.code === "ERR_NETWORK") {
+        nextDelayRef.current = Math.min(
+          (nextDelayRef.current || 3000) * 2,
+          15000
+        );
+        return;
+      }
+      // Unknown fatal error: surface and bail
       console.error("Error polling audit status:", error);
-      setError("Lost connection to audit service");
+      setError("Audit status polling failed");
       onError();
     }
-  }, [auditId, analysisSteps, getCurrentStepIndex, onComplete, onError]);
+  }, [auditId, onComplete, onError]);
 
   // Single-loop polling with adaptive backoff
   useEffect(() => {
@@ -173,9 +136,45 @@ const WebAuditProgress: React.FC<WebAuditProgressProps> = ({
     const startTime = Date.now();
     const timeInterval = setInterval(() => {
       setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+      if (!isCompletedRef.current) {
+        const elapsedSec = Math.floor(
+          (Date.now() - startTimeRef.current) / 1000
+        );
+        const expected = expectedDurationRef.current;
+        const pct = Math.min(95, Math.max(0, (elapsedSec / expected) * 95));
+        targetProgressRef.current = Math.max(targetProgressRef.current, pct);
+      }
     }, 1000);
 
     return () => clearInterval(timeInterval);
+  }, []);
+
+  // Smooth animation toward target progress (60fps RAF, easing)
+  useEffect(() => {
+    let cancelled = false;
+    const animate = () => {
+      if (cancelled) return;
+      const current = lastProgressRef.current;
+      const target = targetProgressRef.current;
+      const delta = target - current;
+      if (Math.abs(delta) > 0.1) {
+        const step = Math.max(0.2, Math.abs(delta) * 0.08); // ease-out
+        const next = current + Math.sign(delta) * step;
+        lastProgressRef.current = Math.min(100, Math.max(0, next));
+        setProgress(lastProgressRef.current);
+        rafRef.current = requestAnimationFrame(animate);
+      } else {
+        // Snap when close
+        lastProgressRef.current = target;
+        setProgress(target);
+        rafRef.current = requestAnimationFrame(animate);
+      }
+    };
+    rafRef.current = requestAnimationFrame(animate);
+    return () => {
+      cancelled = true;
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
   }, []);
 
   const formatTime = (seconds: number): string => {
@@ -217,135 +216,51 @@ const WebAuditProgress: React.FC<WebAuditProgressProps> = ({
     );
   }
 
-  const currentStepIndex = getCurrentStepIndex(progress);
-
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-6">
+      <div className="bg-white rounded-2xl shadow-lg border border-white/30 backdrop-blur-sm overflow-hidden">
+        {/* Compact header */}
+        <div className="px-4 py-3 border-b border-white/20 bg-white/60">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-white/10 rounded-lg">
-                <Loader2 className="w-6 h-6 text-white animate-spin" />
-              </div>
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 text-gray-700 animate-spin" />
               <div>
-                <h2 className="text-2xl font-bold text-white">
-                  Analyzing Website
-                </h2>
-                <p className="text-blue-100">{config.url}</p>
+                <p className="text-sm font-medium text-gray-900">Web Audit</p>
+                <p className="text-xs text-gray-600 truncate max-w-[520px]">
+                  {config.url}
+                </p>
               </div>
             </div>
             <div className="text-right">
-              <div className="flex items-center space-x-2 text-white">
-                <Clock className="w-4 h-4" />
-                <span className="font-mono">{formatTime(elapsedTime)}</span>
-              </div>
-              <p className="text-blue-100 text-sm">Elapsed time</p>
+              <p className="text-xs text-gray-500">Elapsed</p>
+              <span className="text-xs font-mono text-gray-800">
+                {formatTime(elapsedTime)}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Progress Content */}
-        <div className="p-8 space-y-8">
-          {/* Overall Progress */}
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-medium text-gray-900">
-                Overall Progress
-              </h3>
-              <span className="text-sm font-medium text-gray-600">
-                {Math.round(progress)}%
-              </span>
+        {/* Progress */}
+        <div className="p-4 space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-gray-600">Status</p>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-3">
+            <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
               <div
-                className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-300 ease-out"
+                className="h-full bg-gray-700 rounded-full transition-all duration-500 ease-out"
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <p className="text-sm text-gray-600">{currentStep}</p>
           </div>
 
-          {/* Analysis Steps */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-900">
-              Analysis Steps
-            </h3>
-            <div className="grid grid-cols-1 gap-3">
-              {analysisSteps.map((step, index) => {
-                const isCompleted = index < currentStepIndex;
-                const isCurrent = index === currentStepIndex;
-                // const isPending = index > currentStepIndex;
-
-                const IconComponent = step.icon;
-
-                return (
-                  <div
-                    key={step.key}
-                    className={`flex items-center space-x-4 p-4 rounded-xl border transition-all ${
-                      isCompleted
-                        ? "bg-green-50 border-green-200"
-                        : isCurrent
-                          ? "bg-blue-50 border-blue-200"
-                          : "bg-gray-50 border-gray-200"
-                    }`}
-                  >
-                    <div
-                      className={`p-2 rounded-lg ${
-                        isCompleted
-                          ? "bg-green-500"
-                          : isCurrent
-                            ? getStepColor(step.color)
-                            : "bg-gray-400"
-                      }`}
-                    >
-                      {isCompleted ? (
-                        <CheckCircle className="w-5 h-5 text-white" />
-                      ) : (
-                        <IconComponent
-                          className={`w-5 h-5 text-white ${
-                            isCurrent ? "animate-pulse" : ""
-                          }`}
-                        />
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900">
-                        {step.label}
-                      </h4>
-                      <p className="text-sm text-gray-600">
-                        {step.description}
-                      </p>
-                    </div>
-                    <div>
-                      {isCompleted && (
-                        <CheckCircle className="w-5 h-5 text-green-500" />
-                      )}
-                      {isCurrent && <InlineSpinner size={20} />}
-                    </div>
-                  </div>
-                );
-              })}
+          {/* Minimal completion hint */}
+          {progress === 100 && (
+            <div className="flex items-center gap-2 text-green-700 text-xs">
+              <CheckCircle className="w-4 h-4" />
+              <span>Audit complete</span>
             </div>
-          </div>
-
-          {/* Estimated Time */}
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-            <div className="flex items-center space-x-2">
-              <Clock className="w-5 h-5 text-blue-600" />
-              <div>
-                <p className="font-medium text-blue-900">
-                  Estimated Time Remaining
-                </p>
-                <p className="text-sm text-blue-700">
-                  {progress < 90
-                    ? `${Math.max(0, 120 - elapsedTime)}s (typical audit takes 2-3 minutes)`
-                    : "Almost done, finalizing results..."}
-                </p>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

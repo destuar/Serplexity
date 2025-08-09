@@ -13,8 +13,8 @@
  * - env: A validated and typed object containing all environment variables.
  */
 import dotenv from "dotenv";
-import { z } from "zod";
 import path from "path";
+import { z } from "zod";
 
 // Load environment variables from .env file in the backend directory
 // Use __dirname to ensure we always look in the backend directory regardless of process.cwd()
@@ -83,6 +83,7 @@ const envSchema = z.object({
   AWS_BUCKET_NAME: z.string(),
   GLACIER_VAULT_NAME: z.string(),
   GLACIER_ACCOUNT_ID: z.string(),
+  AWS_KMS_KEY_ID: z.string().optional(),
 
   // LLM Providers
   OPENAI_API_KEY: z.string(),
@@ -141,18 +142,18 @@ if (secretsProvider !== "environment") {
   // When using cloud secrets, DATABASE_SECRET_NAME is required
   if (!envData.DATABASE_SECRET_NAME) {
     throw new Error(
-      `FATAL ERROR: DATABASE_SECRET_NAME is required when SECRETS_PROVIDER=${secretsProvider}`,
+      `FATAL ERROR: DATABASE_SECRET_NAME is required when SECRETS_PROVIDER=${secretsProvider}`
     );
   }
   // Can't use logger here as env is needed to configure logger
   console.log(
-    `✅ Using ${secretsProvider.toUpperCase()} secrets provider for database credentials`,
+    `✅ Using ${secretsProvider.toUpperCase()} secrets provider for database credentials`
   );
 } else {
   // When using environment variables, DATABASE_URL is required
   if (!envData.DATABASE_URL) {
     throw new Error(
-      "FATAL ERROR: DATABASE_URL is required when SECRETS_PROVIDER=environment",
+      "FATAL ERROR: DATABASE_URL is required when SECRETS_PROVIDER=environment"
     );
   }
   // Can't use logger here as env is needed to configure logger

@@ -16,16 +16,19 @@
  * @exports
  * - KanbanColumn: React functional component for a Kanban board column.
  */
-import React from 'react';
-import { useDroppable } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { cn } from '../../lib/utils';
-import { OptimizationTask, TaskStatus } from '../../services/reportService';
-import KanbanTaskCard from './KanbanTaskCard';
+import { useDroppable } from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import React from "react";
+import { cn } from "../../lib/utils";
+import { OptimizationTask, TaskStatus } from "../../services/reportService";
+import KanbanTaskCard from "./KanbanTaskCard";
 
 interface InsertionIndicator {
   taskId: string;
-  position: 'above' | 'below';
+  position: "above" | "below";
   status: TaskStatus;
 }
 
@@ -40,15 +43,15 @@ interface KanbanColumnProps {
   onTaskClick?: (task: OptimizationTask) => void;
 }
 
-const KanbanColumn: React.FC<KanbanColumnProps> = ({ 
-  id, 
-  title, 
-  color, 
-  tasks, 
+const KanbanColumn: React.FC<KanbanColumnProps> = ({
+  id,
+  title,
+  color,
+  tasks,
   count,
   isDragging = false,
   insertionIndicator = null,
-  onTaskClick
+  onTaskClick,
 }) => {
   const { isOver, setNodeRef } = useDroppable({
     id: id,
@@ -56,53 +59,60 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
 
   // Gutter dropzone on the left side for easier dropping
   const gutterId = `${id}-gutter`;
-  const { isOver: isOverGutter, setNodeRef: setGutterRef } = useDroppable({ id: gutterId });
+  const { isOver: isOverGutter, setNodeRef: setGutterRef } = useDroppable({
+    id: gutterId,
+  });
 
   return (
-    <div className="bg-white p-0 rounded-lg shadow-md h-full flex flex-col relative" style={{ overflow: 'visible', clipPath: 'none' }}>
+    <div
+      className="bg-white p-0 rounded-lg shadow-md h-full flex flex-col relative"
+      style={{ overflow: "visible", clipPath: "none" }}
+    >
       {/* Gutter Dropzone */}
       {isDragging && (
         <div
           ref={setGutterRef}
           className={cn(
-            'absolute inset-y-0 left-0 w-4 rounded-l-lg transition-colors duration-200',
-            isOverGutter ? 'bg-gray-100/60' : 'bg-transparent'
+            "absolute inset-y-0 left-0 w-4 rounded-l-lg transition-colors duration-200",
+            isOverGutter ? "bg-gray-100/60" : "bg-transparent"
           )}
         />
       )}
       {/* Column Header */}
-      <div className={cn(
-        'p-4 border-b border-gray-200 rounded-t-lg',
-        color
-      )}>
+      <div className={cn("p-4 border-b border-gray-200 rounded-t-lg", color)}>
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
-          <span className="text-sm font-medium text-gray-600 bg-white px-2 py-1 rounded-full border border-gray-200">
+          <span className="text-sm font-medium text-gray-700 bg-transparent px-2 py-1 rounded-md border border-black/10 shadow-inner">
             {count}
           </span>
         </div>
       </div>
-      
+
       {/* Droppable Area */}
       <div
         ref={setNodeRef}
         className={cn(
-          'flex-1 p-4 transition-all duration-200 min-h-0',
-          isOver || isOverGutter ? 'bg-gray-50 border-t-2 border-t-gray-400' : ''
+          "flex-1 p-4 transition-all duration-200 min-h-0",
+          isOver || isOverGutter
+            ? "bg-gray-50 border-t-2 border-t-gray-400"
+            : ""
         )}
-        style={{ overflow: 'visible' }}
+        style={{ overflow: "visible" }}
       >
-        <SortableContext items={tasks.map(t => t.taskId)} strategy={verticalListSortingStrategy}>
-          <div 
-            className="space-y-3 h-full pr-1 sentiment-details-scroll p-2" 
-            style={{ 
-              overflowY: 'auto',
-              overflowX: 'visible',
+        <SortableContext
+          items={tasks.map((t) => t.taskId)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div
+            className="space-y-3 h-full pr-1 sentiment-details-scroll p-2"
+            style={{
+              overflowY: "auto",
+              overflowX: "visible",
               // Critical: Remove any clipping from the scrollable container
-              clipPath: 'none',
-              maskImage: 'none',
+              clipPath: "none",
+              maskImage: "none",
               // Ensure shadows aren't clipped
-              boxShadow: 'none'
+              boxShadow: "none",
             }}
           >
             {tasks.length === 0 ? (
@@ -115,29 +125,36 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
               tasks.map((task) => (
                 <div key={task.taskId} className="relative">
                   {/* Insertion indicator above */}
-                  {insertionIndicator && 
-                   insertionIndicator.taskId === task.taskId && 
-                   insertionIndicator.position === 'above' && 
-                   insertionIndicator.status === id && (
-                    <div className="h-0.5 bg-transparent rounded-full mb-3 transition-all duration-200 shadow-sm">
-                      <div className="absolute left-0 top-0 transform -translate-y-1/2 w-2 h-2 bg-transparent rounded-full"></div>
-                    </div>
-                  )}
-                  
-                  <KanbanTaskCard 
-                    task={task} 
+                  {insertionIndicator &&
+                    insertionIndicator.taskId === task.taskId &&
+                    insertionIndicator.position === "above" &&
+                    insertionIndicator.status === id && (
+                      <div className="h-0.5 bg-transparent rounded-full mb-3 transition-all duration-200 shadow-sm">
+                        <div className="absolute left-0 top-0 transform -translate-y-1/2 w-2 h-2 bg-transparent rounded-full"></div>
+                      </div>
+                    )}
+
+                  <KanbanTaskCard
+                    task={task}
                     onClick={onTaskClick}
+                    onDelete={(t) => {
+                      // Bubble up deletion via custom DOM event; page can handle
+                      const evt = new CustomEvent("visibility-task-delete", {
+                        detail: { task: t },
+                      });
+                      window.dispatchEvent(evt);
+                    }}
                   />
-                  
+
                   {/* Insertion indicator below */}
-                  {insertionIndicator && 
-                   insertionIndicator.taskId === task.taskId && 
-                   insertionIndicator.position === 'below' && 
-                   insertionIndicator.status === id && (
-                    <div className="h-0.5 bg-transparent rounded-full mt-3 transition-all duration-200 shadow-sm">
-                      <div className="absolute left-0 top-0 transform -translate-y-1/2 w-2 h-2 bg-transparent rounded-full"></div>
-                    </div>
-                  )}
+                  {insertionIndicator &&
+                    insertionIndicator.taskId === task.taskId &&
+                    insertionIndicator.position === "below" &&
+                    insertionIndicator.status === id && (
+                      <div className="h-0.5 bg-transparent rounded-full mt-3 transition-all duration-200 shadow-sm">
+                        <div className="absolute left-0 top-0 transform -translate-y-1/2 w-2 h-2 bg-transparent rounded-full"></div>
+                      </div>
+                    )}
                 </div>
               ))
             )}
@@ -148,4 +165,4 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   );
 };
 
-export default KanbanColumn; 
+export default KanbanColumn;

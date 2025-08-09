@@ -18,6 +18,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import {
   deleteWebAudit,
+  getAuditJobProgress,
   getWebAuditHistory,
   getWebAuditResult,
   startWebAudit,
@@ -30,7 +31,6 @@ const StartAuditSchema = z.object({
   includePerformance: z.boolean().optional().default(true),
   includeSEO: z.boolean().optional().default(true),
   includeGEO: z.boolean().optional().default(true),
-  includeAccessibility: z.boolean().optional().default(true),
   includeSecurity: z.boolean().optional().default(true),
 });
 
@@ -99,7 +99,6 @@ export async function startAudit(req: Request, res: Response): Promise<void> {
         performance: validatedData.includePerformance,
         seo: validatedData.includeSEO,
         geo: validatedData.includeGEO,
-        accessibility: validatedData.includeAccessibility,
         security: validatedData.includeSecurity,
       },
       userAgent: req.get("User-Agent"),
@@ -113,7 +112,6 @@ export async function startAudit(req: Request, res: Response): Promise<void> {
       includePerformance: validatedData.includePerformance,
       includeSEO: validatedData.includeSEO,
       includeGEO: validatedData.includeGEO,
-      includeAccessibility: false, // accessibility excluded globally
       includeSecurity: validatedData.includeSecurity,
       summaryOnly: false,
     });
@@ -139,7 +137,6 @@ export async function startAudit(req: Request, res: Response): Promise<void> {
               includePerformance: true,
               includeSEO: true,
               includeGEO: true,
-              includeAccessibility: false,
               includeSecurity: true,
               summaryOnly: true,
             })
@@ -237,12 +234,10 @@ export async function getAudit(req: Request, res: Response): Promise<void> {
     }
 
     if (audit.company.userId !== userId) {
-      res
-        .status(403)
-        .json({
-          error: "Forbidden",
-          message: "You do not have access to this audit",
-        });
+      res.status(403).json({
+        error: "Forbidden",
+        message: "You do not have access to this audit",
+      });
       return;
     }
 
@@ -463,9 +458,10 @@ export async function getCompetitorScores(
       companyId: req.params.companyId,
       error: error instanceof Error ? error.message : String(error),
     });
-    res
-      .status(500)
-      .json({ error: "Internal server error", message: "Failed to retrieve competitor scores" });
+    res.status(500).json({
+      error: "Internal server error",
+      message: "Failed to retrieve competitor scores",
+    });
   }
 }
 
@@ -604,36 +600,71 @@ export async function getAuditStatus(
     }
 
     if (audit.company.userId !== userId) {
-      res
-        .status(403)
-        .json({
-          error: "Forbidden",
-          message: "You do not have access to this audit",
-        });
+      res.status(403).json({
+        error: "Forbidden",
+        message: "You do not have access to this audit",
+      });
       return;
     }
 
-    // Get basic audit info (just status and metadata)
-    const result = await getWebAuditResult(id);
+    // Prefer DB status to infer state accurately (reuse prisma from above)
+    const run = await prisma.webAuditRun.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        url: true,
+        status: true,
+        requestedAt: true,
+        completedAt: true,
+        performanceScore: true,
+        seoScore: true,
+        geoScore: true,
+        securityScore: true,
+      },
+    });
 
-    if (!result) {
-      res.status(404).json({
-        error: "Not found",
-        message: "Audit not found",
-      });
+    if (!run) {
+      res.status(404).json({ error: "Not found", message: "Audit not found" });
       return;
     }
 
     const responseTime = Date.now() - startTime;
 
-    // Return only status information (no full results)
+    // Job progress hint for UI (best-effort)
+    const jobProgress = await getAuditJobProgress(id);
+    const statusValue = run.status as
+      | "queued"
+      | "running"
+      | "completed"
+      | "failed";
+    const isCompleted = statusValue === "completed";
+    const scores = isCompleted
+      ? {
+          performance: run.performanceScore || 0,
+          seo: run.seoScore || 0,
+          geo: run.geoScore || 0,
+          security: run.securityScore || 0,
+          overall: Math.round(
+            ((run.performanceScore || 0) +
+              (run.seoScore || 0) +
+              (run.geoScore || 0) +
+              (run.securityScore || 0)) /
+              4
+          ),
+        }
+      : undefined;
+
     const statusInfo = {
-      id: result.id,
-      url: result.metadata.url,
-      status: result.scores.overall > 0 ? "completed" : "running",
-      timestamp: result.metadata.timestamp,
-      analysisTime: result.metadata.analysisTime,
-      scores: result.scores.overall > 0 ? result.scores : undefined,
+      id: run.id,
+      url: run.url,
+      status: statusValue,
+      timestamp: run.requestedAt,
+      analysisTime:
+        run.completedAt && run.requestedAt
+          ? run.completedAt.getTime() - run.requestedAt.getTime()
+          : 0,
+      progress: isCompleted ? 100 : (jobProgress ?? undefined),
+      scores,
     };
 
     res.status(200).json({

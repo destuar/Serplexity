@@ -36,7 +36,8 @@ class GoogleAnalyticsService {
       env.GOOGLE_CLIENT_ID,
       env.GOOGLE_CLIENT_SECRET,
       // Use shared callback env for simplicity; must include the GA4 route in OAuth config
-      env.GOOGLE_CALLBACK_URL || `${env.FRONTEND_URL}/analytics/callback`
+      env.GOOGLE_CALLBACK_URL ||
+        `${env.FRONTEND_URL}/api/website-analytics/oauth/callback`
     );
   }
 
@@ -173,4 +174,3 @@ class GoogleAnalyticsService {
 
 export const googleAnalyticsService = new GoogleAnalyticsService();
 export default googleAnalyticsService;
-

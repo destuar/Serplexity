@@ -15,25 +15,42 @@
  * @exports
  * - KanbanTaskCard: React functional component for a Kanban task card.
  */
-import React, { useState } from 'react';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { cn } from '../../lib/utils';
-import { OptimizationTask } from '../../services/reportService';
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { X } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { cn } from "../../lib/utils";
+import { OptimizationTask } from "../../services/reportService";
 
 interface KanbanTaskCardProps {
   task: OptimizationTask;
   isDragging?: boolean;
   onClick?: (task: OptimizationTask) => void;
+  onDelete?: (task: OptimizationTask) => void;
 }
 
-const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({ 
-  task, 
-  isDragging = false, 
-  onClick 
+const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
+  task,
+  isDragging = false,
+  onClick,
+  onDelete,
 }) => {
+  const formatDescription = (desc: string): string => {
+    if (!desc) return desc;
+    return desc.replace(/Your LCP is\s*(\d+(?:\.\d+)?)\s*ms\b/i, (_m, n) => {
+      const seconds = (parseFloat(String(n)) / 1000).toFixed(2);
+      return `Your LCP is ${seconds} seconds`;
+    });
+  };
   const [isDragStarted, setIsDragStarted] = useState(false);
-  
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(
+    null
+  );
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const menuContainerRef = useRef<HTMLDivElement | null>(null);
+
   const {
     attributes,
     listeners,
@@ -49,15 +66,20 @@ const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
   };
 
   const priorityColors = {
-    High: 'bg-red-50 text-red-700 border-red-200',
-    Medium: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-    Low: 'bg-green-50 text-green-700 border-green-200'
+    High: "bg-red-50 text-red-700 border-red-200",
+    Medium: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    Low: "bg-green-50 text-green-700 border-green-200",
   };
 
   const handleCardClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+    if (menuOpen) {
+      // If context menu is open, close it and do not open details
+      setMenuOpen(false);
+      return;
+    }
+
     // Only trigger click if we're not in the middle of a drag
     if (!isDragStarted && !isSortableDragging && onClick) {
       onClick(task);
@@ -76,6 +98,24 @@ const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
     setIsDragStarted(false);
   };
 
+  // Close on outside click
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDocMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (
+        target &&
+        !menuContainerRef.current?.contains(target) &&
+        !menuButtonRef.current?.contains(target)
+      ) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocMouseDown, true);
+    return () =>
+      document.removeEventListener("mousedown", onDocMouseDown, true);
+  }, [menuOpen]);
+
   return (
     <div
       ref={setNodeRef}
@@ -85,48 +125,109 @@ const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       className={cn(
-        'group relative bg-white rounded-lg p-4 shadow-md border border-gray-100 hover:shadow-lg transition-all duration-200 cursor-grab active:cursor-grabbing',
-        isSortableDragging ? 'opacity-0' : '',
-        isDragging ? 'opacity-100 shadow-xl rotate-2 scale-105 z-50' : '',
-        'touch-manipulation select-none'
+        "group relative bg-white rounded-lg p-4 shadow-md border border-gray-100 hover:shadow-lg transition-all duration-200 cursor-grab active:cursor-grabbing",
+        isSortableDragging ? "opacity-0" : "",
+        isDragging ? "opacity-100 shadow-xl rotate-2 scale-105 z-50" : "",
+        "touch-manipulation select-none"
       )}
       style={{
         ...style,
-        transformOrigin: 'center center',
-        position: 'relative',
-        zIndex: isDragging || isSortableDragging ? 50 : 'auto'
+        transformOrigin: "center center",
+        position: "relative",
+        zIndex: isDragging || isSortableDragging ? 50 : "auto",
       }}
     >
-      {/* Drag handle indicator */}
-      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-40 transition-opacity duration-200">
-        <div className="flex flex-col space-y-1">
-          <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-          <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-          <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-        </div>
+      {/* Context menu trigger (three dots) */}
+      <div className="absolute -top-1 right-1 z-10">
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            setMenuOpen((v) => {
+              const next = !v;
+              if (next && menuButtonRef.current) {
+                const r = menuButtonRef.current.getBoundingClientRect();
+                // Position below the trigger; right-aligned to the button
+                setMenuPos({ top: r.bottom + 4, left: r.right });
+              }
+              return next;
+            });
+          }}
+          onMouseDown={(e) => {
+            // Prevent drag from initiating on the menu button
+            e.stopPropagation();
+          }}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+          }}
+          ref={menuButtonRef}
+          className="p-1 rounded-md hover:bg-gray-100/70 transition-colors opacity-70 hover:opacity-100"
+          title="More actions"
+        >
+          <div className="flex flex-col items-center justify-center space-y-0.5">
+            <div className="w-0.5 h-0.5 bg-gray-500 rounded-full"></div>
+            <div className="w-0.5 h-0.5 bg-gray-500 rounded-full"></div>
+            <div className="w-0.5 h-0.5 bg-gray-500 rounded-full"></div>
+          </div>
+        </button>
+
+        {menuOpen &&
+          menuPos &&
+          createPortal(
+            <div
+              className="inline-block bg-white border border-gray-200 rounded-md shadow-lg z-[1000]"
+              style={{
+                position: "fixed",
+                top: menuPos.top,
+                left: menuPos.left,
+                transform: "translate(-100%, 0)",
+              }}
+              ref={menuContainerRef}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 text-left px-2.5 py-1.5 text-xs text-gray-700 hover:bg-gray-100 active:bg-gray-200 rounded-md"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(false);
+                  onDelete?.(task);
+                }}
+              >
+                <X size={12} className="text-gray-600" />
+                Delete
+              </button>
+            </div>,
+            document.body
+          )}
       </div>
 
       {/* Clickable content area */}
-      <div 
-        onClick={handleCardClick}
-        className="cursor-pointer"
-      >
-        <div className="flex items-start justify-between mb-3">
-          <h4 className="font-semibold text-gray-800 text-sm leading-tight pr-6">
-            {task.title}
+      <div onClick={handleCardClick} className="cursor-pointer">
+        <div className="mb-3 pr-6">
+          <h4 className="flex flex-wrap items-baseline text-sm font-semibold text-gray-800 leading-tight">
+            <span className="break-words whitespace-normal mr-2">
+              {task.title}
+            </span>
+            <span
+              className={cn(
+                "inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] leading-none font-medium border whitespace-nowrap",
+                priorityColors[task.priority]
+              )}
+            >
+              {task.priority}
+            </span>
           </h4>
-          <span className={cn(
-            'text-xs px-2 py-1 rounded-full font-medium border flex-shrink-0',
-            priorityColors[task.priority]
-          )}>
-            {task.priority}
-          </span>
         </div>
-        
+
         <p className="text-xs text-gray-600 mb-4 line-clamp-3 leading-relaxed">
-          {task.description}
+          {formatDescription(task.description)}
         </p>
-        
+
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md border border-gray-200 font-medium">
             {task.category}
@@ -140,4 +241,4 @@ const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
   );
 };
 
-export default KanbanTaskCard; 
+export default KanbanTaskCard;

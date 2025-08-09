@@ -13,6 +13,18 @@ import { chartColorArrays } from "../../utils/colorClasses";
 import { InlineSpinner } from "../ui/InlineSpinner";
 import LiquidGlassCard from "../ui/LiquidGlassCard";
 
+type SeriesPointBase = {
+  id: string;
+  date: number | string;
+  overall: number | null;
+  performance: number | null;
+  seo: number | null;
+  geo: number | null;
+  security: number | null;
+};
+
+type SeriesPoint = SeriesPointBase & { isZeroPoint?: boolean };
+
 type AuditHistoryItem = {
   id: string;
   url: string;
@@ -75,13 +87,35 @@ const WebAuditScoreOverTimeCard: React.FC<WebAuditScoreOverTimeCardProps> = ({
     return monday.toISOString().slice(0, 10);
   };
 
-  const groupKeyForHour = (d: Date) => {
-    const date = new Date(d);
-    date.setMinutes(0, 0, 0);
-    return date.toISOString().slice(0, 13); // YYYY-MM-DDTHH
+  // Label formatters per granularity
+  const formatHourLabel = (ms: number) =>
+    new Date(ms).toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+  const formatDayLabel = (ms: number) =>
+    new Date(ms).toLocaleDateString(undefined, {
+      month: "numeric",
+      day: "numeric",
+    });
+
+  const formatWeekLabelFromKey = (weekKey: string) => {
+    // weekKey is YYYY-MM-DD (Monday)
+    const d = new Date(weekKey);
+    return `Week of ${d.toLocaleDateString(undefined, {
+      month: "numeric",
+      day: "numeric",
+    })}`;
   };
 
-  const rawSeries = useMemo(() => {
+  const dayKey = (d: Date) => {
+    const date = new Date(d);
+    date.setHours(0, 0, 0, 0);
+    return date.toISOString().slice(0, 10); // YYYY-MM-DD
+  };
+
+  const rawSeries = useMemo<SeriesPoint[]>(() => {
     const items = (history || [])
       .filter((h) => h.status === "completed")
       .slice()
@@ -89,7 +123,8 @@ const WebAuditScoreOverTimeCard: React.FC<WebAuditScoreOverTimeCardProps> = ({
 
     const base = items.map((h) => ({
       id: h.id,
-      date: new Date(h.completedAt || h.requestedAt).toLocaleDateString(),
+      // store precise timestamp; we'll format into labels later per granularity
+      date: new Date(h.completedAt || h.requestedAt).getTime(),
       overall: h.scores.overall ?? null,
       performance: h.scores.performance ?? null,
       seo: h.scores.seo ?? null,
@@ -108,47 +143,78 @@ const WebAuditScoreOverTimeCard: React.FC<WebAuditScoreOverTimeCardProps> = ({
         security: 0,
         isZeroPoint: true,
       } as const;
-      return [zeroPoint as unknown as (typeof base)[number], ...base];
+      return [zeroPoint as unknown as SeriesPoint, ...base];
     }
 
     return base;
   }, [history]);
 
-  const chartData = useMemo(() => {
-    if (granularity === "day") return rawSeries;
-    const groups = new Map<string, (typeof rawSeries)[number]>();
-    rawSeries.forEach((pt) => {
-      if ((pt as any).isZeroPoint) return;
-      const key =
-        granularity === "week"
-          ? groupKeyForWeek(new Date(pt.date || new Date()))
-          : groupKeyForHour(new Date(pt.date || new Date()));
-      groups.set(key, pt);
-    });
-    const series: (typeof rawSeries)[number][] = Array.from(groups.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([, v]) => v);
-    if (series.length > 0) {
+  const chartData = useMemo<SeriesPoint[]>(() => {
+    // Helper to prepend a zero point for nicer area baseline
+    const withZeroPoint = (series: SeriesPoint[]) => {
+      if (series.length === 0) return series;
       const zero = {
-        ...(series[0] as any),
+        ...series[0],
         date: "",
         isZeroPoint: true,
-      } as (typeof rawSeries)[number];
-      (zero as any).overall = 0;
-      (zero as any).performance = 0;
-      (zero as any).seo = 0;
-      (zero as any).geo = 0;
-      (zero as any).security = 0;
+      } as SeriesPoint;
+      zero.overall = 0;
+      zero.performance = 0;
+      zero.seo = 0;
+      zero.geo = 0;
+      zero.security = 0;
       return [zero, ...series];
+    };
+
+    // Hourly: show distinct runs, no grouping. Format label as HH:mm
+    if (granularity === "hour") {
+      const series: SeriesPoint[] = rawSeries
+        .filter((p) => !p.isZeroPoint)
+        .map((p) => ({
+          ...p,
+          date: typeof p.date === "number" ? formatHourLabel(p.date) : p.date,
+        }));
+      return withZeroPoint(series);
     }
-    return series;
+
+    // Daily: roll up to one point per calendar day (keep latest), label as M/D
+    if (granularity === "day") {
+      const groups = new Map<string, SeriesPoint>();
+      rawSeries.forEach((pt) => {
+        if (pt.isZeroPoint) return;
+        const key = dayKey(new Date((pt.date as number) || Date.now()));
+        groups.set(key, pt); // overwrite to keep latest in that day
+      });
+      const series: SeriesPoint[] = Array.from(groups.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([key, v]) => ({
+          ...v,
+          date: formatDayLabel(new Date(key).getTime()),
+        }));
+      return withZeroPoint(series);
+    }
+
+    // Weekly: group by Monday key; keep last point in each week; label as Week of M/D
+    const groups = new Map<string, SeriesPoint>();
+    rawSeries.forEach((pt) => {
+      if (pt.isZeroPoint) return;
+      const key = groupKeyForWeek(new Date((pt.date as number) || Date.now()));
+      groups.set(key, pt);
+    });
+    const series: SeriesPoint[] = Array.from(groups.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([key, v]) => ({
+        ...v,
+        date: formatWeekLabelFromKey(key),
+      }));
+    return withZeroPoint(series);
   }, [rawSeries, granularity]);
 
   const hasData = chartData.length > 0;
 
   const currentValue = useMemo(() => {
     const real = chartData.filter(
-      (p: any) => !p.isZeroPoint && typeof p.overall === "number"
+      (p: SeriesPoint) => !p.isZeroPoint && typeof p.overall === "number"
     );
     if (real.length === 0) return null;
     return real[real.length - 1].overall as number;
@@ -156,7 +222,7 @@ const WebAuditScoreOverTimeCard: React.FC<WebAuditScoreOverTimeCardProps> = ({
 
   const changeValue = useMemo(() => {
     const real = chartData.filter(
-      (p: any) => !p.isZeroPoint && typeof p.overall === "number"
+      (p: SeriesPoint) => !p.isZeroPoint && typeof p.overall === "number"
     );
     if (real.length < 2) return null;
     const prev = real[real.length - 2].overall as number;
@@ -213,7 +279,7 @@ const WebAuditScoreOverTimeCard: React.FC<WebAuditScoreOverTimeCardProps> = ({
           <div className="relative" ref={granularityRef}>
             <button
               onClick={() => setGranularityOpen((v) => !v)}
-              className="flex items-center justify-between w-16 h-8 gap-1 px-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md text-xs transition-colors hover:bg-white/85 focus:outline-none select-none"
+              className="flex items-center justify-center w-16 h-8 px-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md text-xs transition-colors hover:bg-white/85 focus:outline-none select-none"
               title="Time granularity"
             >
               <span className="text-xs">
@@ -223,10 +289,6 @@ const WebAuditScoreOverTimeCard: React.FC<WebAuditScoreOverTimeCardProps> = ({
                     ? "Weekly"
                     : "Hourly"}
               </span>
-              <ChevronDown
-                size={10}
-                className={`transition-transform duration-200 ${granularityOpen ? "rotate-180" : ""}`}
-              />
             </button>
             {granularityOpen && (
               <div className="absolute top-full left-0 w-full min-w-20 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md z-50 py-1">

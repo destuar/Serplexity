@@ -28,29 +28,33 @@
  * - ./config/db: Singleton Prisma client instance.
  * - ./controllers/paymentController: Controller for handling Stripe webhooks.
  */
-import express, { Application, Request, Response } from "express";
-import { PydanticProvider } from "./types/pydantic";
-import cors from "cors";
-import morgan from "morgan";
-import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
-import helmet from "helmet";
+import cors from "cors";
+import dotenv from "dotenv";
+import express, { Application, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
+import helmet from "helmet";
+import morgan from "morgan";
+import { dbCache } from "./config/dbCache";
+import env from "./config/env";
 import passport from "./config/passport";
+import { stripeWebhook } from "./controllers/paymentController";
+import {
+  autoRecoveryMiddleware,
+  healthCheckWithRecovery,
+} from "./middleware/autoRecovery";
 import authRouter from "./routes/authRoutes";
+import blogRouter from "./routes/blogRoutes";
 import companyRouter from "./routes/companyRoutes";
+import googleIntegrationRouter from "./routes/googleIntegrationRoutes";
+import healthRouter from "./routes/healthRoutes";
 import paymentRouter from "./routes/paymentRoutes";
 import reportRouter from "./routes/reportRoutes";
 import searchRouter from "./routes/searchRoutes";
 import userRouter from "./routes/userRoutes";
-import blogRouter from "./routes/blogRoutes";
-import healthRouter from "./routes/healthRoutes";
 import webAuditRouter from "./routes/webAuditRoutes";
 import websiteAnalyticsRouter from "./routes/websiteAnalyticsRoutes";
-import env from "./config/env";
-import { stripeWebhook } from "./controllers/paymentController";
-import { dbCache } from "./config/dbCache";
-import { autoRecoveryMiddleware, healthCheckWithRecovery } from "./middleware/autoRecovery";
+import { PydanticProvider } from "./types/pydantic";
 
 dotenv.config();
 
@@ -73,13 +77,13 @@ app.use(
       },
     },
     crossOriginEmbedderPolicy: false, // Disable for Stripe compatibility
-  }),
+  })
 );
 
 // Global rate limiting - DISABLED in test environment
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: env['NODE_ENV'] === "test" ? 0 : 1000, // Disable in test environment
+  max: env["NODE_ENV"] === "test" ? 0 : 1000, // Disable in test environment
   message: {
     error: "Too many requests from this IP, please try again later.",
   },
@@ -90,7 +94,7 @@ const globalLimiter = rateLimit({
     return (
       req.path === "/api/health" ||
       req.path === "/api/health/deep" ||
-      env['NODE_ENV'] === "test"
+      env["NODE_ENV"] === "test"
     );
   },
 });
@@ -98,7 +102,7 @@ const globalLimiter = rateLimit({
 // Authentication rate limiting (stricter) - DISABLED in test environment
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: env['NODE_ENV'] === "test" ? 0 : 100, // Disable in test environment, increased to industry standard of 100
+  max: env["NODE_ENV"] === "test" ? 0 : 100, // Disable in test environment, increased to industry standard of 100
   message: {
     error: "Too many authentication attempts, please try again later.",
   },
@@ -107,28 +111,31 @@ const authLimiter = rateLimit({
   skipSuccessfulRequests: true, // Don't count successful requests
   skip: (_req) => {
     // Skip rate limiting in test environment
-    return env['NODE_ENV'] === "test";
+    return env["NODE_ENV"] === "test";
   },
 });
 
 app.use(globalLimiter);
 
 const corsOptions = {
-  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+  origin: (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean) => void
+  ) => {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     const allowedOrigins = [
       env.CORS_ORIGIN,
-      'https://www.serplexity.com',
-      'https://serplexity.com',
-      'http://localhost:3000', // Development
+      "https://www.serplexity.com",
+      "https://serplexity.com",
+      "http://localhost:3000", // Development
     ];
-    
+
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error("Not allowed by CORS"));
     }
   },
   credentials: true, // Allow cookies to be sent
@@ -140,14 +147,14 @@ app.use(
   morgan("dev", {
     skip: (req, res) =>
       req.originalUrl === "/api/auth/refresh" && res.statusCode === 401,
-  }),
+  })
 );
 
 // Stripe webhook needs raw body, so we register it before the JSON parser.
 app.post(
   "/api/payments/webhook",
   express.raw({ type: "application/json" }),
-  stripeWebhook,
+  stripeWebhook
 );
 
 app.use(express.json());
@@ -165,37 +172,35 @@ app.get("/api/health/deep", async (_req: Request, res: Response) => {
   try {
     // Use auto-recovery health check
     const healthResult = await healthCheckWithRecovery();
-    
-    if (healthResult.status === 'healthy') {
-      res.status(200).json({ 
-        status: "UP", 
+
+    if (healthResult.status === "healthy") {
+      res.status(200).json({
+        status: "UP",
         db: "UP",
-        autoRecovery: "ACTIVE"
+        autoRecovery: "ACTIVE",
       });
-    } else if (healthResult.status === 'recovering') {
-      res.status(200).json({ 
-        status: "UP", 
+    } else if (healthResult.status === "recovering") {
+      res.status(200).json({
+        status: "UP",
         db: "RECOVERING",
         recovery: healthResult.recovery,
-        autoRecovery: "ACTIVE"
+        autoRecovery: "ACTIVE",
       });
     } else {
-      res.status(503).json({ 
-        status: "DOWN", 
+      res.status(503).json({
+        status: "DOWN",
         db: "DOWN",
         recovery: healthResult.recovery,
-        autoRecovery: "FAILED"
+        autoRecovery: "FAILED",
       });
     }
   } catch (error) {
-    res
-      .status(503)
-      .json({ 
-        status: "DOWN", 
-        db: "DOWN", 
-        error: (error as Error).message,
-        autoRecovery: "ERROR"
-      });
+    res.status(503).json({
+      status: "DOWN",
+      db: "DOWN",
+      error: (error as Error).message,
+      autoRecovery: "ERROR",
+    });
   }
 });
 
@@ -203,53 +208,73 @@ app.get("/api/health/deep", async (_req: Request, res: Response) => {
 app.get("/healthz", async (_req, res) => {
   const startTime = Date.now();
   const checks: Record<string, unknown> = {};
-  
+
   try {
     // Database health
     try {
       const { getPrismaClient } = await import("./config/dbCache");
       const prisma = await getPrismaClient();
       await prisma.$queryRaw`SELECT 1`;
-      checks['database'] = { status: "healthy", latency: Date.now() - startTime };
+      checks["database"] = {
+        status: "healthy",
+        latency: Date.now() - startTime,
+      };
     } catch (error) {
-      checks['database'] = { status: "unhealthy", error: (error as Error).message };
+      checks["database"] = {
+        status: "unhealthy",
+        error: (error as Error).message,
+      };
     }
-    
+
     // Redis health
     try {
       const { checkRedisHealth } = await import("./config/redis");
       const redisHealth = await checkRedisHealth();
-      checks['redis'] = redisHealth;
+      checks["redis"] = redisHealth;
     } catch (error) {
-      checks['redis'] = { status: "unhealthy", error: (error as Error).message };
+      checks["redis"] = {
+        status: "unhealthy",
+        error: (error as Error).message,
+      };
     }
-    
+
     // PydanticAI service health (optional - don't fail overall health if down)
     try {
-      const { pydanticLlmService } = await import("./services/pydanticLlmService");
+      const { pydanticLlmService } = await import(
+        "./services/pydanticLlmService"
+      );
       const providers = pydanticLlmService.getAvailableProviders();
-      const healthyProviders = (providers as PydanticProvider[]).filter(p => p.status === 'available').length;
-      checks['pydantic_ai'] = { status: healthyProviders > 0 ? "healthy" : "degraded", availableProviders: healthyProviders };
+      const healthyProviders = (providers as PydanticProvider[]).filter(
+        (p) => p.status === "available"
+      ).length;
+      checks["pydantic_ai"] = {
+        status: healthyProviders > 0 ? "healthy" : "degraded",
+        availableProviders: healthyProviders,
+      };
     } catch {
-      checks['pydantic_ai'] = { status: "degraded", error: "Service unavailable - first-time reports will fail" };
+      checks["pydantic_ai"] = {
+        status: "degraded",
+        error: "Service unavailable - first-time reports will fail",
+      };
     }
-    
-    const allHealthy = (checks['database'] as { status: string }).status === "healthy" && (checks['redis'] as { status: string }).status === "healthy";
+
+    const allHealthy =
+      (checks["database"] as { status: string }).status === "healthy" &&
+      (checks["redis"] as { status: string }).status === "healthy";
     const httpStatus = allHealthy ? 200 : 503;
-    
+
     res.status(httpStatus).json({
       status: allHealthy ? "healthy" : "degraded",
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       checks,
-      totalLatency: Date.now() - startTime
+      totalLatency: Date.now() - startTime,
     });
-    
   } catch (error) {
     res.status(503).json({
       status: "unhealthy",
       error: (error as Error).message,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 });
@@ -268,6 +293,7 @@ app.use("/api/users", userRouter);
 app.use("/api/search", searchRouter);
 app.use("/api/web-audit", webAuditRouter);
 app.use("/api/website-analytics", websiteAnalyticsRouter);
+app.use("/api/integrations/google", googleIntegrationRouter);
 
 // Blog routes (mixed public/admin)
 app.use("/api/blog", blogRouter);

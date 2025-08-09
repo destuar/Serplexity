@@ -24,7 +24,6 @@ import { getDbClient } from "../../config/database";
 import env from "../../config/env";
 import { redis } from "../../config/redis";
 import logger from "../../utils/logger";
-import { accessibilityAnalyzer } from "./analyzers/accessibilityAnalyzer";
 import { geoAnalyzer } from "./analyzers/geoAnalyzer";
 import { performanceAnalyzer } from "./analyzers/performanceAnalyzer";
 import { securityAnalyzer } from "./analyzers/securityAnalyzer";
@@ -54,7 +53,6 @@ export interface AuditConfig {
   includePerformance: boolean;
   includeSEO: boolean;
   includeGEO: boolean;
-  includeAccessibility: boolean;
   includeSecurity: boolean;
   summaryOnly?: boolean; // if true, store only scores, skip heavy details
 }
@@ -65,7 +63,6 @@ export interface AuditResult {
     performance: number;
     seo: number;
     geo: number;
-    accessibility: number;
     security: number;
     overall: number;
   };
@@ -73,7 +70,6 @@ export interface AuditResult {
     performance?: PerformanceResults;
     seo?: SEOResults;
     geo?: GEOResults;
-    accessibility?: AccessibilityResults;
     security?: SecurityResults;
   };
   recommendations: Recommendation[];
@@ -182,6 +178,14 @@ export interface GEOResults {
     readabilityScore: number;
     citationFriendly: boolean;
     structuredAnswers: number;
+    // Deterministic additional metrics (0-100 unless stated otherwise)
+    freshnessScore?: number;
+    chunkabilityScore?: number;
+    anchorCoverage?: number; // 0-100
+    mainContentRatio?: number; // 0-100
+    questionHeadingCoverage?: number; // 0-100
+    schemaCompletenessScore?: number;
+    tldrPresent?: boolean;
   };
 }
 
@@ -229,7 +233,7 @@ export interface SecurityResults {
 }
 
 export interface Recommendation {
-  category: "performance" | "seo" | "geo" | "accessibility" | "security";
+  category: "performance" | "seo" | "geo" | "security";
   priority: "critical" | "high" | "medium" | "low";
   title: string;
   description: string;
@@ -245,7 +249,6 @@ const AuditConfigSchema = z.object({
   includePerformance: z.boolean().default(true),
   includeSEO: z.boolean().default(true),
   includeGEO: z.boolean().default(true),
-  includeAccessibility: z.boolean().default(false),
   includeSecurity: z.boolean().default(true),
   summaryOnly: z.boolean().optional().default(false),
 });
@@ -267,7 +270,6 @@ export async function startWebAudit(config: AuditConfig): Promise<string> {
         performance: validatedConfig.includePerformance,
         seo: validatedConfig.includeSEO,
         geo: validatedConfig.includeGEO,
-        accessibility: validatedConfig.includeAccessibility,
         security: validatedConfig.includeSecurity,
       },
     });
@@ -292,7 +294,6 @@ export async function startWebAudit(config: AuditConfig): Promise<string> {
           includePerformance: validatedConfig.includePerformance,
           includeSEO: validatedConfig.includeSEO,
           includeGEO: validatedConfig.includeGEO,
-          includeAccessibility: validatedConfig.includeAccessibility,
           includeSecurity: validatedConfig.includeSecurity,
           summaryOnly: validatedConfig.summaryOnly,
         },
@@ -332,7 +333,6 @@ export async function processAudit(
     includePerformance: boolean;
     includeSEO: boolean;
     includeGEO: boolean;
-    includeAccessibility: boolean;
     includeSecurity: boolean;
     summaryOnly?: boolean;
   },
@@ -347,29 +347,40 @@ export async function processAudit(
       where: { id: auditId },
       data: { status: "running" },
     });
+    // Initial progress hint
+    try {
+      await setAuditJobProgress(auditId, 5);
+    } catch {}
 
-    logger.info("Processing web audit", {
-      auditId,
-      url,
-    });
+    logger.info("Processing web audit", { auditId, url });
 
-    // Run analyses in parallel for better performance
+    // Run analyses in parallel; bump progress as each completes
+    const perfPromise = options.includePerformance
+      ? performanceAnalyzer
+          .analyze(url)
+          .finally(() => setAuditJobProgress(auditId, 25))
+      : Promise.resolve(null);
+    const seoPromise = options.includeSEO
+      ? seoAnalyzer.analyze(url).finally(() => setAuditJobProgress(auditId, 45))
+      : Promise.resolve(null);
+    const geoPromise = options.includeGEO
+      ? geoAnalyzer.analyze(url).finally(() => setAuditJobProgress(auditId, 65))
+      : Promise.resolve(null);
+    const secPromise = options.includeSecurity
+      ? securityAnalyzer
+          .analyze(url)
+          .finally(() => setAuditJobProgress(auditId, 85))
+      : Promise.resolve(null);
+
     const analyses = await Promise.allSettled([
-      options.includePerformance ? performanceAnalyzer.analyze(url) : null,
-      options.includeSEO ? seoAnalyzer.analyze(url) : null,
-      options.includeGEO ? geoAnalyzer.analyze(url) : null,
-      options.includeAccessibility ? accessibilityAnalyzer.analyze(url) : null,
-      options.includeSecurity ? securityAnalyzer.analyze(url) : null,
+      perfPromise,
+      seoPromise,
+      geoPromise,
+      secPromise,
     ]);
 
     // Extract results
-    const [
-      performanceResult,
-      seoResult,
-      geoResult,
-      accessibilityResult,
-      securityResult,
-    ] = analyses;
+    const [performanceResult, seoResult, geoResult, securityResult] = analyses;
 
     const details: AuditResult["details"] = {};
 
@@ -382,33 +393,41 @@ export async function processAudit(
     if (geoResult.status === "fulfilled" && geoResult.value) {
       details.geo = geoResult.value;
     }
-    if (
-      accessibilityResult.status === "fulfilled" &&
-      accessibilityResult.value
-    ) {
-      details.accessibility = accessibilityResult.value;
-    }
     if (securityResult.status === "fulfilled" && securityResult.value) {
       details.security = securityResult.value;
     }
 
+    // Prepare input for scorer to satisfy exactOptionalPropertyTypes
+    const scoreInput: {
+      performance?: PerformanceResults;
+      seo?: SEOResults;
+      geo?: GEOResults;
+      security?: SecurityResults;
+    } = {};
+    if (details.performance) scoreInput.performance = details.performance;
+    if (details.seo) scoreInput.seo = details.seo;
+    if (details.geo) scoreInput.geo = details.geo;
+    if (details.security) scoreInput.security = details.security;
+
     // Calculate scores
-    const scores = auditScorer.calculateScores(details);
+    const scores = auditScorer.calculateScores(scoreInput);
 
     // Generate recommendations
     const recommendations = auditScorer.generateRecommendations(
-      details,
+      scoreInput,
       scores
     );
 
     // Update database with results
+    try {
+      await setAuditJobProgress(auditId, 90);
+    } catch {}
     const baseUpdate: any = {
       status: "completed",
       completedAt: new Date(),
       performanceScore: scores.performance,
       seoScore: scores.seo,
       geoScore: scores.geo,
-      accessibilityScore: scores.accessibility,
       securityScore: scores.security,
     };
 
@@ -424,11 +443,6 @@ export async function processAudit(
       if (details.geo) {
         baseUpdate.geoOptimization = JSON.parse(JSON.stringify(details.geo));
       }
-      if (details.accessibility) {
-        baseUpdate.accessibility = JSON.parse(
-          JSON.stringify(details.accessibility)
-        );
-      }
       if (details.security) {
         baseUpdate.security = JSON.parse(JSON.stringify(details.security));
       }
@@ -438,6 +452,9 @@ export async function processAudit(
       where: { id: auditId },
       data: baseUpdate,
     });
+    try {
+      await setAuditJobProgress(auditId, 100);
+    } catch {}
 
     const processingTime = Date.now() - startTime;
 
@@ -449,7 +466,6 @@ export async function processAudit(
         performance: scores.performance,
         seo: scores.seo,
         geo: scores.geo,
-        accessibility: scores.accessibility,
         security: scores.security,
         overall: scores.overall,
       },
@@ -549,7 +565,6 @@ export async function getWebAuditResult(
           performance: auditRun.performanceScore || 0,
           seo: auditRun.seoScore || 0,
           geo: auditRun.geoScore || 0,
-          accessibility: auditRun.accessibilityScore || 0,
           security: auditRun.securityScore || 0,
           overall: 0,
         },
@@ -568,7 +583,6 @@ export async function getWebAuditResult(
       performance: auditRun.performanceScore || 0,
       seo: auditRun.seoScore || 0,
       geo: auditRun.geoScore || 0,
-      accessibility: auditRun.accessibilityScore || 0,
       security: auditRun.securityScore || 0,
       overall: Math.round(
         ((auditRun.performanceScore || 0) +
@@ -598,9 +612,6 @@ export async function getWebAuditResult(
         : undefined,
       geo: isNonEmptyObject(auditRun.geoOptimization)
         ? (auditRun.geoOptimization as unknown as GEOResults)
-        : undefined,
-      accessibility: isNonEmptyObject(auditRun.accessibility)
-        ? (auditRun.accessibility as unknown as AccessibilityResults)
         : undefined,
       security: isNonEmptyObject(auditRun.security)
         ? (auditRun.security as unknown as SecurityResults)
@@ -634,6 +645,47 @@ export async function getWebAuditResult(
     throw new Error(
       `Failed to get audit result: ${error instanceof Error ? error.message : String(error)}`
     );
+  }
+}
+
+/**
+ * Get background job progress for an audit, if available (0-100)
+ */
+export async function getAuditJobProgress(
+  auditId: string
+): Promise<number | null> {
+  try {
+    const job = await webAuditQueue.getJob(auditId);
+    if (!job) return null;
+    const progress = typeof job.progress === "number" ? job.progress : null;
+    // Normalize BullMQ progress to 0-100 range
+    if (progress === null) return null;
+    if (progress < 0) return 0;
+    if (progress > 100) return 100;
+    return progress;
+  } catch (_err) {
+    return null;
+  }
+}
+
+/**
+ * Best-effort monotonic job progress setter (0-100)
+ */
+export async function setAuditJobProgress(
+  auditId: string,
+  targetProgress: number
+): Promise<void> {
+  try {
+    const job = await webAuditQueue.getJob(auditId);
+    if (!job) return;
+    const prev = typeof job.progress === "number" ? job.progress : 0;
+    const normalized = Math.max(0, Math.min(100, targetProgress));
+    const next = Math.max(prev, normalized);
+    if (next > prev) {
+      await job.updateProgress(next);
+    }
+  } catch {
+    // ignore progress failures
   }
 }
 

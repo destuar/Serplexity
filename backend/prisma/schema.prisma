@@ -49,6 +49,13 @@ model Company {
   optimizationTasks    VisibilityOptimizationTask[]
   webAuditRuns         WebAuditRun[]
   analyticsIntegrations AnalyticsIntegration[]
+  googleOAuthTokens    GoogleOAuthToken[]
+  ga4Properties        Ga4Property[]
+  gscSites             GscSite[]
+  ga4DailyMetrics      Ga4DailyMetrics[]
+  ga4RealtimeSnapshots Ga4RealtimeSnapshot[]
+  gscDailyMetrics      GscDailyMetrics[]
+  syncJobs             SyncJob[]
 
   @@index([userId])
 }
@@ -339,26 +346,26 @@ model WebAuditRun {
   status           String    // 'queued', 'running', 'completed', 'failed'
   requestedAt      DateTime  @default(now())
   completedAt      DateTime?
-  
+
   // Core Scores (0-100)
   performanceScore Int?
   seoScore         Int?
   geoScore         Int?
   accessibilityScore Int?
   securityScore    Int?
-  
+
   // Technical Results
   performance      Json?     // Core Web Vitals, load times
   seoTechnical     Json?     // robots.txt, meta tags, headers
   geoOptimization  Json?     // Schema markup, AI-readable content
   accessibility    Json?     // WCAG compliance checks
   security         Json?     // HTTPS, headers, vulnerabilities
-  
+
   // Error handling
   errorMessage     String?
-  
+
   company          Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  
+
   @@index([companyId])
   @@index([status])
   @@index([requestedAt])
@@ -415,4 +422,160 @@ model AnalyticsData {
 enum Role {
   USER
   ADMIN
+}
+
+/// New models for Google integrations and normalized analytics caches
+model GoogleOAuthToken {
+  id          String   @id @default(cuid())
+  companyId   String
+  provider    String   // 'google'
+  scopes      String[]
+  accessToken String   // Encrypted at rest
+  refreshToken String? // Encrypted at rest
+  expiry      DateTime?
+  tokenHash   String?  // SHA-256 hash of refresh token to detect rotation
+  revokedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([companyId, provider])
+}
+
+model Ga4Property {
+  id          String   @id @default(cuid())
+  companyId   String
+  propertyId  String   // GA4 property numeric id as string
+  displayName String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, propertyId])
+  @@index([companyId])
+}
+
+model GscSite {
+  id                String   @id @default(cuid())
+  companyId         String
+  siteUrl           String
+  verificationState String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, siteUrl])
+  @@index([companyId])
+}
+
+model Ga4DailyMetrics {
+  id                      String   @id @default(cuid())
+  companyId               String
+  propertyId              String
+  date                    DateTime
+  country                 String?
+  device                  String?
+  pagePath                String?
+  channelGroup            String?
+  sessions                Int?
+  totalUsers              Int?
+  activeUsers             Int?
+  engagedSessions         Int?
+  eventCount              Int?
+  conversions             Int?
+  sessionDurationSeconds  Float?
+  avgEngagementTime       Float?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  company                 Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([companyId, propertyId, date])
+  @@index([propertyId, date])
+  @@unique([companyId, propertyId, date, country, device, pagePath, channelGroup])
+}
+
+model Ga4RealtimeSnapshot {
+  id             String   @id @default(cuid())
+  companyId      String
+  propertyId     String
+  capturedAt     DateTime @default(now())
+  concurrentUsers Int?
+  topPages       Json?
+
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([propertyId, capturedAt])
+  @@unique([companyId, propertyId, capturedAt])
+}
+
+model GscDailyMetrics {
+  id         String   @id @default(cuid())
+  companyId  String
+  siteUrl    String
+  date       DateTime
+  query      String?
+  page       String?
+  country    String?
+  device     String?
+  impressions Int?
+  clicks     Int?
+  ctr        Float?
+  position   Float?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([siteUrl, date])
+  @@unique([companyId, siteUrl, date, query, page, country, device])
+}
+
+model SyncJob {
+  id           String   @id @default(cuid())
+  companyId    String
+  provider     String   // 'ga4' | 'gsc'
+  targetType   String   // 'property' | 'site'
+  targetId     String
+  startDate    DateTime
+  endDate      DateTime
+  status       String   // 'queued' | 'running' | 'success' | 'failed' | 'backoff'
+  priority     Int      @default(0)
+  attempt      Int      @default(0)
+  backoffUntil DateTime?
+  lastError    String?
+  scheduledAt  DateTime @default(now())
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  logs         SyncLog[]
+
+  @@index([companyId])
+  @@index([status])
+  @@index([provider, targetType, targetId])
+}
+
+model SyncLog {
+  id        String   @id @default(cuid())
+  syncJobId String
+  level     String   // 'info' | 'warn' | 'error'
+  code      String?
+  message   String
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  job       SyncJob  @relation(fields: [syncJobId], references: [id], onDelete: Cascade)
+
+  @@index([syncJobId])
+  @@index([level])
 }
