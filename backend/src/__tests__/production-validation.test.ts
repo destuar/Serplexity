@@ -5,12 +5,12 @@
  * This test suite validates EVERY critical component that could break paying client reports:
  *
  * 🔥 CRITICAL COMPONENTS TESTED:
- * 1. Sentiment Analysis (web_search_sentiment_agent.py)
+ * 1. Sentiment Analysis (sentiment_agent.py)
  * 2. Fanout Generation (fanout_agent.py)
  * 3. Question Answering (question_agent.py)
  * 4. Optimization Task Generation (preset hardcoded tasks)
  * 5. Sentiment Summary (sentiment_summary_agent.py)
- * 6. Website Enrichment (website_enrichment_agent.py)
+ * 6. Website Enrichment (website_agent.py)
  * 7. Metric Calculations (computeAndPersistMetrics)
  * 8. Competitor Enrichment Pipeline
  * 9. Brand Mention Extraction
@@ -22,7 +22,7 @@
  * 📊 NO DATABASE WRITES: Validates logic without persistence complexity
  */
 
-import { describe, beforeAll, afterAll, it, expect, jest } from "@jest/globals";
+import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 import { config } from "dotenv";
 import { resolve } from "path";
 import { pydanticLlmService } from "../services/pydanticLlmService";
@@ -38,7 +38,7 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
   beforeAll(async () => {
     console.log("\n🚨 PRODUCTION VALIDATION STARTING...");
     console.log(
-      "This test validates ALL components that could break paying client reports",
+      "This test validates ALL components that could break paying client reports"
     );
 
     // Verify critical environment variables
@@ -63,7 +63,7 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
   });
 
   describe("🔥 CRITICAL AGENT VALIDATION", () => {
-    it("should validate Sentiment Analysis Agent (web_search_sentiment_agent.py)", async () => {
+    it("should validate Sentiment Analysis Agent (sentiment_agent.py)", async () => {
       console.log("\n📊 Testing Sentiment Analysis Agent...");
 
       const sentimentInput = {
@@ -79,10 +79,10 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
 
       try {
         const result = await pydanticLlmService.executeAgent(
-          "web_search_sentiment_agent.py",
+          "sentiment_agent.py",
           sentimentInput,
           null,
-          { timeout: 45000 },
+          { timeout: 45000 }
         );
 
         // CRITICAL VALIDATIONS for client reports
@@ -102,7 +102,7 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
         }
 
         console.log(
-          `✅ Sentiment Analysis: ${result.metadata.executionTime}ms, Model: ${result.metadata.modelUsed}`,
+          `✅ Sentiment Analysis: ${result.metadata.executionTime}ms, Model: ${result.metadata.modelUsed}`
         );
       } catch (error) {
         if (error instanceof Error && error.message.includes("API key")) {
@@ -130,7 +130,7 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
           "fanout_agent.py",
           fanoutInput,
           null,
-          { timeout: 60000 },
+          { timeout: 60000 }
         );
 
         // CRITICAL VALIDATIONS
@@ -149,7 +149,7 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
         });
 
         console.log(
-          `✅ Fanout Generation: ${result.data.queries.length} queries, ${result.metadata.executionTime}ms`,
+          `✅ Fanout Generation: ${result.data.queries.length} queries, ${result.metadata.executionTime}ms`
         );
       } catch (error) {
         if (error instanceof Error && error.message.includes("API key")) {
@@ -176,7 +176,7 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
           "question_agent.py",
           questionInput,
           null,
-          { timeout: 50000 },
+          { timeout: 50000 }
         );
 
         // CRITICAL VALIDATIONS for client Q&A
@@ -193,7 +193,7 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
         }
 
         console.log(
-          `✅ Question Answering: ${result.data.answer.length} chars, ${result.metadata.executionTime}ms`,
+          `✅ Question Answering: ${result.data.answer.length} chars, ${result.metadata.executionTime}ms`
         );
       } catch (error) {
         if (error instanceof Error && error.message.includes("API key")) {
@@ -277,7 +277,7 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
           "sentiment_summary_agent.py",
           sentimentSummaryInput,
           null,
-          { timeout: 30000 },
+          { timeout: 30000 }
         );
 
         // CRITICAL VALIDATIONS for client sentiment summaries
@@ -295,7 +295,7 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
         }
 
         console.log(
-          `✅ Sentiment Summary: ${result.metadata.executionTime}ms, Model: ${result.metadata.modelUsed}`,
+          `✅ Sentiment Summary: ${result.metadata.executionTime}ms, Model: ${result.metadata.modelUsed}`
         );
       } catch (error) {
         if (error instanceof Error && error.message.includes("API key")) {
@@ -306,7 +306,7 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
       }
     }, 45000);
 
-    it("should validate Website Enrichment Agent (website_enrichment_agent.py)", async () => {
+    it("should validate Website Enrichment Agent (website_agent.py)", async () => {
       console.log("\n🌐 Testing Website Enrichment Agent...");
 
       const websiteEnrichmentInput = {
@@ -317,10 +317,10 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
 
       try {
         const result = await pydanticLlmService.executeAgent(
-          "website_enrichment_agent.py",
+          "website_agent.py",
           websiteEnrichmentInput,
           null,
-          { timeout: 30000 },
+          { timeout: 30000 }
         );
 
         // CRITICAL VALIDATIONS for client competitor analysis
@@ -334,7 +334,7 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
         expect(Array.isArray(result.data.competitors)).toBe(true);
 
         console.log(
-          `✅ Website Enrichment: ${result.metadata.executionTime}ms, Model: ${result.metadata.modelUsed}`,
+          `✅ Website Enrichment: ${result.metadata.executionTime}ms, Model: ${result.metadata.modelUsed}`
         );
       } catch (error) {
         if (error instanceof Error && error.message.includes("API key")) {
@@ -390,7 +390,7 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
 
         const summaryResult = await generateOverallSentimentSummary(
           "Slack",
-          mockSentiments,
+          mockSentiments
         );
 
         // CRITICAL VALIDATIONS for client sentiment summaries
@@ -400,7 +400,7 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
         expect(summaryResult.usage.totalTokens).toBeGreaterThan(0);
 
         console.log(
-          `✅ Sentiment Summary: ${summaryResult.usage.totalTokens} tokens`,
+          `✅ Sentiment Summary: ${summaryResult.usage.totalTokens} tokens`
         );
       } catch (error) {
         if (error instanceof Error && error.message.includes("API key")) {
@@ -408,7 +408,7 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
           return;
         }
         throw new Error(
-          `🚨 CRITICAL: Sentiment Summary Processing failed - ${error}`,
+          `🚨 CRITICAL: Sentiment Summary Processing failed - ${error}`
         );
       }
     }, 45000);
@@ -478,11 +478,11 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
         expect(extractedBrands.filter((b) => b === "Slack").length).toBe(2); // Should find 2 Slack mentions
 
         console.log(
-          `✅ Brand Mention Extraction: ${extractedBrands.length} brands extracted`,
+          `✅ Brand Mention Extraction: ${extractedBrands.length} brands extracted`
         );
       } catch (error) {
         throw new Error(
-          `🚨 CRITICAL: Brand Mention Extraction failed - ${error}`,
+          `🚨 CRITICAL: Brand Mention Extraction failed - ${error}`
         );
       }
     }, 10000);
@@ -506,7 +506,7 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
         // Step 1: Sentiment Analysis (CRITICAL for client metrics)
         console.log("   📊 Step 1: Sentiment Analysis...");
         pipeline.sentiment = await pydanticLlmService.executeAgent(
-          "web_search_sentiment_agent.py",
+          "sentiment_agent.py",
           {
             company_name: companyName,
             search_queries: [
@@ -517,12 +517,12 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
             context: `End-to-end sentiment analysis for ${companyName}`,
           },
           null,
-          { timeout: 35000 },
+          { timeout: 35000 }
         );
 
         expect(pipeline.sentiment.data).toBeDefined();
         console.log(
-          `   ✅ Sentiment: ${pipeline.sentiment.metadata.executionTime}ms`,
+          `   ✅ Sentiment: ${pipeline.sentiment.metadata.executionTime}ms`
         );
 
         // Step 2: Fanout Generation (CRITICAL for question diversity)
@@ -537,13 +537,13 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
             competitors: ["Microsoft Teams"],
           },
           null,
-          { timeout: 40000 },
+          { timeout: 40000 }
         );
 
         expect(pipeline.fanout.data).toBeDefined();
         expect(pipeline.fanout.data.queries.length).toBeGreaterThan(0);
         console.log(
-          `   ✅ Fanout: ${pipeline.fanout.data.queries.length} queries`,
+          `   ✅ Fanout: ${pipeline.fanout.data.queries.length} queries`
         );
 
         // Step 3: Question Answering (CRITICAL for client insights)
@@ -557,13 +557,13 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
             context: "End-to-end question answering",
           },
           null,
-          { timeout: 35000 },
+          { timeout: 35000 }
         );
 
         pipeline.questions.push(questionResult);
         expect(questionResult.data.answer).toBeTruthy();
         console.log(
-          `   ✅ Question: ${questionResult.data.answer.length} chars`,
+          `   ✅ Question: ${questionResult.data.answer.length} chars`
         );
 
         // Step 4: Optimization Tasks (DISABLED - using hardcoded preset tasks)
@@ -585,7 +585,7 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
         expect(pipeline.optimization.data.tasks).toBeDefined();
         expect(pipeline.optimization.data.tasks.length).toBeGreaterThan(0);
         console.log(
-          `   ✅ Optimization: ${pipeline.optimization.data.tasks.length} tasks`,
+          `   ✅ Optimization: ${pipeline.optimization.data.tasks.length} tasks`
         );
 
         // Step 5: Validate Complete Pipeline Metrics
@@ -614,13 +614,13 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
         console.log(`   - Total tokens used: ${totalTokens}`);
         console.log(`   - Sentiment analysis: ✅`);
         console.log(
-          `   - Fanout generation: ✅ (${pipeline.fanout.data.queries.length} queries)`,
+          `   - Fanout generation: ✅ (${pipeline.fanout.data.queries.length} queries)`
         );
         console.log(
-          `   - Question answering: ✅ (${pipeline.questions.length} responses)`,
+          `   - Question answering: ✅ (${pipeline.questions.length} responses)`
         );
         console.log(
-          `   - Optimization tasks: ✅ (${pipeline.optimization.data.tasks.length} tasks)`,
+          `   - Optimization tasks: ✅ (${pipeline.optimization.data.tasks.length} tasks)`
         );
         console.log(`   - All critical components: ✅`);
       } catch (error) {
@@ -646,14 +646,14 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
       // Test each critical component quickly
       try {
         await pydanticLlmService.executeAgent(
-          "web_search_sentiment_agent.py",
+          "sentiment_agent.py",
           {
             company_name: "Test",
             search_queries: ["test"],
             max_results_per_query: 1,
           },
           null,
-          { timeout: 15000 },
+          { timeout: 15000 }
         );
         score += agentWeight;
         components.push("✅ Sentiment Analysis");
@@ -671,7 +671,7 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
             context: "test",
           },
           null,
-          { timeout: 20000 },
+          { timeout: 20000 }
         );
         score += agentWeight;
         components.push("✅ Fanout Generation");
@@ -688,7 +688,7 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
             context: "test",
           },
           null,
-          { timeout: 60000 },
+          { timeout: 60000 }
         ); // Increased timeout for question answering
         score += agentWeight;
         components.push("✅ Question Answering");
@@ -719,7 +719,7 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
             context: "test",
           },
           null,
-          { timeout: 20000 },
+          { timeout: 20000 }
         );
         score += agentWeight;
         components.push("✅ Sentiment Summary");
@@ -729,14 +729,14 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
 
       try {
         await pydanticLlmService.executeAgent(
-          "website_enrichment_agent.py",
+          "website_agent.py",
           {
             company_name: "Test",
             website_url: "https://test.com",
             context: "test",
           },
           null,
-          { timeout: 20000 },
+          { timeout: 20000 }
         );
         score += agentWeight;
         components.push("✅ Website Enrichment");
@@ -752,20 +752,20 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
 
       if (confidenceScore >= 90) {
         console.log(
-          "\n🚀 HIGH CONFIDENCE: All 6 agents working - Safe to deploy to production",
+          "\n🚀 HIGH CONFIDENCE: All 6 agents working - Safe to deploy to production"
         );
       } else if (confidenceScore >= 75) {
         console.log(
-          "\n⚠️  MEDIUM CONFIDENCE: Some agents failing - investigate before deploy",
+          "\n⚠️  MEDIUM CONFIDENCE: Some agents failing - investigate before deploy"
         );
       } else {
         console.log(
-          "\n🚨 LOW CONFIDENCE: Multiple critical agent failures - DO NOT DEPLOY",
+          "\n🚨 LOW CONFIDENCE: Multiple critical agent failures - DO NOT DEPLOY"
         );
       }
 
       console.log(
-        `\n📊 Agent Coverage: ${components.filter((c) => c.startsWith("✅")).length}/6 agents working`,
+        `\n📊 Agent Coverage: ${components.filter((c) => c.startsWith("✅")).length}/6 agents working`
       );
 
       // For paying clients, we need at least 75% confidence (at least 5/6 agents working)

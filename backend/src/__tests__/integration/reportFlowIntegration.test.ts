@@ -252,7 +252,7 @@ describe("Report Generation Integration Tests", () => {
       // Set up different responses based on agent type
       mockExecuteAgent.mockImplementation(async (agentScript: string) => {
         switch (agentScript) {
-          case "web_search_sentiment_agent.py":
+          case "sentiment_agent.py":
             return mockSentimentResponse;
           case "fanout_agent.py":
             return mockFanoutResponse;
@@ -437,7 +437,7 @@ describe("Report Generation Integration Tests", () => {
       // Test that system handles partial failures
       try {
         await pydanticLlmService.executeAgent(
-          "web_search_sentiment_agent.py",
+          "sentiment_agent.py",
           { company_name: "Integration Test Corp" },
           null
         );
@@ -573,7 +573,7 @@ describe("Report Generation Integration Tests", () => {
         });
 
       const result = await pydanticLlmService.executeAgent(
-        "web_search_sentiment_agent.py",
+        "sentiment_agent.py",
         { company_name: "Integration Test Corp" },
         null
       );

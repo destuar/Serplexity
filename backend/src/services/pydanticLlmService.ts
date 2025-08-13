@@ -152,10 +152,13 @@ export class PydanticLlmService {
     new Map();
 
   private constructor() {
-    this.pythonPath = process.env["PYTHON_PATH"] || "python3";
+    // Prefer explicit env, then repo venv, then system python
+    this.pythonPath =
+      process.env["PYTHON_PATH"] || this.detectVenvPython() || "python3";
     // Always point to source directory for Python scripts
-    // This works both in development and production since Python files don't get compiled
-    this.scriptsPath = path.resolve(__dirname, "../../src/pydantic_agents");
+    // Source tree is the TS src directory which contains pydantic_agents/
+    // __dirname here is .../backend/src/services → so one level up is .../backend/src
+    this.scriptsPath = path.resolve(__dirname, "../pydantic_agents");
     // Initialize Python environment asynchronously without blocking constructor
     this.initializePythonEnvironment().catch((error) => {
       logger.error("Failed to initialize PydanticAI Python environment", {
@@ -166,6 +169,24 @@ export class PydanticLlmService {
         "Python environment initialization failed"
       );
     });
+  }
+
+  /**
+   * Attempt to locate repo-local virtualenv python (backend/venv/bin/python)
+   */
+  private detectVenvPython(): string | null {
+    try {
+      const venvPython = path.resolve(process.cwd(), "venv/bin/python");
+      // Use sync check to avoid making constructor async
+      // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+      const fs = require("fs") as typeof import("fs");
+      if (fs.existsSync(venvPython)) {
+        return venvPython;
+      }
+    } catch {
+      // ignore
+    }
+    return null;
   }
 
   static getInstance(): PydanticLlmService {
@@ -741,8 +762,8 @@ export class PydanticLlmService {
     const startTime = Date.now();
 
     return new Promise((resolve) => {
-      // Add the parent directory of pydantic_agents to PYTHONPATH for absolute imports
-      const pythonPackageDir = path.resolve(__dirname, "../../src");
+      // Add the TS src directory (which contains pydantic_agents) to PYTHONPATH for absolute imports
+      const pythonPackageDir = path.resolve(__dirname, "..");
       const existingPythonPath = process.env["PYTHONPATH"] || "";
       const pythonPath = existingPythonPath
         ? `${pythonPackageDir}:${existingPythonPath}`

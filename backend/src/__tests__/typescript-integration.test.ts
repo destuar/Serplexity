@@ -20,7 +20,7 @@
  * - Test error handling and service reliability
  */
 
-import { describe, beforeAll, afterAll, it, expect, jest } from "@jest/globals";
+import { afterAll, beforeAll, describe, expect, it, jest } from "@jest/globals";
 import { config } from "dotenv";
 import { resolve } from "path";
 
@@ -28,15 +28,9 @@ import { resolve } from "path";
 config({ path: resolve(__dirname, "../../../.env") });
 
 // Import services to test
-import { pydanticLlmService } from "../services/pydanticLlmService";
+import { ModelTask, getModelsByTask } from "../config/models";
 import * as llmService from "../services/llmService";
-import * as optimizationTaskService from "../services/optimizationTaskService";
-import {
-  Model,
-  ModelEngine,
-  ModelTask,
-  getModelsByTask,
-} from "../config/models";
+import { pydanticLlmService } from "../services/pydanticLlmService";
 
 // Ensure test environment
 process.env.NODE_ENV = "test";
@@ -76,13 +70,13 @@ describe("🔗 TypeScript Service Integration Tests", () => {
   describe("🎯 PydanticLlmService ↔ Agent Integration", () => {
     it("should integrate with all 6 PydanticAI agents via pydanticLlmService", async () => {
       console.log(
-        "\\n🤖 Testing pydanticLlmService ↔ All PydanticAI agents...",
+        "\\n🤖 Testing pydanticLlmService ↔ All PydanticAI agents..."
       );
 
       const agentTests = [
         {
           name: "Sentiment Analysis",
-          script: "web_search_sentiment_agent.py",
+          script: "sentiment_agent.py",
           input: {
             company_name: "TestCorp",
             search_queries: ["TestCorp reviews"],
@@ -110,17 +104,7 @@ describe("🔗 TypeScript Service Integration Tests", () => {
             context: "Integration test",
           },
         },
-        {
-          name: "Optimization Tasks",
-          script: "optimization_agent.py",
-          input: {
-            company_name: "TestCorp",
-            industry: "Technology",
-            context: "Integration test",
-            categories: ["content"],
-            max_tasks: 3,
-          },
-        },
+        // Optimization agent removed in favor of preset tasks; skip this entry
         {
           name: "Sentiment Summary",
           script: "sentiment_summary_agent.py",
@@ -132,7 +116,7 @@ describe("🔗 TypeScript Service Integration Tests", () => {
         },
         {
           name: "Website Enrichment",
-          script: "website_enrichment_agent.py",
+          script: "website_agent.py",
           input: {
             company_name: "TestCorp",
             website_url: "https://testcorp.com",
@@ -149,7 +133,7 @@ describe("🔗 TypeScript Service Integration Tests", () => {
             test.script,
             test.input,
             null, // No Zod validation
-            { timeout: 30000 },
+            { timeout: 30000 }
           );
 
           // Validate service integration
@@ -172,7 +156,7 @@ describe("🔗 TypeScript Service Integration Tests", () => {
         } catch (error) {
           if (error instanceof Error && error.message.includes("API key")) {
             console.warn(
-              `   ⚠️  ${test.name}: Skipped due to missing API keys`,
+              `   ⚠️  ${test.name}: Skipped due to missing API keys`
             );
             continue;
           }
@@ -193,7 +177,7 @@ describe("🔗 TypeScript Service Integration Tests", () => {
         (successfulAgents.length / agentTests.length) * 100;
 
       console.log(
-        `\\n📊 Integration Score: ${integrationScore}% (${successfulAgents.length}/${agentTests.length} agents)`,
+        `\\n📊 Integration Score: ${integrationScore}% (${successfulAgents.length}/${agentTests.length} agents)`
       );
 
       // Should have at least 75% success rate for reliable integration
@@ -204,7 +188,7 @@ describe("🔗 TypeScript Service Integration Tests", () => {
   describe("🔄 LLM Service Integration", () => {
     it("should integrate generateQuestionResponse with question_agent.py", async () => {
       console.log(
-        "\\n❓ Testing llmService.generateQuestionResponse ↔ question_agent.py...",
+        "\\n❓ Testing llmService.generateQuestionResponse ↔ question_agent.py..."
       );
 
       try {
@@ -222,7 +206,7 @@ describe("🔗 TypeScript Service Integration Tests", () => {
         // Execute through llmService (which should call question_agent.py)
         const result = await llmService.generateQuestionResponse(
           testQuestion,
-          testModel,
+          testModel
         );
 
         // Validate TypeScript service integration
@@ -235,10 +219,10 @@ describe("🔗 TypeScript Service Integration Tests", () => {
         expect(result.modelUsed).toBeTruthy();
 
         console.log(
-          `   ✅ Question Response: ${result.data.length} chars, ${result.usage.totalTokens} tokens`,
+          `   ✅ Question Response: ${result.data.length} chars, ${result.usage.totalTokens} tokens`
         );
         console.log(
-          `   📝 Model: ${result.modelUsed}, Usage: ${result.usage.totalTokens} tokens`,
+          `   📝 Model: ${result.modelUsed}, Usage: ${result.usage.totalTokens} tokens`
         );
       } catch (error) {
         if (error instanceof Error && error.message.includes("API key")) {
@@ -385,12 +369,15 @@ describe("🔗 TypeScript Service Integration Tests", () => {
             const totalMentions = responses.reduce(
               (sum, r) =>
                 sum +
-                Object.values(r.mentions).reduce((a: unknown, b: unknown) => a + b, 0),
-              0,
+                Object.values(r.mentions).reduce(
+                  (a: unknown, b: unknown) => a + b,
+                  0
+                ),
+              0
             );
             const companyMentions = responses.reduce(
               (sum, r) => sum + (r.mentions.TestCorp || 0),
-              0,
+              0
             );
             const shareOfVoice = companyMentions / totalMentions;
             return { totalMentions, companyMentions, shareOfVoice };
@@ -415,10 +402,10 @@ describe("🔗 TypeScript Service Integration Tests", () => {
         expect(mentionMetrics.shareOfVoice).toBeLessThanOrEqual(1);
 
         console.log(
-          `   ✅ Sentiment Metrics: Quality ${sentimentMetrics.avgQuality.toFixed(1)}, Reputation ${sentimentMetrics.avgReputation.toFixed(1)}`,
+          `   ✅ Sentiment Metrics: Quality ${sentimentMetrics.avgQuality.toFixed(1)}, Reputation ${sentimentMetrics.avgReputation.toFixed(1)}`
         );
         console.log(
-          `   ✅ Mention Metrics: ${mentionMetrics.companyMentions}/${mentionMetrics.totalMentions} mentions (${(mentionMetrics.shareOfVoice * 100).toFixed(1)}% SOV)`,
+          `   ✅ Mention Metrics: ${mentionMetrics.companyMentions}/${mentionMetrics.totalMentions} mentions (${(mentionMetrics.shareOfVoice * 100).toFixed(1)}% SOV)`
         );
         console.log(`   🎯 Metrics calculation logic validated`);
       } catch (error) {
@@ -436,7 +423,7 @@ describe("🔗 TypeScript Service Integration Tests", () => {
         const testCases = [
           {
             name: "Sentiment Analysis",
-            script: "web_search_sentiment_agent.py",
+            script: "sentiment_agent.py",
             input: {
               company_name: "TestCorp",
               search_queries: ["test"],
@@ -463,7 +450,7 @@ describe("🔗 TypeScript Service Integration Tests", () => {
               testCase.script,
               testCase.input,
               null,
-              { timeout: 20000 },
+              { timeout: 20000 }
             );
 
             const tokensUsed = result.metadata.tokensUsed || 0;
@@ -477,12 +464,12 @@ describe("🔗 TypeScript Service Integration Tests", () => {
             });
 
             console.log(
-              `   💎 ${testCase.name}: ${tokensUsed} tokens, Model: ${result.metadata.modelUsed}`,
+              `   💎 ${testCase.name}: ${tokensUsed} tokens, Model: ${result.metadata.modelUsed}`
             );
           } catch (error) {
             if (error instanceof Error && error.message.includes("API key")) {
               console.warn(
-                `   ⚠️  ${testCase.name}: Skipped due to missing API keys`,
+                `   ⚠️  ${testCase.name}: Skipped due to missing API keys`
               );
               continue;
             }
@@ -518,7 +505,7 @@ describe("🔗 TypeScript Service Integration Tests", () => {
             "nonexistent_agent.py",
             { test: true },
             null,
-            { timeout: 5000 },
+            { timeout: 5000 }
           );
           throw new Error("Should have failed for nonexistent agent");
         } catch (error) {
@@ -532,11 +519,11 @@ describe("🔗 TypeScript Service Integration Tests", () => {
             "question_agent.py",
             { invalid: "data" }, // Missing required fields
             null,
-            { timeout: 5000 },
+            { timeout: 5000 }
           );
           // This might succeed with fallbacks, which is OK
           console.log(
-            "   ✅ Invalid input handled (may succeed with fallbacks)",
+            "   ✅ Invalid input handled (may succeed with fallbacks)"
           );
         } catch (error) {
           console.log("   ✅ Invalid input error handled correctly");
@@ -547,24 +534,24 @@ describe("🔗 TypeScript Service Integration Tests", () => {
           executeWithFallback: async (
             primaryAgent: string,
             fallbackAgent: string,
-            input: unknown,
+            input: unknown
           ) => {
             try {
               return await pydanticLlmService.executeAgent(
                 primaryAgent,
                 input,
                 null,
-                { timeout: 10000 },
+                { timeout: 10000 }
               );
             } catch (primaryError) {
               console.log(
-                `   ⚠️  Primary agent ${primaryAgent} failed, trying fallback...`,
+                `   ⚠️  Primary agent ${primaryAgent} failed, trying fallback...`
               );
               return await pydanticLlmService.executeAgent(
                 fallbackAgent,
                 input,
                 null,
-                { timeout: 10000 },
+                { timeout: 10000 }
               );
             }
           },
@@ -578,7 +565,7 @@ describe("🔗 TypeScript Service Integration Tests", () => {
             company_name: "TestCorp",
             question: "What is TestCorp?",
             context: "fallback test",
-          },
+          }
         );
 
         expect(fallbackResult).toBeDefined();

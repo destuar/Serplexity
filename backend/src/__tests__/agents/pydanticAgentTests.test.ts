@@ -109,7 +109,7 @@ describe("PydanticAI Agent Unit Tests", () => {
         });
 
       const result = await pydanticLlmService.executeAgent(
-        "web_search_sentiment_agent.py",
+        "sentiment_agent.py",
         mockSentimentInput,
         null
       );
@@ -133,7 +133,7 @@ describe("PydanticAI Agent Unit Tests", () => {
 
       await expect(
         pydanticLlmService.executeAgent(
-          "web_search_sentiment_agent.py",
+          "sentiment_agent.py",
           mockSentimentInput,
           null
         )
