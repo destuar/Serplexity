@@ -8,7 +8,7 @@ interface CategoryExplainerProps {
   categoryKey: CategoryKey;
 }
 
-const bullets = (items: Array<string>) => (
+const Bullets: React.FC<{ items: Array<string> }> = ({ items }) => (
   <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700">
     {items.map((t, i) => (
       <li key={i}>{t}</li>
@@ -16,13 +16,13 @@ const bullets = (items: Array<string>) => (
   </ul>
 );
 
-const numbered = (
-  items: Array<{ title: string; notes?: string[] }>,
-  opts?: { start?: number }
-) => (
+const Numbered: React.FC<{
+  items: Array<{ title: string; notes?: string[] }>;
+  start?: number;
+}> = ({ items, start }) => (
   <ol
     className="list-decimal pl-5 space-y-2 text-sm text-gray-800"
-    start={opts?.start ?? 1}
+    start={start ?? 1}
   >
     {items.map((it, idx) => (
       <li key={idx}>
@@ -59,13 +59,15 @@ const CategoryExplainer: React.FC<CategoryExplainerProps> = ({
             {
               question: "General (All Platforms)",
               answer:
-                categoryKey === "performance"
-                  ? numbered(generalStepsPerformance())
-                  : categoryKey === "seo"
-                    ? numbered(generalStepsSEO())
-                    : categoryKey === "geo"
-                      ? numbered(generalStepsGEO())
-                      : numbered(generalStepsSecurity()),
+                categoryKey === "performance" ? (
+                  <Numbered items={generalStepsPerformance()} />
+                ) : categoryKey === "seo" ? (
+                  <Numbered items={generalStepsSEO()} />
+                ) : categoryKey === "geo" ? (
+                  <Numbered items={generalStepsGEO()} />
+                ) : (
+                  <Numbered items={generalStepsSecurity()} />
+                ),
             },
             {
               question: "WordPress",

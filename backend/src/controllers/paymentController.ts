@@ -19,9 +19,9 @@
  */
 import { Request, Response } from "express";
 import Stripe from "stripe";
-import env from "../config/env";
-import { getDbClient } from "../config/database";
 import { z } from "zod";
+import { getDbClient } from "../config/database";
+import env from "../config/env";
 
 const { STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET } = env;
 
@@ -68,7 +68,6 @@ export const createCheckoutSession = async (req: Request, res: Response) => {
     }
 
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
       mode: "subscription",
       customer: stripeCustomerId,
       line_items: [
@@ -87,12 +86,10 @@ export const createCheckoutSession = async (req: Request, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors });
     }
-    res
-      .status(500)
-      .json({
-        error: "Failed to create checkout session.",
-        details: error instanceof Error ? error.message : String(error),
-      });
+    res.status(500).json({
+      error: "Failed to create checkout session.",
+      details: error instanceof Error ? error.message : String(error),
+    });
   }
 };
 
@@ -100,6 +97,16 @@ export const getStripeConfig = (req: Request, res: Response) => {
   res.json({
     monthlyPriceId: env.STRIPE_MONTHLY_PRICE_ID,
     annualPriceId: env.STRIPE_ANNUAL_PRICE_ID,
+    // plan price IDs (if configured)
+    starterMonthly: (env as any).STRIPE_STARTER_MONTHLY_PRICE_ID,
+    starterAnnual: (env as any).STRIPE_STARTER_ANNUAL_PRICE_ID,
+    growthMonthly: (env as any).STRIPE_GROWTH_MONTHLY_PRICE_ID,
+    growthAnnual: (env as any).STRIPE_GROWTH_ANNUAL_PRICE_ID,
+    scaleMonthly: (env as any).STRIPE_SCALE_MONTHLY_PRICE_ID,
+    scaleAnnual: (env as any).STRIPE_SCALE_ANNUAL_PRICE_ID,
+    // overage price IDs
+    overageResponsePriceId: (env as any).STRIPE_OVERAGE_RESPONSE_PRICE_ID,
+    overageSentimentPriceId: (env as any).STRIPE_OVERAGE_SENTIMENT_PRICE_ID,
   });
 };
 
@@ -112,11 +119,17 @@ export const stripeWebhook = async (req: Request, res: Response) => {
     event = stripe.webhooks.constructEvent(
       req.body,
       sig,
-      STRIPE_WEBHOOK_SECRET as string,
+      STRIPE_WEBHOOK_SECRET as string
     );
   } catch (err: unknown) {
-    console.error(`Error verifying webhook signature: ${err instanceof Error ? err.message : String(err)}`);
-    return res.status(400).send(`Webhook Error: ${err instanceof Error ? err.message : String(err)}`);
+    console.error(
+      `Error verifying webhook signature: ${err instanceof Error ? err.message : String(err)}`
+    );
+    return res
+      .status(400)
+      .send(
+        `Webhook Error: ${err instanceof Error ? err.message : String(err)}`
+      );
   }
 
   // Handle the event
@@ -161,8 +174,9 @@ export const stripeWebhook = async (req: Request, res: Response) => {
     res.status(200).json({ received: true });
   } catch (error: unknown) {
     console.error("Error handling Stripe webhook event:", error);
-    res
-      .status(500)
-      .json({ error: "Webhook handler failed.", details: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({
+      error: "Webhook handler failed.",
+      details: error instanceof Error ? error.message : String(error),
+    });
   }
 };

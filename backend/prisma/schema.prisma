@@ -26,6 +26,11 @@ model User {
   trialStartedAt     DateTime?
   blogPosts          BlogPost[]
   companies          Company[]
+  // Billing relations
+  billingSettings    UserBillingSettings?
+  billingPeriods     UserBillingPeriod[]
+  budgetHolds        BudgetHold[]
+  usageEvents        UsageEvent[]
 }
 
 model Company {
@@ -37,6 +42,11 @@ model Company {
   createdAt            DateTime                     @default(now())
   updatedAt            DateTime                     @updatedAt
   questionsReady       Boolean                      @default(false)
+  // Per-company model preferences (overrides user-level preferences when set)
+  modelPreferences     Json?
+  // Optional report schedule configuration for this company
+  reportSchedule       ReportSchedule?
+  reportScheduleDates  ReportScheduleDate[]
   user                 User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
   competitors          Competitor[]
   inclusionRateHistory InclusionRateHistory[]
@@ -56,6 +66,8 @@ model Company {
   ga4RealtimeSnapshots Ga4RealtimeSnapshot[]
   gscDailyMetrics      GscDailyMetrics[]
   syncJobs             SyncJob[]
+  // Billing usage events for attribution
+  usageEvents          UsageEvent[]
 
   @@index([userId])
 }
@@ -108,6 +120,8 @@ model ReportRun {
   updatedAt            DateTime                     @updatedAt
   aiVisibilitySummary  String?
   jobId                String?                      @unique
+  // Billing flag: whether this report counts as overage for the billing period
+  isOverage            Boolean                      @default(false)
   inclusionRateHistory InclusionRateHistory[]
   sentimentScores      SentimentScore[]
   reportMetrics        ReportMetric[]
@@ -116,6 +130,9 @@ model ReportRun {
   sentimentOverTime    SentimentOverTime[]
   shareOfVoiceHistory  ShareOfVoiceHistory[]
   optimizationTasks    VisibilityOptimizationTask[]
+  // Billing relations
+  budgetHolds          BudgetHold[]
+  usageEvents          UsageEvent[]
 
   @@index([companyId])
 }
@@ -234,6 +251,38 @@ model ShareOfVoiceHistory {
 
   @@unique([companyId, reportRunId, aiModel])
   @@index([companyId, aiModel])
+  @@index([companyId, date])
+}
+
+/// Report schedule configuration for a company
+enum ReportScheduleMode {
+  MANUAL
+  DAILY
+  WEEKLY
+  CUSTOM
+}
+
+model ReportSchedule {
+  id         String             @id @default(cuid())
+  companyId  String             @unique
+  mode       ReportScheduleMode @default(DAILY)
+  timezone   String?            // IANA timezone, e.g. "America/Los_Angeles"
+  weeklyDays Int[]              // 0 (Sunday) - 6 (Saturday)
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  company    Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+// Specific calendar dates when reports should run (interpreted in schedule.timezone)
+model ReportScheduleDate {
+  id        String   @id @default(cuid())
+  companyId String
+  date      DateTime // Only the calendar date is significant (time component ignored)
+  createdAt DateTime @default(now())
+
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
   @@index([companyId, date])
 }
 
@@ -578,4 +627,114 @@ model SyncLog {
 
   @@index([syncJobId])
   @@index([level])
+}
+
+/// Billing period lifecycle state
+enum BillingPeriodState {
+  OPEN
+  INVOICED
+  CLOSED
+}
+
+/// Budget hold status for overage reports
+enum BudgetHoldStatus {
+  HELD
+  APPLIED
+  RELEASED
+}
+
+/// Usage event type captured during report execution
+enum UsageEventType {
+  RESPONSE
+  SENTIMENT
+}
+
+/// Per-user billing settings and runtime subscription metadata
+model UserBillingSettings {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  planTier              String
+  billingInterval       String   // MONTHLY | ANNUAL (string for forward-compat)
+  stripeCustomerId      String   @unique
+  stripeSubscriptionId  String?
+  currentPeriodStart    DateTime?
+  currentPeriodEnd      DateTime?
+  budgetEnabled         Boolean  @default(false)
+  overageBudgetCents    Int?     // minimum 5000 when enabled
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// One row per billing period per user, aggregates and Stripe invoice linkage
+model UserBillingPeriod {
+  id                      String              @id @default(cuid())
+  userId                  String
+  periodStart             DateTime
+  periodEnd               DateTime
+  includedReportsLimit    Int
+  reportsUsed             Int                 @default(0)
+  overageResponseCount    Int                 @default(0)
+  overageSentimentCount   Int                 @default(0)
+  overageAmountCents      Int                 @default(0)
+  subscriptionInvoiceId   String?
+  stripeOverageInvoiceId  String?
+  state                   BillingPeriodState  @default(OPEN)
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+
+  user                    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  budgetHolds             BudgetHold[]
+  usageEvents             UsageEvent[]
+
+  @@index([userId])
+  @@index([periodStart, periodEnd])
+}
+
+/// Pre-flight reserved budget for an overage report; applied or released at finalize
+model BudgetHold {
+  id               String             @id @default(cuid())
+  userId           String
+  billingPeriodId  String
+  reportRunId      String
+  amountCents      Int
+  status           BudgetHoldStatus   @default(HELD)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  billingPeriod    UserBillingPeriod  @relation(fields: [billingPeriodId], references: [id], onDelete: Cascade)
+  reportRun        ReportRun          @relation(fields: [reportRunId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([billingPeriodId])
+  @@index([reportRunId])
+}
+
+/// Fine-grained usage for billing and analytics
+model UsageEvent {
+  id               String            @id @default(cuid())
+  userId           String
+  companyId        String
+  reportRunId      String
+  billingPeriodId  String
+  type             UsageEventType
+  quantity         Int               @default(1)
+  unitPriceCents   Int
+  isOverage        Boolean           @default(false)
+  occurredAt       DateTime          @default(now())
+  metadata         Json?
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reportRun        ReportRun         @relation(fields: [reportRunId], references: [id], onDelete: Cascade)
+  billingPeriod    UserBillingPeriod @relation(fields: [billingPeriodId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([reportRunId])
+  @@index([billingPeriodId])
+  @@index([type])
+  @@index([occurredAt])
 }

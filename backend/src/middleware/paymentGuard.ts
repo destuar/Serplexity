@@ -10,14 +10,14 @@
  * @exports
  * - paymentGuard: Middleware for protecting routes based on payment status.
  */
-import { Request, Response, NextFunction } from "express";
+import { NextFunction, Request, Response } from "express";
 
-const ACTIVE_STATUSES = ["active", "trialing"];
+const ACTIVE_STATUSES = ["active"];
 
 export const paymentGuard = (
   req: Request,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   const user = req.user;
 
@@ -31,11 +31,9 @@ export const paymentGuard = (
     !user.subscriptionStatus ||
     !ACTIVE_STATUSES.includes(user.subscriptionStatus)
   ) {
-    return res
-      .status(403)
-      .json({
-        error: "Forbidden: An active subscription is required for this action.",
-      });
+    return res.status(403).json({
+      error: "Forbidden: An active subscription is required for this action.",
+    });
   }
 
   next();

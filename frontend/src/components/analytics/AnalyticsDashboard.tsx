@@ -3,8 +3,7 @@
  * @description Minimal analytics dashboard matching Serplexity's tech-forward design system
  */
 
-import React, { useState, useEffect } from 'react';
-import Card from '../ui/Card';
+import React, { useCallback, useEffect, useState } from "react";
 
 interface AnalyticsData {
   totalClicks: number;
@@ -37,60 +36,64 @@ interface Integration {
 
 const AnalyticsDashboard: React.FC = () => {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
-  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPeriod, setSelectedPeriod] = useState('7d');
+  const [selectedPeriod, setSelectedPeriod] = useState("7d");
 
   useEffect(() => {
     fetchIntegrations();
   }, []);
 
+  const fetchAnalyticsData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(
+        `/api/website-analytics/metrics?period=${selectedPeriod}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setAnalyticsData(data);
+      } else {
+        throw new Error("Failed to fetch analytics data");
+      }
+    } catch (err) {
+      console.error("Failed to fetch analytics data:", err);
+      setError("Failed to load analytics data");
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedPeriod]);
+
   useEffect(() => {
     if (integrations.length > 0) {
-      fetchAnalyticsData();
+      void fetchAnalyticsData();
     }
-  }, [integrations, selectedPeriod]);
+  }, [integrations, selectedPeriod, fetchAnalyticsData]);
 
   const fetchIntegrations = async () => {
     try {
-      const response = await fetch('/api/website-analytics/integrations');
+      const response = await fetch("/api/website-analytics/integrations");
       if (response.ok) {
         const data = await response.json();
         setIntegrations(data);
       }
     } catch (err) {
-      console.error('Failed to fetch integrations:', err);
-      setError('Failed to load integrations');
-    }
-  };
-
-  const fetchAnalyticsData = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/website-analytics/metrics?period=${selectedPeriod}`);
-      if (response.ok) {
-        const data = await response.json();
-        setAnalyticsData(data);
-      } else {
-        throw new Error('Failed to fetch analytics data');
-      }
-    } catch (err) {
-      console.error('Failed to fetch analytics data:', err);
-      setError('Failed to load analytics data');
-    } finally {
-      setLoading(false);
+      console.error("Failed to fetch integrations:", err);
+      setError("Failed to load integrations");
     }
   };
 
   const formatNumber = (num: number): string => {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
+    if (num >= 1000) return (num / 1000).toFixed(1) + "K";
     return num.toString();
   };
 
   const formatPercentage = (num: number): string => {
-    return (num * 100).toFixed(1) + '%';
+    return (num * 100).toFixed(1) + "%";
   };
 
   if (loading) {
@@ -98,7 +101,10 @@ const AnalyticsDashboard: React.FC = () => {
       <div className="space-y-4">
         <div className="grid grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md p-4">
+            <div
+              key={i}
+              className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md p-4"
+            >
               <div className="animate-pulse">
                 <div className="h-3 bg-gray-200 rounded mb-2"></div>
                 <div className="h-6 bg-gray-200 rounded"></div>
@@ -128,7 +134,8 @@ const AnalyticsDashboard: React.FC = () => {
     return (
       <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md p-8 text-center">
         <p className="text-sm text-gray-600">
-          Analytics data will appear once your integration starts collecting data.
+          Analytics data will appear once your integration starts collecting
+          data.
         </p>
       </div>
     );
@@ -139,7 +146,8 @@ const AnalyticsDashboard: React.FC = () => {
       {/* Period Filter */}
       <div className="flex justify-between items-center">
         <div className="text-xs text-gray-500">
-          {integrations.length} integration{integrations.length !== 1 ? 's' : ''} active
+          {integrations.length} integration
+          {integrations.length !== 1 ? "s" : ""} active
         </div>
         <select
           value={selectedPeriod}
@@ -156,22 +164,30 @@ const AnalyticsDashboard: React.FC = () => {
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md p-4">
           <div className="text-xs text-gray-500 mb-1">Clicks</div>
-          <div className="text-lg font-medium text-gray-900">{formatNumber(analyticsData.totalClicks)}</div>
+          <div className="text-lg font-medium text-gray-900">
+            {formatNumber(analyticsData.totalClicks)}
+          </div>
         </div>
-        
+
         <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md p-4">
           <div className="text-xs text-gray-500 mb-1">Impressions</div>
-          <div className="text-lg font-medium text-gray-900">{formatNumber(analyticsData.totalImpressions)}</div>
+          <div className="text-lg font-medium text-gray-900">
+            {formatNumber(analyticsData.totalImpressions)}
+          </div>
         </div>
 
         <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md p-4">
           <div className="text-xs text-gray-500 mb-1">CTR</div>
-          <div className="text-lg font-medium text-gray-900">{formatPercentage(analyticsData.averageCTR)}</div>
+          <div className="text-lg font-medium text-gray-900">
+            {formatPercentage(analyticsData.averageCTR)}
+          </div>
         </div>
 
         <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md p-4">
           <div className="text-xs text-gray-500 mb-1">Position</div>
-          <div className="text-lg font-medium text-gray-900">{analyticsData.averagePosition.toFixed(1)}</div>
+          <div className="text-lg font-medium text-gray-900">
+            {analyticsData.averagePosition.toFixed(1)}
+          </div>
         </div>
       </div>
 
@@ -185,11 +201,20 @@ const AnalyticsDashboard: React.FC = () => {
           <div className="p-4">
             <div className="space-y-3">
               {analyticsData.topQueries.slice(0, 5).map((query, index) => (
-                <div key={index} className="grid grid-cols-[1fr_3rem_3rem_3rem] gap-3 items-center text-xs">
-                  <div className="text-gray-900 truncate" title={query.query}>{query.query}</div>
+                <div
+                  key={index}
+                  className="grid grid-cols-[1fr_3rem_3rem_3rem] gap-3 items-center text-xs"
+                >
+                  <div className="text-gray-900 truncate" title={query.query}>
+                    {query.query}
+                  </div>
                   <div className="text-gray-600 text-right">{query.clicks}</div>
-                  <div className="text-gray-600 text-right">{formatPercentage(query.ctr)}</div>
-                  <div className="text-gray-600 text-right">{query.position.toFixed(1)}</div>
+                  <div className="text-gray-600 text-right">
+                    {formatPercentage(query.ctr)}
+                  </div>
+                  <div className="text-gray-600 text-right">
+                    {query.position.toFixed(1)}
+                  </div>
                 </div>
               ))}
             </div>
@@ -204,11 +229,20 @@ const AnalyticsDashboard: React.FC = () => {
           <div className="p-4">
             <div className="space-y-3">
               {analyticsData.topPages.slice(0, 5).map((page, index) => (
-                <div key={index} className="grid grid-cols-[1fr_3rem_3rem_3rem] gap-3 items-center text-xs">
-                  <div className="text-gray-900 truncate" title={page.page}>{page.page}</div>
+                <div
+                  key={index}
+                  className="grid grid-cols-[1fr_3rem_3rem_3rem] gap-3 items-center text-xs"
+                >
+                  <div className="text-gray-900 truncate" title={page.page}>
+                    {page.page}
+                  </div>
                   <div className="text-gray-600 text-right">{page.clicks}</div>
-                  <div className="text-gray-600 text-right">{formatPercentage(page.ctr)}</div>
-                  <div className="text-gray-600 text-right">{page.position.toFixed(1)}</div>
+                  <div className="text-gray-600 text-right">
+                    {formatPercentage(page.ctr)}
+                  </div>
+                  <div className="text-gray-600 text-right">
+                    {page.position.toFixed(1)}
+                  </div>
                 </div>
               ))}
             </div>

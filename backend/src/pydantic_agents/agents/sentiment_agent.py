@@ -15,8 +15,8 @@ from typing import Dict, Any, Type, List, Optional
 
 from ..base_agent import BaseAgent
 from ..schemas import (
-    SentimentScores, 
-    SentimentRating, 
+    SentimentScores,
+    SentimentRating,
     WebSearchMetadata,
     WebSearchQuery,
     WebSearchSource,
@@ -36,16 +36,16 @@ import openai
 class WebSearchSentimentAgent(BaseAgent):
     """
     Web search-enabled sentiment analysis agent.
-    
+
     This agent performs real-time sentiment analysis by searching the web for
     current reviews, complaints, and mentions of companies. It uses provider-specific
     web search tools and provides comprehensive metadata about the search process.
     """
-    
+
     def __init__(self, provider: str = "openai", enable_web_search: bool = True):
         """
         Initialize the web search sentiment agent.
-        
+
         Args:
             provider: LLM provider to use (auto, openai, anthropic, gemini, perplexity)
             enable_web_search: Whether to enable web search capabilities
@@ -53,10 +53,10 @@ class WebSearchSentimentAgent(BaseAgent):
         self.provider = provider
         self.enable_web_search = enable_web_search
         self.web_search_config = WebSearchConfig.for_task("sentiment", provider)
-        
+
         # Use centralized configuration with provider-specific overrides
         default_model = self._get_model_for_provider(provider)
-        
+
         super().__init__(
             agent_id="web_search_sentiment_analyzer",
             default_model=default_model,
@@ -65,17 +65,17 @@ class WebSearchSentimentAgent(BaseAgent):
             timeout=90000,  # Increased from 60s to 90s for Perplexity web search
             max_retries=3
         )
-    
+
     def _get_model_for_provider(self, provider: str) -> str:
         """Get the appropriate model for the given provider using centralized configuration"""
         # If provider is "auto", use the default from centralized config
         if provider == "auto":
             default_model_config = get_default_model_for_task(ModelTask.SENTIMENT)
             return default_model_config.get_pydantic_model_id() if default_model_config else "openai:gpt-4.1-mini"
-        
+
         # For specific providers, find a model from that engine that can do sentiment analysis
         available_models = get_models_by_task(ModelTask.SENTIMENT)
-        
+
         # Provider-specific model selection
         if provider == "gemini":
             for model in available_models:
@@ -83,18 +83,18 @@ class WebSearchSentimentAgent(BaseAgent):
                     return model.get_pydantic_model_id()
             # Fallback
             return "gemini-2.5-flash"
-            
+
         elif provider == "anthropic":
             for model in available_models:
                 if model.engine.value == "anthropic":
                     return model.get_pydantic_model_id()
             # Fallback
             return "anthropic:claude-3-5-haiku-20241022"
-            
+
         elif provider == "perplexity" or provider == "sonar":
             # Use custom OpenAI provider for Perplexity
             return self._create_perplexity_model()
-            
+
         else:
             # Handle direct model names by looking them up in the configuration
             model_config = get_model_by_id(provider)
@@ -110,9 +110,9 @@ class WebSearchSentimentAgent(BaseAgent):
         from pydantic_ai.models.openai import OpenAIModel
         from pydantic_ai.providers.openai import OpenAIProvider
         import os
-        
+
         api_key = os.getenv('PERPLEXITY_API_KEY')
-        
+
         return OpenAIModel(
             'sonar',
             provider=OpenAIProvider(
@@ -120,7 +120,7 @@ class WebSearchSentimentAgent(BaseAgent):
                 api_key=api_key,
             ),
         )
-    
+
     def _build_system_prompt(self) -> str:
         """Build system prompt with web search capabilities"""
         base_prompt = """You are a professional sentiment analysis expert specializing in real-time brand perception analysis.
@@ -146,11 +146,11 @@ ANALYSIS REQUIREMENTS:
 - Provide evidence-based ratings with specific examples
 - Include a comprehensive summary description
 - Focus on factual information from credible sources"""
-        
+
         # Add web search enhancement if enabled
         if self.enable_web_search and self.web_search_config.is_enabled():
             base_prompt += self.web_search_config.get_system_prompt_enhancement()
-        
+
         # Add provider-specific instructions
         if self.provider == "perplexity":
             base_prompt += """
@@ -168,7 +168,7 @@ Search Strategy:
 - Look for both positive and negative mentions
 - Consider source credibility and recency
 - Cross-reference information across multiple sources"""
-        
+
         base_prompt += """
 
 RESPONSE FORMAT:
@@ -177,14 +177,19 @@ Your response must follow the exact SentimentScores schema format, including:
 - webSearchMetadata (if web search was performed)
 - Clear, evidence-based summaryDescription for each rating
 
+QUALITY BAR FOR SUMMARY:
+- Provide 2-3 concrete examples with source domains (e.g., "Trustpilot", "Reddit", news site).
+- Use inline markers [1], [2], [3] corresponding to your sources.
+- Avoid generic phrasing; explain WHY the score is high/low and what to do about it.
+
 Ensure all ratings are integers between 1-10 and include specific examples from your search results."""
-        
+
         return base_prompt
-    
+
     def get_output_type(self) -> Type[SentimentScores]:
         """Return the output type for this agent"""
         return SentimentScores
-    
+
     def _create_agent(self) -> Agent:
         """Create the PydanticAI agent with web search capabilities"""
         # Get web search tools if enabled
@@ -192,7 +197,7 @@ Ensure all ratings are integers between 1-10 and include specific examples from 
         if self.enable_web_search and self.web_search_config.is_enabled() and self.provider != "gemini":
             # Gemini uses direct Google Genai API with grounding, not PydanticAI tools
             tools = self.web_search_config.get_tools()
-        
+
         return Agent(
             model=self.model_id,
             system_prompt=self.env_system_prompt or self.system_prompt,
@@ -200,29 +205,29 @@ Ensure all ratings are integers between 1-10 and include specific examples from 
             output_type=self.get_output_type(),
             tools=tools if tools else []
         )
-    
+
     async def process_input(self, input_data: Dict[str, Any]) -> str:
         """Process input data and create web search sentiment analysis prompt"""
         company_name = input_data.get('company_name', '')
         industry = input_data.get('industry', '')
         context = input_data.get('context', '')
         enable_web_search = input_data.get('enable_web_search', True)
-        
+
         if not company_name:
             raise ValueError("company_name is required")
-        
+
         # Create search-enabled or fallback prompt
         if enable_web_search and self.enable_web_search and self.web_search_config.is_enabled():
             prompt = self._create_web_search_prompt(company_name, industry, context)
         else:
             prompt = self._create_fallback_prompt(company_name, industry, context)
-        
+
         # Enhance prompt for providers that need URL inclusion
         if enable_web_search and self.enable_web_search and self.web_search_config.is_enabled():
             prompt = self._enhance_prompt_with_web_search_context(prompt)
-        
+
         return prompt
-    
+
     def _create_web_search_prompt(self, company_name: str, industry: str, context: str) -> str:
         """Create a web search-enabled sentiment analysis prompt"""
         search_queries = [
@@ -236,7 +241,7 @@ Ensure all ratings are integers between 1-10 and include specific examples from 
             f'"{company_name}" site:trustpilot.com',
             f'"{company_name}" vs competitors {industry}' if industry else f'"{company_name}" vs competitors'
         ]
-        
+
         return f"""Perform comprehensive web search sentiment analysis for {company_name}.
 
 COMPANY: {company_name}
@@ -271,7 +276,7 @@ RESPONSE REQUIREMENTS:
 - Base all ratings on actual search findings, not assumptions
 
 Search for comprehensive coverage and provide evidence-based sentiment analysis."""
-    
+
     def _create_fallback_prompt(self, company_name: str, industry: str, context: str) -> str:
         """Create a fallback prompt when web search is not available"""
         return f"""Analyze sentiment for {company_name} based on general knowledge and context.
@@ -281,48 +286,51 @@ INDUSTRY: {industry}
 CONTEXT: {context}
 
 Provide structured sentiment scores across all five dimensions with explanations based on known information about the company and industry."""
-    
+
     async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the web search sentiment analysis with proper provider handling"""
         # For OpenAI with web search, use Responses API directly
-        if (self.provider == "openai" and 
-            input_data.get('enable_web_search', True) and 
-            self.enable_web_search and 
+        if (self.provider == "openai" and
+            input_data.get('enable_web_search', True) and
+            self.enable_web_search and
             self.web_search_config.is_enabled()):
-            
+
             return await self._execute_with_responses_api(input_data)
         else:
             # Use standard BaseAgent execution with provider-specific handling
             return await self._execute_with_provider_handling(input_data)
-    
+
     async def _execute_with_responses_api(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Execute using OpenAI Responses API for web search"""
         import time
         start_time = time.time()
-        
+
         try:
             # Build the prompt
             prompt = await self.process_input(input_data)
-            
+
             # Create OpenAI client
             client = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-            
+
             # Use the configured model ID (extract from model_id if it contains provider prefix)
             model_name = self.model_id.split(':')[-1] if ':' in self.model_id else self.model_id
-            
+
             # Use Responses API with web search
-            response = client.responses.create(
-                model=model_name,  # Use the configured model
-                input=prompt,
-                tools=[{
-                    "type": "web_search"
-                }]
-            )
-            
+            try:
+                response = client.responses.create(
+                    model=model_name,  # Use the configured model
+                    input=prompt,
+                    tools=[{
+                        "type": "web_search"
+                    }]
+                )
+            except Exception as oe:
+                raise RuntimeError(f"OpenAI Responses API error: {oe}")
+
             # Extract the response content and citations
             raw_content = ""
             citations = []
-            
+
             if hasattr(response, 'output') and response.output:
                 if isinstance(response.output, list):
                     # Find the ResponseOutputMessage in the list
@@ -333,13 +341,13 @@ Provide structured sentiment scores across all five dimensions with explanations
                                 for content_item in item.content:
                                     if hasattr(content_item, 'text'):
                                         raw_content = content_item.text
-                                    
+
                                     # Extract citations from annotations
                                     if hasattr(content_item, 'annotations'):
                                         for annotation in content_item.annotations:
-                                            if (hasattr(annotation, 'url') and 
-                                                hasattr(annotation, 'title') and 
-                                                hasattr(annotation, 'type') and 
+                                            if (hasattr(annotation, 'url') and
+                                                hasattr(annotation, 'title') and
+                                                hasattr(annotation, 'type') and
                                                 annotation.type == 'url_citation'):
                                                 citations.append(CitationSource(
                                                     url=annotation.url,
@@ -350,14 +358,14 @@ Provide structured sentiment scores across all five dimensions with explanations
                     raw_content = response.output
                 else:
                     raw_content = str(response.output)
-            
+
             # Parse structured sentiment data from the raw content
             company_name = input_data.get('company_name', 'Unknown')
             industry = input_data.get('industry', 'Unknown')
-            
+
             # Try to extract structured ratings from the response
             ratings = self._parse_sentiment_ratings(raw_content, company_name, citations)
-            
+
             # Create web search metadata with citations
             web_search_metadata = WebSearchMetadata(
                 search_enabled=True,
@@ -382,7 +390,7 @@ Provide structured sentiment scores across all five dimensions with explanations
                 provider_used=self.provider,
                 search_session_id=str(uuid.uuid4())
             )
-            
+
             # Create structured response
             result = SentimentScores(
                 companyName=company_name,
@@ -390,14 +398,14 @@ Provide structured sentiment scores across all five dimensions with explanations
                 ratings=ratings,
                 webSearchMetadata=web_search_metadata
             )
-            
+
             execution_time = (time.time() - start_time) * 1000
-            
+
             # Extract token usage from response
             tokens_used = 0
             if hasattr(response, 'usage') and response.usage:
                 tokens_used = response.usage.total_tokens
-            
+
             return {
                 "result": result,
                 "execution_time": execution_time,
@@ -406,9 +414,11 @@ Provide structured sentiment scores across all five dimensions with explanations
                 "tokens_used": tokens_used,
                 "tokensUsed": tokens_used,
                 "model_used": model_name,
-                "modelUsed": model_name
+                "modelUsed": model_name,
+                "usage": {"total_tokens": tokens_used},
+                "search_count": len(citations) if citations else 0
             }
-            
+
         except Exception as e:
             execution_time = (time.time() - start_time) * 1000
             return {
@@ -417,17 +427,17 @@ Provide structured sentiment scores across all five dimensions with explanations
                 "attempt_count": 1,
                 "agent_id": self.agent_id
             }
-    
+
     async def _execute_with_provider_handling(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Execute with standard BaseAgent but with provider-specific handling"""
         import time
         start_time = time.time()
-        
+
         try:
             # For Gemini, use direct Google Genai API with grounding
             if self.provider == "gemini" and self.enable_web_search:
                 return await self._execute_gemini_with_grounding(input_data)
-            
+
             # For Perplexity, use custom execution to handle raw text responses
             if self.provider == "perplexity":
                 return await self._execute_perplexity_raw(input_data)
@@ -437,19 +447,19 @@ Provide structured sentiment scores across all five dimensions with explanations
             else:
                 # Execute using standard BaseAgent
                 result = await super().execute(input_data)
-            
+
             # Add web search metadata and extract citations if successful
             if 'result' in result and isinstance(result['result'], SentimentScores):
                 sentiment_scores = result['result']
                 search_duration = (time.time() - start_time) * 1000
-                
+
                 # Extract citations from the summary text (like question agent does)
                 citations = []
                 if sentiment_scores.ratings:
                     for rating in sentiment_scores.ratings:
                         extracted_citations = self._extract_citations_from_text(rating.summaryDescription)
                         citations.extend(extracted_citations)
-                
+
                 # Remove duplicates
                 seen_urls = set()
                 unique_citations = []
@@ -457,9 +467,9 @@ Provide structured sentiment scores across all five dimensions with explanations
                     if citation.url not in seen_urls:
                         seen_urls.add(citation.url)
                         unique_citations.append(citation)
-                
+
                 citations = unique_citations[:5]  # Limit to 5 citations
-                
+
                 # Create web search metadata with extracted citations
                 web_search_metadata = WebSearchMetadata(
                     search_enabled=self.enable_web_search and self.web_search_config.is_enabled(),
@@ -484,12 +494,12 @@ Provide structured sentiment scores across all five dimensions with explanations
                     provider_used=self.provider,
                     search_session_id=str(uuid.uuid4())
                 )
-                
+
                 # Add metadata to result
                 result['result'].webSearchMetadata = web_search_metadata
-            
+
             return result
-            
+
         except Exception as e:
             execution_time = (time.time() - start_time) * 1000
             return {
@@ -498,42 +508,42 @@ Provide structured sentiment scores across all five dimensions with explanations
                 "attempt_count": 1,
                 "agent_id": self.agent_id
             }
-    
+
     async def _execute_perplexity_raw(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Execute Perplexity with raw text response handling"""
         import time
         start_time = time.time()
-        
+
         try:
             # Create a simple agent without structured output
             simple_agent = Agent(
                 model=self.model_id,
                 system_prompt=self.env_system_prompt or self.system_prompt,
             )
-            
+
             # Enhance the prompt with web search context
             original_prompt = await self.process_input(input_data)
             enhanced_prompt = self._enhance_prompt_with_web_search_context(original_prompt)
-            
+
             # Run the agent to get raw text response
             raw_result = await simple_agent.run(enhanced_prompt)
-            
+
             # Extract the text content
             if hasattr(raw_result, 'output'):
                 raw_content = raw_result.output
             else:
                 raw_content = str(raw_result)
-            
+
             # Extract citations from the response text
             citations = self._extract_citations_from_text(raw_content)
-            
+
             # Parse the raw response to extract sentiment data
             company_name = input_data.get('company_name', 'Unknown')
             industry = input_data.get('industry', 'Unknown')
-            
+
             # Parse structured sentiment data from the response
             ratings = self._parse_sentiment_ratings(raw_content, company_name, citations)
-            
+
             # Create web search metadata with citations
             web_search_metadata = WebSearchMetadata(
                 search_enabled=True,
@@ -558,7 +568,7 @@ Provide structured sentiment scores across all five dimensions with explanations
                 provider_used=self.provider,
                 search_session_id=str(uuid.uuid4())
             )
-            
+
             # Create structured response
             result = SentimentScores(
                 companyName=company_name,
@@ -566,15 +576,15 @@ Provide structured sentiment scores across all five dimensions with explanations
                 ratings=ratings,
                 webSearchMetadata=web_search_metadata
             )
-            
+
             execution_time = (time.time() - start_time) * 1000
-            
+
             # Extract token usage from Perplexity response
             tokens_used = 0
             model_used = "sonar"  # Override for Perplexity
             if hasattr(raw_result, 'usage') and raw_result.usage:
                 tokens_used = raw_result.usage.total_tokens if hasattr(raw_result.usage, 'total_tokens') else 0
-            
+
             return {
                 "result": result,
                 "execution_time": execution_time,
@@ -583,9 +593,11 @@ Provide structured sentiment scores across all five dimensions with explanations
                 "tokens_used": tokens_used,
                 "tokensUsed": tokens_used,
                 "model_used": model_used,
-                "modelUsed": model_used
+                "modelUsed": model_used,
+                "usage": {"total_tokens": tokens_used},
+                "search_count": len(citations) if citations else 0
             }
-            
+
         except Exception as e:
             execution_time = (time.time() - start_time) * 1000
             return {
@@ -594,43 +606,43 @@ Provide structured sentiment scores across all five dimensions with explanations
                 "attempt_count": 1,
                 "agent_id": self.agent_id
             }
-    
+
     async def _execute_gemini_with_grounding(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Execute Gemini with Google Search grounding"""
         import time
         start_time = time.time()
-        
+
         try:
             from google import genai
             from google.genai import types
             import os
-            
+
             # Configure the client
             client = genai.Client(api_key=os.getenv('GEMINI_API_KEY'))
-            
+
             # Build the prompt
             prompt = await self.process_input(input_data)
-            
+
             # Define the grounding tool
             grounding_tool = types.Tool(
                 google_search=types.GoogleSearch()
             )
-            
+
             # Configure generation settings
             config = types.GenerateContentConfig(
                 tools=[grounding_tool]
             )
-            
+
             # Make the request
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=prompt,
                 config=config,
             )
-            
+
             # Extract response
             raw_content = response.text or ""
-            
+
             # Extract citations from grounding metadata
             citations = []
             try:
@@ -638,7 +650,7 @@ Provide structured sentiment scores across all five dimensions with explanations
                     candidate = response.candidates[0]
                     if hasattr(candidate, 'grounding_metadata') and candidate.grounding_metadata:
                         grounding_chunks = getattr(candidate.grounding_metadata, 'grounding_chunks', [])
-                        
+
                         for chunk in grounding_chunks[:5]:
                             if hasattr(chunk, 'web') and chunk.web:
                                 citations.append(CitationSource(
@@ -650,14 +662,14 @@ Provide structured sentiment scores across all five dimensions with explanations
                 print(f"Warning: Could not extract citations from Gemini response: {e}")
                 # Try to extract citations from text instead
                 citations = self._extract_citations_from_text(raw_content)
-            
+
             # Parse the response to extract sentiment data
             company_name = input_data.get('company_name', 'Unknown')
             industry = input_data.get('industry', 'Unknown')
-            
+
             # Parse structured sentiment data from the response
             ratings = self._parse_sentiment_ratings(raw_content, company_name, citations)
-            
+
             # Create web search metadata with citations
             web_search_metadata = WebSearchMetadata(
                 search_enabled=True,
@@ -682,7 +694,7 @@ Provide structured sentiment scores across all five dimensions with explanations
                 provider_used=self.provider,
                 search_session_id=str(uuid.uuid4())
             )
-            
+
             # Create structured response
             result = SentimentScores(
                 companyName=company_name,
@@ -690,15 +702,15 @@ Provide structured sentiment scores across all five dimensions with explanations
                 ratings=ratings,
                 webSearchMetadata=web_search_metadata
             )
-            
+
             execution_time = (time.time() - start_time) * 1000
-            
+
             # Extract token usage from Gemini response
             tokens_used = 0
             model_used = self.model_id
             if hasattr(response, 'usage_metadata') and response.usage_metadata:
                 tokens_used = (response.usage_metadata.prompt_token_count or 0) + (response.usage_metadata.candidates_token_count or 0)
-            
+
             return {
                 "result": result,
                 "execution_time": execution_time,
@@ -707,9 +719,11 @@ Provide structured sentiment scores across all five dimensions with explanations
                 "tokens_used": tokens_used,
                 "tokensUsed": tokens_used,
                 "model_used": model_used,
-                "modelUsed": model_used
+                "modelUsed": model_used,
+                "usage": {"total_tokens": tokens_used},
+                "search_count": len(citations) if citations else 0
             }
-            
+
         except Exception as e:
             execution_time = (time.time() - start_time) * 1000
             return {
@@ -718,12 +732,12 @@ Provide structured sentiment scores across all five dimensions with explanations
                 "attempt_count": 1,
                 "agent_id": self.agent_id
             }
-    
+
     async def _execute_anthropic_raw(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Execute Anthropic with raw text response handling to capture URLs"""
         import time
         start_time = time.time()
-        
+
         try:
             # Create a simple agent without structured output to get raw text with URLs
             simple_agent = Agent(
@@ -731,29 +745,29 @@ Provide structured sentiment scores across all five dimensions with explanations
                 system_prompt=self.env_system_prompt or self.system_prompt,
                 tools=self.web_search_config.get_tools() if self.web_search_config.is_enabled() else []
             )
-            
+
             # Get the enhanced prompt with web search context
             original_prompt = await self.process_input(input_data)
-            
+
             # Run the agent to get raw text response with URLs
             raw_result = await simple_agent.run(original_prompt)
-            
+
             # Extract the text content
             if hasattr(raw_result, 'output'):
                 raw_content = raw_result.output
             else:
                 raw_content = str(raw_result)
-            
+
             # Extract citations from the raw response text
             citations = self._extract_citations_from_text(raw_content)
-            
+
             # Parse the raw response to extract sentiment data
             company_name = input_data.get('company_name', 'Unknown')
             industry = input_data.get('industry', 'Unknown')
-            
+
             # Parse structured sentiment data from the response
             ratings = self._parse_sentiment_ratings(raw_content, company_name, citations)
-            
+
             # Create web search metadata with citations
             web_search_metadata = WebSearchMetadata(
                 search_enabled=True,
@@ -778,7 +792,7 @@ Provide structured sentiment scores across all five dimensions with explanations
                 provider_used=self.provider,
                 search_session_id=str(uuid.uuid4())
             )
-            
+
             # Create structured response
             result = SentimentScores(
                 companyName=company_name,
@@ -786,15 +800,15 @@ Provide structured sentiment scores across all five dimensions with explanations
                 ratings=ratings,
                 webSearchMetadata=web_search_metadata
             )
-            
+
             execution_time = (time.time() - start_time) * 1000
-            
+
             # Extract token usage from Anthropic response
             tokens_used = 0
             model_used = self.model_id
             if hasattr(raw_result, 'usage') and raw_result.usage:
                 tokens_used = raw_result.usage.total_tokens if hasattr(raw_result.usage, 'total_tokens') else 0
-            
+
             return {
                 "result": result,
                 "execution_time": execution_time,
@@ -805,7 +819,7 @@ Provide structured sentiment scores across all five dimensions with explanations
                 "model_used": model_used,
                 "modelUsed": model_used
             }
-            
+
         except Exception as e:
             execution_time = (time.time() - start_time) * 1000
             return {
@@ -814,7 +828,7 @@ Provide structured sentiment scores across all five dimensions with explanations
                 "attempt_count": 1,
                 "agent_id": self.agent_id
             }
-    
+
     def _enhance_prompt_with_web_search_context(self, prompt: str) -> str:
         """Enhance prompt with web search instructions for providers that need URL inclusion"""
         if self.provider == "perplexity":
@@ -824,7 +838,7 @@ IMPORTANT: Use your built-in web search capabilities to find current sentiment i
 
 Search for:
 - Customer reviews and ratings
-- Pricing and value feedback  
+- Pricing and value feedback
 - Brand reputation and news mentions
 - Trust and reliability indicators
 - Customer service experiences
@@ -834,7 +848,7 @@ Structure your response to include specific ratings (1-10) for each sentiment di
 Example format: "Based on reviews from [1] and feedback from [2]... [1]https://example.com/reviews [2]https://example.com/feedback"
 
 Please include actual URLs from your searches in the response text."""
-        
+
         elif self.provider == "anthropic":
             return f"""{prompt}
 
@@ -852,9 +866,9 @@ Structure your response to include specific ratings (1-10) for each sentiment di
 Example format: "Based on reviews from https://example.com/reviews and feedback from https://example.com/feedback..."
 
 Please include actual URLs from your web searches in the response text for proper citation tracking."""
-        
+
         return prompt
-    
+
     def _extract_domain(self, url: str) -> str:
         """Extract domain from URL"""
         try:
@@ -863,47 +877,47 @@ Please include actual URLs from your web searches in the response text for prope
             return parsed.netloc
         except:
             return "unknown"
-    
+
     def _extract_citations_from_text(self, text: str) -> List[CitationSource]:
         """Extract citations from text using regex patterns"""
         import re
         citations = []
-        
+
         # Enhanced pattern to match URLs in text with better handling of formatting
         # This handles cases like "- https://example.com\n-" from Anthropic responses
         url_pattern = r'https?://[^\s\]\)\n]+(?=[\s\n\]\)]|$)|www\.[^\s\]\)\n]+(?=[\s\n\]\)]|$)'
         urls = re.findall(url_pattern, text)
-        
+
         for url in urls:
             # Clean up URL (remove trailing punctuation and formatting characters)
             url = re.sub(r'[.,;:!?\n\r\-]*$', '', url)
             url = re.sub(r'^[\-\s]*', '', url)  # Remove leading dashes or spaces
-            
+
             # Skip if URL is too short or invalid
             if len(url) < 10:
                 continue
-            
+
             # Add www. prefix if missing
             if url.startswith('www.'):
                 url = 'https://' + url
-            
+
             # Validate URL format
             if not url.startswith(('http://', 'https://')):
                 continue
-            
+
             # Extract domain and create citation
             domain = self._extract_domain(url)
             if domain == "unknown":
                 continue
-                
+
             title = f"Web Search Result from {domain}"
-            
+
             citations.append(CitationSource(
                 url=url,
                 title=title,
                 domain=domain
             ))
-        
+
         # Remove duplicates based on URL
         seen_urls = set()
         unique_citations = []
@@ -911,44 +925,44 @@ Please include actual URLs from your web searches in the response text for prope
             if citation.url not in seen_urls:
                 seen_urls.add(citation.url)
                 unique_citations.append(citation)
-        
+
         return unique_citations[:5]  # Limit to 5 citations
-    
+
     def _parse_sentiment_ratings(self, content: str, company_name: str, citations: List[CitationSource]) -> List[SentimentRating]:
         """Parse sentiment ratings from response content with comprehensive analysis"""
         import re
-        
+
         # Try to extract numerical ratings from structured response
         quality_patterns = [
             r'quality[:\s]*[\-/]?\s*(\d+)(?:/10)?',
             r'product\s+quality[:\s]*[\-/]?\s*(\d+)',
             r'service\s+quality[:\s]*[\-/]?\s*(\d+)'
         ]
-        
+
         price_patterns = [
             r'price[:\s]*value[:\s]*[\-/]?\s*(\d+)(?:/10)?',
             r'value\s+for\s+money[:\s]*[\-/]?\s*(\d+)',
             r'pricing[:\s]*[\-/]?\s*(\d+)'
         ]
-        
+
         reputation_patterns = [
             r'brand[:\s]*reputation[:\s]*[\-/]?\s*(\d+)(?:/10)?',
             r'reputation[:\s]*[\-/]?\s*(\d+)',
             r'brand\s+image[:\s]*[\-/]?\s*(\d+)'
         ]
-        
+
         trust_patterns = [
             r'brand[:\s]*trust[:\s]*[\-/]?\s*(\d+)(?:/10)?',
             r'trust[:\s]*[\-/]?\s*(\d+)',
             r'reliability[:\s]*[\-/]?\s*(\d+)'
         ]
-        
+
         service_patterns = [
             r'customer[:\s]*service[:\s]*[\-/]?\s*(\d+)(?:/10)?',
             r'support[:\s]*[\-/]?\s*(\d+)',
             r'service[:\s]*[\-/]?\s*(\d+)'
         ]
-        
+
         def extract_rating(patterns, default=7):
             for pattern in patterns:
                 match = re.search(pattern, content, re.IGNORECASE)
@@ -956,35 +970,35 @@ Please include actual URLs from your web searches in the response text for prope
                     rating = int(match.group(1))
                     return max(1, min(10, rating))
             return default
-        
+
         # Extract ratings with multiple pattern attempts
         quality = extract_rating(quality_patterns)
         price_value = extract_rating(price_patterns)
         brand_reputation = extract_rating(reputation_patterns)
         brand_trust = extract_rating(trust_patterns)
         customer_service = extract_rating(service_patterns)
-        
+
         # Analyze content for sentiment indicators
         positive_indicators = len(re.findall(r'\b(excellent|great|outstanding|amazing|fantastic|love|recommend|best|top|high-quality|satisfied|impressed)\b', content, re.IGNORECASE))
         negative_indicators = len(re.findall(r'\b(terrible|awful|horrible|worst|hate|disappointed|poor|bad|issues|problems|complaints|frustrated)\b', content, re.IGNORECASE))
-        
+
         # Adjust ratings based on sentiment indicators
         sentiment_adjustment = 0
         if positive_indicators > negative_indicators * 2:
             sentiment_adjustment = 1
         elif negative_indicators > positive_indicators * 2:
             sentiment_adjustment = -1
-        
+
         # Apply sentiment adjustment
         quality = max(1, min(10, quality + sentiment_adjustment))
         price_value = max(1, min(10, price_value + sentiment_adjustment))
         brand_reputation = max(1, min(10, brand_reputation + sentiment_adjustment))
         brand_trust = max(1, min(10, brand_trust + sentiment_adjustment))
         customer_service = max(1, min(10, customer_service + sentiment_adjustment))
-        
+
         # Create insight-focused summary with strengths, weaknesses, and recommendations
         summary_parts = []
-        
+
         # Identify strengths (scores 7+)
         strengths = []
         if quality >= 7:
@@ -997,7 +1011,7 @@ Please include actual URLs from your web searches in the response text for prope
             strengths.append("customer trust")
         if customer_service >= 7:
             strengths.append("customer service")
-        
+
         # Identify areas for improvement (scores below 6)
         improvements = []
         if quality < 6:
@@ -1010,14 +1024,14 @@ Please include actual URLs from your web searches in the response text for prope
             improvements.append("trust building")
         if customer_service < 6:
             improvements.append("customer support")
-        
+
         # Build narrative summary
         if strengths:
             summary_parts.append(f"{company_name} demonstrates strong performance in {', '.join(strengths)}")
-        
+
         if improvements:
             summary_parts.append(f"Key improvement opportunities include {', '.join(improvements)}")
-        
+
         # Add sentiment trend analysis
         if positive_indicators > negative_indicators * 1.5:
             summary_parts.append("Overall sentiment trends positive across review sources")
@@ -1025,16 +1039,16 @@ Please include actual URLs from your web searches in the response text for prope
             summary_parts.append("Sentiment analysis reveals concerning negative feedback patterns")
         else:
             summary_parts.append("Mixed sentiment signals suggest varied customer experiences")
-        
+
         # Add inline citation markers for frontend to convert to clickable badges
         if citations:
             citation_details = []
             for i, cite in enumerate(citations[:3], 1):
                 citation_details.append(f"[{i}]")
             summary_parts.append(f"Sources: {', '.join(citation_details)}")
-        
+
         summary_description = ". ".join(summary_parts)
-        
+
         return [
             SentimentRating(
                 quality=quality,
@@ -1051,22 +1065,22 @@ async def main():
     try:
         # Read input from stdin
         input_data = json.loads(sys.stdin.read())
-        
+
         # Get provider from environment or input
         provider = input_data.get('provider', os.getenv('PYDANTIC_PROVIDER_ID', 'auto'))
         enable_web_search = input_data.get('enable_web_search', True)
-        
+
         # Create and execute agent
         agent = WebSearchSentimentAgent(provider=provider, enable_web_search=enable_web_search)
         result = await agent.execute(input_data)
-        
+
         # Convert result to JSON-serializable format
         if 'result' in result and hasattr(result['result'], 'model_dump'):
             result['result'] = result['result'].model_dump()
-        
+
         # Output result
         print(json.dumps(result, default=str, indent=2))
-        
+
     except Exception as e:
         # Output error in consistent format
         error_result = {

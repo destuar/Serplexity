@@ -25,23 +25,20 @@
  */
 
 import { z } from "zod";
-import logger from "../utils/logger";
-import {
-  pydanticLlmService,
-} from "./pydanticLlmService";
-import { providerManager } from "../config/pydanticProviders";
-import {
-  Model,
-  ModelTask,
-  getModelsByTask,
-} from "../config/models";
 import { getDbClient } from "../config/database";
+import { Model, ModelTask, getModelsByTask } from "../config/models";
+import { providerManager } from "../config/pydanticProviders";
+import logger from "../utils/logger";
+import { pydanticLlmService } from "./pydanticLlmService";
 
 // --- Enhanced Type Definitions ---
 export interface TokenUsage {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
+  thinkingTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
 }
 
 export interface ChatCompletionResponse<T> {
@@ -68,7 +65,8 @@ const SentimentRatingSchema = z.object({
   brandReputation: z.number().min(1).max(10),
   brandTrust: z.number().min(1).max(10),
   customerService: z.number().min(1).max(10),
-  summaryDescription: z.string().min(10).max(500),
+  // Allow longer, more actionable summaries
+  summaryDescription: z.string().min(10).max(1500),
 });
 
 const SentimentScoresSchema = z.object({
@@ -93,7 +91,7 @@ const QuestionResponseSchema = z.object({
         domain: z.string(),
         accessedAt: z.string().optional(),
         position: z.number().optional(),
-      }),
+      })
     )
     .optional(),
   has_web_search: z.boolean().optional(),
@@ -122,7 +120,7 @@ export type SentimentScores = z.infer<typeof SentimentScoresSchema>;
 export async function generateSentimentScores(
   companyName: string,
   industry: string,
-  model: Model,
+  model: Model
 ): Promise<ChatCompletionResponse<SentimentScores>> {
   const startTime = Date.now();
 
@@ -151,7 +149,7 @@ export async function generateSentimentScores(
         temperature: 0.3,
         maxTokens: 2000,
         timeout: 30000,
-      },
+      }
     );
 
     // Performance tracking is now handled by PydanticAI agents internally
@@ -170,7 +168,7 @@ export async function generateSentimentScores(
     // CRITICAL FIX: Extract actual token counts from PydanticAI response
     // TODO: Update PydanticAI agents to return actual input/output token counts
     const actualUsage = extractActualTokenUsage(result.metadata);
-    
+
     return {
       data: result.data,
       usage: actualUsage,
@@ -187,7 +185,7 @@ export async function generateSentimentScores(
     });
 
     throw new Error(
-      `Sentiment analysis failed: ${error instanceof Error ? error.message : String(error)}`,
+      `Sentiment analysis failed: ${error instanceof Error ? error.message : String(error)}`
     );
   }
 }
@@ -197,7 +195,7 @@ export async function generateSentimentScores(
  */
 export async function generateOverallSentimentSummary(
   companyName: string,
-  sentiments: SentimentScores[],
+  sentiments: SentimentScores[]
 ): Promise<ChatCompletionResponse<SentimentScores>> {
   const startTime = Date.now();
 
@@ -211,48 +209,92 @@ export async function generateOverallSentimentSummary(
       throw new Error("No sentiment data provided for summary");
     }
 
-    // Aggregate ratings for analysis
+    // Aggregate ratings for analysis (rounded integers for consistency)
     const allRatings = sentiments.flatMap((s) => s.ratings);
+    const toAvg = (
+      getter: (r: {
+        quality: number;
+        priceValue: number;
+        brandReputation: number;
+        brandTrust: number;
+        customerService: number;
+      }) => number
+    ) =>
+      Math.round(
+        allRatings.reduce((sum, r) => sum + getter(r), 0) /
+          Math.max(1, allRatings.length)
+      );
+
     const averages = {
-      quality: Math.round(
-        allRatings.reduce((sum, r) => sum + r.quality, 0) / allRatings.length,
-      ),
-      priceValue: Math.round(
-        allRatings.reduce((sum, r) => sum + r.priceValue, 0) /
-          allRatings.length,
-      ),
-      brandReputation: Math.round(
-        allRatings.reduce((sum, r) => sum + r.brandReputation, 0) /
-          allRatings.length,
-      ),
-      brandTrust: Math.round(
-        allRatings.reduce((sum, r) => sum + r.brandTrust, 0) /
-          allRatings.length,
-      ),
-      customerService: Math.round(
-        allRatings.reduce((sum, r) => sum + r.customerService, 0) /
-          allRatings.length,
-      ),
+      quality: toAvg((r) => r.quality),
+      priceValue: toAvg((r) => r.priceValue),
+      brandReputation: toAvg((r) => r.brandReputation),
+      brandTrust: toAvg((r) => r.brandTrust),
+      customerService: toAvg((r) => r.customerService),
     };
 
-    // Generate summary description using sentiment agent
+    // Collect citations from individual sentiments (webSearchMetadata.sources_found)
+    type Source = { url: string; title?: string; domain?: string };
+    const collected: Source[] = [];
+    for (const s of sentiments) {
+      const sources =
+        (s as unknown as { webSearchMetadata?: { sources_found?: Source[] } })
+          ?.webSearchMetadata?.sources_found || [];
+      for (const src of sources) {
+        if (src && typeof src.url === "string") {
+          const entry: Source = { url: src.url };
+          if (typeof src.title === "string") entry.title = src.title;
+          if (typeof src.domain === "string") entry.domain = src.domain;
+          collected.push(entry);
+        }
+      }
+    }
+    // Deduplicate by URL and cap to 10 diverse sources
+    const uniqueByUrl = new Map<string, Source>();
+    for (const src of collected) {
+      if (!uniqueByUrl.has(src.url)) uniqueByUrl.set(src.url, src);
+    }
+    const topCitations = Array.from(uniqueByUrl.values()).slice(0, 10);
+
+    // Prepare individual_sentiments payload expected by summary agent
+    const individual_sentiments = sentiments.map((s) => {
+      const r = s.ratings?.[0];
+      return r
+        ? {
+            ratings: {
+              quality: r.quality,
+              priceValue: r.priceValue,
+              brandReputation: r.brandReputation,
+              brandTrust: r.brandTrust,
+              customerService: r.customerService,
+            },
+            // Provider/model hint if available
+            provider: (s as unknown as { provider?: string })?.provider,
+            summary: r.summaryDescription,
+          }
+        : { ratings: {} };
+    });
+
+    // Use purpose-built summary agent with aggregated ratings + per-model inputs
     const result = await pydanticLlmService.executeAgent<SentimentScores>(
-      "sentiment_agent.py",
+      "sentiment_summary_agent.py",
       {
         company_name: companyName,
-        search_queries: [`${companyName} reviews`, `${companyName} sentiment`],
-        max_results_per_query: 3,
-        context: `Generate summary for ${companyName} based on aggregated sentiment data`,
+        industry: sentiments[0]?.industry || "Unknown",
+        aggregated_ratings: averages,
+        individual_sentiments,
+        citations: topCitations,
+        analysis_type: "summary",
       },
-      null, // No Zod validation - trust PydanticAI structured output
+      null,
       {
         temperature: 0.4,
-        maxTokens: 1500,
-        timeout: 25000,
-      },
+        maxTokens: 2000,
+        timeout: 30000,
+      }
     );
 
-    // Use pre-calculated averages to ensure consistent radar chart data
+    // Compose final summary with preserved citations as webSearchMetadata
     const summaryData: SentimentScores = {
       companyName: companyName,
       industry: sentiments[0]?.industry || "Unknown",
@@ -264,11 +306,29 @@ export async function generateOverallSentimentSummary(
           brandTrust: averages.brandTrust,
           customerService: averages.customerService,
           summaryDescription:
-            result.data.ratings[0]?.summaryDescription ||
+            result.data.ratings?.[0]?.summaryDescription ||
             `Aggregated sentiment summary for ${companyName} based on ${allRatings.length} individual model ratings.`,
         },
       ],
-    };
+      // Attach citations so frontend can render badges
+      webSearchMetadata: topCitations.length
+        ? {
+            search_enabled: true,
+            queries_performed: [],
+            sources_found: topCitations.map((c) => ({
+              url: c.url,
+              title: c.title || "Sentiment source",
+              domain: c.domain || "",
+              snippet: "",
+              relevance_score: 0.8,
+            })),
+            total_searches: 0,
+            search_duration_ms: 0,
+            provider_used: "serplexity-summary",
+            search_session_id: "",
+          }
+        : undefined,
+    } as unknown as SentimentScores;
 
     const executionTime = Date.now() - startTime;
 
@@ -280,13 +340,12 @@ export async function generateOverallSentimentSummary(
       averages: averages,
     });
 
+    const usage = extractActualTokenUsage(
+      result.metadata as unknown as Record<string, unknown>
+    );
     return {
       data: summaryData,
-      usage: {
-        promptTokens: Math.floor(result.metadata.tokensUsed * 0.7),
-        completionTokens: Math.floor(result.metadata.tokensUsed * 0.3),
-        totalTokens: result.metadata.tokensUsed,
-      },
+      usage,
       modelUsed: result.metadata.modelUsed,
     };
   } catch (error) {
@@ -299,7 +358,7 @@ export async function generateOverallSentimentSummary(
     });
 
     throw new Error(
-      `Sentiment summary failed: ${error instanceof Error ? error.message : String(error)}`,
+      `Sentiment summary failed: ${error instanceof Error ? error.message : String(error)}`
     );
   }
 }
@@ -309,7 +368,7 @@ export async function generateOverallSentimentSummary(
  */
 export async function generateQuestionResponse(
   question: QuestionInput,
-  model: Model,
+  model: Model
 ): Promise<
   ChatCompletionResponse<{
     answer: string;
@@ -359,7 +418,7 @@ export async function generateQuestionResponse(
         temperature: 0.7,
         maxTokens: 1500,
         timeout: 30000,
-      },
+      }
     );
 
     const executionTime = Date.now() - startTime;
@@ -384,18 +443,36 @@ export async function generateQuestionResponse(
         position: citation.position || index + 1,
       })) || [];
 
+    const usage = extractActualTokenUsage(
+      result.metadata as unknown as Record<string, unknown>
+    );
+    const responseData: {
+      answer: string;
+      citations?: Array<{
+        url: string;
+        title: string;
+        domain: string;
+        accessedAt: Date;
+        position: number;
+      }>;
+      has_web_search?: boolean;
+      brand_mentions_count?: number;
+    } = {
+      answer: result.data.answer,
+      citations: citations,
+    };
+    if (typeof result.data.has_web_search !== "undefined") {
+      responseData.has_web_search = Boolean(result.data.has_web_search);
+    }
+    if (typeof result.data.brand_mentions_count !== "undefined") {
+      responseData.brand_mentions_count = Number(
+        result.data.brand_mentions_count
+      );
+    }
+
     return {
-      data: {
-        answer: result.data.answer,
-        citations: citations,
-        has_web_search: result.data.has_web_search,
-        brand_mentions_count: result.data.brand_mentions_count,
-      },
-      usage: {
-        promptTokens: Math.floor(result.metadata.tokensUsed * 0.6),
-        completionTokens: Math.floor(result.metadata.tokensUsed * 0.4),
-        totalTokens: result.metadata.tokensUsed,
-      },
+      data: responseData,
+      usage: usage,
       modelUsed: result.metadata.modelUsed,
     };
   } catch (error) {
@@ -408,7 +485,7 @@ export async function generateQuestionResponse(
     });
 
     throw new Error(
-      `Question response failed: ${error instanceof Error ? error.message : String(error)}`,
+      `Question response failed: ${error instanceof Error ? error.message : String(error)}`
     );
   }
 }
@@ -417,7 +494,7 @@ export async function generateQuestionResponse(
  * Generate website enrichment for competitors using PydanticAI
  */
 export async function generateWebsiteForCompetitors(
-  competitorNames: string[],
+  competitorNames: string[]
 ): Promise<ChatCompletionResponse<CompetitorInfo[]>> {
   const startTime = Date.now();
 
@@ -450,29 +527,36 @@ export async function generateWebsiteForCompetitors(
         competitors: z.array(CompetitorSchema),
       }) as z.ZodType<{ competitors: CompetitorInfo[] }>,
       {
+        // Force Perplexity sonar for enrichment to prevent OpenAI 404s on "sonar"
+        modelId: "perplexity:sonar",
         temperature: 0.2,
         maxTokens: 2000,
         timeout: 45000,
-      },
+      }
     );
 
     const executionTime = Date.now() - startTime;
 
+    // Safely handle malformed/empty agent responses
+    const competitorsArray = Array.isArray((result as any)?.data?.competitors)
+      ? ((result as any).data.competitors as CompetitorInfo[])
+      : [];
+
     logger.info("PydanticAI website enrichment completed", {
       competitorCount: competitorNames.length,
-      foundWebsites: result.data.competitors.length,
+      foundWebsites: competitorsArray.length,
       executionTime,
       tokensUsed: result.metadata.tokensUsed,
       success: result.metadata.success,
     });
 
+    // Prefer detailed usage from provider if available
+    const usage = extractActualTokenUsage(
+      result.metadata as unknown as Record<string, unknown>
+    );
     return {
-      data: result.data.competitors,
-      usage: {
-        promptTokens: Math.floor(result.metadata.tokensUsed * 0.8),
-        completionTokens: Math.floor(result.metadata.tokensUsed * 0.2),
-        totalTokens: result.metadata.tokensUsed,
-      },
+      data: competitorsArray,
+      usage,
       modelUsed: result.metadata.modelUsed,
     };
   } catch (error) {
@@ -485,7 +569,7 @@ export async function generateWebsiteForCompetitors(
     });
 
     throw new Error(
-      `Website enrichment failed: ${error instanceof Error ? error.message : String(error)}`,
+      `Website enrichment failed: ${error instanceof Error ? error.message : String(error)}`
     );
   }
 }
@@ -496,7 +580,7 @@ export async function generateWebsiteForCompetitors(
 export async function generateChatCompletion(
   model: Model,
   prompt: string,
-  schema?: z.ZodType<unknown>,
+  schema?: z.ZodType<unknown>
 ): Promise<{ content: string | null; usage: TokenUsage }> {
   const startTime = Date.now();
 
@@ -522,7 +606,7 @@ export async function generateChatCompletion(
           temperature: 0.7,
           maxTokens: 2000,
           timeout: 30000,
-        },
+        }
       );
 
       return {
@@ -549,7 +633,7 @@ export async function generateChatCompletion(
           temperature: 0.7,
           maxTokens: 2000,
           timeout: 30000,
-        },
+        }
       );
 
       return {
@@ -571,7 +655,7 @@ export async function generateChatCompletion(
     });
 
     throw new Error(
-      `Chat completion failed: ${error instanceof Error ? error.message : String(error)}`,
+      `Chat completion failed: ${error instanceof Error ? error.message : String(error)}`
     );
   }
 }
@@ -585,7 +669,7 @@ export async function generateAndValidate<T, U>(
   model: Model,
   task: ModelTask,
   transform?: (data: T) => U,
-  rescue?: (data: unknown) => unknown,
+  rescue?: (data: unknown) => unknown
 ): Promise<{ data: U; usage: TokenUsage }> {
   const startTime = Date.now();
 
@@ -612,7 +696,7 @@ export async function generateAndValidate<T, U>(
         temperature: 0.3,
         maxTokens: 2000,
         timeout: 30000,
-      },
+      }
     );
 
     // Apply transformations if provided
@@ -652,7 +736,7 @@ export async function generateAndValidate<T, U>(
     });
 
     throw new Error(
-      `Generate and validate failed: ${error instanceof Error ? error.message : String(error)}`,
+      `Generate and validate failed: ${error instanceof Error ? error.message : String(error)}`
     );
   }
 }
@@ -692,7 +776,7 @@ logger.info("PydanticAI LLM service initialized successfully", {
  * Get user model preferences from database
  */
 export async function getUserModelPreferences(
-  userId: string,
+  userId: string
 ): Promise<Record<string, boolean>> {
   try {
     const prisma = await getDbClient();
@@ -708,6 +792,7 @@ export async function getUserModelPreferences(
         "claude-3-5-haiku-20241022": true,
         "gemini-2.5-flash": true,
         sonar: true,
+        "ai-overview": true,
       };
     }
 
@@ -720,6 +805,7 @@ export async function getUserModelPreferences(
       "claude-3-5-haiku-20241022": true,
       "gemini-2.5-flash": true,
       sonar: true,
+      "ai-overview": true,
     };
   }
 }
@@ -730,53 +816,88 @@ export async function getUserModelPreferences(
 export async function getModelsByTaskWithUserPreferences(
   task: ModelTask,
   userId: string,
+  companyPreferences?: Record<string, boolean> | null
 ): Promise<Model[]> {
   const allModels = getModelsByTask(task);
   const userPreferences = await getUserModelPreferences(userId);
 
-  return allModels.filter((model: Model) => userPreferences[model.id] === true);
+  const merged: Record<string, boolean> = { ...userPreferences };
+  if (companyPreferences && typeof companyPreferences === "object") {
+    for (const [k, v] of Object.entries(companyPreferences)) {
+      merged[k] = v;
+    }
+  }
+
+  return allModels.filter((model: Model) => merged[model.id] === true);
 }
 
 /**
  * CRITICAL: Extract actual token usage from PydanticAI metadata
  * This replaces the dangerous hardcoded percentage estimates
  */
-function extractActualTokenUsage(metadata: Record<string, unknown>): TokenUsage {
-  // Try to extract actual token counts from metadata
-  if (metadata.usage && typeof metadata.usage === 'object') {
-    const usage = metadata.usage as Record<string, unknown>;
-    
+function extractActualTokenUsage(
+  metadata: Record<string, unknown>
+): TokenUsage {
+  // Try to extract actual token counts from metadata using index access to satisfy TS4111
+  const metaUsage = (metadata as any)["usage"];
+  if (metaUsage && typeof metaUsage === "object") {
+    const usage = metaUsage as Record<string, unknown>;
+
     // Priority 1: Direct token counts from provider
-    if (usage.prompt_tokens !== undefined && usage.completion_tokens !== undefined) {
+    if (
+      usage["prompt_tokens"] !== undefined &&
+      usage["completion_tokens"] !== undefined
+    ) {
+      const p = Number(usage["prompt_tokens"]) || 0;
+      const c = Number(usage["completion_tokens"]) || 0;
+      const think = Number(usage["thinking_tokens"]) || 0;
+      const t =
+        Number(usage["total_tokens"]) !== undefined
+          ? Number(usage["total_tokens"]) || p + c + think
+          : p + c + think;
       return {
-        promptTokens: Number(usage.prompt_tokens) || 0,
-        completionTokens: Number(usage.completion_tokens) || 0,
-        totalTokens: Number(usage.total_tokens) || (Number(usage.prompt_tokens) + Number(usage.completion_tokens)),
+        promptTokens: p,
+        completionTokens: c,
+        totalTokens: t,
+        thinkingTokens: think,
+        cacheReadTokens: Number(usage["cache_read_tokens"]) || 0,
+        cacheWriteTokens: Number(usage["cache_write_tokens"]) || 0,
       };
     }
-    
+
     // Priority 2: Input/output tokens
-    if (usage.input_tokens !== undefined && usage.output_tokens !== undefined) {
+    if (
+      usage["input_tokens"] !== undefined &&
+      usage["output_tokens"] !== undefined
+    ) {
+      const p = Number(usage["input_tokens"]) || 0;
+      const c = Number(usage["output_tokens"]) || 0;
+      const think = Number(usage["thinking_tokens"]) || 0;
+      const t =
+        Number(usage["total_tokens"]) !== undefined
+          ? Number(usage["total_tokens"]) || p + c + think
+          : p + c + think;
       return {
-        promptTokens: Number(usage.input_tokens) || 0,
-        completionTokens: Number(usage.output_tokens) || 0,
-        totalTokens: Number(usage.total_tokens) || (Number(usage.input_tokens) + Number(usage.output_tokens)),
+        promptTokens: p,
+        completionTokens: c,
+        totalTokens: t,
+        thinkingTokens: think,
+        cacheReadTokens: Number(usage["cache_read_tokens"]) || 0,
+        cacheWriteTokens: Number(usage["cache_write_tokens"]) || 0,
       };
     }
   }
-  
-  // FALLBACK: Log warning and use conservative estimates
-  // This should trigger alerts in production
-  console.warn(`⚠️  CRITICAL: No actual token counts available for model ${metadata.modelUsed}`);
-  console.warn(`⚠️  Using fallback estimates - cost calculation may be inaccurate`);
-  console.warn(`⚠️  PydanticAI agents must be updated to return actual token counts`);
-  
-  const totalTokens = Number(metadata.tokensUsed) || 0;
-  
-  // Use conservative 80/20 split for fallback (overestimate input tokens for safety)
-  return {
-    promptTokens: Math.floor(totalTokens * 0.8),
-    completionTokens: Math.floor(totalTokens * 0.2),
-    totalTokens: totalTokens,
-  };
+
+  // FALLBACK: Quietly use provided aggregate tokensUsed if available
+  const totalTokens = Number((metadata as any)["tokensUsed"]) || 0;
+  if (totalTokens > 0) {
+    return {
+      promptTokens: Math.floor(totalTokens * 0.7),
+      completionTokens: Math.floor(totalTokens * 0.3),
+      totalTokens,
+    };
+  }
+
+  // Default to zeros when nothing is available
+  return { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
 }

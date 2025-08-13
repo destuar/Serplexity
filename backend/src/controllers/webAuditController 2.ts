@@ -1,13 +1,13 @@
 /**
  * @file webAuditController.ts
  * @description Web audit controller for handling audit requests
- * 
+ *
  * Provides REST API endpoints for:
  * - Starting new web audits
  * - Checking audit status
  * - Retrieving audit results
  * - Managing audit history
- * 
+ *
  * @dependencies
  * - webAuditService: Core audit logic
  * - Request validation and error handling
@@ -16,8 +16,13 @@
 
 import { Request, Response } from "express";
 import { z } from "zod";
+import {
+  deleteWebAudit,
+  getWebAuditHistory,
+  getWebAuditResult,
+  startWebAudit,
+} from "../services/webAudit/webAuditService";
 import logger from "../utils/logger";
-import { startWebAudit, getWebAuditResult, getWebAuditHistory, deleteWebAudit } from "../services/webAudit/webAuditService";
 
 // Request validation schemas
 const StartAuditSchema = z.object({
@@ -68,7 +73,7 @@ export async function startAudit(req: Request, res: Response): Promise<void> {
         accessibility: validatedData.includeAccessibility,
         security: validatedData.includeSecurity,
       },
-      userAgent: req.get('User-Agent'),
+      userAgent: req.get("User-Agent"),
       ip: req.ip,
     });
 
@@ -79,7 +84,6 @@ export async function startAudit(req: Request, res: Response): Promise<void> {
       includePerformance: validatedData.includePerformance,
       includeSEO: validatedData.includeSEO,
       includeGEO: validatedData.includeGEO,
-      includeAccessibility: validatedData.includeAccessibility,
       includeSecurity: validatedData.includeSecurity,
     });
 
@@ -96,18 +100,17 @@ export async function startAudit(req: Request, res: Response): Promise<void> {
       success: true,
       data: {
         auditId,
-        status: 'queued',
-        estimatedTime: '2-3 minutes',
+        status: "queued",
+        estimatedTime: "2-3 minutes",
         url: validatedData.url,
       },
       message: "Web audit started successfully",
     });
-
   } catch (error) {
     const responseTime = Date.now() - startTime;
 
     logger.error("Failed to start web audit", {
-      companyId: req.companyId,
+      companyId: req.user?.companyId,
       url: req.body?.url,
       responseTime,
       error: error instanceof Error ? error.message : String(error),
@@ -140,7 +143,7 @@ export async function getAudit(req: Request, res: Response): Promise<void> {
   try {
     // Validate audit ID
     const { id } = AuditIdSchema.parse(req.params);
-    
+
     const companyId = req.user?.companyId;
     if (!companyId) {
       res.status(401).json({
@@ -182,13 +185,12 @@ export async function getAudit(req: Request, res: Response): Promise<void> {
       success: true,
       data: result,
     });
-
   } catch (error) {
     const responseTime = Date.now() - startTime;
 
     logger.error("Failed to get web audit result", {
       auditId: req.params.id,
-      companyId: req.companyId,
+      companyId: req.user?.companyId,
       responseTime,
       error: error instanceof Error ? error.message : String(error),
     });
@@ -213,7 +215,10 @@ export async function getAudit(req: Request, res: Response): Promise<void> {
  * Get audit history for company
  * GET /api/web-audit/history
  */
-export async function getAuditHistory(req: Request, res: Response): Promise<void> {
+export async function getAuditHistory(
+  req: Request,
+  res: Response
+): Promise<void> {
   const startTime = Date.now();
 
   try {
@@ -248,12 +253,11 @@ export async function getAuditHistory(req: Request, res: Response): Promise<void
         total: history.length,
       },
     });
-
   } catch (error) {
     const responseTime = Date.now() - startTime;
 
     logger.error("Failed to get web audit history", {
-      companyId: req.companyId,
+      companyId: req.user?.companyId,
       responseTime,
       error: error instanceof Error ? error.message : String(error),
     });
@@ -275,7 +279,7 @@ export async function deleteAudit(req: Request, res: Response): Promise<void> {
   try {
     // Validate audit ID
     const { id } = AuditIdSchema.parse(req.params);
-    
+
     const companyId = req.user?.companyId;
     if (!companyId) {
       res.status(401).json({
@@ -305,13 +309,12 @@ export async function deleteAudit(req: Request, res: Response): Promise<void> {
       success: true,
       message: "Audit deleted successfully",
     });
-
   } catch (error) {
     const responseTime = Date.now() - startTime;
 
     logger.error("Failed to delete web audit", {
       auditId: req.params.id,
-      companyId: req.companyId,
+      companyId: req.user?.companyId,
       responseTime,
       error: error instanceof Error ? error.message : String(error),
     });
@@ -336,13 +339,16 @@ export async function deleteAudit(req: Request, res: Response): Promise<void> {
  * Get audit status only (lightweight endpoint)
  * GET /api/web-audit/:id/status
  */
-export async function getAuditStatus(req: Request, res: Response): Promise<void> {
+export async function getAuditStatus(
+  req: Request,
+  res: Response
+): Promise<void> {
   const startTime = Date.now();
 
   try {
     // Validate audit ID
     const { id } = AuditIdSchema.parse(req.params);
-    
+
     const companyId = req.user?.companyId;
     if (!companyId) {
       res.status(401).json({
@@ -366,10 +372,10 @@ export async function getAuditStatus(req: Request, res: Response): Promise<void>
     const responseTime = Date.now() - startTime;
 
     // Return only status information (no full results)
-    const statusInfo = {
+    const statusInfo: any = {
       id: result.id,
       url: result.metadata.url,
-      status: result.scores.overall > 0 ? 'completed' : 'running',
+      status: result.scores.overall > 0 ? "completed" : "running",
       timestamp: result.metadata.timestamp,
       analysisTime: result.metadata.analysisTime,
       scores: result.scores.overall > 0 ? result.scores : undefined,
@@ -386,13 +392,12 @@ export async function getAuditStatus(req: Request, res: Response): Promise<void>
       status: statusInfo.status,
       responseTime,
     });
-
   } catch (error) {
     const responseTime = Date.now() - startTime;
 
     logger.error("Failed to get web audit status", {
       auditId: req.params.id,
-      companyId: req.companyId,
+      companyId: req.user?.companyId,
       responseTime,
       error: error instanceof Error ? error.message : String(error),
     });
@@ -412,9 +417,9 @@ export async function healthCheck(req: Request, res: Response): Promise<void> {
   try {
     // Basic health checks
     const checks = {
-      service: 'healthy',
+      service: "healthy",
       timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || 'development',
+      environment: process.env.NODE_ENV || "development",
     };
 
     // TODO: Add more sophisticated health checks
@@ -426,7 +431,6 @@ export async function healthCheck(req: Request, res: Response): Promise<void> {
       success: true,
       data: checks,
     });
-
   } catch (error) {
     logger.error("Health check failed", {
       error: error instanceof Error ? error.message : String(error),

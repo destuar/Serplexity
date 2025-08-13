@@ -36,19 +36,19 @@ check_directory() {
         log_error "requirements.txt not found. Please run this script from the backend directory."
         exit 1
     fi
-    
+
     if [[ ! -f "package.json" ]]; then
         log_error "package.json not found. Please run this script from the backend directory."
         exit 1
     fi
-    
+
     log_success "Found requirements.txt and package.json - we're in the right directory"
 }
 
 # Check Python installation
 check_python() {
     log_info "Checking Python installation..."
-    
+
     PYTHON_CMD="python3"
     if command -v python3 &> /dev/null; then
         PYTHON_VERSION=$(python3 --version 2>&1)
@@ -66,14 +66,14 @@ check_python() {
         log_error "Python 3 is not installed. Please install Python 3.8 or higher."
         exit 1
     fi
-    
+
     export PYTHON_CMD
 }
 
 # Check pip installation
 check_pip() {
     log_info "Checking pip installation..."
-    
+
     PIP_CMD="pip3"
     if command -v pip3 &> /dev/null; then
         PIP_VERSION=$(pip3 --version)
@@ -91,14 +91,14 @@ check_pip() {
         log_error "pip is not installed. Please install pip for Python 3."
         exit 1
     fi
-    
+
     export PIP_CMD
 }
 
 # Install Node.js dependencies
 install_node_dependencies() {
     log_info "Installing Node.js dependencies..."
-    
+
     if command -v npm &> /dev/null; then
         npm install
         log_success "Node.js dependencies installed successfully"
@@ -111,7 +111,7 @@ install_node_dependencies() {
 # Create virtual environment if it doesn't exist
 setup_virtual_environment() {
     log_info "Setting up Python virtual environment..."
-    
+
     if [[ ! -d "venv" ]]; then
         log_info "Creating virtual environment..."
         $PYTHON_CMD -m venv venv
@@ -119,11 +119,11 @@ setup_virtual_environment() {
     else
         log_info "Virtual environment already exists"
     fi
-    
+
     # Activate virtual environment
     source venv/bin/activate
     log_success "Virtual environment activated"
-    
+
     # Upgrade pip in virtual environment
     pip install --upgrade pip
     log_success "pip upgraded in virtual environment"
@@ -132,10 +132,14 @@ setup_virtual_environment() {
 # Install Python dependencies
 install_python_dependencies() {
     log_info "Installing Python dependencies..."
-    
+
     # Install requirements
     pip install -r requirements.txt
-    
+    # Install Playwright browsers if Playwright is present
+    if python -c "import importlib, sys; sys.exit(0 if importlib.util.find_spec('playwright') else 1)"; then
+        python -m playwright install --with-deps chromium || true
+    fi
+
     # Verify installation
     if pip show pydantic-ai &> /dev/null; then
         PYDANTIC_VERSION=$(pip show pydantic-ai | grep Version | cut -d' ' -f2)
@@ -144,7 +148,7 @@ install_python_dependencies() {
         log_error "PydanticAI installation failed"
         exit 1
     fi
-    
+
     # Test import
     if python -c "import pydantic_ai; print('PydanticAI import successful')" &> /dev/null; then
         log_success "PydanticAI import test passed"
@@ -157,7 +161,7 @@ install_python_dependencies() {
 # Validate installation
 validate_installation() {
     log_info "Validating installation..."
-    
+
     # Test Node.js dependencies
     if node -e "console.log('Node.js working')" &> /dev/null; then
         log_success "Node.js validation passed"
@@ -165,7 +169,7 @@ validate_installation() {
         log_error "Node.js validation failed"
         exit 1
     fi
-    
+
     # Test Python dependencies
     if python -c "
 import pydantic_ai
@@ -178,7 +182,7 @@ print('All Python dependencies working')
         log_error "Python dependencies validation failed"
         exit 1
     fi
-    
+
     # Test PydanticAI functionality
     if python -c "
 from pydantic_ai import Agent
@@ -194,7 +198,7 @@ print('PydanticAI agent creation successful')
 # Create activation script
 create_activation_script() {
     log_info "Creating environment activation script..."
-    
+
     cat > activate_env.sh << 'EOF'
 #!/bin/bash
 # Activation script for Serplexity backend environment
@@ -232,7 +236,7 @@ EOF
 # Update package.json scripts
 update_package_scripts() {
     log_info "Checking package.json scripts..."
-    
+
     # Check if dev:python script exists
     if grep -q '"dev:python"' package.json; then
         log_info "dev:python script already exists"
@@ -248,7 +252,7 @@ update_package_scripts() {
 create_env_template() {
     if [[ ! -f ".env" && ! -f ".env.example" ]]; then
         log_info "Creating .env template..."
-        
+
         cat > .env.example << 'EOF'
 # Dependency Management
 AUTO_REMEDIATE_DEPENDENCIES=false
@@ -271,7 +275,7 @@ ANTHROPIC_API_KEY=
 GEMINI_API_KEY=
 PERPLEXITY_API_KEY=
 EOF
-        
+
         log_success "Created .env.example template"
         log_warning "Please copy .env.example to .env and fill in your values"
     fi
@@ -281,26 +285,26 @@ EOF
 main() {
     log_info "🚀 Starting Serplexity backend dependency installation..."
     echo
-    
+
     check_directory
     check_python
     check_pip
-    
+
     echo
     log_info "📦 Installing dependencies..."
-    
+
     install_node_dependencies
     setup_virtual_environment
     install_python_dependencies
-    
+
     echo
     log_info "✅ Validating installation..."
-    
+
     validate_installation
     create_activation_script
     update_package_scripts
     create_env_template
-    
+
     echo
     log_success "🎉 Installation completed successfully!"
     echo

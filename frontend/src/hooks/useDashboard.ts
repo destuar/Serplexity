@@ -10,9 +10,9 @@
  * @exports
  * - useDashboard: Hook for dashboard functionality.
  */
-import { createContext, useContext } from 'react';
-import { DashboardData, DashboardFilters } from '../types/dashboard';
-import { TopRankingQuestion, CompetitorData } from '../services/companyService';
+import { createContext, useContext } from "react";
+import { CompetitorData, TopRankingQuestion } from "../services/companyService";
+import { DashboardData, DashboardFilters } from "../types/dashboard";
 
 export interface DashboardContextType {
   data: DashboardData | null;
@@ -28,14 +28,17 @@ export interface DashboardContextType {
   refreshData: () => Promise<void>;
   lastUpdated: string | null;
   hasReport: boolean | null;
+  activeModelPreferences: Record<string, boolean> | null;
 }
 
-export const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
+export const DashboardContext = createContext<DashboardContextType | undefined>(
+  undefined
+);
 
 export const useDashboard = (): DashboardContextType => {
   const context = useContext(DashboardContext);
   if (context === undefined) {
-    throw new Error('useDashboard must be used within a DashboardProvider');
+    throw new Error("useDashboard must be used within a DashboardProvider");
   }
   return context;
-}; 
+};

@@ -86,6 +86,18 @@ export interface PydanticResponse<T = unknown> {
     readonly success: boolean;
     readonly attemptCount: number;
     readonly fallbackUsed: boolean;
+    // Optional detailed usage for precise cost accounting
+    readonly usage?: {
+      readonly prompt_tokens?: number;
+      readonly completion_tokens?: number;
+      readonly total_tokens?: number;
+      readonly input_tokens?: number;
+      readonly output_tokens?: number;
+      readonly thinking_tokens?: number;
+      readonly cache_read_tokens?: number;
+      readonly cache_write_tokens?: number;
+    };
+    readonly searchCount?: number;
   };
 }
 
@@ -114,6 +126,18 @@ interface AgentExecutionResult {
   readonly providerId: string;
   readonly attemptCount: number;
   readonly fallbackUsed: boolean;
+  // Non-standard extensions for detailed accounting (carried from Python agents)
+  readonly usage?: {
+    readonly prompt_tokens?: number;
+    readonly completion_tokens?: number;
+    readonly total_tokens?: number;
+    readonly input_tokens?: number;
+    readonly output_tokens?: number;
+    readonly thinking_tokens?: number;
+    readonly cache_read_tokens?: number;
+    readonly cache_write_tokens?: number;
+  };
+  readonly search_count?: number;
 }
 
 /**
@@ -557,6 +581,9 @@ export class PydanticLlmService {
               success: true,
               attemptCount: result.attemptCount || 1,
               fallbackUsed: result.fallbackUsed || false,
+              // Non-standard extensions for detailed accounting
+              usage: (result as any).usage || undefined,
+              searchCount: (result as any).search_count || undefined,
             },
           };
 
@@ -822,6 +849,8 @@ export class PydanticLlmService {
               providerId,
               attemptCount: attempt,
               fallbackUsed: attempt > 1,
+              usage: result.usage || undefined,
+              search_count: result.search_count || undefined,
             });
           } catch (parseError) {
             // Try to extract actual error from stderr vs logging
@@ -935,11 +964,13 @@ export class PydanticLlmService {
     options: PydanticAgentOptions
   ): string {
     if (options.modelId) {
-      const [providerId] = String(options.modelId).split(":");
+      const parts = String(options.modelId).split(":");
+      const providerHint = parts[0];
+      const modelName = parts.length > 1 ? parts[1] : parts[0];
 
-      // Handle special model ID mappings
-      let actualProviderId = providerId;
-      if (providerId === "sonar") {
+      // Normalize sonar/perplexity mapping
+      let actualProviderId = providerHint;
+      if (providerHint === "sonar" || modelName.startsWith("sonar")) {
         actualProviderId = "perplexity";
       }
 

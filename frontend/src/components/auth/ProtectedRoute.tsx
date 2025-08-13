@@ -13,18 +13,23 @@
  * @exports
  * - ProtectedRoute: React functional component that protects routes based on user authentication.
  */
-import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
+import React from "react";
+import { Navigate, Outlet } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
+import { InlineSpinner } from "../ui/InlineSpinner";
 
 const ProtectedRoute: React.FC = () => {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
-    return <div className="min-h-screen"></div>; // Blank screen during auth check
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <InlineSpinner size={20} />
+      </div>
+    );
   }
 
   return user ? <Outlet /> : <Navigate to="/login" />;
 };
 
-export default ProtectedRoute; 
+export default ProtectedRoute;

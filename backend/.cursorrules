@@ -19,13 +19,19 @@ Key Directories (do not violate boundaries)
 Secrets & Environment
 
 - Source of truth: AWS Secrets Manager via src/scripts/run-with-secrets.ts.
-- Prefer npm run prisma:dev, migrate:dev, studio:dev which route through the secrets script.
+- Prefer `npm run prisma:dev` and `npm run studio:dev` for Prisma commands via the secrets wrapper.
+- Live/shared DB changes: use `prisma db execute` via the secrets wrapper (see below). `migrate:dev` is allowed only on local, disposable DBs.
 - Do not introduce new secrets via .env. For local non-secret config, keep minimal and documented.
 
 Database & Prisma
 
-- Never hand-edit migration SQL. Use migrate dev and generate.
-- After schema changes: npm run generate && npm run migrate:dev.
+- Database change policy:
+  - Do NOT run Prisma migrations on shared/live databases.
+  - Apply idempotent SQL patches via the secrets wrapper:
+    - Example: `ts-node src/scripts/run-with-secrets.ts npx prisma db execute --file /absolute/path/to.sql --schema prisma/schema.prisma`
+    - Prefer safe statements like `ALTER TABLE ... ADD COLUMN IF NOT EXISTS ...`.
+  - Keep `schema.prisma` authoritative and run `npm run generate` after changes.
+  - You MAY use `npm run migrate:dev` only against local, disposable dev databases.
 - schema.prisma is authoritative; keep multi-tenant patterns (companyId) intact.
 
 Queues (BullMQ)
@@ -64,7 +70,9 @@ Build & Commands (absolute paths)
 - Quick: cd /Users/diegoestuar/Desktop/Serplexity/backend && npm run test:quick
 - Agents:cd /Users/diegoestuar/Desktop/Serplexity/backend && npm run test:agents
 - Integr:cd /Users/diegoestuar/Desktop/Serplexity/backend && npm run test:integration
-- Prisma:cd /Users/diegoestuar/Desktop/Serplexity/backend && npm run migrate:dev && npm run generate && npm run studio:dev
+- Prisma: cd /Users/diegoestuar/Desktop/Serplexity/backend && npm run generate && npm run studio:dev
+- Apply DB SQL patch (live/shared):
+  - cd /Users/diegoestuar/Desktop/Serplexity/backend && ts-node src/scripts/run-with-secrets.ts npx prisma db execute --file /absolute/path/to.sql --schema prisma/schema.prisma
 - Ops: cd /Users/diegoestuar/Desktop/Serplexity/backend && npm run ops:monitor && npm run ops:health && npm run ops:repair
 
 Coding Conventions

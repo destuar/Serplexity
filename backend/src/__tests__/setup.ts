@@ -53,12 +53,17 @@ const prisma = new PrismaClient({
       : [],
 });
 
-// Setup test database
+const SKIP_DB_SETUP = process.env.SKIP_DB_SETUP === "1";
+
+// Setup test database (skippable for isolated unit tests)
 beforeAll(async () => {
-  // Connect to test database
+  if (SKIP_DB_SETUP) {
+    console.log("⚠️  SKIPPING DB setup for isolated tests (SKIP_DB_SETUP=1)");
+    return;
+  }
+
   await prisma.$connect();
 
-  // Verify we're connected to test database
   const dbName = await prisma.$queryRaw<
     { database_name: string }[]
   >`SELECT current_database() as database_name`;
@@ -75,12 +80,11 @@ beforeAll(async () => {
 
   console.log(`✅ Connected to test database: ${dbName[0].database_name}`);
 
-  // Clean up any existing test data
   await cleanDatabase();
 });
 
 beforeEach(async () => {
-  // Clean database before each test with retry logic
+  if (SKIP_DB_SETUP) return;
   await cleanDatabaseWithRetry();
 });
 

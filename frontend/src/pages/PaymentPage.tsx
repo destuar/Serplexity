@@ -13,18 +13,21 @@
  * @exports
  * - PaymentPage: The main payment page component.
  */
+import { loadStripe } from "@stripe/stripe-js";
+import { ArrowRight, Check } from "lucide-react";
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { Check, ArrowRight } from "lucide-react";
-import { loadStripe } from "@stripe/stripe-js";
-import { createCheckoutSession } from "../services/paymentService";
+import {
+  createCheckoutSession,
+  getStripeConfig,
+} from "../services/paymentService";
 
 const pricingTiers = [
   {
-    name: "Serplexity Pro",
-    price: "$249",
+    name: "Starter",
+    price: "$89",
     pricePeriod: "/mo",
-    priceId: import.meta.env.VITE_STRIPE_MONTHLY_PRICE_ID,
+    priceId: "starter_monthly",
     features: [
       "Continuous AI Visibility Tracking",
       "LLM-Ready Content Analysis",
@@ -35,10 +38,10 @@ const pricingTiers = [
     description: "Paid Monthly",
   },
   {
-    name: "Serplexity Pro (Annual)",
-    price: "$149",
+    name: "Growth",
+    price: "$299",
     pricePeriod: "/mo",
-    priceId: import.meta.env.VITE_STRIPE_ANNUAL_PRICE_ID,
+    priceId: "growth_monthly",
     features: [
       "Continuous AI Visibility Tracking",
       "LLM-Ready Content Analysis",
@@ -50,10 +53,10 @@ const pricingTiers = [
     description: "Paid Annually",
   },
   {
-    name: "Serplexity Enterprise",
-    price: "By Request",
-    pricePeriod: "",
-    priceId: "contact_sales",
+    name: "Scale",
+    price: "$499",
+    pricePeriod: "/mo",
+    priceId: "scale_monthly",
     features: [
       "Everything in Pro, plus:",
       "Custom GEO Implementations",
@@ -68,20 +71,36 @@ const PaymentPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState<string | null>(null);
 
   const handleCheckout = async (priceId: string) => {
-    if (priceId === "contact_sales") {
-      console.log("Contacting sales...");
-      return;
-    }
-
     setIsLoading(priceId);
     try {
+      const cfg = await getStripeConfig();
+      const priceMap: Record<string, string | undefined> = {
+        starter_monthly:
+          (
+            cfg as unknown as {
+              starterMonthly?: string;
+              monthlyPriceId?: string;
+            }
+          ).starterMonthly || (cfg as any).monthlyPriceId,
+        growth_monthly:
+          (
+            cfg as unknown as {
+              growthMonthly?: string;
+              monthlyPriceId?: string;
+            }
+          ).growthMonthly || (cfg as any).monthlyPriceId,
+        scale_monthly:
+          (cfg as unknown as { scaleMonthly?: string; monthlyPriceId?: string })
+            .scaleMonthly || (cfg as any).monthlyPriceId,
+      };
+      const resolvedPriceId = priceMap[priceId] || priceId;
       const stripe = await loadStripe(
         import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string
       );
       if (!stripe) {
         throw new Error("Stripe.js failed to load.");
       }
-      const session = await createCheckoutSession(priceId);
+      const session = await createCheckoutSession(resolvedPriceId);
       await stripe.redirectToCheckout({ sessionId: session.sessionId });
     } catch (error) {
       console.error("Failed to create checkout session:", error);

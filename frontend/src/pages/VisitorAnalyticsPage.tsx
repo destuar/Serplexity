@@ -44,7 +44,7 @@ const VisitorAnalyticsPage: React.FC = () => {
         if (hasGa4) {
           await fetchMetrics();
         }
-      } catch (e) {
+      } catch (_e) {
         // noop
       }
     };

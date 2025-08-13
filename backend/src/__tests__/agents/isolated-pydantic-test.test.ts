@@ -15,13 +15,16 @@ jest.mock("../../config/telemetry", () => ({
   trackError: jest.fn(),
   createSpan: jest.fn((_name: string, fn: any) => fn()),
 }));
-jest.mock("../../utils/logger", () => ({
-  default: {
+jest.mock("../../utils/logger", () => {
+  const logger = {
+    log: jest.fn(),
     info: jest.fn(),
     error: jest.fn(),
     warn: jest.fn(),
-  },
-}));
+    debug: jest.fn(),
+  };
+  return { __esModule: true, default: logger };
+});
 
 // Set test environment
 process.env.NODE_ENV = "test";

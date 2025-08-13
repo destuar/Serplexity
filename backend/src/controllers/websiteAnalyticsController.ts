@@ -69,10 +69,7 @@ export const createIntegration = async (
         ...result,
         authUrl,
       });
-    } else if (
-      validatedData.integrationName === "google_analytics_4" &&
-      validatedData.verificationMethod === "oauth"
-    ) {
+    } else if (false) {
       // Return OAuth URL for GA4
       const authUrl = googleAnalyticsService.getAuthUrl(result.integration.id);
       res.json({
@@ -301,9 +298,9 @@ export const getGa4Metrics = async (
       return;
     }
 
-    const startDateParam = req.query.startDate as string;
-    const endDateParam = req.query.endDate as string;
-    const propertyIdParam = req.query.propertyId as string | undefined;
+    const startDateParam = req.query["startDate"] as string;
+    const endDateParam = req.query["endDate"] as string;
+    const propertyIdParam = req.query["propertyId"] as string | undefined;
 
     if (!startDateParam || !endDateParam) {
       res

@@ -10,17 +10,9 @@
  * - Performance benchmarks
  */
 
-import {
-  describe,
-  beforeAll,
-  afterAll,
-  beforeEach,
-  it,
-  expect,
-  jest,
-} from "@jest/globals";
-import { pydanticLlmService } from "../../services/pydanticLlmService";
+import { afterAll, beforeAll, describe, expect, it, jest } from "@jest/globals";
 import { providerManager } from "../../config/pydanticProviders";
+import { pydanticLlmService } from "../../services/pydanticLlmService";
 
 // Mock environment for consistent testing
 process.env.NODE_ENV = "test";
@@ -35,6 +27,18 @@ jest.mock("../../config/database", () => ({
 }));
 
 jest.mock("../setup", () => ({}));
+
+// Ensure logger mock supports all methods used by service
+jest.mock("../../utils/logger", () => {
+  const logger = {
+    log: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+  };
+  return { __esModule: true, default: logger };
+});
 
 describe("PydanticAI Agent Unit Tests", () => {
   beforeAll(async () => {
@@ -107,7 +111,7 @@ describe("PydanticAI Agent Unit Tests", () => {
       const result = await pydanticLlmService.executeAgent(
         "web_search_sentiment_agent.py",
         mockSentimentInput,
-        null,
+        null
       );
 
       expect(result).toBeDefined();
@@ -131,8 +135,8 @@ describe("PydanticAI Agent Unit Tests", () => {
         pydanticLlmService.executeAgent(
           "web_search_sentiment_agent.py",
           mockSentimentInput,
-          null,
-        ),
+          null
+        )
       ).rejects.toThrow("Provider temporarily unavailable");
 
       mockExecuteAgent.mockRestore();
@@ -197,7 +201,7 @@ describe("PydanticAI Agent Unit Tests", () => {
       const result = await pydanticLlmService.executeAgent(
         "fanout_agent.py",
         mockFanoutInput,
-        null,
+        null
       );
 
       expect(result.data.queries).toBeDefined();
@@ -262,7 +266,7 @@ describe("PydanticAI Agent Unit Tests", () => {
       const result = await pydanticLlmService.executeAgent(
         "question_agent.py",
         mockQuestionInput,
-        null,
+        null
       );
 
       expect(result.data).toHaveProperty("question");
@@ -371,7 +375,7 @@ describe("PydanticAI Agent Unit Tests", () => {
 
         const healthReport = providerManager.getHealthReport();
         const updatedProvider = healthReport.find(
-          (p: unknown) => p.id === providerId,
+          (p: unknown) => p.id === providerId
         );
 
         expect(updatedProvider).toBeDefined();

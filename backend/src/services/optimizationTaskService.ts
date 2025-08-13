@@ -37,53 +37,9 @@ interface PresetTask {
   impact_metric: "inclusionRate" | "averagePosition" | "visibility";
 }
 
-export const PRESET_TASKS: PresetTask[] = [
-  {
-    id: "S01",
-    title: "Verify robots.txt & llms.txt",
-    description:
-      '1. Navigate to https://<domain>/robots.txt in your browser; 2. If the file is missing or blocks key directories, copy a best-practice template from any reputable robots.txt generator; 3. In a text editor, create "llms.txt" with a one-sentence brand description and "Allow: /"; 4. Upload both files via your CMS file manager or hosting control panel; 5. Reload both URLs to confirm they return a 200 status.',
-    category: "Technical SEO" as const,
-    priority: "High" as const,
-    impact_metric: "inclusionRate" as const,
-  },
-  {
-    id: "S02",
-    title: "Implement Comprehensive Schema Markup",
-    description:
-      '1. Use an online schema markup generator and choose "Organization", "Product" and "Article"; 2. Fill in your company details and copy the JSON-LD; 3. In your CMS, paste the code into the global "Header / Custom HTML" field; 4. Save, publish and test three URLs in a rich-results testing tool; 5. If errors appear, edit and retest until green; 6. Resubmit the pages in your search console for faster indexing.',
-    category: "Technical SEO",
-    priority: "High",
-    impact_metric: "averagePosition",
-  },
-  {
-    id: "S03",
-    title: "Create Brand-Specific Landing Pages",
-    description:
-      "1. Research the top 10 queries where competitors rank but you don't; 2. For each query, create a 500+ word landing page with title tag including the exact query; 3. Include your brand name naturally 3-5 times; 4. Add internal links to your main product/service pages; 5. Submit the new URLs to your search console; 6. Monitor for visibility improvements over 2-4 weeks.",
-    category: "Content & Messaging",
-    priority: "High",
-    impact_metric: "visibility",
-  },
-  {
-    id: "S04",
-    title: "Optimize Core Service Pages for AI Mentions",
-    description:
-      "1. Identify your 5 most important service/product pages; 2. For each page, add a FAQ section with 3-5 questions customers actually ask; 3. Write clear, direct answers using natural language; 4. Include your brand name in 2-3 FAQ answers; 5. Update the page title to include your primary service keyword; 6. Test the updated pages using AI search tools to verify improved mentions.",
-    category: "Content & Messaging",
-    priority: "High",
-    impact_metric: "inclusionRate",
-  },
-  {
-    id: "S05",
-    title: "Establish Thought Leadership Content Hub",
-    description:
-      "1. Choose 3 topics where your company has genuine expertise; 2. Create a dedicated resource page for each topic with 5+ in-depth articles; 3. Include case studies, statistics, and unique insights; 4. Link to authoritative external sources to build trust; 5. Share the content on professional networks; 6. Monitor AI search results for mentions in industry-related queries.",
-    category: "Brand Positioning",
-    priority: "Medium",
-    impact_metric: "visibility",
-  },
-];
+// DEPRECATED: Hardcoded preset visibility tasks have been removed.
+// Keeping the export for backward compatibility, but empty to disable auto-seeding.
+export const PRESET_TASKS: PresetTask[] = [];
 
 export enum TaskStatus {
   NOT_STARTED = "NOT_STARTED",
@@ -282,20 +238,31 @@ export async function createOptimizationTask(
 
   let targetRunId = reportRunId;
   if (!targetRunId) {
-    const latestRun = await prisma.reportRun.findFirst({
-      where: { companyId },
+    // Prefer the most recent COMPLETED report so tasks appear in dashboard latest report data
+    const latestCompleted = await prisma.reportRun.findFirst({
+      where: { companyId, status: "COMPLETED" },
       orderBy: { createdAt: "desc" },
     });
-    if (latestRun) {
-      targetRunId = latestRun.id;
+    if (latestCompleted) {
+      targetRunId = latestCompleted.id;
     } else {
-      const created = await prisma.reportRun.create({
-        data: {
-          companyId,
-          status: "manual",
-        },
+      // Fallback to most recent run of any status
+      const latestAny = await prisma.reportRun.findFirst({
+        where: { companyId },
+        orderBy: { createdAt: "desc" },
       });
-      targetRunId = created.id;
+      if (latestAny) {
+        targetRunId = latestAny.id;
+      } else {
+        // As a last resort, create a manual run container
+        const created = await prisma.reportRun.create({
+          data: {
+            companyId,
+            status: "manual",
+          },
+        });
+        targetRunId = created.id;
+      }
     }
   }
 

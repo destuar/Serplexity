@@ -15,6 +15,7 @@
  * @exports
  * - router: The Express router instance for report routes.
  */
+import { Role } from "@prisma/client";
 import { Router } from "express";
 import {
   addOptimizationTask,
@@ -33,14 +34,19 @@ import {
   getReportStatus,
   getSystemHealth,
 } from "../controllers/reportController";
-import { authenticate } from "../middleware/authMiddleware";
-import { freemiumGuard } from "../middleware/freemiumGuard";
+import { authenticate, authorize } from "../middleware/authMiddleware";
+import { subscriptionGuard } from "../middleware/subscriptionGuard";
 
 const router = Router();
 
 // Enhanced report creation endpoint with company ID as URL parameter
-// This endpoint is protected by authentication and freemium access (7-day trial)
-router.post("/companies/:companyId", authenticate, freemiumGuard, createReport);
+// This endpoint is protected by authentication and active subscription
+router.post(
+  "/companies/:companyId",
+  authenticate,
+  subscriptionGuard,
+  createReport
+);
 
 // This endpoint is protected by authentication
 router.get("/:id/status", authenticate, getReportStatus);
@@ -84,11 +90,13 @@ router.patch(
 router.post(
   "/emergency/companies/:companyId/trigger-report",
   authenticate,
+  authorize(Role.ADMIN),
   emergencyTriggerCompanyReport
 );
 router.post(
   "/emergency/trigger-all-reports",
   authenticate,
+  authorize(Role.ADMIN),
   emergencyTriggerAllReports
 );
 

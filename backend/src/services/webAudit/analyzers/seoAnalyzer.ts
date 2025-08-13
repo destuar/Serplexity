@@ -118,11 +118,14 @@ class SEOAnalyzer {
     const $ = cheerio.load(html);
 
     // Analyze meta tags
-    const metaTags = this.analyzeMetaTags($);
+    const metaTags = this.analyzeMetaTags($ as unknown as cheerio.CheerioAPI);
 
     // Analyze page structure
     const hostname = new URL(url).hostname;
-    const structure = this.analyzePageStructure($, hostname);
+    const structure = this.analyzePageStructure(
+      $ as unknown as cheerio.CheerioAPI,
+      hostname
+    );
 
     return { metaTags, structure };
   }
@@ -197,11 +200,10 @@ class SEOAnalyzer {
       const href = ($(element).attr("href") || "").toLowerCase();
       const host = (hostname || "").toLowerCase();
       if (!href) return false;
-      // Treat relative or same-host absolute URLs as internal
       return (
         href.startsWith("/") ||
         href.startsWith("#") ||
-        (host && href.includes(host))
+        (host !== "" && href.includes(host))
       );
     });
     const internalLinksCount = internalLinks.length;

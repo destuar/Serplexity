@@ -10,13 +10,12 @@ import InlineSpinner from "../ui/InlineSpinner";
 import { Input } from "../ui/Input";
 
 interface GoogleSearchConsoleConnectorProps {
-  onComplete: () => void;
   onCancel: () => void;
 }
 
 const GoogleSearchConsoleConnector: React.FC<
   GoogleSearchConsoleConnectorProps
-> = ({ onComplete, onCancel }) => {
+> = ({ onCancel }) => {
   const [gscPropertyUrl, setGscPropertyUrl] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);

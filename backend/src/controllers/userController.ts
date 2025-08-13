@@ -17,9 +17,9 @@
  * - updateUserProfile: Controller for updating a user's profile.
  * - changePassword: Controller for changing a user's password.
  */
+import bcrypt from "bcrypt";
 import { Request, Response } from "express";
 import { z } from "zod";
-import bcrypt from "bcrypt";
 import { getDbClient } from "../config/database";
 
 // Validation schemas
@@ -123,7 +123,7 @@ export const deleteUserData = async (req: Request, res: Response) => {
 
     // Placeholder for async S3 cleanup job
     console.log(
-      `User ${userId} deleted. A real implementation would trigger an async cleanup for any related assets in S3.`,
+      `User ${userId} deleted. A real implementation would trigger an async cleanup for any related assets in S3.`
     );
     // await s3CleanupQueue.add('cleanup-user-assets', { userId });
 
@@ -229,7 +229,7 @@ export const changePassword = async (req: Request, res: Response) => {
     }
 
     const { currentPassword, newPassword } = changePasswordSchema.parse(
-      req.body,
+      req.body
     );
 
     // Get user with password
@@ -252,7 +252,7 @@ export const changePassword = async (req: Request, res: Response) => {
     // Verify current password
     const isValidPassword = await bcrypt.compare(
       currentPassword,
-      user.password,
+      user.password
     );
     if (!isValidPassword) {
       return res.status(400).json({ error: "Current password is incorrect" });
@@ -303,14 +303,27 @@ export const getModelPreferences = async (req: Request, res: Response) => {
     }
 
     // Return default preferences if none are set
-    const preferences = (user.modelPreferences as Record<string, boolean>) || {
-      "gpt-4.1-mini": true,
-      "claude-3-5-haiku-20241022": true,
-      "gemini-2.5-flash": true,
-      sonar: true,
+    let preferences =
+      (user.modelPreferences as Record<string, boolean>) || null;
+    if (!preferences) {
+      // Default based on plan
+      const { getPlanLimitsForUser, getDefaultModelPreferencesFromLimits } =
+        await import("../services/planService");
+      const limits = await getPlanLimitsForUser(userId);
+      preferences = getDefaultModelPreferencesFromLimits(limits);
+    }
+
+    // Ensure all known models exist in the preference map
+    const normalized: Record<string, boolean> = {
+      "gpt-4.1-mini": false,
+      "claude-3-5-haiku-20241022": false,
+      "gemini-2.5-flash": false,
+      sonar: false,
+      "ai-overview": false,
+      ...preferences,
     };
 
-    res.status(200).json({ modelPreferences: preferences });
+    res.status(200).json({ modelPreferences: normalized });
   } catch (error) {
     console.error("[GET MODEL PREFERENCES ERROR]", error);
     res.status(500).json({ error: "Failed to get model preferences" });
@@ -348,65 +361,4 @@ export const updateModelPreferences = async (req: Request, res: Response) => {
 /**
  * Get user trial status and access permissions
  */
-export const getTrialStatus = async (req: Request, res: Response) => {
-  const prisma = await getDbClient();
-  try {
-    const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        subscriptionStatus: true,
-        trialStartedAt: true,
-        trialEndsAt: true,
-        role: true,
-      },
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    // Calculate trial status
-    const now = new Date();
-    const isAdmin = user.role === "ADMIN";
-    const hasActiveSubscription = user.subscriptionStatus === "active";
-    const isTrialing = user.subscriptionStatus === "trialing";
-    const trialExpired = user.trialEndsAt ? now >= new Date(user.trialEndsAt) : false;
-    const isInActiveTrial = isTrialing && !trialExpired;
-    
-    const timeRemaining = user.trialEndsAt ? 
-      Math.max(0, new Date(user.trialEndsAt).getTime() - now.getTime()) 
-      : 0;
-    
-    const daysRemaining = Math.floor(timeRemaining / (1000 * 60 * 60 * 24));
-    const hoursRemaining = Math.floor((timeRemaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-
-    // Determine access levels
-    const hasFullAccess = isAdmin || hasActiveSubscription || isInActiveTrial;
-    const canModifyPrompts = hasFullAccess;
-    const canCreateReports = true; // Always allowed during and after trial
-    const maxActiveQuestions = hasFullAccess ? null : 5; // Unlimited for paid users, 5 for free
-
-    res.status(200).json({
-      subscriptionStatus: user.subscriptionStatus,
-      isTrialing,
-      trialExpired,
-      trialStartedAt: user.trialStartedAt,
-      trialEndsAt: user.trialEndsAt,
-      daysRemaining,
-      hoursRemaining,
-      hasFullAccess,
-      canModifyPrompts,
-      canCreateReports,
-      maxActiveQuestions,
-      isAdmin,
-    });
-  } catch (error) {
-    console.error("[GET TRIAL STATUS ERROR]", error);
-    res.status(500).json({ error: "Failed to get trial status" });
-  }
-};
+// getTrialStatus removed (freemium/trial deprecated)

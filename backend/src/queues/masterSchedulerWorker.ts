@@ -15,12 +15,13 @@
  * @exports
  * - worker: The BullMQ worker instance for master scheduling jobs.
  */
-import { Worker, Job } from "bullmq";
-import env from "../config/env";
+import { Job, Worker } from "bullmq";
 import { getBullMQConnection } from "../config/bullmq";
 import { getDbClient } from "../config/database";
-import { queueReport } from "../services/reportSchedulingService";
+import env from "../config/env";
 import { alertingService } from "../services/alertingService";
+import { shouldGenerateToday } from "../services/reportScheduleService";
+import { queueReport } from "../services/reportSchedulingService";
 
 let worker: Worker | null = null;
 
@@ -30,7 +31,7 @@ if (env.NODE_ENV !== "test") {
     async (job: Job) => {
       if (job.name === "trigger-daily-reports") {
         console.log(
-          "[Scheduler Worker] Starting to queue daily reports for all companies...",
+          "[Scheduler Worker] Starting to queue daily reports for all companies..."
         );
         const prisma = await getDbClient();
         const companies = await prisma.company.findMany({
@@ -42,44 +43,43 @@ if (env.NODE_ENV !== "test") {
                 status: "COMPLETED",
               },
             },
-            // Only include companies whose users have active subscriptions, active trials, or are admins
+            // Only include companies whose users have active subscriptions or are admins (trials removed)
             user: {
               OR: [
                 // Active subscription
                 { subscriptionStatus: "active" },
                 // Admin users (always get reports)
                 { role: "ADMIN" },
-                // Active trial (not expired)
-                {
-                  AND: [
-                    { subscriptionStatus: "trialing" },
-                    { trialEndsAt: { gt: new Date() } }
-                  ]
-                }
-              ]
-            }
+                // Trials removed
+              ],
+            },
           },
           select: { id: true },
         });
 
         console.log(
-          `[Scheduler Worker] Found ${companies.length} companies to process for daily reports.`,
+          `[Scheduler Worker] Found ${companies.length} companies to process for daily reports.`
         );
 
         for (const company of companies) {
           try {
+            // Respect per-company schedule
+            const ok = await shouldGenerateToday(prisma as any, company.id);
+            if (!ok) {
+              continue;
+            }
             // We call queueReport with force=false, so it respects the daily cache.
             await queueReport(company.id, false);
           } catch (error) {
             console.error(
               `[Scheduler Worker] Failed to queue report for company ${company.id}`,
-              error,
+              error
             );
             // Continue to the next company even if one fails
           }
         }
         console.log(
-          "[Scheduler Worker] Finished queuing daily reports for all companies.",
+          "[Scheduler Worker] Finished queuing daily reports for all companies."
         );
       }
     },
@@ -88,23 +88,23 @@ if (env.NODE_ENV !== "test") {
       prefix: env.BULLMQ_QUEUE_PREFIX,
       concurrency: 1, // Only one of these scheduler jobs should run at a time.
       lockDuration: 1000 * 60 * 5, // 5 minutes
-    },
+    }
   );
 
   worker.on("completed", (job: Job) => {
     console.log(
-      `[Scheduler Worker] Master scheduler job ${job.id} has completed.`,
+      `[Scheduler Worker] Master scheduler job ${job.id} has completed.`
     );
   });
 
   worker.on("failed", async (job: Job | undefined, err: Error) => {
     if (job) {
       console.error(
-        `[Scheduler Worker] Master scheduler job ${job.id} has failed with ${err.message}`,
+        `[Scheduler Worker] Master scheduler job ${job.id} has failed with ${err.message}`
       );
     } else {
       console.error(
-        `[Scheduler Worker] A master scheduler job has failed with ${err.message}`,
+        `[Scheduler Worker] A master scheduler job has failed with ${err.message}`
       );
     }
 
@@ -114,7 +114,7 @@ if (env.NODE_ENV !== "test") {
     } catch (alertError) {
       console.error(
         "[Scheduler Worker] Failed to send scheduler failure alert:",
-        alertError,
+        alertError
       );
     }
   });

@@ -104,7 +104,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
           strategy={verticalListSortingStrategy}
         >
           <div
-            className="space-y-3 h-full pr-1 sentiment-details-scroll p-2"
+            className="space-y-3 h-full pr-3 sentiment-details-scroll p-2"
             style={{
               overflowY: "auto",
               overflowX: "visible",

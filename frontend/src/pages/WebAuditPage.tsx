@@ -12,11 +12,12 @@
  * @exports
  * - WebAuditPage: The main web audit page component.
  */
-import { Calendar, ChevronRight, ExternalLink, Play } from "lucide-react";
+import { Calendar, ChevronRight, ExternalLink, Info, Play } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import FilterDropdown from "../components/dashboard/FilterDropdown";
 import { InlineSpinner } from "../components/ui/InlineSpinner";
 import LiquidGlassCard from "../components/ui/LiquidGlassCard";
+import Tooltip from "../components/ui/Tooltip";
 import WebAuditCategoryDetails from "../components/webAudit/WebAuditCategoryDetails";
 import WebAuditProgress from "../components/webAudit/WebAuditProgress";
 import WebAuditResults from "../components/webAudit/WebAuditResults";
@@ -664,9 +665,28 @@ const WebAuditPage: React.FC = () => {
                 <div className="h-full min-h-0 overflow-y-auto">
                   <div className="sticky top-0 z-10 px-2 py-2 bg-white/70 backdrop-blur-sm border-b border-white/20">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-medium text-gray-900">
-                        Competitor Visibility
-                      </h3>
+                      <div className="flex items-baseline gap-0.5">
+                        <h3 className="text-sm font-medium text-gray-900">
+                          Competitor Visibility
+                        </h3>
+                        <Tooltip
+                          content={
+                            <span>
+                              <strong>Competitor Visibility</strong>: latest
+                              overall audit scores for accepted competitors.
+                              Compare standings at a glance and identify leaders
+                              and laggards.
+                            </span>
+                          }
+                        >
+                          <span
+                            aria-label="What this section means"
+                            className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-white/40 bg-white/70 text-gray-700 align-super -translate-y-0.5 md:-translate-y-1"
+                          >
+                            <Info className="h-3 w-3" />
+                          </span>
+                        </Tooltip>
+                      </div>
                       <h4 className="text-sm font-medium text-gray-900 pl-6 ml-auto pr-2">
                         Score
                       </h4>
@@ -681,12 +701,30 @@ const WebAuditPage: React.FC = () => {
                 <div className="h-full min-h-0 overflow-y-auto">
                   <div className="sticky top-0 z-10 px-2 py-2 bg-white/70 backdrop-blur-sm border-b border-white/20">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-medium text-gray-900">
-                        Recent Audits{" "}
-                        <span className="font-normal">
-                          ({companyOnlyHistory.length})
-                        </span>
-                      </h3>
+                      <div className="flex items-baseline gap-0.5">
+                        <h3 className="text-sm font-medium text-gray-900">
+                          Recent Audits{" "}
+                          <span className="font-normal">
+                            ({companyOnlyHistory.length})
+                          </span>
+                        </h3>
+                        <Tooltip
+                          content={
+                            <span>
+                              <strong>Recent Audits</strong>: the most recent
+                              audit runs for your primary domain. Click any item
+                              to open full details.
+                            </span>
+                          }
+                        >
+                          <span
+                            aria-label="What this section means"
+                            className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-white/40 bg-white/70 text-gray-700 align-super -translate-y-0.5 md:-translate-y-1"
+                          >
+                            <Info className="h-3 w-3" />
+                          </span>
+                        </Tooltip>
+                      </div>
                     </div>
                   </div>
                   {historyLoading ? (

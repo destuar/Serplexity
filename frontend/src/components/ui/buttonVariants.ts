@@ -19,10 +19,14 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         default: buttonClasses.primary,
-        secondary: buttonClasses.secondary, 
+        secondary: buttonClasses.secondary,
         destructive: buttonClasses.destructive,
         outline: buttonClasses.outline,
         ghost: buttonClasses.ghost,
+        // Pilled buttons (no dark hover, subtle press)
+        pill: "px-3 py-2 rounded-lg text-sm bg-white/80 backdrop-blur-sm border border-white/20 shadow text-gray-700 active:shadow-inner active:bg-white/60 active:border-white/30",
+        pillActive:
+          "px-3 py-2 rounded-lg text-sm bg-white/60 backdrop-blur-sm border border-white/30 shadow-inner text-gray-900",
       },
       size: {
         default: "h-10 px-4 py-2",
@@ -36,4 +40,4 @@ export const buttonVariants = cva(
       size: "default",
     },
   }
-); 
+);

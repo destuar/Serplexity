@@ -15,11 +15,21 @@
  * @exports
  * - KanbanBoard: React functional component for the Kanban board.
  */
-import React, { useState, useMemo, useEffect } from 'react';
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, DragOverEvent, PointerSensor, useSensor, useSensors, rectIntersection } from '@dnd-kit/core';
-import { OptimizationTask, TaskStatus } from '../../services/reportService';
-import KanbanColumn from './KanbanColumn';
-import KanbanTaskCard from './KanbanTaskCard';
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  rectIntersection,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import React, { useEffect, useMemo, useState } from "react";
+import { OptimizationTask, TaskStatus } from "../../services/reportService";
+import KanbanColumn from "./KanbanColumn";
+import KanbanTaskCard from "./KanbanTaskCard";
 
 interface KanbanBoardProps {
   tasks: OptimizationTask[];
@@ -29,18 +39,19 @@ interface KanbanBoardProps {
 
 interface InsertionIndicator {
   taskId: string;
-  position: 'above' | 'below';
+  position: "above" | "below";
   status: TaskStatus;
 }
 
-const KanbanBoard: React.FC<KanbanBoardProps> = ({ 
-  tasks: initialTasks, 
-  onStatusChange, 
-  onTaskClick 
+const KanbanBoard: React.FC<KanbanBoardProps> = ({
+  tasks: initialTasks,
+  onStatusChange,
+  onTaskClick,
 }) => {
   const [tasks, setTasks] = useState<OptimizationTask[]>(initialTasks);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [insertionIndicator, setInsertionIndicator] = useState<InsertionIndicator | null>(null);
+  const [insertionIndicator, setInsertionIndicator] =
+    useState<InsertionIndicator | null>(null);
 
   useEffect(() => {
     // Sync with parent state
@@ -55,19 +66,52 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     })
   );
 
-  const columns = useMemo(() => [
-    { id: TaskStatus.NOT_STARTED, title: 'Not Started', color: 'bg-gray-100' },
-    { id: TaskStatus.IN_PROGRESS, title: 'In Progress', color: 'bg-blue-600/10' },
-    { id: TaskStatus.COMPLETED, title: 'Completed', color: 'bg-blue-600/20' }
-  ], []);
+  const columns = useMemo(
+    () => [
+      {
+        id: TaskStatus.NOT_STARTED,
+        title: "Not Started",
+        color: "bg-gray-100",
+      },
+      {
+        id: TaskStatus.IN_PROGRESS,
+        title: "In Progress",
+        color: "bg-blue-600/10",
+      },
+      { id: TaskStatus.COMPLETED, title: "Completed", color: "bg-blue-600/20" },
+    ],
+    []
+  );
+
+  // Normalize unknown or legacy status strings into the enum buckets
+  const normalizeStatus = (value?: TaskStatus | string | null): TaskStatus => {
+    if (!value) return TaskStatus.NOT_STARTED;
+    const v = String(value).toLowerCase().replace(/\s+/g, "_");
+    if (
+      v === "in_progress" ||
+      v === "in-progress" ||
+      v === "inprogress" ||
+      v === "progress"
+    ) {
+      return TaskStatus.IN_PROGRESS;
+    }
+    if (v === "completed" || v === "complete" || v === "done") {
+      return TaskStatus.COMPLETED;
+    }
+    // Map unknown values to Not Started by default
+    return TaskStatus.NOT_STARTED;
+  };
 
   const tasksByStatus = useMemo(() => {
-    return tasks.reduce((acc, task) => {
-      const status = task.status || TaskStatus.NOT_STARTED;
-      if (!acc[status]) acc[status] = [];
-      acc[status].push(task);
-      return acc;
-    }, {} as Record<TaskStatus, OptimizationTask[]>);
+    const grouped: Record<TaskStatus, OptimizationTask[]> = {
+      [TaskStatus.NOT_STARTED]: [],
+      [TaskStatus.IN_PROGRESS]: [],
+      [TaskStatus.COMPLETED]: [],
+    };
+    for (const task of tasks) {
+      grouped[normalizeStatus(task.status)].push(task);
+    }
+    return grouped;
   }, [tasks]);
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -76,7 +120,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
-    
+
     if (!over || !active) {
       setInsertionIndicator(null);
       return;
@@ -92,7 +136,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     }
 
     // Check if we're dragging over a task
-    const overTask = tasks.find(t => t.taskId === overId);
+    const overTask = tasks.find((t) => t.taskId === overId);
     if (!overTask) {
       setInsertionIndicator(null);
       return;
@@ -106,14 +150,17 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     }
 
     // Determine if we're in the top or bottom half
-    const pointerY = event.activatorEvent instanceof MouseEvent ? event.activatorEvent.clientY : 0;
+    const pointerY =
+      event.activatorEvent instanceof MouseEvent
+        ? event.activatorEvent.clientY
+        : 0;
     const overMiddleY = overRect.top + overRect.height / 2;
     const isAbove = pointerY < overMiddleY;
 
     setInsertionIndicator({
       taskId: overId,
-      position: isAbove ? 'above' : 'below',
-      status: overTask.status || TaskStatus.NOT_STARTED
+      position: isAbove ? "above" : "below",
+      status: normalizeStatus(overTask.status),
     });
   };
 
@@ -129,73 +176,78 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
     if (activeId === overId) return;
 
-    const activeTask = tasks.find(t => t.taskId === activeId);
+    const activeTask = tasks.find((t) => t.taskId === activeId);
     if (!activeTask) return;
 
-    const activeContainer = activeTask.status || TaskStatus.NOT_STARTED;
+    const activeContainer = normalizeStatus(activeTask.status);
     let overContainerId = over.data.current?.sortable?.containerId || over.id;
-    
+
     // Handle gutter drops
-    if (String(overContainerId).endsWith('-gutter')) {
-        overContainerId = String(overContainerId).replace('-gutter', '') as TaskStatus;
+    if (String(overContainerId).endsWith("-gutter")) {
+      overContainerId = String(overContainerId).replace(
+        "-gutter",
+        ""
+      ) as TaskStatus;
     }
-    
+
     // Check if we're dropping over a task
-    const overTask = tasks.find(t => t.taskId === overId);
+    const overTask = tasks.find((t) => t.taskId === overId);
     if (overTask) {
-      overContainerId = overTask.status || TaskStatus.NOT_STARTED;
+      overContainerId = normalizeStatus(overTask.status);
     }
-    
-    if (!Object.values(TaskStatus).includes(overContainerId as TaskStatus)) return;
-    const overContainer = overContainerId as TaskStatus;
+
+    const overContainer = normalizeStatus(String(overContainerId));
 
     // Optimistic UI update
-    setTasks(currentTasks => {
-        const tasksByStatusMap: Record<string, OptimizationTask[]> = {
-            [TaskStatus.NOT_STARTED]: [],
-            [TaskStatus.IN_PROGRESS]: [],
-            [TaskStatus.COMPLETED]: [],
-        };
-        
-        currentTasks.forEach(t => {
-            const status = t.status || TaskStatus.NOT_STARTED;
-            tasksByStatusMap[status].push(t);
-        });
+    setTasks((currentTasks) => {
+      const tasksByStatusMap: Record<TaskStatus, OptimizationTask[]> = {
+        [TaskStatus.NOT_STARTED]: [],
+        [TaskStatus.IN_PROGRESS]: [],
+        [TaskStatus.COMPLETED]: [],
+      };
 
-        const sourceColumnItems = tasksByStatusMap[activeContainer];
-        const destColumnItems = tasksByStatusMap[overContainer];
+      currentTasks.forEach((t) => {
+        const status = normalizeStatus(t.status);
+        tasksByStatusMap[status].push(t);
+      });
 
-        const activeIndex = sourceColumnItems.findIndex(t => t.taskId === activeId);
-        if (activeIndex === -1) return currentTasks;
+      const sourceColumnItems = tasksByStatusMap[activeContainer];
+      const destColumnItems = tasksByStatusMap[overContainer];
 
-        const [movedItem] = sourceColumnItems.splice(activeIndex, 1);
-        movedItem.status = overContainer;
+      const activeIndex = sourceColumnItems.findIndex(
+        (t) => t.taskId === activeId
+      );
+      if (activeIndex === -1) return currentTasks;
 
-        // Handle precise positioning
-        if (overTask && insertionIndicator) {
-          const overIndex = destColumnItems.findIndex(t => t.taskId === overId);
-          if (overIndex !== -1) {
-            const insertIndex = insertionIndicator.position === 'above' ? overIndex : overIndex + 1;
-            destColumnItems.splice(insertIndex, 0, movedItem);
-          } else {
-            destColumnItems.push(movedItem);
-          }
+      const [movedItem] = sourceColumnItems.splice(activeIndex, 1);
+      movedItem.status = overContainer;
+
+      // Handle precise positioning
+      if (overTask && insertionIndicator) {
+        const overIndex = destColumnItems.findIndex((t) => t.taskId === overId);
+        if (overIndex !== -1) {
+          const insertIndex =
+            insertionIndicator.position === "above" ? overIndex : overIndex + 1;
+          destColumnItems.splice(insertIndex, 0, movedItem);
         } else {
-          // Default: add to end
           destColumnItems.push(movedItem);
         }
+      } else {
+        // Default: add to end
+        destColumnItems.push(movedItem);
+      }
 
-        return [
-            ...tasksByStatusMap[TaskStatus.NOT_STARTED],
-            ...tasksByStatusMap[TaskStatus.IN_PROGRESS],
-            ...tasksByStatusMap[TaskStatus.COMPLETED]
-        ];
+      return [
+        ...tasksByStatusMap[TaskStatus.NOT_STARTED],
+        ...tasksByStatusMap[TaskStatus.IN_PROGRESS],
+        ...tasksByStatusMap[TaskStatus.COMPLETED],
+      ];
     });
 
     // Only call API if status actually changed
     if (activeContainer !== overContainer) {
-        // Fire and forget - don't await to keep drag operation instant
-        onStatusChange(activeId, overContainer);
+      // Fire and forget - don't await to keep drag operation instant
+      onStatusChange(activeId, overContainer);
     }
   };
 
@@ -204,10 +256,10 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     setInsertionIndicator(null);
   };
 
-  const activeTask = activeId ? tasks.find(t => t.taskId === activeId) : null;
+  const activeTask = activeId ? tasks.find((t) => t.taskId === activeId) : null;
 
   return (
-    <div className="h-full relative" style={{ overflow: 'visible' }}>
+    <div className="h-full relative" style={{ overflow: "visible" }}>
       <DndContext
         sensors={sensors}
         collisionDetection={rectIntersection}
@@ -218,7 +270,10 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
       >
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-full min-h-0 overflow-visible">
           {columns.map((column) => (
-            <div key={column.id} className="min-h-0 flex flex-col overflow-visible">
+            <div
+              key={column.id}
+              className="min-h-0 flex flex-col overflow-visible"
+            >
               <KanbanColumn
                 id={column.id}
                 title={column.title}
@@ -232,17 +287,13 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
             </div>
           ))}
         </div>
-        
-        <DragOverlay>
-          {activeTask && (
-            <div className="rotate-2 transform-gpu">
-              <KanbanTaskCard task={activeTask} isDragging />
-            </div>
-          )}
+
+        <DragOverlay dropAnimation={null}>
+          {activeTask && <KanbanTaskCard task={activeTask} isDragging />}
         </DragOverlay>
       </DndContext>
     </div>
   );
 };
 
-export default KanbanBoard; 
+export default KanbanBoard;

@@ -7,7 +7,7 @@
  * - Fetch summary metrics (sessions, users, page views, engagement)
  */
 
-import { google } from "googleapis";
+import { google, analyticsdata_v1beta } from "googleapis";
 import env from "../config/env";
 import logger from "../utils/logger";
 
@@ -101,12 +101,11 @@ class GoogleAnalyticsService {
   ): Promise<Ga4SummaryMetrics> {
     try {
       this.oauth2.setCredentials({ access_token: accessToken });
-      const analyticsData = google.analyticsdata("v1");
+      const analyticsData: analyticsdata_v1beta.Analyticsdata = google.analyticsdata("v1beta");
 
       // Core summary metrics
       const report = await analyticsData.properties.runReport({
-        auth: this.oauth2,
-        property: `properties/${propertyId}`,
+        property: `properties/${String(propertyId)}`,
         requestBody: {
           dateRanges: [{ startDate, endDate }],
           metrics: [
@@ -117,6 +116,7 @@ class GoogleAnalyticsService {
             { name: "bounceRate" },
           ],
         },
+        auth: this.oauth2,
       });
 
       const values = (report.data.rows?.[0]?.metricValues || []).map(
@@ -132,18 +132,18 @@ class GoogleAnalyticsService {
 
       // Top pages (limit to 10)
       const topPagesReport = await analyticsData.properties.runReport({
-        auth: this.oauth2,
-        property: `properties/${propertyId}`,
+        property: `properties/${String(propertyId)}`,
         requestBody: {
           dateRanges: [{ startDate, endDate }],
           dimensions: [{ name: "pagePath" }],
           metrics: [{ name: "screenPageViews" }, { name: "totalUsers" }],
-          limit: 10,
+          limit: "10",
           orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
         },
+        auth: this.oauth2,
       });
 
-      const topPages = (topPagesReport.data.rows || []).map((row) => ({
+      const topPages = (topPagesReport.data.rows || []).map((row: any) => ({
         pagePath: row.dimensionValues?.[0]?.value || "",
         views: Number(row.metricValues?.[0]?.value || 0),
         users: Number(row.metricValues?.[1]?.value || 0),

@@ -14,14 +14,13 @@
  */
 import { Router } from "express";
 import {
-  exportUserData,
-  deleteUserData,
-  getUserProfile,
-  updateUserProfile,
   changePassword,
+  deleteUserData,
+  exportUserData,
   getModelPreferences,
+  getUserProfile,
   updateModelPreferences,
-  getTrialStatus,
+  updateUserProfile,
 } from "../controllers/userController";
 import { authenticate } from "../middleware/authMiddleware";
 
@@ -36,8 +35,7 @@ router.put("/me/password", authenticate, changePassword);
 router.get("/me/model-preferences", authenticate, getModelPreferences);
 router.put("/me/model-preferences", authenticate, updateModelPreferences);
 
-// Trial status route
-router.get("/me/trial-status", authenticate, getTrialStatus);
+// Trial status removed
 
 // Data management routes
 router.get("/me/export", authenticate, exportUserData);

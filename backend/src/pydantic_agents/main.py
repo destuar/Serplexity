@@ -52,6 +52,7 @@ from .agents.search_agent import SearchAgent
 from .agents.sentiment_agent import WebSearchSentimentAgent
 from .agents.sentiment_summary_agent import SentimentSummaryAgent
 from .agents.website_agent import WebsiteEnrichmentAgent
+from .agents.ai_overview_agent import AIOverviewAgent
 
 # Import base classes and config
 from .base_agent import BaseAgent
@@ -121,7 +122,8 @@ class AgentRegistry:
                 'search': SearchAgent(),
                 'sentiment': WebSearchSentimentAgent(),
                 'sentiment_summary': SentimentSummaryAgent(),
-                'website': WebsiteEnrichmentAgent()
+                'website': WebsiteEnrichmentAgent(),
+                'ai_overview': AIOverviewAgent()
             }
             logger.info(f"Initialized {len(self.agents)} agents successfully")
         except Exception as e:

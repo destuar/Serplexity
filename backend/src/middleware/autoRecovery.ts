@@ -1,10 +1,10 @@
 /**
  * @file autoRecovery.ts
  * @description Global error handler for automatic database password rotation recovery
- * 
+ *
  * This middleware intercepts all database authentication failures (P1000 errors)
  * and automatically triggers credential refresh and connection recovery.
- * 
+ *
  * 10x Engineer Features:
  * - Zero-downtime recovery from password rotation
  * - Automatic retry with exponential backoff
@@ -13,10 +13,10 @@
  * - Transparent to application code
  */
 
-import { Request, Response, NextFunction } from 'express';
-import { SecretsProviderFactory } from '../services/secretsProvider';
-import { dbCache } from '../config/dbCache';
-import logger from '../utils/logger';
+import { NextFunction, Request, Response } from "express";
+import { dbCache } from "../config/dbCache";
+import { SecretsProviderFactory } from "../services/secretsProvider";
+import logger from "../utils/logger";
 
 interface RecoveryState {
   lastAttempt: number;
@@ -47,18 +47,20 @@ class AutoRecoveryService {
    * Check if error is a database authentication failure
    */
   isAuthFailure(error: unknown): boolean {
-    if (!error || typeof error !== 'object') return false;
+    if (!error || typeof error !== "object") return false;
     const errorObj = error as Record<string, unknown>;
-    const code = typeof errorObj['code'] === 'string' ? errorObj['code'] : '';
-    const message = typeof errorObj['message'] === 'string' ? errorObj['message'] : '';
+    const code = typeof errorObj["code"] === "string" ? errorObj["code"] : "";
+    const message =
+      typeof errorObj["message"] === "string" ? errorObj["message"] : "";
     const meta = errorObj.meta as Record<string, unknown> | undefined;
-    
+
     return (
-      code === 'P1000' ||
-      message.includes('Authentication failed') ||
-      message.includes('password authentication failed') ||
-      message.includes('database credentials') ||
-      (meta?.modelName && code === 'P1000')
+      code === "P1000" ||
+      message.includes("Authentication failed") ||
+      message.includes("password authentication failed") ||
+      message.includes("database credentials") ||
+      (!!(meta && (meta as Record<string, unknown>).modelName) &&
+        code === "P1000")
     );
   }
 
@@ -67,7 +69,7 @@ class AutoRecoveryService {
    */
   async attemptRecovery(): Promise<boolean> {
     const now = Date.now();
-    
+
     // Prevent concurrent recovery attempts
     if (this.recoveryState.isRecovering) {
       logger.info("[AutoRecovery] Recovery already in progress, skipping");
@@ -82,7 +84,9 @@ class AutoRecoveryService {
 
     // Check max attempts
     if (this.recoveryState.attemptCount >= this.MAX_RECOVERY_ATTEMPTS) {
-      logger.error("[AutoRecovery] Max recovery attempts reached, manual intervention required");
+      logger.error(
+        "[AutoRecovery] Max recovery attempts reached, manual intervention required"
+      );
       return false;
     }
 
@@ -91,25 +95,29 @@ class AutoRecoveryService {
     this.recoveryState.attemptCount++;
 
     try {
-      logger.info(`[AutoRecovery] Starting recovery attempt ${this.recoveryState.attemptCount}/${this.MAX_RECOVERY_ATTEMPTS}`);
-      
+      logger.info(
+        `[AutoRecovery] Starting recovery attempt ${this.recoveryState.attemptCount}/${this.MAX_RECOVERY_ATTEMPTS}`
+      );
+
       // 1. Clear secrets cache to force fresh credential fetch
-      const secretsProvider = await SecretsProviderFactory.createFromEnvironment();
+      const secretsProvider =
+        await SecretsProviderFactory.createFromEnvironment();
       secretsProvider.clearCache();
       logger.info("[AutoRecovery] Secrets cache cleared");
-      
+
       // 2. Refresh ALL cached database clients (this is the critical missing piece!)
       logger.info("[AutoRecovery] Refreshing cached database clients...");
       await dbCache.refreshAllClients();
-      
+
       // 3. Test the connection to verify recovery
       const testClient = await dbCache.getPrimaryClient();
       await testClient.$queryRaw`SELECT 1 as recovery_test`;
-      
-      logger.info("[AutoRecovery] Complete recovery successful - credentials + cache refreshed");
+
+      logger.info(
+        "[AutoRecovery] Complete recovery successful - credentials + cache refreshed"
+      );
       this.resetRecoveryState();
       return true;
-
     } catch (error) {
       logger.error("[AutoRecovery] Recovery attempt threw error", { error });
       return false;
@@ -134,9 +142,16 @@ class AutoRecoveryService {
    */
   getRecoveryStatus() {
     return {
-      ...this.recoveryState,
-      cooldownRemaining: Math.max(0, this.RECOVERY_COOLDOWN - (Date.now() - this.recoveryState.lastAttempt)),
-      attemptsRemaining: this.MAX_RECOVERY_ATTEMPTS - this.recoveryState.attemptCount,
+      status: this.recoveryState.isRecovering ? "recovering" : "idle",
+      attemptCount: this.recoveryState.attemptCount,
+      lastAttempt: this.recoveryState.lastAttempt,
+      cooldownRemaining: Math.max(
+        0,
+        this.RECOVERY_COOLDOWN - (Date.now() - this.recoveryState.lastAttempt)
+      ),
+      attemptsRemaining:
+        this.MAX_RECOVERY_ATTEMPTS - this.recoveryState.attemptCount,
+      isRecovering: this.recoveryState.isRecovering,
     };
   }
 }
@@ -154,13 +169,13 @@ export const autoRecoveryMiddleware = async (
 ): Promise<void> => {
   // Only handle database authentication failures
   if (!autoRecoveryService.isAuthFailure(error)) {
-    return next(error);
+    return next(error as any);
   }
 
   logger.warn("[AutoRecovery] Database auth failure detected in request", {
     path: req.path,
     method: req.method,
-    error: error.message,
+    error: (error as any)?.message,
   });
 
   // Attempt automatic recovery
@@ -168,22 +183,25 @@ export const autoRecoveryMiddleware = async (
 
   if (recovered) {
     // Recovery successful - retry the original request
-    logger.info("[AutoRecovery] Recovery successful, retrying original request");
-    
+    logger.info(
+      "[AutoRecovery] Recovery successful, retrying original request"
+    );
+
     // Set a flag to indicate this is a retry
-    req.headers['x-auto-recovery-retry'] = 'true';
-    
+    req.headers["x-auto-recovery-retry"] = "true";
+
     // Clear the error and let the request continue
     return next();
   } else {
     // Recovery failed - return appropriate error
     logger.error("[AutoRecovery] Recovery failed, returning error to client");
-    
+
     const recoveryStatus = autoRecoveryService.getRecoveryStatus();
-    
+
     res.status(503).json({
-      error: 'Database temporarily unavailable',
-      message: 'We are experiencing temporary database connectivity issues. Please try again in a few moments.',
+      error: "Database temporarily unavailable",
+      message:
+        "We are experiencing temporary database connectivity issues. Please try again in a few moments.",
       retryAfter: Math.ceil(recoveryStatus.cooldownRemaining / 1000),
       recoveryStatus: {
         attemptsRemaining: recoveryStatus.attemptsRemaining,
@@ -197,7 +215,7 @@ export const autoRecoveryMiddleware = async (
  * Health check endpoint that triggers recovery if needed
  */
 export const healthCheckWithRecovery = async (): Promise<{
-  status: 'healthy' | 'recovering' | 'unhealthy';
+  status: "healthy" | "recovering" | "unhealthy";
   database: boolean;
   recovery?: {
     status: string;
@@ -211,19 +229,19 @@ export const healthCheckWithRecovery = async (): Promise<{
     const testClient = await dbCache.getPrimaryClient();
     await testClient.$queryRaw`SELECT 1 as health_test`;
     const dbHealthy = true;
-    
+
     if (dbHealthy) {
       return {
-        status: 'healthy',
+        status: "healthy",
         database: true,
       };
     } else {
       // Database unhealthy - attempt recovery
       const recovered = await autoRecoveryService.attemptRecovery();
       const recoveryStatus = autoRecoveryService.getRecoveryStatus();
-      
+
       return {
-        status: recovered ? 'recovering' : 'unhealthy',
+        status: recovered ? "recovering" : "unhealthy",
         database: recovered,
         recovery: recoveryStatus,
       };
@@ -231,18 +249,20 @@ export const healthCheckWithRecovery = async (): Promise<{
   } catch (error) {
     // Check if this is an auth error that we can recover from
     if (autoRecoveryService.isAuthFailure(error)) {
-      logger.warn("[HealthCheck] Auth failure detected during health check", { error: error.message });
+      logger.warn("[HealthCheck] Auth failure detected during health check", {
+        error: (error as any)?.message,
+      });
       const recovered = await autoRecoveryService.attemptRecovery();
       return {
-        status: recovered ? 'recovering' : 'unhealthy',
+        status: recovered ? "recovering" : "unhealthy",
         database: recovered,
         recovery: autoRecoveryService.getRecoveryStatus(),
       };
     }
-    
+
     logger.error("[HealthCheck] Health check failed", { error });
     return {
-      status: 'unhealthy',
+      status: "unhealthy",
       database: false,
       recovery: autoRecoveryService.getRecoveryStatus(),
     };

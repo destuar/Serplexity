@@ -16,23 +16,25 @@
  * - ./queues/masterScheduler: Schedules the daily report trigger.
  * - ./queues/backupScheduler: Schedules the backup daily report trigger.
  */
-import "./config/tracing"; // IMPORTANT: Must be the first import to ensure all modules are instrumented
-import app from "./app";
 import http from "http";
-import env from "./config/env";
+import app from "./app";
 import { dbCache } from "./config/dbCache";
-import SystemValidator from "./startup/systemValidator";
+import env from "./config/env";
+import "./config/tracing"; // IMPORTANT: Must be the first import to ensure all modules are instrumented
 import "./queues/reportWorker"; // This initializes and starts the worker process
+import SystemValidator from "./startup/systemValidator";
 // import "./queues/archiveWorker"; // PAUSED: This initializes and starts the archive worker process
-import "./queues/masterSchedulerWorker"; // This initializes the daily report scheduler worker
+import { redis } from "./config/redis";
+import { scheduleBackupDailyReportTrigger } from "./queues/backupScheduler";
 import "./queues/backupSchedulerWorker"; // This initializes the backup scheduler worker
+import "./queues/billingPeriodScheduler"; // initialize worker
+import { scheduleDailyBillingClose } from "./queues/billingPeriodScheduler";
+import { initializeHealthCheckScheduler } from "./queues/healthCheckScheduler";
+import { scheduleDailyReportTrigger } from "./queues/masterScheduler";
+import "./queues/masterSchedulerWorker"; // This initializes the daily report scheduler worker
+import "./queues/reportEvents"; // Initializes the report event listener
 import "./queues/webAuditWorker"; // This initializes and starts the web audit worker process
 import "./queues/websiteAnalyticsWorker"; // This initializes and starts the website analytics worker process
-import "./queues/reportEvents"; // Initializes the report event listener
-import { scheduleDailyReportTrigger } from "./queues/masterScheduler";
-import { scheduleBackupDailyReportTrigger } from "./queues/backupScheduler";
-import { initializeHealthCheckScheduler } from "./queues/healthCheckScheduler";
-import { redis } from "./config/redis";
 
 const PORT = env.PORT;
 
@@ -44,9 +46,11 @@ const startServer = async () => {
     console.log("🔍 Starting system validation...");
     const systemValidator = SystemValidator.getInstance();
     const validationResult = await systemValidator.validateSystemStartup();
-    
+
     if (validationResult.degradedMode) {
-      console.log("⚠️ System starting in DEGRADED MODE - some features will be limited");
+      console.log(
+        "⚠️ System starting in DEGRADED MODE - some features will be limited"
+      );
     }
 
     console.log("🔗 Initializing database cache...");
@@ -63,11 +67,19 @@ const startServer = async () => {
 
     // Initialize health check scheduler for auto-recovery
     await initializeHealthCheckScheduler(redis);
-    console.log("✅ Health check scheduler initialized - auto-recovery active!");
+    console.log(
+      "✅ Health check scheduler initialized - auto-recovery active!"
+    );
+
+    // Initialize billing period daily close scheduler
+    await scheduleDailyBillingClose();
+    console.log("Billing period scheduler initialized.");
 
     // Secret rotation monitoring disabled - was causing errors with environment provider
     // TODO: Re-enable when AWS secrets provider detection is more robust
-    console.log("🔐 Secret rotation monitor disabled - manual rotation monitoring active!");
+    console.log(
+      "🔐 Secret rotation monitor disabled - manual rotation monitoring active!"
+    );
 
     server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
@@ -82,7 +94,7 @@ const startServer = async () => {
 // Graceful shutdown handling
 const gracefulShutdown = async (signal: string) => {
   console.log(
-    `\n[${signal}] Received shutdown signal, starting graceful shutdown...`,
+    `\n[${signal}] Received shutdown signal, starting graceful shutdown...`
   );
 
   try {

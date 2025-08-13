@@ -247,7 +247,7 @@ class GoogleSearchConsoleService {
 
       // Use createMany for bulk insert, handling duplicates gracefully
       await prisma.analyticsData.createMany({
-        data: analyticsData,
+        data: analyticsData as any,
         skipDuplicates: true,
       });
 

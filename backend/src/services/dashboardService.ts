@@ -83,7 +83,7 @@ function normalizeDomainForAnalytics(domain: string): string {
     // If parsing fails, return the original domain
     console.warn(
       `[normalizeDomainForAnalytics] Failed to normalize domain: ${domain}`,
-      error,
+      error
     );
     return domain.toLowerCase();
   }
@@ -92,7 +92,7 @@ function normalizeDomainForAnalytics(domain: string): string {
 export async function calculateCompetitorRankings(
   runId: string,
   companyId: string,
-  filters?: { aiModel?: string },
+  filters?: { aiModel?: string }
 ) {
   const _prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
@@ -170,7 +170,7 @@ export async function calculateCompetitorRankings(
 export async function calculateCitationRankings(
   runId: string,
   companyId: string,
-  filters?: { aiModel?: string },
+  filters?: { aiModel?: string }
 ) {
   const _prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
@@ -203,7 +203,7 @@ export async function calculateCitationRankings(
   });
 
   console.log(
-    `[calculateCitationRankings] Found ${citations.length} citations for runId: ${runId}, aiModel: ${filters?.aiModel || "all"}`,
+    `[calculateCitationRankings] Found ${citations.length} citations for runId: ${runId}, aiModel: ${filters?.aiModel || "all"}`
   );
 
   if (citations.length === 0) {
@@ -257,13 +257,13 @@ export async function calculateCitationRankings(
     .sort((a, b) => b.shareOfVoice - a.shareOfVoice);
 
   console.log(
-    `[calculateCitationRankings] Computed rankings for ${ranked.length} unique domains from ${citations.length} total citations`,
+    `[calculateCitationRankings] Computed rankings for ${ranked.length} unique domains from ${citations.length} total citations`
   );
 
   // Log top domains for debugging
   ranked.slice(0, 5).forEach((source, index) => {
     console.log(
-      `[calculateCitationRankings] #${index + 1}: ${source.domain} (${source.shareOfVoice.toFixed(1)}%, ${source.citationCount} citations)`,
+      `[calculateCitationRankings] #${index + 1}: ${source.domain} (${source.shareOfVoice.toFixed(1)}%, ${source.citationCount} citations)`
     );
   });
 
@@ -279,7 +279,7 @@ export async function calculateTopQuestions(
   companyId?: string,
   filters?: { aiModel?: string; questionType?: string },
   limit: number = 20,
-  skip: number = 0,
+  skip: number = 0
 ) {
   const _prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
@@ -290,7 +290,7 @@ export async function calculateTopQuestions(
 
   console.log(
     `[calculateTopQuestions] Computing for ${runId}, companyId: ${companyId}, filters:`,
-    filters,
+    filters
   );
 
   // Build where clauses
@@ -355,7 +355,7 @@ export async function calculateTopQuestions(
         ? Math.round(
             (totalPositions.reduce((a, b) => a + b, 0) /
               totalPositions.length) *
-              100,
+              100
           ) / 100
         : null;
 
@@ -397,7 +397,7 @@ export async function calculateTopQuestions(
     // Debug log for questions with suspicious rankings
     if (bestPos === null && totalPositions.length === 0) {
       console.log(
-        `[calculateTopQuestions] Question without mentions: "${(q.query || "").substring(0, 50)}" - bestPosition: ${bestPos}, totalMentions: ${totalPositions.length}`,
+        `[calculateTopQuestions] Question without mentions: "${(q.query || "").substring(0, 50)}" - bestPosition: ${bestPos}, totalMentions: ${totalPositions.length}`
       );
     }
 
@@ -441,7 +441,7 @@ export async function calculateTopResponses(
   companyId?: string,
   filters: { aiModel?: string; questionType?: string } = {},
   limit: number = 1000,
-  skip: number = 0,
+  skip: number = 0
 ) {
   const _prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
@@ -451,7 +451,7 @@ export async function calculateTopResponses(
 
   console.log(
     `[calculateTopResponses] Computing response-level data for ${runId}, filters:`,
-    filters,
+    filters
   );
 
   // Build where clauses
@@ -488,7 +488,7 @@ export async function calculateTopResponses(
   });
 
   console.log(
-    `[calculateTopResponses] Found ${responses.length} total responses before pagination`,
+    `[calculateTopResponses] Found ${responses.length} total responses before pagination`
   );
 
   // Pre-compute best position per question for ranking
@@ -560,7 +560,7 @@ export async function calculateTopResponses(
   const paginated = transformed.slice(skip, skip + limit);
 
   console.log(
-    `[calculateTopResponses] Returning ${paginated.length} responses out of ${totalCount} total`,
+    `[calculateTopResponses] Returning ${paginated.length} responses out of ${totalCount} total`
   );
 
   return { responses: paginated, totalCount };
@@ -573,48 +573,52 @@ export async function calculateTopResponses(
 export async function calculateShareOfVoiceHistory(
   _runId: string,
   companyId: string,
-  filters?: { aiModel?: string; granularity?: 'hour' | 'day' | 'week'; dateRange?: string },
+  filters?: {
+    aiModel?: string;
+    granularity?: "hour" | "day" | "week";
+    dateRange?: string;
+  }
 ) {
   const _prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
-  
+
   // Default to raw data (individual reports) when no granularity specified
-  const granularity = filters?.granularity || 'raw';
-  
+  const granularity = filters?.granularity || "raw";
+
   // Helper function to build date range WHERE clause
   const getDateRangeFilter = (dateRange?: string): string => {
-    if (!dateRange) return '';
-    
+    if (!dateRange) return "";
+
     const now = new Date();
     let cutoffDate: Date;
-    
+
     switch (dateRange) {
-      case '24h':
+      case "24h":
         cutoffDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
         break;
-      case '7d':
+      case "7d":
         cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         break;
-      case '30d':
+      case "30d":
         cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         break;
-      case '90d':
+      case "90d":
         cutoffDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
         break;
-      case '1y':
+      case "1y":
         cutoffDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
         break;
       default:
-        return '';
+        return "";
     }
-    
+
     return `AND date >= '${cutoffDate.toISOString()}'`;
   };
-  
+
   const dateRangeFilter = getDateRangeFilter(filters?.dateRange);
-  
+
   // For raw data, return individual points as before (backward compatibility)
-  if (granularity === 'raw') {
+  if (granularity === "raw") {
     const whereClause: Record<string, unknown> = { companyId };
     if (filters?.aiModel && filters.aiModel !== "all") {
       whereClause.aiModel = filters.aiModel;
@@ -624,52 +628,57 @@ export async function calculateShareOfVoiceHistory(
       where: whereClause,
       orderBy: { date: "asc" },
     });
-    
+
     return history;
   }
 
   // For granularity-based aggregation, use PostgreSQL date_trunc for optimal performance
   const getTimeGrouping = (gran: string) => {
     switch (gran) {
-      case 'hour': 
+      case "hour":
         // For hourly data, preserve actual execution time instead of truncating to hour start
         // This shows when reports actually ran rather than artificial hour buckets
         return "date";
-      case 'week': return "date_trunc('week', date)";
-      default: return "date_trunc('day', date)";
+      case "week":
+        return "date_trunc('week', date)";
+      default:
+        return "date_trunc('day', date)";
     }
   };
 
   const timeGrouping = getTimeGrouping(granularity);
-  const aiModelFilter = filters?.aiModel && filters.aiModel !== "all" 
-    ? `AND "aiModel" = '${filters.aiModel}'` 
-    : '';
+  const aiModelFilter =
+    filters?.aiModel && filters.aiModel !== "all"
+      ? `AND "aiModel" = '${filters.aiModel}'`
+      : "";
 
   // For hourly granularity, don't aggregate - show individual report times
-  if (granularity === 'hour') {
+  if (granularity === "hour") {
     const individualHistory = await prismaReadReplica.$queryRawUnsafe(`
-      SELECT 
+      SELECT
         date,
         "aiModel",
         "shareOfVoice",
         1 as report_count,
         "createdAt" as first_report,
         "createdAt" as last_report
-      FROM "ShareOfVoiceHistory" 
+      FROM "ShareOfVoiceHistory"
       WHERE "companyId" = '${companyId}'
         ${aiModelFilter}
         ${dateRangeFilter}
       ORDER BY date ASC
     `);
 
-    return (individualHistory as Array<{
-      date: Date;
-      aiModel: string;
-      shareOfVoice: string;
-      report_count: string;
-      first_report: Date;
-      last_report: Date;
-    }>).map(row => ({
+    return (
+      individualHistory as Array<{
+        date: Date;
+        aiModel: string;
+        shareOfVoice: string;
+        report_count: string;
+        first_report: Date;
+        last_report: Date;
+      }>
+    ).map((row) => ({
       id: `${row.date.toISOString()}-${row.aiModel}`,
       companyId,
       date: row.date,
@@ -685,50 +694,62 @@ export async function calculateShareOfVoiceHistory(
 
   // CRITICAL FIX: For daily granularity, check if all data is from the same day
   // If so, show individual reports instead of aggregating
-  if (granularity === 'day') {
+  if (granularity === "day") {
     // First check the date span of the data
     const dateSpanCheck = await prismaReadReplica.$queryRawUnsafe(`
-      SELECT 
+      SELECT
         DATE(MIN(date)) as min_date,
         DATE(MAX(date)) as max_date,
         COUNT(DISTINCT DATE(date)) as unique_days
-      FROM "ShareOfVoiceHistory" 
+      FROM "ShareOfVoiceHistory"
       WHERE "companyId" = '${companyId}'
         ${aiModelFilter}
         ${dateRangeFilter}
     `);
 
-    const spanInfo = (dateSpanCheck as Array<{ min_date: Date; max_date: Date; unique_days: string }>)[0];
+    const spanInfo = (
+      dateSpanCheck as Array<{
+        min_date: Date;
+        max_date: Date;
+        unique_days: string;
+      }>
+    )[0];
     const uniqueDays = parseInt(spanInfo.unique_days);
 
-    console.log(`[ShareOfVoiceHistory] Daily granularity check: ${uniqueDays} unique days`);
+    console.log(
+      `[ShareOfVoiceHistory] Daily granularity check: ${uniqueDays} unique days`
+    );
 
     // If all data is from 1-2 days, show individual reports for better granularity
     if (uniqueDays <= 2) {
-      console.log(`[ShareOfVoiceHistory] Using individual reports for daily view (${uniqueDays} days)`);
+      console.log(
+        `[ShareOfVoiceHistory] Using individual reports for daily view (${uniqueDays} days)`
+      );
       const individualHistory = await prismaReadReplica.$queryRawUnsafe(`
-        SELECT 
+        SELECT
           date,
           "aiModel",
           "shareOfVoice",
           1 as report_count,
           "createdAt" as first_report,
           "createdAt" as last_report
-        FROM "ShareOfVoiceHistory" 
+        FROM "ShareOfVoiceHistory"
         WHERE "companyId" = '${companyId}'
           ${aiModelFilter}
           ${dateRangeFilter}
         ORDER BY date ASC
       `);
 
-      return (individualHistory as Array<{
-        date: Date;
-        aiModel: string;
-        shareOfVoice: string;
-        report_count: string;
-        first_report: Date;
-        last_report: Date;
-      }>).map(row => ({
+      return (
+        individualHistory as Array<{
+          date: Date;
+          aiModel: string;
+          shareOfVoice: string;
+          report_count: string;
+          first_report: Date;
+          last_report: Date;
+        }>
+      ).map((row) => ({
         id: `${row.date.toISOString()}-${row.aiModel}`,
         companyId,
         date: row.date,
@@ -738,38 +759,40 @@ export async function calculateShareOfVoiceHistory(
         createdAt: row.first_report,
         updatedAt: row.last_report,
         reportCount: parseInt(row.report_count),
-        aggregationType: 'individual',
+        aggregationType: "individual",
       }));
     }
   }
 
   // Debug logging for weekly granularity
-  if (granularity === 'week') {
-    console.log(`[ShareOfVoiceHistory] Weekly aggregation query for ${companyId}`);
+  if (granularity === "week") {
+    console.log(
+      `[ShareOfVoiceHistory] Weekly aggregation query for ${companyId}`
+    );
     console.log(`[ShareOfVoiceHistory] Time grouping: ${timeGrouping}`);
     console.log(`[ShareOfVoiceHistory] Date range filter: ${dateRangeFilter}`);
   }
 
   // Raw SQL query for optimal aggregation performance (daily/weekly)
   let aggregatedHistory;
-  
-  if (granularity === 'week') {
+
+  if (granularity === "week") {
     // For weekly: first get daily averages, then average those by week
     aggregatedHistory = await prismaReadReplica.$queryRawUnsafe(`
       WITH daily_averages AS (
-        SELECT 
+        SELECT
           DATE(date) as day,
           date_trunc('week', DATE(date)) as week_start,
           "aiModel",
           AVG("shareOfVoice") as daily_avg,
           COUNT(*) as daily_count
-        FROM "ShareOfVoiceHistory" 
+        FROM "ShareOfVoiceHistory"
         WHERE "companyId" = '${companyId}'
           ${aiModelFilter}
           ${dateRangeFilter}
         GROUP BY DATE(date), date_trunc('week', DATE(date)), "aiModel"
       )
-      SELECT 
+      SELECT
         week_start as date,
         "aiModel",
         AVG(daily_avg) as "shareOfVoice",
@@ -783,14 +806,14 @@ export async function calculateShareOfVoiceHistory(
   } else {
     // For daily: direct aggregation is fine
     aggregatedHistory = await prismaReadReplica.$queryRawUnsafe(`
-      SELECT 
+      SELECT
         ${timeGrouping} as date,
         "aiModel",
         AVG("shareOfVoice") as "shareOfVoice",
         COUNT(*) as report_count,
         MIN("createdAt") as first_report,
         MAX("createdAt") as last_report
-      FROM "ShareOfVoiceHistory" 
+      FROM "ShareOfVoiceHistory"
       WHERE "companyId" = '${companyId}'
         ${aiModelFilter}
         ${dateRangeFilter}
@@ -800,22 +823,27 @@ export async function calculateShareOfVoiceHistory(
   }
 
   // Debug logging for weekly results
-  if (granularity === 'week') {
-    console.log(`[ShareOfVoiceHistory] Weekly query returned ${aggregatedHistory.length} rows`);
-    if (aggregatedHistory.length > 0) {
-      console.log(`[ShareOfVoiceHistory] First weekly result:`, aggregatedHistory[0]);
+  if (granularity === "week") {
+    const aggArr = Array.isArray(aggregatedHistory) ? aggregatedHistory : [];
+    console.log(
+      `[ShareOfVoiceHistory] Weekly query returned ${aggArr.length} rows`
+    );
+    if (aggArr.length > 0) {
+      console.log(`[ShareOfVoiceHistory] First weekly result:`, aggArr[0]);
     }
   }
 
   // Transform to match expected interface
-  return (aggregatedHistory as Array<{
-    date: Date;
-    aiModel: string;
-    shareOfVoice: string;
-    report_count: string;
-    first_report: Date;
-    last_report: Date;
-  }>).map(row => ({
+  return (
+    aggregatedHistory as Array<{
+      date: Date;
+      aiModel: string;
+      shareOfVoice: string;
+      report_count: string;
+      first_report: Date;
+      last_report: Date;
+    }>
+  ).map((row) => ({
     id: `${row.date.toISOString()}-${row.aiModel}`, // Synthetic ID for aggregated data
     companyId,
     date: row.date,
@@ -837,16 +865,20 @@ export async function calculateShareOfVoiceHistory(
 export async function calculateInclusionRateHistory(
   _runId: string,
   companyId: string,
-  filters?: { aiModel?: string; granularity?: 'hour' | 'day' | 'week'; dateRange?: string },
+  filters?: {
+    aiModel?: string;
+    granularity?: "hour" | "day" | "week";
+    dateRange?: string;
+  }
 ) {
   const _prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
-  
+
   // Default to raw data (individual reports) when no granularity specified
-  const granularity = filters?.granularity || 'raw';
-  
+  const granularity = filters?.granularity || "raw";
+
   // For raw data, return individual points as before (backward compatibility)
-  if (granularity === 'raw') {
+  if (granularity === "raw") {
     const whereClause: Record<string, unknown> = { companyId };
     if (filters?.aiModel && filters.aiModel !== "all") {
       whereClause.aiModel = filters.aiModel;
@@ -856,83 +888,88 @@ export async function calculateInclusionRateHistory(
       where: whereClause,
       orderBy: { date: "asc" },
     });
-    
+
     return history;
   }
 
   // For granularity-based aggregation, use PostgreSQL date_trunc for optimal performance
   const getTimeGrouping = (gran: string) => {
     switch (gran) {
-      case 'hour': 
+      case "hour":
         // For hourly data, preserve actual execution time instead of truncating to hour start
         return "date";
-      case 'week': return "date_trunc('week', date)";
-      default: return "date_trunc('day', date)";
+      case "week":
+        return "date_trunc('week', date)";
+      default:
+        return "date_trunc('day', date)";
     }
   };
 
   const timeGrouping = getTimeGrouping(granularity);
-  const aiModelFilter = filters?.aiModel && filters.aiModel !== "all" 
-    ? `AND "aiModel" = '${filters.aiModel}'` 
-    : '';
+  const aiModelFilter =
+    filters?.aiModel && filters.aiModel !== "all"
+      ? `AND "aiModel" = '${filters.aiModel}'`
+      : "";
 
   // Helper function to build date range WHERE clause
   const getDateRangeFilter = (dateRange?: string): string => {
-    if (!dateRange) return '';
-    
+    if (!dateRange) return "";
+
     const now = new Date();
     let cutoffDate: Date;
-    
+
     switch (dateRange) {
-      case '24h':
+      case "24h":
         cutoffDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
         break;
-      case '7d':
+      case "7d":
         cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         break;
-      case '30d':
+      case "30d":
         cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         break;
-      case '90d':
+      case "90d":
         cutoffDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
         break;
-      case '1y':
+      case "1y":
         cutoffDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
         break;
       default:
-        return '';
+        return "";
     }
-    
+
     return `AND date >= '${cutoffDate.toISOString()}'`;
   };
-  
+
   const dateRangeFilter = getDateRangeFilter(filters?.dateRange);
 
   // For hourly granularity, don't aggregate - show individual report times
-  if (granularity === 'hour') {
+  if (granularity === "hour") {
     const individualHistory = await prismaReadReplica.$queryRawUnsafe(`
-      SELECT 
+      SELECT
         date,
         "aiModel",
         "inclusionRate",
         1 as report_count,
         "createdAt" as first_report,
         "createdAt" as last_report
-      FROM "InclusionRateHistory" 
+      FROM "InclusionRateHistory"
       WHERE "companyId" = '${companyId}'
         ${aiModelFilter}
         ${dateRangeFilter}
       ORDER BY date ASC
     `);
 
-    return (individualHistory as Array<{
-      date: Date;
-      aiModel: string;
-      inclusionRate: string;
-      report_count: string;
-      first_report: Date;
-      last_report: Date;
-    }>).map(row => ({
+    return (
+      individualHistory as Array<{
+        date: Date;
+        aiModel: string;
+        inclusionRate: string;
+        report_count: string;
+        first_report: Date;
+        last_report: Date;
+      }>
+    ).map((row) => ({
       id: `${row.date.toISOString()}-${row.aiModel}`,
       companyId,
       date: row.date,
@@ -947,48 +984,60 @@ export async function calculateInclusionRateHistory(
   }
 
   // CRITICAL FIX: For daily granularity, check if all data is from the same day
-  if (granularity === 'day') {
+  if (granularity === "day") {
     const dateSpanCheck = await prismaReadReplica.$queryRawUnsafe(`
-      SELECT 
+      SELECT
         DATE(MIN(date)) as min_date,
         DATE(MAX(date)) as max_date,
         COUNT(DISTINCT DATE(date)) as unique_days
-      FROM "InclusionRateHistory" 
+      FROM "InclusionRateHistory"
       WHERE "companyId" = '${companyId}'
         ${aiModelFilter}
         ${dateRangeFilter}
     `);
-    const spanInfo = (dateSpanCheck as Array<{ min_date: Date; max_date: Date; unique_days: string }>)[0];
+    const spanInfo = (
+      dateSpanCheck as Array<{
+        min_date: Date;
+        max_date: Date;
+        unique_days: string;
+      }>
+    )[0];
     const uniqueDays = parseInt(spanInfo.unique_days);
-    
-    console.log(`[InclusionRateHistory] Daily granularity check: ${uniqueDays} unique days`);
-    
+
+    console.log(
+      `[InclusionRateHistory] Daily granularity check: ${uniqueDays} unique days`
+    );
+
     if (uniqueDays <= 2) {
       // Return individual reports instead of aggregating
-      console.log(`[InclusionRateHistory] Smart daily granularity: showing individual reports (${uniqueDays} days)`);
+      console.log(
+        `[InclusionRateHistory] Smart daily granularity: showing individual reports (${uniqueDays} days)`
+      );
       const individualHistory = await prismaReadReplica.$queryRawUnsafe(`
-        SELECT 
+        SELECT
           date,
           "aiModel",
           "inclusionRate",
           1 as report_count,
           "createdAt" as first_report,
           "createdAt" as last_report
-        FROM "InclusionRateHistory" 
+        FROM "InclusionRateHistory"
         WHERE "companyId" = '${companyId}'
           ${aiModelFilter}
           ${dateRangeFilter}
         ORDER BY date ASC
       `);
 
-      return (individualHistory as Array<{
-        date: Date;
-        aiModel: string;
-        inclusionRate: string;
-        report_count: string;
-        first_report: Date;
-        last_report: Date;
-      }>).map(row => ({
+      return (
+        individualHistory as Array<{
+          date: Date;
+          aiModel: string;
+          inclusionRate: string;
+          report_count: string;
+          first_report: Date;
+          last_report: Date;
+        }>
+      ).map((row) => ({
         id: `${row.date.toISOString()}-${row.aiModel}`,
         companyId,
         date: row.date,
@@ -998,31 +1047,31 @@ export async function calculateInclusionRateHistory(
         createdAt: row.first_report,
         updatedAt: row.last_report,
         reportCount: parseInt(row.report_count),
-        aggregationType: 'raw', // Show as individual reports, not aggregated
+        aggregationType: "raw", // Show as individual reports, not aggregated
       }));
     }
   }
 
   // Raw SQL query for optimal aggregation performance (daily/weekly)
   let aggregatedHistory;
-  
-  if (granularity === 'week') {
+
+  if (granularity === "week") {
     // For weekly: first get daily averages, then average those by week
     aggregatedHistory = await prismaReadReplica.$queryRawUnsafe(`
       WITH daily_averages AS (
-        SELECT 
+        SELECT
           DATE(date) as day,
           date_trunc('week', DATE(date)) as week_start,
           "aiModel",
           AVG("inclusionRate") as daily_avg,
           COUNT(*) as daily_count
-        FROM "InclusionRateHistory" 
+        FROM "InclusionRateHistory"
         WHERE "companyId" = '${companyId}'
           ${aiModelFilter}
           ${dateRangeFilter}
         GROUP BY DATE(date), date_trunc('week', DATE(date)), "aiModel"
       )
-      SELECT 
+      SELECT
         week_start as date,
         "aiModel",
         AVG(daily_avg) as "inclusionRate",
@@ -1036,14 +1085,14 @@ export async function calculateInclusionRateHistory(
   } else {
     // For daily: direct aggregation is fine
     aggregatedHistory = await prismaReadReplica.$queryRawUnsafe(`
-      SELECT 
+      SELECT
         ${timeGrouping} as date,
         "aiModel",
         AVG("inclusionRate") as "inclusionRate",
         COUNT(*) as report_count,
         MIN("createdAt") as first_report,
         MAX("createdAt") as last_report
-      FROM "InclusionRateHistory" 
+      FROM "InclusionRateHistory"
       WHERE "companyId" = '${companyId}'
         ${aiModelFilter}
         ${dateRangeFilter}
@@ -1053,14 +1102,16 @@ export async function calculateInclusionRateHistory(
   }
 
   // Transform to match expected interface
-  return (aggregatedHistory as Array<{
-    date: Date;
-    aiModel: string;
-    inclusionRate: string;
-    report_count: string;
-    first_report: Date;
-    last_report: Date;
-  }>).map(row => ({
+  return (
+    aggregatedHistory as Array<{
+      date: Date;
+      aiModel: string;
+      inclusionRate: string;
+      report_count: string;
+      first_report: Date;
+      last_report: Date;
+    }>
+  ).map((row) => ({
     id: `${row.date.toISOString()}-${row.aiModel}`, // Synthetic ID for aggregated data
     companyId,
     date: row.date,
@@ -1082,16 +1133,16 @@ export async function calculateInclusionRateHistory(
 export async function calculateSentimentOverTime(
   _runId: string,
   companyId: string,
-  filters?: { aiModel?: string; granularity?: 'hour' | 'day' | 'week' },
+  filters?: { aiModel?: string; granularity?: "hour" | "day" | "week" }
 ) {
   const _prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
-  
+
   // Default to raw data (individual reports) when no granularity specified
-  const granularity = filters?.granularity || 'raw';
-  
+  const granularity = filters?.granularity || "raw";
+
   // For raw data, return individual points as before (backward compatibility)
-  if (granularity === 'raw') {
+  if (granularity === "raw") {
     const whereClause: Record<string, unknown> = { companyId };
     if (filters?.aiModel && filters.aiModel !== "all") {
       whereClause.aiModel = filters.aiModel;
@@ -1101,50 +1152,55 @@ export async function calculateSentimentOverTime(
       where: whereClause,
       orderBy: { date: "asc" },
     });
-    
+
     return history;
   }
 
   // For granularity-based aggregation, use PostgreSQL date_trunc for optimal performance
   const getTimeGrouping = (gran: string) => {
     switch (gran) {
-      case 'hour': 
+      case "hour":
         // For hourly data, preserve actual execution time instead of truncating to hour start
         return "date";
-      case 'week': return "date_trunc('week', date)";
-      default: return "date_trunc('day', date)";
+      case "week":
+        return "date_trunc('week', date)";
+      default:
+        return "date_trunc('day', date)";
     }
   };
 
   const timeGrouping = getTimeGrouping(granularity);
-  const aiModelFilter = filters?.aiModel && filters.aiModel !== "all" 
-    ? `AND "aiModel" = '${filters.aiModel}'` 
-    : '';
+  const aiModelFilter =
+    filters?.aiModel && filters.aiModel !== "all"
+      ? `AND "aiModel" = '${filters.aiModel}'`
+      : "";
 
   // For hourly granularity, don't aggregate - show individual report times
-  if (granularity === 'hour') {
+  if (granularity === "hour") {
     const individualHistory = await prismaReadReplica.$queryRawUnsafe(`
-      SELECT 
+      SELECT
         date,
         "aiModel",
         "sentimentScore",
         1 as report_count,
         "createdAt" as first_report,
         "createdAt" as last_report
-      FROM "SentimentOverTime" 
+      FROM "SentimentOverTime"
       WHERE "companyId" = '${companyId}'
         ${aiModelFilter}
       ORDER BY date ASC
     `);
 
-    return (individualHistory as Array<{
-      date: Date;
-      aiModel: string;
-      sentimentScore: string;
-      report_count: string;
-      first_report: Date;
-      last_report: Date;
-    }>).map(row => ({
+    return (
+      individualHistory as Array<{
+        date: Date;
+        aiModel: string;
+        sentimentScore: string;
+        report_count: string;
+        first_report: Date;
+        last_report: Date;
+      }>
+    ).map((row) => ({
       id: `${row.date.toISOString()}-${row.aiModel}`,
       companyId,
       date: row.date,
@@ -1160,14 +1216,14 @@ export async function calculateSentimentOverTime(
 
   // Raw SQL query for optimal aggregation performance (daily/weekly)
   const aggregatedHistory = await prismaReadReplica.$queryRawUnsafe(`
-    SELECT 
+    SELECT
       ${timeGrouping} as date,
       "aiModel",
       AVG("sentimentScore") as "sentimentScore",
       COUNT(*) as report_count,
       MIN("createdAt") as first_report,
       MAX("createdAt") as last_report
-    FROM "SentimentOverTime" 
+    FROM "SentimentOverTime"
     WHERE "companyId" = '${companyId}'
       ${aiModelFilter}
     GROUP BY ${timeGrouping}, "aiModel"
@@ -1175,14 +1231,16 @@ export async function calculateSentimentOverTime(
   `);
 
   // Transform to match expected interface
-  return (aggregatedHistory as Array<{
-    date: Date;
-    aiModel: string;
-    sentimentScore: string;
-    report_count: string;
-    first_report: Date;
-    last_report: Date;
-  }>).map(row => ({
+  return (
+    aggregatedHistory as Array<{
+      date: Date;
+      aiModel: string;
+      sentimentScore: string;
+      report_count: string;
+      first_report: Date;
+      last_report: Date;
+    }>
+  ).map((row) => ({
     id: `${row.date.toISOString()}-${row.aiModel}`, // Synthetic ID for aggregated data
     companyId,
     date: row.date,
@@ -1204,13 +1262,13 @@ export async function saveShareOfVoiceHistoryPoint(
   aiModel: string,
   shareOfVoice: number,
   reportRunId?: string,
-  _userTimezone?: string,
+  _userTimezone?: string
 ): Promise<void> {
   const prisma = await getDbClient();
   const _prismaReadReplica = await getReadDbClient();
   if (!reportRunId) {
     console.warn(
-      `[saveShareOfVoiceHistoryPoint] reportRunId is missing for company ${companyId}. Skipping save.`,
+      `[saveShareOfVoiceHistoryPoint] reportRunId is missing for company ${companyId}. Skipping save.`
     );
     return;
   }
@@ -1246,13 +1304,13 @@ export async function saveInclusionRateHistoryPoint(
   aiModel: string,
   inclusionRate: number,
   reportRunId?: string,
-  _userTimezone?: string,
+  _userTimezone?: string
 ): Promise<void> {
   const prisma = await getDbClient();
   const _prismaReadReplica = await getReadDbClient();
   if (!reportRunId) {
     console.warn(
-      `[saveInclusionRateHistoryPoint] reportRunId is missing for company ${companyId}. Skipping save.`,
+      `[saveInclusionRateHistoryPoint] reportRunId is missing for company ${companyId}. Skipping save.`
     );
     return;
   }
@@ -1288,13 +1346,13 @@ export async function saveSentimentOverTimePoint(
   aiModel: string,
   sentimentScore: number,
   reportRunId?: string,
-  _userTimezone?: string,
+  _userTimezone?: string
 ): Promise<void> {
   const prisma = await getDbClient();
   const _prismaReadReplica = await getReadDbClient();
   if (!reportRunId) {
     console.warn(
-      `[saveSentimentOverTimePoint] reportRunId is missing for company ${companyId}. Skipping save.`,
+      `[saveSentimentOverTimePoint] reportRunId is missing for company ${companyId}. Skipping save.`
     );
     return;
   }

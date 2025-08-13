@@ -40,14 +40,16 @@ const WebAuditResults: React.FC<WebAuditResultsProps> = ({
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(
+    new Set()
+  );
   const toggleSection = (section: string) => {
-    const newExpanded = new Set(expandedSections);
-    if (newExpanded.has(section)) {
-      newExpanded.delete(section);
-    } else {
-      newExpanded.add(section);
-    }
-    setExpandedSections(newExpanded);
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      return next;
+    });
   };
 
   const getScoreColor = (score: number) => {
@@ -238,7 +240,6 @@ const WebAuditResults: React.FC<WebAuditResultsProps> = ({
         setAddedTaskKeys(new Set(arr));
       }
     } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey]);
 
   // Fetch existing tasks to prevent duplicate adds (persisted across sessions)
@@ -307,6 +308,19 @@ const WebAuditResults: React.FC<WebAuditResultsProps> = ({
         } catch {}
         return next;
       });
+      // Broadcast event so VisibilityTasksPage can refresh immediately
+      try {
+        window.dispatchEvent(
+          new CustomEvent("optimizationTaskAdded", {
+            detail: {
+              title: rec.title,
+              taskId: task?.taskId,
+              reportRunId: task?.reportRunId,
+            },
+          })
+        );
+      } catch {}
+
       // Refresh task mapping lazily; we optimistically add to maps
       setExistingTaskTitles((prev) => {
         const next = new Set(prev);

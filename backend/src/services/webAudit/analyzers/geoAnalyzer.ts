@@ -50,13 +50,19 @@ class GEOAnalyzer {
       const $ = cheerio.load(html);
 
       // Analyze schema markup
-      const schemaMarkup = this.analyzeSchemaMarkup($);
+      const schemaMarkup = this.analyzeSchemaMarkup(
+        $ as unknown as cheerio.CheerioAPI
+      );
 
       // Analyze content structure
-      const contentStructure = this.analyzeContentStructure($);
+      const contentStructure = this.analyzeContentStructure(
+        $ as unknown as cheerio.CheerioAPI
+      );
 
       // Analyze AI optimization factors
-      const aiOptimization = this.analyzeAIOptimization($);
+      const aiOptimization = this.analyzeAIOptimization(
+        $ as unknown as cheerio.CheerioAPI
+      );
 
       const result: GEOResults = {
         schemaMarkup,
@@ -507,7 +513,8 @@ class GEOAnalyzer {
     let best: Date | null = null;
     for (const txt of dateTexts) {
       const d = new Date(txt);
-      if (!isNaN(d.getTime())) best = best ? (d > best ? d : best) : d;
+      if (!isNaN(d.getTime()))
+        best = best ? (d > (best as Date) ? d : best) : d;
     }
     if (!best) return 30; // unknown freshness baseline
     const days = (Date.now() - best.getTime()) / (1000 * 60 * 60 * 24);

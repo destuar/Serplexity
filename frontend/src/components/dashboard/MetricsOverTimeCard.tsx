@@ -37,6 +37,7 @@ import {
   ChevronDown,
   ChevronUp,
   Eye,
+  Info,
   MessageSquare,
   Sparkles,
 } from "lucide-react";
@@ -79,6 +80,7 @@ import {
 } from "../../utils/dataConsistencyDebugger";
 import LiquidGlassCard from "../ui/LiquidGlassCard";
 import { LiquidGlassSpinner } from "../ui/LiquidGlassSpinner";
+import UiTooltip from "../ui/Tooltip";
 // Model filtering handled within processTimeSeriesData
 
 interface MetricsOverTimeCardProps {
@@ -509,6 +511,25 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({
     }
   };
 
+  const getMetricTooltipContent = () => {
+    if (selectedMetric === "shareOfVoice") {
+      return (
+        <span>
+          <strong>Share of Voice</strong>: percent of AI answers that mention
+          your brand across the selected models and date range. Higher is
+          better. Use breakdown to see each model's contribution.
+        </span>
+      );
+    }
+    return (
+      <span>
+        <strong>Inclusion Rate</strong>: percent of evaluated queries where your
+        brand is included in answers/citations across the selected models and
+        date range. Indicates how often you appear. Higher is better.
+      </span>
+    );
+  };
+
   const renderContent = () => {
     if (error) {
       return (
@@ -852,9 +873,19 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
-            <h3 className="text-sm font-medium text-gray-900">
-              {getMetricLabel()}
-            </h3>
+            <div className="flex items-baseline gap-0.5">
+              <h3 className="text-sm font-medium text-gray-900">
+                {getMetricLabel()}
+              </h3>
+              <UiTooltip content={getMetricTooltipContent()}>
+                <span
+                  aria-label="What this metric means"
+                  className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-white/40 bg-white/70 text-gray-700 align-super -translate-y-0.5 md:-translate-y-1"
+                >
+                  <Info className="h-3 w-3" />
+                </span>
+              </UiTooltip>
+            </div>
             {currentValue !== null && typeof currentValue === "number" && (
               <div className="h-8 px-3 bg-white/60 backdrop-blur-sm border border-white/30 rounded-lg shadow-inner flex items-center justify-center">
                 <span className="text-sm font-medium text-gray-700">

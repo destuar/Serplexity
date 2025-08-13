@@ -30,20 +30,20 @@
  */
 import { Request, Response } from "express";
 import { z } from "zod";
+import { checkBullMQHealth } from "../config/bullmq";
 import { getPrismaClient, getReadPrismaClient } from "../config/dbCache";
-import { queueReport } from "../services/reportSchedulingService";
+import { checkRedisHealth } from "../config/redis";
 import { scheduleEmergencyReportTrigger } from "../queues/backupScheduler";
 import { alertingService } from "../services/alertingService";
-import { getFullReportMetrics } from "../services/metricsService";
 import {
   calculateCompetitorRankings,
-  calculateTopQuestions,
-  calculateShareOfVoiceHistory,
   calculateInclusionRateHistory,
   calculateSentimentOverTime,
+  calculateShareOfVoiceHistory,
+  calculateTopQuestions,
 } from "../services/dashboardService";
-import { checkRedisHealth } from "../config/redis";
-import { checkBullMQHealth } from "../config/bullmq";
+import { getFullReportMetrics } from "../services/metricsService";
+import { queueReport } from "../services/reportSchedulingService";
 
 // Enhanced logging system for the report controller
 interface ControllerLogContext {
@@ -60,7 +60,7 @@ interface ControllerLogContext {
 const controllerLog = (
   context: ControllerLogContext,
   message: string,
-  level: "INFO" | "WARN" | "ERROR" | "DEBUG" = "INFO",
+  level: "INFO" | "WARN" | "ERROR" | "DEBUG" = "INFO"
 ) => {
   const timestamp = new Date().toISOString();
   const {
@@ -112,7 +112,7 @@ const controllerLog = (
         companyId,
         reportId,
         metadata,
-      },
+      }
     );
   }
 };
@@ -149,7 +149,7 @@ export const createReport = async (req: Request, res: Response) => {
         ip: req.ip,
       },
     },
-    "Report creation request received",
+    "Report creation request received"
   );
 
   try {
@@ -164,7 +164,7 @@ export const createReport = async (req: Request, res: Response) => {
           metadata: { reason: "missing_user_id" },
         },
         "Authentication failed - no user ID",
-        "WARN",
+        "WARN"
       );
 
       return res.status(401).json({
@@ -184,7 +184,7 @@ export const createReport = async (req: Request, res: Response) => {
           metadata: { reason: "missing_company_id" },
         },
         "Bad request - missing company ID",
-        "WARN",
+        "WARN"
       );
 
       return res.status(400).json({
@@ -195,7 +195,7 @@ export const createReport = async (req: Request, res: Response) => {
 
     controllerLog(
       { endpoint, userId, companyId },
-      "Validating user access to company",
+      "Validating user access to company"
     );
 
     // Verify user has access to this company
@@ -221,7 +221,7 @@ export const createReport = async (req: Request, res: Response) => {
           metadata: { reason: "company_not_found_or_access_denied" },
         },
         "Company not found or access denied",
-        "WARN",
+        "WARN"
       );
 
       return res.status(404).json({
@@ -244,7 +244,7 @@ export const createReport = async (req: Request, res: Response) => {
           hasIndustry: !!company.industry,
         },
       },
-      `Company validation successful: ${company.name}`,
+      `Company validation successful: ${company.name}`
     );
 
     // Questions will be generated during first report run if they don't exist yet
@@ -280,7 +280,7 @@ export const createReport = async (req: Request, res: Response) => {
           },
         },
         "Rate limit exceeded for report generation",
-        "WARN",
+        "WARN"
       );
 
       return res.status(429).json({
@@ -317,7 +317,7 @@ export const createReport = async (req: Request, res: Response) => {
           },
         },
         "Concurrent report generation detected",
-        "WARN",
+        "WARN"
       );
 
       return res.status(409).json({
@@ -351,7 +351,7 @@ export const createReport = async (req: Request, res: Response) => {
           metadata: { reason: "user_not_found" },
         },
         "User not found",
-        "ERROR",
+        "ERROR"
       );
 
       return res.status(404).json({
@@ -363,8 +363,7 @@ export const createReport = async (req: Request, res: Response) => {
     // Check if user has permission to generate reports
     const hasActiveSubscription = user.subscriptionStatus === "active";
     const isAdmin = user.role === "ADMIN";
-    const isInActiveTrial = user.subscriptionStatus === "trialing" && 
-      user.trialEndsAt && new Date() < new Date(user.trialEndsAt);
+    const isInActiveTrial = false; // trials removed
 
     if (!hasActiveSubscription && !isAdmin && !isInActiveTrial) {
       const duration = Date.now() - startTime;
@@ -375,21 +374,23 @@ export const createReport = async (req: Request, res: Response) => {
           companyId,
           duration,
           statusCode: 403,
-          metadata: { 
+          metadata: {
             subscriptionStatus: user.subscriptionStatus,
-            trialExpired: user.trialEndsAt ? new Date() >= new Date(user.trialEndsAt) : false,
-            reason: "subscription_required"
+            trialExpired: user.trialEndsAt
+              ? new Date() >= new Date(user.trialEndsAt)
+              : false,
+            reason: "subscription_required",
           },
         },
         "Report generation blocked - subscription required",
-        "WARN",
+        "WARN"
       );
 
       return res.status(403).json({
         error: "Subscription required",
-        message: "Report generation requires an active subscription or trial. You can still view existing dashboard data.",
+        message: "Report generation requires an active subscription.",
         subscriptionStatus: user.subscriptionStatus,
-        trialExpired: user.trialEndsAt ? new Date() >= new Date(user.trialEndsAt) : false,
+        trialExpired: false,
       });
     }
 
@@ -405,13 +406,13 @@ export const createReport = async (req: Request, res: Response) => {
           isInActiveTrial,
         },
       },
-      "Subscription validation passed - proceeding with report generation",
+      "Subscription validation passed - proceeding with report generation"
     );
 
     // Queue the report generation with enhanced error handling
     controllerLog(
       { endpoint, userId, companyId },
-      "Initiating report queue process",
+      "Initiating report queue process"
     );
 
     try {
@@ -435,7 +436,7 @@ export const createReport = async (req: Request, res: Response) => {
             hasIndustry: !!company.industry,
           },
         },
-        `Report ${result.isNew ? "queued" : "existing"} - Run ID: ${result.runId}`,
+        `Report ${result.isNew ? "queued" : "existing"} - Run ID: ${result.runId}`
       );
 
       if (result.isNew) {
@@ -500,7 +501,7 @@ export const createReport = async (req: Request, res: Response) => {
           },
         },
         `Queue error: ${errorMessage}`,
-        "ERROR",
+        "ERROR"
       );
 
       return res.status(statusCode).json({
@@ -525,7 +526,7 @@ export const createReport = async (req: Request, res: Response) => {
         },
       },
       `Unexpected error in report creation: ${error instanceof Error ? error.message : String(error)}`,
-      "ERROR",
+      "ERROR"
     );
 
     return res.status(500).json({
@@ -566,7 +567,7 @@ export const getReportStatus = async (req: Request, res: Response) => {
           statusCode: 401,
         },
         "Authentication failed",
-        "WARN",
+        "WARN"
       );
 
       return res.status(401).json({ error: "User not authenticated" });
@@ -574,7 +575,7 @@ export const getReportStatus = async (req: Request, res: Response) => {
 
     controllerLog(
       { endpoint, userId, reportId },
-      "Fetching report status from database",
+      "Fetching report status from database"
     );
 
     const report = await prismaReadReplica.reportRun.findFirst({
@@ -612,7 +613,7 @@ export const getReportStatus = async (req: Request, res: Response) => {
           metadata: { reason: "report_not_found" },
         },
         "Report not found or access denied",
-        "WARN",
+        "WARN"
       );
 
       return res
@@ -647,7 +648,7 @@ export const getReportStatus = async (req: Request, res: Response) => {
             statusChanged,
           },
         },
-        `Report status ${statusChanged ? "changed to" : "update"}: ${report.status}`,
+        `Report status ${statusChanged ? "changed to" : "update"}: ${report.status}`
       );
 
       statusCache.set(cacheKey, {
@@ -679,7 +680,7 @@ export const getReportStatus = async (req: Request, res: Response) => {
         },
       },
       "Internal server error while fetching report status",
-      "ERROR",
+      "ERROR"
     );
 
     res.status(500).json({ error: "Internal server error" });
@@ -729,7 +730,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
     });
 
     console.log(
-      `[getLatestReport] Report ${latestRun.id} has ${responseCount} responses and ${citationCount} citations`,
+      `[getLatestReport] Report ${latestRun.id} has ${responseCount} responses and ${citationCount} citations`
     );
 
     // Fetch all pre-computed metrics for the latest report
@@ -752,15 +753,22 @@ export const getLatestReport = async (req: Request, res: Response) => {
         },
       });
 
-      console.log('[DEBUG] Raw sentiment scores from DB:', sentimentScores.map(s => ({ name: s.name, engine: s.engine })));
+      console.log(
+        "[DEBUG] Raw sentiment scores from DB:",
+        sentimentScores.map((s) => ({ name: s.name, engine: s.engine }))
+      );
 
       // Also check what exists in the database for this runId
-      const allSentimentScores = await prismaReadReplica.sentimentScore.findMany({
-        where: { runId: latestRun.id },
-        select: { engine: true, name: true },
-      });
-      
-      console.log('[DEBUG] ALL sentiment scores for runId:', allSentimentScores);
+      const allSentimentScores =
+        await prismaReadReplica.sentimentScore.findMany({
+          where: { runId: latestRun.id },
+          select: { engine: true, name: true },
+        });
+
+      console.log(
+        "[DEBUG] ALL sentiment scores for runId:",
+        allSentimentScores
+      );
 
       // Transform sentiment scores into the expected format
       sentimentDetails = sentimentScores.map((score) => ({
@@ -769,8 +777,25 @@ export const getLatestReport = async (req: Request, res: Response) => {
         value: score.value,
       }));
 
-      console.log('[DEBUG] Transformed sentimentDetails:', sentimentDetails.map((s: { name: string; engine: string }) => ({ name: s.name, engine: s.engine })));
-      console.log('🚀 [DEBUG] About to send sentimentDetails with length:', sentimentDetails.length);
+      console.log(
+        "[DEBUG] Transformed sentimentDetails:",
+        (Array.isArray(sentimentDetails) ? sentimentDetails : []).map(
+          (s: any) => ({
+            name:
+              s && typeof s === "object" && "name" in s
+                ? (s as any).name
+                : undefined,
+            engine:
+              s && typeof s === "object" && "engine" in s
+                ? (s as any).engine
+                : undefined,
+          })
+        )
+      );
+      console.log(
+        "🚀 [DEBUG] About to send sentimentDetails with length:",
+        sentimentDetails.length
+      );
 
       controllerLog(
         {
@@ -780,7 +805,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
           reportId: latestRun.id,
           metadata: { sentimentScoresFound: sentimentDetails.length },
         },
-        `Fetched ${sentimentDetails.length} sentiment details for dashboard`,
+        `Fetched ${sentimentDetails.length} sentiment details for dashboard`
       );
     } catch (error) {
       controllerLog(
@@ -792,13 +817,14 @@ export const getLatestReport = async (req: Request, res: Response) => {
           error,
         },
         "Failed to fetch sentiment details",
-        "ERROR",
+        "ERROR"
       );
       // Continue without sentiment details rather than failing the entire request
     }
 
     // If shareOfVoiceHistory is missing (which it is for individual models), fetch it on demand
-    let shareOfVoiceHistory = (metrics as unknown as Record<string, unknown>)?.shareOfVoiceHistory;
+    let shareOfVoiceHistory = (metrics as unknown as Record<string, unknown>)
+      ?.shareOfVoiceHistory;
     if (
       !shareOfVoiceHistory ||
       (Array.isArray(shareOfVoiceHistory) && shareOfVoiceHistory.length === 0)
@@ -806,12 +832,13 @@ export const getLatestReport = async (req: Request, res: Response) => {
       shareOfVoiceHistory = await calculateShareOfVoiceHistory(
         latestRun.id,
         companyId,
-        { aiModel: effectiveModel },
+        { aiModel: effectiveModel }
       );
     }
 
     // Similarly, fetch inclusionRateHistory if it's not on the main metrics object
-    let inclusionRateHistory = (metrics as unknown as Record<string, unknown>)?.inclusionRateHistory;
+    let inclusionRateHistory = (metrics as unknown as Record<string, unknown>)
+      ?.inclusionRateHistory;
     if (
       !inclusionRateHistory ||
       (Array.isArray(inclusionRateHistory) && inclusionRateHistory.length === 0)
@@ -819,12 +846,13 @@ export const getLatestReport = async (req: Request, res: Response) => {
       inclusionRateHistory = await calculateInclusionRateHistory(
         latestRun.id,
         companyId,
-        { aiModel: effectiveModel },
+        { aiModel: effectiveModel }
       );
     }
 
     // Similarly, fetch sentimentOverTime if it's not on the main metrics object
-    let sentimentOverTime = (metrics as unknown as Record<string, unknown>)?.sentimentOverTime;
+    let sentimentOverTime = (metrics as unknown as Record<string, unknown>)
+      ?.sentimentOverTime;
     if (
       !sentimentOverTime ||
       (Array.isArray(sentimentOverTime) && sentimentOverTime.length === 0)
@@ -832,7 +860,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
       sentimentOverTime = await calculateSentimentOverTime(
         latestRun.id,
         companyId,
-        { aiModel: effectiveModel },
+        { aiModel: effectiveModel }
       );
     }
 
@@ -847,7 +875,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
           metadata: { degradedMode: true },
         },
         "Metrics unavailable - serving report with basic data",
-        "WARN",
+        "WARN"
       );
 
       // Return basic report data with fallback metrics
@@ -880,7 +908,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
         ...fallbackMetrics,
         optimizationTasks: latestRun.optimizationTasks || [],
         _degradedMode: true, // Signal to frontend
-        _reason: "Metrics computation failed - showing basic report data"
+        _reason: "Metrics computation failed - showing basic report data",
       };
 
       return res.status(200).json(responseData);
@@ -908,10 +936,18 @@ export const getLatestReport = async (req: Request, res: Response) => {
       optimizationTasks = tasksSourceRun?.optimizationTasks ?? [];
     }
 
-    console.log('🔥 [DEBUG] metrics object has sentimentDetails?', 'sentimentDetails' in (metrics || {}));
+    console.log(
+      "🔥 [DEBUG] metrics object has sentimentDetails?",
+      "sentimentDetails" in (metrics || {})
+    );
     const metricsObj = metrics as unknown as Record<string, unknown>;
     const metricsSentimentDetails = metricsObj?.sentimentDetails;
-    console.log('🔥 [DEBUG] metrics.sentimentDetails length:', Array.isArray(metricsSentimentDetails) ? metricsSentimentDetails.length : 'not an array');
+    console.log(
+      "🔥 [DEBUG] metrics.sentimentDetails length:",
+      Array.isArray(metricsSentimentDetails)
+        ? metricsSentimentDetails.length
+        : "not an array"
+    );
 
     const responseData = {
       id: latestRun.id,
@@ -929,7 +965,10 @@ export const getLatestReport = async (req: Request, res: Response) => {
       sentimentOverTime, // Ensure sentiment history is always present
     };
 
-    console.log('🔥 [DEBUG] Final responseData.sentimentDetails length:', responseData.sentimentDetails?.length);
+    console.log(
+      "🔥 [DEBUG] Final responseData.sentimentDetails length:",
+      responseData.sentimentDetails?.length
+    );
 
     const duration = Date.now() - startTime;
     controllerLog(
@@ -941,7 +980,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
         duration,
         statusCode: 200,
       },
-      "Successfully retrieved latest report with pre-computed metrics",
+      "Successfully retrieved latest report with pre-computed metrics"
     );
 
     return res.status(200).json(responseData);
@@ -960,7 +999,7 @@ export const getLatestReport = async (req: Request, res: Response) => {
         },
       },
       `Failed to retrieve latest report for company ${companyId}`,
-      "ERROR",
+      "ERROR"
     );
 
     res.status(500).json({ error: "Failed to retrieve report" });
@@ -1036,7 +1075,7 @@ export const getReportCitationDebug = async (req: Request, res: Response) => {
 
     // Get citation counts by domain
     const citationsByDomain = await prismaReadReplica.$queryRaw`
-      SELECT 
+      SELECT
         domain,
         COUNT(*) as count
       FROM "Citation" fc
@@ -1094,7 +1133,7 @@ export const getReportCitationDebug = async (req: Request, res: Response) => {
 
 export const getCompetitorRankingsForReport = async (
   req: Request,
-  res: Response,
+  res: Response
 ) => {
   const _prisma = await getPrismaClient();
   const _prismaReadReplica = await getReadPrismaClient();
@@ -1109,13 +1148,13 @@ export const getCompetitorRankingsForReport = async (
     const rankings = await calculateCompetitorRankings(
       runId,
       companyId as string,
-      { aiModel: aiModel as string | undefined },
+      { aiModel: aiModel as string | undefined }
     );
     return res.status(200).json(rankings);
   } catch (error) {
     console.error(
       `Failed to get competitor rankings for report ${runId}`,
-      error,
+      error
     );
     return res.status(500).json({ error: "Internal server error" });
   }
@@ -1142,7 +1181,7 @@ export const getReportResponses = async (req: Request, res: Response) => {
       companyId as string,
       { aiModel: aiModel as string | undefined },
       limitNum,
-      skip,
+      skip
     );
     // In a real scenario, we'd also return total count for pagination controls
     return res.status(200).json(responses);
@@ -1158,7 +1197,7 @@ export const getReportResponses = async (req: Request, res: Response) => {
  */
 export const emergencyTriggerCompanyReport = async (
   req: Request,
-  res: Response,
+  res: Response
 ) => {
   const prisma = await getPrismaClient();
   const _prismaReadReplica = await getReadPrismaClient();
@@ -1172,7 +1211,7 @@ export const emergencyTriggerCompanyReport = async (
       companyId,
       metadata: { reason },
     },
-    "Emergency report trigger requested",
+    "Emergency report trigger requested"
   );
 
   try {
@@ -1192,7 +1231,7 @@ export const emergencyTriggerCompanyReport = async (
           statusCode: 404,
         },
         "Company not found for emergency trigger",
-        "ERROR",
+        "ERROR"
       );
       return res.status(404).json({ error: "Company not found" });
     }
@@ -1214,7 +1253,7 @@ export const emergencyTriggerCompanyReport = async (
           reason,
         },
       },
-      `Emergency report trigger successful for ${company.name}`,
+      `Emergency report trigger successful for ${company.name}`
     );
 
     // Send alert about manual trigger
@@ -1235,7 +1274,7 @@ export const emergencyTriggerCompanyReport = async (
       .catch((alertError) => {
         console.error(
           "[ReportController] Failed to send manual trigger alert:",
-          alertError,
+          alertError
         );
       });
 
@@ -1258,7 +1297,7 @@ export const emergencyTriggerCompanyReport = async (
         error,
       },
       "Emergency report trigger failed",
-      "ERROR",
+      "ERROR"
     );
 
     res.status(500).json({
@@ -1274,7 +1313,7 @@ export const emergencyTriggerCompanyReport = async (
  */
 export const emergencyTriggerAllReports = async (
   req: Request,
-  res: Response,
+  res: Response
 ) => {
   const prisma = await getPrismaClient();
   const _prismaReadReplica = await getReadPrismaClient();
@@ -1289,7 +1328,7 @@ export const emergencyTriggerAllReports = async (
       endpoint: "POST /emergency/trigger-all-reports",
       metadata: { reason, delayMinutes },
     },
-    "Emergency all-reports trigger requested",
+    "Emergency all-reports trigger requested"
   );
 
   try {
@@ -1321,7 +1360,7 @@ export const emergencyTriggerAllReports = async (
           statusCode: 200,
           metadata: { eligibleCompaniesCount: 0 },
         },
-        "No eligible companies found for emergency trigger",
+        "No eligible companies found for emergency trigger"
       );
 
       return res.status(200).json({
@@ -1350,7 +1389,7 @@ export const emergencyTriggerAllReports = async (
           reason,
         },
       },
-      `Emergency all-reports trigger scheduled for ${eligibleCompaniesCount} companies`,
+      `Emergency all-reports trigger scheduled for ${eligibleCompaniesCount} companies`
     );
 
     // Send immediate alert about the emergency trigger
@@ -1370,7 +1409,7 @@ export const emergencyTriggerAllReports = async (
       .catch((alertError) => {
         console.error(
           "[ReportController] Failed to send emergency all-trigger alert:",
-          alertError,
+          alertError
         );
       });
 
@@ -1392,7 +1431,7 @@ export const emergencyTriggerAllReports = async (
         error,
       },
       "Emergency all-reports trigger failed",
-      "ERROR",
+      "ERROR"
     );
 
     res.status(500).json({
@@ -1429,11 +1468,11 @@ export const getSystemHealth = async (req: Request, res: Response) => {
     };
 
     // Determine overall system status
-    const allHealthy = Object.values(checks).every(
-      (check: { status: string }) => check.status === "healthy",
+    const allHealthy = (Object.values(checks) as Array<any>).every(
+      (check) => (check as any)?.status === "healthy"
     );
-    const anyUnhealthy = Object.values(checks).some(
-      (check: { status: string }) => check.status === "unhealthy",
+    const anyUnhealthy = (Object.values(checks) as Array<any>).some(
+      (check) => (check as any)?.status === "unhealthy"
     );
 
     const overallStatus = allHealthy
@@ -1466,7 +1505,7 @@ export const getSystemHealth = async (req: Request, res: Response) => {
               : 503,
         metadata: { overallStatus, ...checks },
       },
-      `System health check completed - Status: ${overallStatus}`,
+      `System health check completed - Status: ${overallStatus}`
     );
 
     // Return appropriate HTTP status
@@ -1488,7 +1527,7 @@ export const getSystemHealth = async (req: Request, res: Response) => {
         error: error instanceof Error ? error.message : "Unknown error",
       },
       "System health check failed",
-      "ERROR",
+      "ERROR"
     );
 
     res.status(500).json({
@@ -1556,7 +1595,7 @@ const checkRecentReportsHealth = async () => {
 
     const totalReports = recentReports.length;
     const failedReports = recentReports.filter(
-      (report) => report.status === "FAILED",
+      (report) => report.status === "FAILED"
     ).length;
     const successRate =
       totalReports > 0

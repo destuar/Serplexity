@@ -16,11 +16,11 @@
  * - authenticate: Middleware for authenticating users via JWT.
  * - authorize: Middleware for authorizing users based on their role.
  */
-import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
 import { Role } from "@prisma/client";
-import env from "../config/env";
+import { NextFunction, Request, Response } from "express";
+import jwt from "jsonwebtoken";
 import { getPrismaClient } from "../config/dbCache";
+import env from "../config/env";
 
 const { JWT_SECRET } = env;
 
@@ -32,7 +32,7 @@ interface JwtPayload {
 export const authenticate = async (
   req: Request,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   const prisma = await getPrismaClient();
   const authHeader = req.headers.authorization;
@@ -46,7 +46,7 @@ export const authenticate = async (
   const token = authHeader.split(" ")[1];
 
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as JwtPayload;
+    const payload = jwt.verify(token, JWT_SECRET as string) as JwtPayload;
 
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
@@ -58,8 +58,8 @@ export const authenticate = async (
         tokenVersion: true,
         subscriptionStatus: true,
         stripeCustomerId: true,
-        trialStartedAt: true,
-        trialEndsAt: true,
+        trialStartedAt: false,
+        trialEndsAt: false,
         companies: { include: { competitors: true } },
       },
     });

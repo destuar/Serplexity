@@ -12,11 +12,10 @@ import Card from "../ui/Card";
 import InlineSpinner from "../ui/InlineSpinner";
 
 interface Props {
-  onComplete: () => void;
   onCancel: () => void;
 }
 
-const GscManualVerification: React.FC<Props> = ({ onComplete, onCancel }) => {
+const GscManualVerification: React.FC<Props> = ({ onCancel }) => {
   const { selectedCompany } = useCompany();
   const [siteUrl, setSiteUrl] = useState<string>(
     selectedCompany?.website || ""

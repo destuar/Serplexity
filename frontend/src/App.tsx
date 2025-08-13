@@ -26,8 +26,7 @@ import CompanyGuard from "./components/company/CompanyGuard";
 import { CompanyProvider } from "./contexts/CompanyContext";
 import { DashboardProvider } from "./contexts/DashboardContext";
 import { NavigationProvider } from "./contexts/NavigationContext";
-// import PaymentGuard from './components/auth/PaymentGuard'; // Replaced with FreemiumGuard
-// import FreemiumGuard from './components/auth/FreemiumGuard'; // Not used in main routing anymore
+// PaymentGuard can be used for subscription-gated routes if needed
 import DashboardLayout from "./components/layout/DashboardLayout";
 import TrialBanner from "./components/ui/TrialBanner";
 import OverviewPage from "./pages/OverviewPage";
@@ -42,6 +41,7 @@ import WebAuditPage from "./pages/WebAuditPage";
 
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import { usePageTracking, useSessionTracking } from "./hooks/useAnalytics";
+import BillingPage from "./pages/BillingPage";
 import BlogEditorPage from "./pages/BlogEditorPage";
 import BlogPostPage from "./pages/BlogPostPage";
 import CompanyOnboardingPage from "./pages/CompanyOnboardingPage";
@@ -99,6 +99,7 @@ const ProtectedArea: React.FC = () => (
       <Routes>
         <Route path="/onboarding" element={<CompanyOnboardingPage />} />
         <Route path="/payment" element={<PaymentPage />} />
+        <Route path="/billing" element={<BillingPage />} />
         <Route
           path="/*"
           element={

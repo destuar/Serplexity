@@ -54,10 +54,12 @@ const VisibilityTasksPage: React.FC = () => {
     setBreadcrumbs([{ label: "Action Center" }, { label: "Visibility Tasks" }]);
   }, [setBreadcrumbs]);
 
-  // Sync tasks from dashboard data
+  // Sync tasks from dashboard data (exclude CANCELLED)
   useEffect(() => {
     if (data?.optimizationTasks) {
-      setTasks(data.optimizationTasks);
+      setTasks(
+        data.optimizationTasks.filter((t) => t.status !== TaskStatus.CANCELLED)
+      );
     } else {
       setTasks([]);
     }
@@ -78,6 +80,16 @@ const VisibilityTasksPage: React.FC = () => {
         );
         // Use reportRunId when available to call status update endpoint
         await deleteOptimizationTask(task.reportRunId, task.taskId);
+        // Notify other parts of the app (e.g., Audit page) to uncheck the recommendation
+        window.dispatchEvent(
+          new CustomEvent("optimizationTaskCancelled", {
+            detail: {
+              title: task.title,
+              taskId: task.taskId,
+              reportRunId: task.reportRunId,
+            },
+          })
+        );
         // Silent refresh
         refreshData();
       } catch (err) {
@@ -97,6 +109,15 @@ const VisibilityTasksPage: React.FC = () => {
         handler as EventListener
       );
   }, [selectedCompany?.id, refreshData, data?.optimizationTasks]);
+
+  // Refresh when a task is added from Audit page
+  useEffect(() => {
+    const onAdded = () => {
+      refreshData();
+    };
+    window.addEventListener("optimizationTaskAdded", onAdded);
+    return () => window.removeEventListener("optimizationTaskAdded", onAdded);
+  }, [refreshData]);
 
   const handleRefresh = () => {
     refreshData();

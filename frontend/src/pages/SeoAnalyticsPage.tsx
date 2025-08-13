@@ -34,8 +34,8 @@ const SeoAnalyticsPage: React.FC = () => {
               : false
           );
         }
-      } catch (error) {
-        console.error("Failed to check integrations:", error);
+      } catch (_error) {
+        // ignore
       }
     };
 

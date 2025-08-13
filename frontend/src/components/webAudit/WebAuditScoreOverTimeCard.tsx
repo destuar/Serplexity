@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, ChevronUp, Info, SlidersHorizontal } from "lucide-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
@@ -12,6 +12,7 @@ import {
 import { chartColorArrays } from "../../utils/colorClasses";
 import { InlineSpinner } from "../ui/InlineSpinner";
 import LiquidGlassCard from "../ui/LiquidGlassCard";
+import UiTooltip from "../ui/Tooltip";
 
 type SeriesPointBase = {
   id: string;
@@ -234,9 +235,28 @@ const WebAuditScoreOverTimeCard: React.FC<WebAuditScoreOverTimeCardProps> = ({
     <LiquidGlassCard className="h-full">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <h3 className="text-sm font-medium text-gray-900">
-            Visibility Score
-          </h3>
+          <div className="flex items-baseline gap-0.5">
+            <h3 className="text-sm font-medium text-gray-900">
+              Visibility Score
+            </h3>
+            <UiTooltip
+              content={
+                <span>
+                  <strong>Visibility Score</strong>: overall web audit score
+                  (0–100) combining Performance, SEO, AI Search, and Security.
+                  Tracks progress over time. Use breakdown to see component
+                  scores.
+                </span>
+              }
+            >
+              <span
+                aria-label="What this metric means"
+                className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-white/40 bg-white/70 text-gray-700 align-super -translate-y-0.5 md:-translate-y-1"
+              >
+                <Info className="h-3 w-3" />
+              </span>
+            </UiTooltip>
+          </div>
           {typeof currentValue === "number" && (
             <div className="h-8 px-3 bg-white/60 backdrop-blur-sm border border-white/30 rounded-lg shadow-inner flex items-center justify-center">
               <span className="text-sm font-medium text-gray-700">

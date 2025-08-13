@@ -9,9 +9,12 @@
  * @exports
  * - Various TypeScript interfaces and types for dashboard functionality.
  */
-import { CompetitorRankingsResponse, TopRankingQuestion } from '../services/companyService';
-import { Sparkles } from 'lucide-react';
-import { SentimentDetail } from './dashboardData';
+import { Sparkles } from "lucide-react";
+import {
+  CompetitorRankingsResponse,
+  TopRankingQuestion,
+} from "../services/companyService";
+import { SentimentDetail } from "./dashboardData";
 
 // Model configuration that matches backend models.ts
 export interface ModelConfig {
@@ -23,55 +26,77 @@ export interface ModelConfig {
 }
 
 export const MODEL_CONFIGS: Record<string, ModelConfig> = {
-  'gpt-4.1-mini': {
-    id: 'gpt-4.1-mini',
-    engine: 'openai',
-    displayName: 'ChatGPT',
-    company: 'OpenAI',
-    logoUrl: 'https://openai.com/favicon.ico'
+  "gpt-4.1-mini": {
+    id: "gpt-4.1-mini",
+    engine: "openai",
+    displayName: "ChatGPT",
+    company: "OpenAI",
+    logoUrl: "https://openai.com/favicon.ico",
   },
-  'claude-3-5-haiku-20241022': {
-    id: 'claude-3-5-haiku-20241022',
-    engine: 'anthropic',
-    displayName: 'Claude',
-    company: 'Anthropic',
-    logoUrl: 'https://claude.ai/favicon.ico'
+  "claude-3-5-haiku-20241022": {
+    id: "claude-3-5-haiku-20241022",
+    engine: "anthropic",
+    displayName: "Claude",
+    company: "Anthropic",
+    logoUrl: "https://claude.ai/favicon.ico",
   },
-  'gemini-2.5-flash': {
-    id: 'gemini-2.5-flash',
-    engine: 'google',
-    displayName: 'Gemini',
-    company: 'Google',
-    logoUrl: 'https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg'
+  "gemini-2.5-flash": {
+    id: "gemini-2.5-flash",
+    engine: "google",
+    displayName: "Gemini",
+    company: "Google",
+    logoUrl:
+      "https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg",
   },
-  'sonar': {
-    id: 'sonar',
-    engine: 'perplexity',
-    displayName: 'Perplexity',
-    company: 'Perplexity',
-    logoUrl: 'https://www.perplexity.ai/favicon.svg'
-  }
+  sonar: {
+    id: "sonar",
+    engine: "perplexity",
+    displayName: "Perplexity",
+    company: "Perplexity",
+    logoUrl: "https://www.perplexity.ai/favicon.svg",
+  },
+  "ai-overview": {
+    id: "ai-overview",
+    engine: "google",
+    displayName: "AI Overviews",
+    company: "Google",
+    logoUrl: "https://www.google.com/favicon.ico",
+  },
 };
 
 // Engine mapping for backward compatibility and display purposes
 export const ENGINE_DISPLAY_NAMES: Record<string, string> = {
-  'openai': 'ChatGPT',
-  'anthropic': 'Claude',
-  'google': 'Gemini', 
-  'gemini': 'Gemini',
-  'perplexity': 'Perplexity',
-  'serplexity-summary': 'Overall Summary'
+  openai: "ChatGPT",
+  anthropic: "Claude",
+  google: "Gemini",
+  gemini: "Gemini",
+  perplexity: "Perplexity",
+  "serplexity-summary": "Overall Summary",
 };
 
 // Get all available model options for filters
-export const getModelFilterOptions = () => [
-  { value: 'all', label: 'All Models', logoUrl: undefined, icon: Sparkles },
-  ...Object.values(MODEL_CONFIGS).map(model => ({
-    value: model.id,
-    label: model.displayName,
-    logoUrl: model.logoUrl
-  }))
-];
+export const getModelFilterOptions = (
+  preferences?: Record<string, boolean> | null
+) => {
+  const enabledIds = preferences
+    ? Object.entries(preferences)
+        .filter(([, enabled]) => enabled)
+        .map(([id]) => id)
+    : null;
+
+  const models = Object.values(MODEL_CONFIGS).filter((m) =>
+    enabledIds ? enabledIds.includes(m.id) : true
+  );
+
+  return [
+    { value: "all", label: "All Models", logoUrl: undefined, icon: Sparkles },
+    ...models.map((model) => ({
+      value: model.id,
+      label: model.displayName,
+      logoUrl: model.logoUrl,
+    })),
+  ];
+};
 
 // Get display name for a model ID or engine
 export const getModelDisplayName = (modelIdOrEngine: string): string => {
@@ -80,7 +105,7 @@ export const getModelDisplayName = (modelIdOrEngine: string): string => {
   if (modelConfig) {
     return modelConfig.displayName;
   }
-  
+
   // Then check if it's an engine name
   return ENGINE_DISPLAY_NAMES[modelIdOrEngine] || modelIdOrEngine;
 };
@@ -90,7 +115,7 @@ export const getModelDisplayName = (modelIdOrEngine: string): string => {
 export interface MetricData {
   value: number;
   change: number;
-  changeType: 'increase' | 'decrease';
+  changeType: "increase" | "decrease";
 }
 
 export interface ChartDataPoint {
@@ -133,8 +158,14 @@ export interface ConceptSourceData {
 }
 
 export interface DashboardFilters {
-  dateRange: '24h' | '7d' | '30d' | '90d' | '1y';
-  aiModel: 'all' | 'gpt-4.1-mini' | 'claude-3-5-haiku-20241022' | 'gemini-2.5-flash' | 'sonar';
+  dateRange: "24h" | "7d" | "30d" | "90d" | "1y";
+  aiModel:
+    | "all"
+    | "gpt-4.1-mini"
+    | "claude-3-5-haiku-20241022"
+    | "gemini-2.5-flash"
+    | "sonar"
+    | "ai-overview";
   company: string;
   competitors: string[];
 }
@@ -177,9 +208,21 @@ export interface DashboardData {
     totalCitations: number;
   };
   topQuestions: TopRankingQuestion[];
-  sentimentOverTime: { date: string; sentimentScore: number; aiModel: string; }[];
-  shareOfVoiceHistory: { date: string; shareOfVoice: number; aiModel: string; }[];
-  inclusionRateHistory: { date: string; inclusionRate: number; aiModel: string; }[];
+  sentimentOverTime: {
+    date: string;
+    sentimentScore: number;
+    aiModel: string;
+  }[];
+  shareOfVoiceHistory: {
+    date: string;
+    shareOfVoice: number;
+    aiModel: string;
+  }[];
+  inclusionRateHistory: {
+    date: string;
+    inclusionRate: number;
+    aiModel: string;
+  }[];
 
   // Report metadata
   lastUpdated: string;
@@ -192,7 +235,7 @@ export interface DashboardData {
 
   // AI Visibility Summary and Optimization Tasks
 
-  optimizationTasks?: import('../services/reportService').OptimizationTask[];
+  optimizationTasks?: import("../services/reportService").OptimizationTask[];
 }
 
 export interface PreloadedMetricSet {
@@ -226,4 +269,4 @@ export interface SentimentScores {
   ratings: SentimentRating[];
 }
 
-// Legacy SentimentScoreValue interface - use SentimentRating from dashboardData.ts instead 
+// Legacy SentimentScoreValue interface - use SentimentRating from dashboardData.ts instead

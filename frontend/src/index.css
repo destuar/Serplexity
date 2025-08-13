@@ -305,7 +305,7 @@ body {
   }
 }
 
-/* Enhanced Scrollbar Styling */
+/* Enhanced Scrollbar Styling (fixed width, no hover growth) */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -316,19 +316,19 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.22);
   border-radius: 4px;
-  transition: background 0.2s ease;
 }
 
+/* Keep hover color only, no size change */
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.32);
 }
 
 /* Firefox scrollbar styling */
 html {
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+  scrollbar-color: rgba(0, 0, 0, 0.22) transparent;
 }
 
 /* Professional Animations */

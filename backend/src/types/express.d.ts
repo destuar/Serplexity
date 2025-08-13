@@ -15,6 +15,7 @@ import { Role } from "@prisma/client";
 declare module "express-serve-static-core" {
   interface Request {
     user?: {
+      companyId?: string | null;
       id: string;
       email: string;
       name: string | null;
@@ -36,7 +37,7 @@ declare module "express-serve-static-core" {
           id: string;
           name: string;
           website: string;
-          isAccepted: boolean;
+          isAccepted: boolean | null;
           isGenerated: boolean;
           companyId: string;
           createdAt: Date;

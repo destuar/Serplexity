@@ -16,12 +16,13 @@
  * @exports
  * - backupWorker: The BullMQ worker instance for backup scheduling jobs.
  */
-import { Worker, Job } from "bullmq";
-import env from "../config/env";
+import { Job, Worker } from "bullmq";
 import { getBullMQConnection } from "../config/bullmq";
 import { getDbClient } from "../config/database";
-import { queueReport } from "../services/reportSchedulingService";
+import env from "../config/env";
 import { alertingService } from "../services/alertingService";
+import { shouldGenerateToday } from "../services/reportScheduleService";
+import { queueReport } from "../services/reportSchedulingService";
 
 let backupWorker: Worker | null = null;
 
@@ -33,7 +34,7 @@ if (env.NODE_ENV !== "test") {
 
       if (job.name === "trigger-backup-daily-reports") {
         console.log(
-          "[Backup Scheduler Worker] Starting backup daily report check...",
+          "[Backup Scheduler Worker] Starting backup daily report check..."
         );
 
         try {
@@ -45,7 +46,7 @@ if (env.NODE_ENV !== "test") {
           tomorrow.setDate(tomorrow.getDate() + 1);
 
           // Find companies that have previous completed reports (so they're eligible for daily reports)
-          // Only include companies whose users have active subscriptions, active trials, or are admins  
+          // Only include companies whose users have active subscriptions or are admins (trials removed)
           const eligibleCompanies = await prisma.company.findMany({
             where: {
               runs: {
@@ -53,22 +54,16 @@ if (env.NODE_ENV !== "test") {
                   status: "COMPLETED",
                 },
               },
-              // Only include companies whose users have active subscriptions, active trials, or are admins
+              // Only include companies whose users have active subscriptions or are admins (trials removed)
               user: {
                 OR: [
                   // Active subscription
                   { subscriptionStatus: "active" },
                   // Admin users (always get reports)
                   { role: "ADMIN" },
-                  // Active trial (not expired)
-                  {
-                    AND: [
-                      { subscriptionStatus: "trialing" },
-                      { trialEndsAt: { gt: new Date() } }
-                    ]
-                  }
-                ]
-              }
+                  // Trials removed
+                ],
+              },
             },
             include: {
               runs: {
@@ -85,7 +80,7 @@ if (env.NODE_ENV !== "test") {
           });
 
           console.log(
-            `[Backup Scheduler Worker] Found ${eligibleCompanies.length} companies eligible for daily reports.`,
+            `[Backup Scheduler Worker] Found ${eligibleCompanies.length} companies eligible for daily reports.`
           );
 
           let companiesWithoutReports = 0;
@@ -121,10 +116,19 @@ if (env.NODE_ENV !== "test") {
               }
             }
 
+            // Respect per-company schedule: only backfill if a run was expected today
+            const scheduledToday = await shouldGenerateToday(
+              prisma as any,
+              company.id
+            );
+            if (!scheduledToday) {
+              continue;
+            }
+
             if (needsBackupReport) {
               try {
                 console.log(
-                  `[Backup Scheduler Worker] Triggering backup report for ${company.name}: ${reason}`,
+                  `[Backup Scheduler Worker] Triggering backup report for ${company.name}: ${reason}`
                 );
 
                 // Force=true to bypass daily cache since this is a backup
@@ -136,7 +140,7 @@ if (env.NODE_ENV !== "test") {
               } catch (error) {
                 console.error(
                   `[Backup Scheduler Worker] Failed to queue backup report for company ${company.id} (${company.name}):`,
-                  error,
+                  error
                 );
 
                 // Alert about backup failure
@@ -156,7 +160,7 @@ if (env.NODE_ENV !== "test") {
                   .catch((alertError) => {
                     console.error(
                       "[Backup Scheduler Worker] Failed to send backup failure alert:",
-                      alertError,
+                      alertError
                     );
                   });
               }
@@ -173,13 +177,13 @@ if (env.NODE_ENV !== "test") {
               companiesWithFailedReports,
               backupReportsTriggered,
               durationMs: duration,
-            },
+            }
           );
 
           // If no reports were triggered, that's actually good news
           if (backupReportsTriggered === 0) {
             console.log(
-              "[Backup Scheduler Worker] ✅ All companies have successful reports today - no backup needed!",
+              "[Backup Scheduler Worker] ✅ All companies have successful reports today - no backup needed!"
             );
           } else {
             // Alert that backup scheduling was needed
@@ -199,14 +203,14 @@ if (env.NODE_ENV !== "test") {
               .catch((alertError) => {
                 console.error(
                   "[Backup Scheduler Worker] Failed to send backup summary alert:",
-                  alertError,
+                  alertError
                 );
               });
           }
         } catch (error) {
           console.error(
             "[Backup Scheduler Worker] Critical error during backup scheduling:",
-            error,
+            error
           );
 
           await alertingService
@@ -222,7 +226,7 @@ if (env.NODE_ENV !== "test") {
             .catch((alertError) => {
               console.error(
                 "[Backup Scheduler Worker] Failed to send critical error alert:",
-                alertError,
+                alertError
               );
             });
 
@@ -230,14 +234,14 @@ if (env.NODE_ENV !== "test") {
         }
       } else if (job.name === "trigger-emergency-reports") {
         console.log(
-          "[Backup Scheduler Worker] Processing emergency report trigger...",
+          "[Backup Scheduler Worker] Processing emergency report trigger..."
         );
         const { reason, triggeredAt } = job.data;
 
         try {
           const prisma = await getDbClient();
           // For emergency triggers, queue reports for ALL eligible companies regardless of today's status
-          // Only include companies whose users have active subscriptions, active trials, or are admins
+          // Only include companies whose users have active subscriptions or are admins (trials removed)
           const companies = await prisma.company.findMany({
             where: {
               runs: {
@@ -245,28 +249,22 @@ if (env.NODE_ENV !== "test") {
                   status: "COMPLETED",
                 },
               },
-              // Only include companies whose users have active subscriptions, active trials, or are admins
+              // Only include companies whose users have active subscriptions or are admins (trials removed)
               user: {
                 OR: [
                   // Active subscription
                   { subscriptionStatus: "active" },
                   // Admin users (always get reports)
                   { role: "ADMIN" },
-                  // Active trial (not expired)
-                  {
-                    AND: [
-                      { subscriptionStatus: "trialing" },
-                      { trialEndsAt: { gt: new Date() } }
-                    ]
-                  }
-                ]
-              }
+                  // Trials removed
+                ],
+              },
             },
             select: { id: true, name: true },
           });
 
           console.log(
-            `[Backup Scheduler Worker] Emergency trigger: processing ${companies.length} companies (Reason: ${reason})`,
+            `[Backup Scheduler Worker] Emergency trigger: processing ${companies.length} companies (Reason: ${reason})`
           );
 
           let successCount = 0;
@@ -281,14 +279,14 @@ if (env.NODE_ENV !== "test") {
             } catch (error) {
               console.error(
                 `[Backup Scheduler Worker] Emergency trigger failed for company ${company.id} (${company.name}):`,
-                error,
+                error
               );
               failCount++;
             }
           }
 
           console.log(
-            `[Backup Scheduler Worker] Emergency trigger completed: ${successCount} success, ${failCount} failed`,
+            `[Backup Scheduler Worker] Emergency trigger completed: ${successCount} success, ${failCount} failed`
           );
 
           await alertingService
@@ -308,13 +306,13 @@ if (env.NODE_ENV !== "test") {
             .catch((alertError) => {
               console.error(
                 "[Backup Scheduler Worker] Failed to send emergency completion alert:",
-                alertError,
+                alertError
               );
             });
         } catch (error) {
           console.error(
             "[Backup Scheduler Worker] Critical error during emergency trigger:",
-            error,
+            error
           );
           throw error;
         }
@@ -325,23 +323,23 @@ if (env.NODE_ENV !== "test") {
       prefix: env.BULLMQ_QUEUE_PREFIX,
       concurrency: 1, // Only one backup scheduler job should run at a time
       lockDuration: 1000 * 60 * 10, // 10 minutes
-    },
+    }
   );
 
   backupWorker.on("completed", (job: Job) => {
     console.log(
-      `[Backup Scheduler Worker] Backup scheduler job ${job.id} (${job.name}) has completed.`,
+      `[Backup Scheduler Worker] Backup scheduler job ${job.id} (${job.name}) has completed.`
     );
   });
 
   backupWorker.on("failed", async (job: Job | undefined, err: Error) => {
     if (job) {
       console.error(
-        `[Backup Scheduler Worker] Backup scheduler job ${job.id} (${job.name}) has failed with ${err.message}`,
+        `[Backup Scheduler Worker] Backup scheduler job ${job.id} (${job.name}) has failed with ${err.message}`
       );
     } else {
       console.error(
-        `[Backup Scheduler Worker] A backup scheduler job has failed with ${err.message}`,
+        `[Backup Scheduler Worker] A backup scheduler job has failed with ${err.message}`
       );
     }
 
@@ -361,7 +359,7 @@ if (env.NODE_ENV !== "test") {
     } catch (alertError) {
       console.error(
         "[Backup Scheduler Worker] Failed to send backup scheduler failure alert:",
-        alertError,
+        alertError
       );
     }
   });

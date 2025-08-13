@@ -1,10 +1,10 @@
 /**
  * @file healthCheckScheduler.ts
  * @description Proactive health monitoring with automatic recovery
- * 
+ *
  * This scheduler runs continuous health checks and automatically triggers
  * recovery when database authentication issues are detected.
- * 
+ *
  * 10x Engineer Features:
  * - Proactive detection of password rotation before user impact
  * - Configurable check intervals based on environment
@@ -12,21 +12,21 @@
  * - Automatic escalation for persistent failures
  */
 
-import { Queue, Worker, Job } from 'bullmq';
-import Redis from 'ioredis';
-import logger from '../utils/logger';
-import env from '../config/env';
-import { healthCheckWithRecovery } from '../middleware/autoRecovery';
-import { databaseService } from '../config/database';
+import { Job, Queue, Worker } from "bullmq";
+import Redis from "ioredis";
+import env from "../config/env";
+import { healthCheckWithRecovery } from "../middleware/autoRecovery";
+import logger from "../utils/logger";
+// import { databaseService } from '../config/database';
 
 interface HealthCheckJobData {
-  checkType: 'database' | 'full';
-  triggeredBy: 'scheduler' | 'manual' | 'alert';
+  checkType: "database" | "full";
+  triggeredBy: "scheduler" | "manual" | "alert";
 }
 
 interface HealthCheckResult {
   timestamp: number;
-  status: 'healthy' | 'recovering' | 'unhealthy';
+  status: "healthy" | "recovering" | "unhealthy";
   checks: {
     database: boolean;
     recovery?: {
@@ -44,10 +44,12 @@ class HealthCheckScheduler {
   private queue: Queue;
   private worker: Worker;
   private redis: Redis;
-  
+  private queueEvents?: any;
+
   // Configuration
-  private readonly QUEUE_NAME = 'health-check';
-  private readonly CHECK_INTERVAL = env.NODE_ENV === 'production' ? 60 * 1000 : 30 * 1000; // 1min prod, 30s dev
+  private readonly QUEUE_NAME = "health-check";
+  private readonly CHECK_INTERVAL =
+    env.NODE_ENV === "production" ? 60 * 1000 : 30 * 1000; // 1min prod, 30s dev
   private readonly FAILURE_THRESHOLD = 3; // Escalate after 3 consecutive failures
   private readonly ALERT_COOLDOWN = 15 * 60 * 1000; // 15 minutes between alerts
 
@@ -56,7 +58,7 @@ class HealthCheckScheduler {
 
   constructor(redis: Redis) {
     this.redis = redis;
-    this.queue = new Queue(this.QUEUE_NAME, { 
+    this.queue = new Queue(this.QUEUE_NAME, {
       connection: redis,
       defaultJobOptions: {
         removeOnComplete: 10, // Keep last 10 results
@@ -64,11 +66,20 @@ class HealthCheckScheduler {
         attempts: 1, // Don't retry health checks
       },
     });
+    // Lazily initialize QueueEvents if available
+    try {
+      // dynamic import to avoid type issues
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { QueueEvents } = require("bullmq");
+      this.queueEvents = new QueueEvents(this.QUEUE_NAME, {
+        connection: redis,
+      });
+    } catch {}
 
     this.worker = new Worker(
       this.QUEUE_NAME,
       this.processHealthCheck.bind(this),
-      { 
+      {
         connection: redis,
         concurrency: 1, // Process one at a time
       }
@@ -84,25 +95,29 @@ class HealthCheckScheduler {
     try {
       // Clear any existing recurring jobs
       await this.queue.obliterate({ force: true });
-      
+
       // Schedule recurring health checks
       await this.queue.add(
-        'database-health-check',
-        { 
-          checkType: 'database',
-          triggeredBy: 'scheduler',
+        "database-health-check",
+        {
+          checkType: "database",
+          triggeredBy: "scheduler",
         },
         {
           repeat: {
             every: this.CHECK_INTERVAL,
           },
-          jobId: 'recurring-health-check', // Prevent duplicates
+          jobId: "recurring-health-check", // Prevent duplicates
         }
       );
 
-      logger.info(`[HealthCheckScheduler] Started with ${this.CHECK_INTERVAL}ms interval`);
+      logger.info(
+        `[HealthCheckScheduler] Started with ${this.CHECK_INTERVAL}ms interval`
+      );
     } catch (error) {
-      logger.error('[HealthCheckScheduler] Failed to start scheduler', { error });
+      logger.error("[HealthCheckScheduler] Failed to start scheduler", {
+        error,
+      });
       throw error;
     }
   }
@@ -113,7 +128,7 @@ class HealthCheckScheduler {
   async stop(): Promise<void> {
     await this.worker.close();
     await this.queue.close();
-    logger.info('[HealthCheckScheduler] Stopped');
+    logger.info("[HealthCheckScheduler] Stopped");
   }
 
   /**
@@ -121,10 +136,10 @@ class HealthCheckScheduler {
    */
   async triggerManualCheck(): Promise<HealthCheckResult> {
     const job = await this.queue.add(
-      'manual-health-check',
+      "manual-health-check",
       {
-        checkType: 'full',
-        triggeredBy: 'manual',
+        checkType: "full",
+        triggeredBy: "manual",
       },
       {
         priority: 10, // High priority for manual checks
@@ -132,23 +147,35 @@ class HealthCheckScheduler {
     );
 
     // Wait for job completion
-    const result = await job.waitUntilFinished(this.queue.events);
+    // In tests or single-process mode we may not have QueueEvents wired; poll the job result instead
+    const result =
+      (await job.waitUntilFinished?.(this.queueEvents)) ??
+      (await job.getState());
+    if (typeof result === "string") {
+      // getState returns a string; fall back to retrieving return value
+      const rv = await job.returnvalue;
+      return rv as HealthCheckResult;
+    }
     return result as HealthCheckResult;
   }
 
   /**
    * Process health check job
    */
-  private async processHealthCheck(job: Job<HealthCheckJobData>): Promise<HealthCheckResult> {
+  private async processHealthCheck(
+    job: Job<HealthCheckJobData>
+  ): Promise<HealthCheckResult> {
     const startTime = Date.now();
     const { checkType, triggeredBy } = job.data;
 
-    logger.debug(`[HealthCheckScheduler] Running ${checkType} health check (${triggeredBy})`);
+    logger.debug(
+      `[HealthCheckScheduler] Running ${checkType} health check (${triggeredBy})`
+    );
 
     try {
       // Perform health check with automatic recovery
       const healthResult = await healthCheckWithRecovery();
-      
+
       const result: HealthCheckResult = {
         timestamp: startTime,
         status: healthResult.status,
@@ -164,11 +191,15 @@ class HealthCheckScheduler {
 
       return result;
     } catch (error) {
-      logger.error('[HealthCheckScheduler] Health check failed', { error, checkType, triggeredBy });
-      
+      logger.error("[HealthCheckScheduler] Health check failed", {
+        error,
+        checkType,
+        triggeredBy,
+      });
+
       const result: HealthCheckResult = {
         timestamp: startTime,
-        status: 'unhealthy',
+        status: "unhealthy",
         checks: {
           database: false,
         },
@@ -187,22 +218,27 @@ class HealthCheckScheduler {
     result: HealthCheckResult,
     triggeredBy: string
   ): Promise<void> {
-    const isHealthy = result.status === 'healthy';
-    
+    const isHealthy = result.status === "healthy";
+
     if (isHealthy) {
       // Reset failure counter on successful check
       if (this.consecutiveFailures > 0) {
-        logger.info(`[HealthCheckScheduler] Health restored after ${this.consecutiveFailures} failures`);
+        logger.info(
+          `[HealthCheckScheduler] Health restored after ${this.consecutiveFailures} failures`
+        );
         this.consecutiveFailures = 0;
       }
     } else {
       this.consecutiveFailures++;
-      
-      logger.warn(`[HealthCheckScheduler] Health check failed (${this.consecutiveFailures}/${this.FAILURE_THRESHOLD})`, {
-        status: result.status,
-        database: result.checks.database,
-        recovery: result.checks.recovery,
-      });
+
+      logger.warn(
+        `[HealthCheckScheduler] Health check failed (${this.consecutiveFailures}/${this.FAILURE_THRESHOLD})`,
+        {
+          status: result.status,
+          database: result.checks.database,
+          recovery: result.checks.recovery,
+        }
+      );
 
       // Escalate if threshold reached
       if (this.consecutiveFailures >= this.FAILURE_THRESHOLD) {
@@ -219,7 +255,7 @@ class HealthCheckScheduler {
    */
   private async escalateHealthIssue(result: HealthCheckResult): Promise<void> {
     const now = Date.now();
-    
+
     // Check alert cooldown
     if (now - this.lastAlertTime < this.ALERT_COOLDOWN) {
       return;
@@ -227,27 +263,30 @@ class HealthCheckScheduler {
 
     this.lastAlertTime = now;
 
-    logger.error(`[HealthCheckScheduler] ESCALATION: ${this.consecutiveFailures} consecutive health check failures`, {
-      result,
-      environment: env.NODE_ENV,
-    });
+    logger.error(
+      `[HealthCheckScheduler] ESCALATION: ${this.consecutiveFailures} consecutive health check failures`,
+      {
+        result,
+        environment: env.NODE_ENV,
+      }
+    );
 
     // Here you could integrate with:
     // - PagerDuty
-    // - Slack webhooks  
+    // - Slack webhooks
     // - Email alerts
     // - AWS SNS
-    
+
     // For now, just log the escalation
     if (env.ALERT_WEBHOOK_URL) {
       try {
         // Send webhook alert (implement based on your alerting system)
-        logger.info('[HealthCheckScheduler] Alert webhook would be triggered', {
+        logger.info("[HealthCheckScheduler] Alert webhook would be triggered", {
           webhookUrl: env.ALERT_WEBHOOK_URL,
           failures: this.consecutiveFailures,
         });
       } catch (error) {
-        logger.error('[HealthCheckScheduler] Failed to send alert', { error });
+        logger.error("[HealthCheckScheduler] Failed to send alert", { error });
       }
     }
   }
@@ -260,7 +299,9 @@ class HealthCheckScheduler {
       const key = `health:results:${Math.floor(result.timestamp / 60000)}`; // Group by minute
       await this.redis.setex(key, 3600, JSON.stringify(result)); // Keep for 1 hour
     } catch (error) {
-      logger.warn('[HealthCheckScheduler] Failed to store health result', { error });
+      logger.warn("[HealthCheckScheduler] Failed to store health result", {
+        error,
+      });
     }
   }
 
@@ -268,16 +309,18 @@ class HealthCheckScheduler {
    * Setup event handlers for the worker
    */
   private setupEventHandlers(): void {
-    this.worker.on('completed', (job) => {
+    this.worker.on("completed", (job) => {
       logger.debug(`[HealthCheckScheduler] Job ${job.id} completed`);
     });
 
-    this.worker.on('failed', (job, err) => {
-      logger.error(`[HealthCheckScheduler] Job ${job?.id} failed`, { error: err });
+    this.worker.on("failed", (job, err) => {
+      logger.error(`[HealthCheckScheduler] Job ${job?.id} failed`, {
+        error: err,
+      });
     });
 
-    this.worker.on('error', (err) => {
-      logger.error('[HealthCheckScheduler] Worker error', { error: err });
+    this.worker.on("error", (err) => {
+      logger.error("[HealthCheckScheduler] Worker error", { error: err });
     });
   }
 
@@ -292,14 +335,16 @@ class HealthCheckScheduler {
     // Get last result from Redis
     const lastMinute = Math.floor(Date.now() / 60000);
     let lastResult: HealthCheckResult | null = null;
-    
+
     try {
       const stored = await this.redis.get(`health:results:${lastMinute}`);
       if (stored) {
         lastResult = JSON.parse(stored);
       }
     } catch (error) {
-      logger.warn('[HealthCheckScheduler] Failed to get last result', { error });
+      logger.warn("[HealthCheckScheduler] Failed to get last result", {
+        error,
+      });
     }
 
     return {
@@ -316,16 +361,18 @@ export { HealthCheckScheduler };
 // Auto-register scheduler when imported
 let healthCheckScheduler: HealthCheckScheduler | null = null;
 
-export const initializeHealthCheckScheduler = async (redis: Redis): Promise<void> => {
+export const initializeHealthCheckScheduler = async (
+  redis: Redis
+): Promise<void> => {
   if (healthCheckScheduler) {
-    logger.warn('[HealthCheckScheduler] Scheduler already initialized');
+    logger.warn("[HealthCheckScheduler] Scheduler already initialized");
     return;
   }
 
   healthCheckScheduler = new HealthCheckScheduler(redis);
   await healthCheckScheduler.start();
-  
-  logger.info('[HealthCheckScheduler] Health monitoring initialized');
+
+  logger.info("[HealthCheckScheduler] Health monitoring initialized");
 };
 
 export const getHealthCheckScheduler = (): HealthCheckScheduler | null => {

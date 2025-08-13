@@ -20,13 +20,13 @@
  * - refresh: Controller for refreshing access tokens.
  * - getMe: Controller for fetching the current user's data.
  */
-import { Request, Response } from "express";
-import { z } from "zod";
-import bcrypt from "bcrypt";
-import jwt, { SignOptions } from "jsonwebtoken";
 import { Role } from "@prisma/client";
-import env from "../config/env";
+import bcrypt from "bcrypt";
+import { Request, Response } from "express";
+import jwt, { SignOptions } from "jsonwebtoken";
+import { z } from "zod";
 import { getPrismaClient } from "../config/dbCache";
+import env from "../config/env";
 import logger from "../utils/logger";
 
 const { JWT_SECRET, JWT_REFRESH_SECRET } = env;
@@ -63,25 +63,14 @@ export const register = async (req: Request, res: Response) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Calculate trial dates for new users
-    const trialStartedAt = new Date();
-    const trialEndsAt = new Date(trialStartedAt.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
-
-    logger.info("Creating user with trial data", {
-      email,
-      trialStartedAt: trialStartedAt.toISOString(),
-      trialEndsAt: trialEndsAt.toISOString(),
-      subscriptionStatus: "trialing",
-    });
+    // Trials removed
 
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         name,
-        trialStartedAt,
-        trialEndsAt,
-        subscriptionStatus: "trialing", // Start as trialing
+        subscriptionStatus: null,
       },
       select: {
         id: true,
@@ -91,8 +80,8 @@ export const register = async (req: Request, res: Response) => {
         tokenVersion: true,
         subscriptionStatus: true,
         stripeCustomerId: true,
-        trialStartedAt: true,
-        trialEndsAt: true,
+        trialStartedAt: false,
+        trialEndsAt: false,
         companies: { include: { competitors: true } },
       },
     });
@@ -101,8 +90,8 @@ export const register = async (req: Request, res: Response) => {
       userId: user.id,
       email: user.email,
       subscriptionStatus: user.subscriptionStatus,
-      trialStartedAt: user.trialStartedAt,
-      trialEndsAt: user.trialEndsAt,
+      trialStartedAt: null,
+      trialEndsAt: null,
     });
 
     const payload: JwtPayload = {
@@ -114,7 +103,7 @@ export const register = async (req: Request, res: Response) => {
     const refreshToken = jwt.sign(
       payload,
       JWT_REFRESH_SECRET,
-      refreshTokenOptions,
+      refreshTokenOptions
     );
 
     res.cookie("refreshToken", refreshToken, {
@@ -185,7 +174,7 @@ export const login = async (req: Request, res: Response) => {
     const refreshToken = jwt.sign(
       payload,
       JWT_REFRESH_SECRET,
-      refreshTokenOptions,
+      refreshTokenOptions
     );
 
     res.cookie("refreshToken", refreshToken, {
@@ -295,7 +284,7 @@ export const refresh = async (req: Request, res: Response) => {
     const newRefreshToken = jwt.sign(
       newPayload,
       JWT_REFRESH_SECRET,
-      refreshTokenOptions,
+      refreshTokenOptions
     );
 
     res.cookie("refreshToken", newRefreshToken, {

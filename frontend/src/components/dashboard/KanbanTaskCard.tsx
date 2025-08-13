@@ -60,10 +60,11 @@ const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
     isDragging: isSortableDragging,
   } = useSortable({ id: task.taskId });
 
+  // Limit transition to transform only to avoid opacity fade after drop
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
-  };
+    transition: transition ? `transform ${transition}` : undefined,
+  } as React.CSSProperties;
 
   const priorityColors = {
     High: "bg-red-50 text-red-700 border-red-200",
@@ -125,9 +126,9 @@ const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       className={cn(
-        "group relative bg-white rounded-lg p-4 shadow-md border border-gray-100 hover:shadow-lg transition-all duration-200 cursor-grab active:cursor-grabbing",
+        "group relative bg-white rounded-lg p-4 shadow-md border border-gray-100 hover:shadow-lg transition-shadow duration-150 cursor-grab active:cursor-grabbing",
         isSortableDragging ? "opacity-0" : "",
-        isDragging ? "opacity-100 shadow-xl rotate-2 scale-105 z-50" : "",
+        isDragging ? "opacity-100 shadow-xl scale-[1.02] z-50" : "",
         "touch-manipulation select-none"
       )}
       style={{

@@ -7,7 +7,7 @@ structures across all LLM operations.
 
 Models are organized by domain:
 - Sentiment Analysis
-- Fanout Query Generation  
+- Fanout Query Generation
 - Website Enrichment
 - Optimization Tasks
 - Question Answering
@@ -58,7 +58,7 @@ class WebSearchMetadata(BaseModel):
 class SentimentRating(BaseModel):
     """
     Individual sentiment rating for a specific aspect of a company.
-    
+
     Attributes:
         quality: Product/service quality rating (1-10)
         priceValue: Price-to-value ratio rating (1-10)
@@ -68,38 +68,38 @@ class SentimentRating(BaseModel):
         summaryDescription: Brief description of the sentiment
     """
     quality: int = Field(
-        ..., 
-        ge=1, 
-        le=10, 
+        ...,
+        ge=1,
+        le=10,
         description="Product/service quality rating from 1 (poor) to 10 (excellent)"
     )
     priceValue: int = Field(
-        ..., 
-        ge=1, 
-        le=10, 
+        ...,
+        ge=1,
+        le=10,
         description="Price-to-value ratio rating from 1 (poor value) to 10 (excellent value)"
     )
     brandReputation: int = Field(
-        ..., 
-        ge=1, 
-        le=10, 
+        ...,
+        ge=1,
+        le=10,
         description="Brand reputation rating from 1 (poor) to 10 (excellent)"
     )
     brandTrust: int = Field(
-        ..., 
-        ge=1, 
-        le=10, 
+        ...,
+        ge=1,
+        le=10,
         description="Brand trustworthiness rating from 1 (poor) to 10 (excellent)"
     )
     customerService: int = Field(
-        ..., 
-        ge=1, 
-        le=10, 
+        ...,
+        ge=1,
+        le=10,
         description="Customer service quality rating from 1 (poor) to 10 (excellent)"
     )
     summaryDescription: str = Field(
-        ..., 
-        min_length=10, 
+        ...,
+        min_length=10,
         max_length=1000,
         description="Detailed description of the overall sentiment"
     )
@@ -119,7 +119,7 @@ class SentimentRating(BaseModel):
 class SentimentScores(BaseModel):
     """
     Complete sentiment analysis for a company with web search metadata.
-    
+
     Attributes:
         companyName: Name of the company being analyzed
         industry: Industry sector of the company
@@ -127,20 +127,20 @@ class SentimentScores(BaseModel):
         webSearchMetadata: Metadata about web search operations performed
     """
     companyName: str = Field(
-        ..., 
-        min_length=1, 
+        ...,
+        min_length=1,
         max_length=100,
         description="Name of the company being analyzed"
     )
     industry: str = Field(
-        ..., 
-        min_length=1, 
+        ...,
+        min_length=1,
         max_length=50,
         description="Industry sector of the company"
     )
     ratings: List[SentimentRating] = Field(
-        ..., 
-        min_items=1, 
+        ...,
+        min_items=1,
         max_items=50,
         description="List of sentiment ratings from different sources"
     )
@@ -205,20 +205,20 @@ class PurchaseIntent(str, Enum):
 class FanoutQuery(BaseModel):
     """
     Individual query for fanout generation.
-    
+
     Attributes:
         query: The actual query text
         type: Type of query (paraphrase, comparison, etc.)
         intent: Purchase intent level (awareness, consideration, purchase)
     """
     query: str = Field(
-        ..., 
-        min_length=5, 
+        ...,
+        min_length=5,
         max_length=200,
         description="The actual query text"
     )
     type: QueryType = Field(
-        ..., 
+        ...,
         description="Type of query for categorization"
     )
     intent: PurchaseIntent = Field(
@@ -255,7 +255,7 @@ class QueryTypeSelection(BaseModel):
 class FanoutQueryGeneration(BaseModel):
     """
     Complete fanout query generation result.
-    
+
     Attributes:
         companyName: Name of the company
         industry: Industry context
@@ -266,14 +266,14 @@ class FanoutQueryGeneration(BaseModel):
         generationTimestamp: When the queries were generated
     """
     companyName: str = Field(
-        ..., 
-        min_length=1, 
+        ...,
+        min_length=1,
         max_length=100,
         description="Name of the company"
     )
     industry: str = Field(
-        ..., 
-        min_length=1, 
+        ...,
+        min_length=1,
         max_length=50,
         description="Industry context for query generation"
     )
@@ -290,13 +290,13 @@ class FanoutQueryGeneration(BaseModel):
         description="The 3-5 most relevant query types selected with rationale"
     )
     queries: List[FanoutQuery] = Field(
-        ..., 
-        min_items=3, 
+        ...,
+        min_items=3,
         max_items=5,
         description="Generated queries (one per selected type)"
     )
     totalQueries: int = Field(
-        ..., 
+        ...,
         ge=3,
         le=5,
         description="Total number of queries generated (3-5)"
@@ -366,7 +366,7 @@ class FanoutQueryGeneration(BaseModel):
 class CompetitorInfo(BaseModel):
     """
     Competitor information with website details.
-    
+
     Attributes:
         name: Company name
         website: Website URL
@@ -375,29 +375,29 @@ class CompetitorInfo(BaseModel):
         confidence: Confidence score for the information (0-1)
     """
     name: str = Field(
-        ..., 
-        min_length=1, 
+        ...,
+        min_length=1,
         max_length=100,
         description="Company name"
     )
     website: str = Field(
-        ..., 
+        ...,
         pattern=r'^https?://[^\s/$.?#].[^\s]*$',
         description="Website URL"
     )
     description: Optional[str] = Field(
-        None, 
+        None,
         max_length=500,
         description="Brief company description"
     )
     industry: Optional[str] = Field(
-        None, 
+        None,
         max_length=50,
         description="Industry classification"
     )
     confidence: float = Field(
-        default=1.0, 
-        ge=0.0, 
+        default=1.0,
+        ge=0.0,
         le=1.0,
         description="Confidence score for the information"
     )
@@ -428,7 +428,7 @@ class CompetitorInfo(BaseModel):
 class WebsiteEnrichmentResult(BaseModel):
     """
     Result of website enrichment for competitors.
-    
+
     Attributes:
         competitors: List of enriched competitor information
         processedCount: Number of competitors processed
@@ -437,22 +437,22 @@ class WebsiteEnrichmentResult(BaseModel):
         processingTimestamp: When the enrichment was performed
     """
     competitors: List[CompetitorInfo] = Field(
-        ..., 
+        ...,
         min_items=1,
         description="List of enriched competitor information"
     )
     processedCount: int = Field(
-        ..., 
+        ...,
         ge=0,
         description="Number of competitors processed"
     )
     successCount: int = Field(
-        ..., 
+        ...,
         ge=0,
         description="Number of successful enrichments"
     )
     failedCount: int = Field(
-        ..., 
+        ...,
         ge=0,
         description="Number of failed enrichments"
     )
@@ -469,10 +469,10 @@ class WebsiteEnrichmentResult(BaseModel):
             processed = values.get('processedCount', 0)
             success = values.get('successCount', 0)
             failed = values.get('failedCount', 0)
-            
+
             if processed != success + failed:
                 values['processedCount'] = success + failed
-        
+
         return values
 
 # ===== OPTIMIZATION TASKS MODELS =====
@@ -488,7 +488,7 @@ class OptimizationTaskCategory(str, Enum):
 class OptimizationTask(BaseModel):
     """
     Individual optimization task that matches the database schema.
-    
+
     Attributes:
         taskId: Unique identifier for the task
         title: Task title
@@ -499,34 +499,34 @@ class OptimizationTask(BaseModel):
         dependencies: Additional task metadata as JSON
     """
     taskId: str = Field(
-        ..., 
+        ...,
         min_length=1,
         max_length=50,
         description="Unique identifier for the task"
     )
     title: str = Field(
-        ..., 
-        min_length=5, 
+        ...,
+        min_length=5,
         max_length=200,
         description="Task title"
     )
     description: str = Field(
-        ..., 
-        min_length=10, 
+        ...,
+        min_length=10,
         max_length=2000,
         description="Detailed task description"
     )
     category: OptimizationTaskCategory = Field(
-        ..., 
+        ...,
         description="Task category"
     )
     priority: str = Field(
-        ..., 
+        ...,
         description="Priority level (HIGH, MEDIUM, LOW)"
     )
     impactMetric: str = Field(
-        ..., 
-        min_length=10, 
+        ...,
+        min_length=10,
         max_length=500,
         description="Expected impact description with metrics"
     )
@@ -561,7 +561,7 @@ class OptimizationTask(BaseModel):
 class OptimizationTaskGeneration(BaseModel):
     """
     Complete optimization task generation result.
-    
+
     Attributes:
         companyName: Name of the company
         industry: Industry context
@@ -570,25 +570,25 @@ class OptimizationTaskGeneration(BaseModel):
         generationTimestamp: When the tasks were generated
     """
     companyName: str = Field(
-        ..., 
-        min_length=1, 
+        ...,
+        min_length=1,
         max_length=100,
         description="Name of the company"
     )
     industry: str = Field(
-        ..., 
-        min_length=1, 
+        ...,
+        min_length=1,
         max_length=50,
         description="Industry context"
     )
     tasks: List[OptimizationTask] = Field(
-        ..., 
-        min_items=1, 
+        ...,
+        min_items=1,
         max_items=50,
         description="Generated optimization tasks"
     )
     totalTasks: int = Field(
-        ..., 
+        ...,
         ge=1,
         description="Total number of tasks generated"
     )
@@ -619,7 +619,7 @@ class CitationSource(BaseModel):
 class QuestionResponse(BaseModel):
     """
     Response to a question with brand mentions and citations.
-    
+
     Attributes:
         question: Original question
         answer: Generated answer with <brand> tags for mentions
@@ -630,20 +630,20 @@ class QuestionResponse(BaseModel):
         timestamp: When the response was generated
     """
     question: str = Field(
-        ..., 
-        min_length=5, 
+        ...,
+        min_length=5,
         max_length=500,
         description="Original question"
     )
     answer: str = Field(
-        ..., 
-        min_length=10, 
+        ...,
+        min_length=10,
         max_length=10000,
         description="Generated answer with <brand> tags for company mentions"
     )
     confidence: float = Field(
-        ..., 
-        ge=0.0, 
+        ...,
+        ge=0.0,
         le=1.0,
         description="Confidence score for the answer"
     )
@@ -698,7 +698,7 @@ class QuestionResponse(BaseModel):
 class AgentExecutionMetadata(BaseModel):
     """
     Metadata for agent execution.
-    
+
     Attributes:
         agentId: Identifier for the agent
         modelUsed: Model that was used
@@ -737,7 +737,7 @@ class AgentExecutionMetadata(BaseModel):
 class SimpleQuestionResponse(BaseModel):
     """
     Simple question response model for natural question answering.
-    
+
     Attributes:
         answer: The comprehensive answer to the question
         confidence: Confidence score of the answer (0.0 to 1.0)
@@ -746,14 +746,14 @@ class SimpleQuestionResponse(BaseModel):
         sources_count: Number of sources used
     """
     answer: str = Field(
-        ..., 
-        min_length=10, 
+        ...,
+        min_length=10,
         max_length=5000,
         description="Comprehensive answer to the question"
     )
     confidence: float = Field(
-        ge=0.0, 
-        le=1.0, 
+        ge=0.0,
+        le=1.0,
         default=0.8,
         description="Confidence score of the answer"
     )
@@ -762,12 +762,12 @@ class SimpleQuestionResponse(BaseModel):
         description="Whether web search was used to generate the answer"
     )
     brand_mentions_count: int = Field(
-        ge=0, 
+        ge=0,
         default=0,
         description="Number of brand mentions found in the answer"
     )
     sources_count: int = Field(
-        ge=0, 
+        ge=0,
         default=0,
         description="Number of sources used to generate the answer"
     )
@@ -782,3 +782,29 @@ class SimpleQuestionResponse(BaseModel):
                 "sources_count": 5
             }
         }
+
+# ===== AI OVERVIEW (SERP) MODELS =====
+
+class AiOverviewInput(BaseModel):
+    """Input for AI Overview agent (Google SERP)."""
+    query: str = Field(..., min_length=3, max_length=300, description="Search query to run on Google")
+    hl: Optional[str] = Field(default="en", description="Interface language (hl)")
+    gl: Optional[str] = Field(default="us", description="Geolocation (gl)")
+    tbs: Optional[str] = Field(default=None, description="Time bound or filter params (tbs)")
+    timeoutMs: Optional[int] = Field(default=15000, ge=1000, le=60000, description="Max time to wait for SERP")
+    userAgent: Optional[str] = Field(default=None, description="Custom user agent string")
+    proxyUrl: Optional[str] = Field(default=None, description="HTTP(S) proxy URL if required")
+
+class AiOverviewResult(BaseModel):
+    """Structured result of an AI Overview detection and extraction."""
+    present: bool = Field(..., description="Whether AI Overview was detected on the SERP")
+    query: str = Field(..., description="Original query")
+    serpUrl: str = Field(..., description="Final SERP URL after navigation")
+    answerText: Optional[str] = Field(default=None, description="Extracted AI Overview text content")
+    htmlSnippet: Optional[str] = Field(default=None, description="Trimmed HTML snippet of the AI Overview region")
+    citations: List[CitationSource] = Field(default_factory=list, description="Links found within AI Overview")
+    detectedSelectors: List[str] = Field(default_factory=list, description="Selectors that matched AI Overview region")
+    userAgent: Optional[str] = Field(default=None, description="User agent used for navigation")
+    locale: Optional[str] = Field(default=None, description="Derived locale (hl-gl)")
+    timingMs: int = Field(..., ge=0, description="Total execution time in milliseconds")
+    error: Optional[str] = Field(default=None, description="Error message if detection failed or blocked")

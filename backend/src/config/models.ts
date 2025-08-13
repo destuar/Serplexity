@@ -151,6 +151,11 @@ export const MODELS: Record<string, Model> = {
       ModelTask.WEBSITE_ENRICHMENT, // ✅ WebsiteEnrichmentAgent (web search enabled)
     ],
   },
+  "ai-overview": {
+    id: "ai-overview",
+    engine: ModelEngine.GOOGLE,
+    task: [ModelTask.QUESTION_ANSWERING],
+  },
 };
 
 // --- Task-specific model lists ---

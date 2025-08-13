@@ -215,6 +215,9 @@ class BaseAgent(ABC):
                 # Extract metadata
                 metadata = self._extract_metadata(result, execution_time, attempt_count)
 
+                # Extract detailed usage for precise accounting (if available)
+                usage_details = self._extract_usage_dict(result)
+
                 logger.info(f"Execution completed successfully for {self.agent_id}", extra={
                     "agent_id": self.agent_id,
                     "execution_time": execution_time,
@@ -256,6 +259,7 @@ class BaseAgent(ABC):
                 return {
                     "result": validated_result,
                     "metadata": metadata,
+                    "usage": usage_details,
                     "execution_time": execution_time,
                     "attempt_count": attempt_count,
                     "agent_id": self.agent_id,
@@ -363,9 +367,67 @@ class BaseAgent(ABC):
 
             # If no token usage found, return 0 (this is acceptable for tests)
             return 0
+        except Exception:
+            # On any unexpected structure, default to 0 tokens
+            return 0
+
+    def _extract_usage_dict(self, result: Any) -> Optional[Dict[str, int]]:
+        """Extract detailed token usage if available from provider result"""
+        try:
+            usage_obj = None
+            if hasattr(result, 'usage'):
+                usage_attr = getattr(result, 'usage')
+                usage_obj = usage_attr() if callable(usage_attr) else usage_attr
+
+            if not usage_obj:
+                return None
+
+            # Normalize common fields across providers
+            prompt_tokens = (
+                getattr(usage_obj, 'prompt_tokens', None)
+                or getattr(usage_obj, 'request_tokens', None)
+                or getattr(usage_obj, 'input_tokens', None)
+            )
+            completion_tokens = (
+                getattr(usage_obj, 'completion_tokens', None)
+                or getattr(usage_obj, 'response_tokens', None)
+                or getattr(usage_obj, 'output_tokens', None)
+            )
+            total_tokens = getattr(usage_obj, 'total_tokens', None)
+
+            usage: Dict[str, int] = {}
+            if prompt_tokens is not None:
+                usage['prompt_tokens'] = int(prompt_tokens)  # type: ignore[arg-type]
+            if completion_tokens is not None:
+                usage['completion_tokens'] = int(completion_tokens)  # type: ignore[arg-type]
+            if total_tokens is not None:
+                usage['total_tokens'] = int(total_tokens)  # type: ignore[arg-type]
+
+            # Optional extras if present
+            if hasattr(usage_obj, 'cache_read_tokens'):
+                try:
+                    usage['cache_read_tokens'] = int(getattr(usage_obj, 'cache_read_tokens') or 0)
+                except Exception:
+                    pass
+            if hasattr(usage_obj, 'cache_write_tokens'):
+                try:
+                    usage['cache_write_tokens'] = int(getattr(usage_obj, 'cache_write_tokens') or 0)
+                except Exception:
+                    pass
+
+            # Some providers expose 'reasoning_tokens' or similar fields
+            if hasattr(usage_obj, 'reasoning_tokens'):
+                try:
+                    usage['thinking_tokens'] = int(getattr(usage_obj, 'reasoning_tokens') or 0)
+                except Exception:
+                    pass
+
+            return usage or None
         except (ValueError, TypeError, AttributeError) as e:
             logger.error(f"Error extracting tokens from result: {e}")
-            return 0
+            return None
+        except Exception:
+            return None
 
     def _extract_fallback_used(self, result: Any) -> bool:
         """Check if fallback model was used - always False since we removed fallbacks"""

@@ -217,15 +217,17 @@ const SectionCard: React.FC<{
   children: React.ReactNode;
 }> = ({ title, tooltip, children }) => (
   <div className="bg-white/70 backdrop-blur-sm border border-white/30 rounded-xl p-3">
-    <div className="flex items-center gap-1.5 mb-2">
-      <h4 className="text-sm font-semibold text-gray-900">{title}</h4>
+    <div className="flex items-baseline gap-0.5 mb-2">
+      <h4 className="text-sm font-semibold text-gray-900 leading-tight">
+        {title}
+      </h4>
       {tooltip && (
         <Tooltip content={tooltip}>
           <span
             aria-label="More info"
-            className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-white/40 bg-white/70 text-gray-700"
+            className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-white/40 bg-white/70 text-gray-700 align-super -translate-y-0.5 md:-translate-y-1"
           >
-            <Info className="h-3.5 w-3.5" />
+            <Info className="h-3 w-3" />
           </span>
         </Tooltip>
       )}
@@ -836,7 +838,7 @@ const WebAuditCategoryDetails: React.FC<WebAuditCategoryDetailsProps> = ({
   return (
     <LiquidGlassCard className="h-full">
       <div className="px-3 py-2 mb-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-baseline gap-0.5">
           <SectionTitle title={`${categoryLabel} Details`} />
           {explainer?.whyItMatters && (
             <Tooltip
@@ -848,9 +850,9 @@ const WebAuditCategoryDetails: React.FC<WebAuditCategoryDetailsProps> = ({
             >
               <span
                 aria-label="What this means"
-                className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-white/40 bg-white/70 text-gray-700"
+                className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-white/40 bg-white/70 text-gray-700 align-super -translate-y-0.5 md:-translate-y-1"
               >
-                <Info className="h-3.5 w-3.5" />
+                <Info className="h-3 w-3" />
               </span>
             </Tooltip>
           )}

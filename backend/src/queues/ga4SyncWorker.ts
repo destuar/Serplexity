@@ -1,5 +1,5 @@
 import { Job, Worker } from "bullmq";
-import { google } from "googleapis";
+import { google, analyticsdata_v1beta } from "googleapis";
 import { getBullMQConnection, getWorkerOptions } from "../config/bullmq";
 import { dbCache } from "../config/dbCache";
 import env from "../config/env";
@@ -23,14 +23,13 @@ const worker = new Worker<Ga4SyncJobData>(
     try {
       const token = await googleOAuthTokenService.getDecryptedToken(companyId);
       if (!token?.accessToken) throw new Error("Missing Google OAuth token");
-      const oauth2 = new (google as any).auth.OAuth2();
+      const oauth2 = new google.auth.OAuth2();
       oauth2.setCredentials({ access_token: token.accessToken });
-      const analyticsData = google.analyticsdata("v1");
+      const analyticsData: analyticsdata_v1beta.Analyticsdata = google.analyticsdata("v1beta");
 
       // Pull batched report with common dimensions to normalize into Ga4DailyMetrics
       const response = await analyticsData.properties.runReport({
-        auth: oauth2,
-        property: `properties/${propertyId}`,
+        property: `properties/${String(propertyId)}`,
         requestBody: {
           dateRanges: [{ startDate, endDate }],
           dimensions: [
@@ -50,12 +49,13 @@ const worker = new Worker<Ga4SyncJobData>(
             { name: "averageSessionDuration" },
             { name: "averageEngagementTime" },
           ],
-          limit: 100000,
+          limit: "100000",
         },
+        auth: oauth2,
       });
 
-      const rows = response.data.rows || [];
-      const records = rows.map((row) => {
+      const rows = response.data?.rows || [];
+      const records = rows.map((row: any) => {
         const dv = row.dimensionValues || [];
         const mv = row.metricValues || [];
         const dateStr = dv[0]?.value as string;

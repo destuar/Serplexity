@@ -30,11 +30,14 @@
  * - deleteCompany: Controller for deleting a company.
  */
 import { Request, Response } from "express";
-import { z } from "zod";
+import { z, z as zod } from "zod";
 import { getPrismaClient, getReadPrismaClient } from "../config/dbCache";
 import { getFullReportMetrics } from "../services/metricsService";
+import {
+  getCompanyReportSchedule as serviceGetCompanyReportSchedule,
+  upsertCompanyReportSchedule,
+} from "../services/reportScheduleService";
 import { flexibleUrlSchema } from "../utils/urlNormalizer";
-
 
 // Validation schemas
 const createCompanySchema = z.object({
@@ -91,7 +94,9 @@ export const createCompany = async (req: Request, res: Response) => {
     });
 
     // Questions will be generated during first report run
-    console.log(`[CREATE_COMPANY] Company created. Questions will be generated during first report run.`);
+    console.log(
+      `[CREATE_COMPANY] Company created. Questions will be generated during first report run.`
+    );
 
     res.status(201).json({ company });
   } catch (error) {
@@ -192,6 +197,114 @@ export const getCompany = async (req: Request, res: Response) => {
   }
 };
 
+// ===== Model Preferences (Company-scoped) =====
+const modelPreferencesSchema = z.object({
+  modelPreferences: z.record(z.string(), z.boolean()),
+});
+
+export const getCompanyModelPreferences = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const prismaReadReplica = await getReadPrismaClient();
+    const userId = req.user?.id;
+    const { id: companyId } = req.params;
+
+    if (!userId) return res.status(401).json({ error: "Not authenticated" });
+
+    // Ensure company belongs to user (authorization)
+    const companyOwned = await prismaReadReplica.company.findFirst({
+      where: { id: companyId, userId },
+      select: { id: true },
+    });
+    if (!companyOwned) {
+      return res
+        .status(404)
+        .json({ error: "Company not found or unauthorized" });
+    }
+
+    // Use company-level preferences when available; default to standard set
+    const company = await prismaReadReplica.company.findUnique({
+      where: { id: companyId },
+      select: { modelPreferences: true },
+    });
+    let preferences =
+      (company?.modelPreferences as Record<string, boolean>) || null;
+    if (!preferences) {
+      // Default based on user plan
+      const { getPlanLimitsForUser, getDefaultModelPreferencesFromLimits } =
+        await import("../services/planService");
+      const limits = await getPlanLimitsForUser(userId);
+      preferences = getDefaultModelPreferencesFromLimits(limits);
+    }
+
+    const normalized: Record<string, boolean> = {
+      "gpt-4.1-mini": false,
+      "claude-3-5-haiku-20241022": false,
+      "gemini-2.5-flash": false,
+      sonar: false,
+      "ai-overview": false,
+      ...preferences,
+    };
+
+    return res.status(200).json({ modelPreferences: normalized });
+  } catch (error) {
+    console.error("[GET COMPANY MODEL PREFERENCES ERROR]", error);
+    return res
+      .status(500)
+      .json({ error: "Failed to get company model preferences" });
+  }
+};
+
+export const updateCompanyModelPreferences = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const prisma = await getPrismaClient();
+    const userId = req.user?.id;
+    const { id: companyId } = req.params;
+    if (!userId) return res.status(401).json({ error: "Not authenticated" });
+
+    // Ensure company belongs to user
+    const companyOwned = await prisma.company.findFirst({
+      where: { id: companyId, userId },
+      select: { id: true },
+    });
+    if (!companyOwned) {
+      return res
+        .status(404)
+        .json({ error: "Company not found or unauthorized" });
+    }
+
+    const { modelPreferences } = modelPreferencesSchema.parse(req.body);
+
+    // Persist company-level preferences
+    const updatedCompany = await prisma.company.update({
+      where: { id: companyId },
+      data: { modelPreferences },
+      select: { modelPreferences: true },
+    });
+
+    return res.status(200).json({
+      message: "Company model preferences updated successfully",
+      modelPreferences: updatedCompany.modelPreferences as Record<
+        string,
+        boolean
+      >,
+    });
+  } catch (error) {
+    console.error("[UPDATE COMPANY MODEL PREFERENCES ERROR]", error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors });
+    }
+    return res
+      .status(500)
+      .json({ error: "Failed to update company model preferences" });
+  }
+};
+
 // ===== Helper =====
 const findLatestRuns = async (companyId: string) => {
   const prismaReadReplica = await getReadPrismaClient();
@@ -236,7 +349,7 @@ export const getAveragePosition = async (req: Request, res: Response) => {
 
     const latestMetrics = await getFullReportMetrics(
       latestRun.id,
-      (aiModel as string) || "all",
+      (aiModel as string) || "all"
     );
     const previousMetrics = previousRun
       ? await getFullReportMetrics(previousRun.id, (aiModel as string) || "all")
@@ -278,7 +391,7 @@ export const getShareOfVoice = async (req: Request, res: Response) => {
 
     const latestMetrics = await getFullReportMetrics(
       latestRun.id,
-      (aiModel as string) || "all",
+      (aiModel as string) || "all"
     );
     const previousMetrics = previousRun
       ? await getFullReportMetrics(previousRun.id, (aiModel as string) || "all")
@@ -326,7 +439,7 @@ export const getCompetitorRankings = async (req: Request, res: Response) => {
 
     const metrics = await getFullReportMetrics(
       latestRun.id,
-      (aiModel as string) || "all",
+      (aiModel as string) || "all"
     );
     if (metrics?.competitorRankings) {
       return res.json(metrics.competitorRankings);
@@ -360,7 +473,9 @@ export const getPromptsWithResponses = async (req: Request, res: Response) => {
     const { id: companyId } = req.params;
     const userId = req.user?.id;
 
-    console.log(`[GET_PROMPTS_WITH_RESPONSES] Request for company: ${companyId}`);
+    console.log(
+      `[GET_PROMPTS_WITH_RESPONSES] Request for company: ${companyId}`
+    );
 
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -413,44 +528,48 @@ export const getPromptsWithResponses = async (req: Request, res: Response) => {
 
     // Helper function to extract brand mentions from response content
     const extractBrandMentions = (content: string): string[] => {
-      const brandMentionRegex = /<brand(?:\s+position="(\d+)")?>([^<]+)<\/brand>/gi;
+      const brandMentionRegex =
+        /<brand(?:\s+position="(\d+)")?>([^<]+)<\/brand>/gi;
       const brands: string[] = [];
       let match;
-      
+
       while ((match = brandMentionRegex.exec(content)) !== null) {
         const brandName = match[2].trim();
         if (!brands.includes(brandName)) {
           brands.push(brandName);
         }
       }
-      
+
       return brands;
     };
 
     // Group questions by text across all runs to show historical responses
-    const questionMap = new Map<string, {
-      id: string;
-      question: string;
-      type: string;
-      isActive: boolean;
-      createdAt: string;
-      source: string;
-      responses: Array<{
+    const questionMap = new Map<
+      string,
+      {
         id: string;
-        model: string;
-        response: string;
-        position: number | null;
+        question: string;
+        type: string;
+        isActive: boolean;
         createdAt: string;
-        runId: string;
-        runDate: string;
-        brands: string[];
-      }>;
-    }>();
+        source: string;
+        responses: Array<{
+          id: string;
+          model: string;
+          response: string;
+          position: number | null;
+          createdAt: string;
+          runId: string;
+          runDate: string;
+          brands: string[];
+        }>;
+      }
+    >();
 
     // Process all questions and aggregate responses by question text
     questions.forEach((question) => {
       const questionText = question.query || "Untitled Question";
-      
+
       if (!questionMap.has(questionText)) {
         questionMap.set(questionText, {
           id: question.id,
@@ -464,13 +583,13 @@ export const getPromptsWithResponses = async (req: Request, res: Response) => {
       }
 
       const questionData = questionMap.get(questionText)!;
-      
+
       // Add all responses from this question (from this specific run)
       question.responses.forEach((response) => {
         // Calculate position from mentions
         const positions = response.mentions
-          .map(m => m.position)
-          .filter(p => p !== null && p !== undefined);
+          .map((m) => m.position)
+          .filter((p) => p !== null && p !== undefined);
         const position = positions.length > 0 ? Math.min(...positions) : null;
 
         questionData.responses.push({
@@ -487,12 +606,15 @@ export const getPromptsWithResponses = async (req: Request, res: Response) => {
     });
 
     // Convert map to array and sort responses by run date (newest first)
-    const transformedQuestions = Array.from(questionMap.values()).map(question => ({
-      ...question,
-      responses: question.responses.sort((a, b) => 
-        new Date(b.runDate).getTime() - new Date(a.runDate).getTime()
-      ),
-    }));
+    const transformedQuestions = Array.from(questionMap.values()).map(
+      (question) => ({
+        ...question,
+        responses: question.responses.sort(
+          (a, b) =>
+            new Date(b.runDate).getTime() - new Date(a.runDate).getTime()
+        ),
+      })
+    );
 
     const endTime = Date.now();
     console.log(
@@ -523,7 +645,7 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
       "limit:",
       limit,
       "questionType:",
-      questionType,
+      questionType
     );
 
     if (!userId)
@@ -541,7 +663,7 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
     if (!latestRun) {
       console.log(
         "[GET_TOP_RANKING_QUESTIONS] No latest run found for company:",
-        companyId,
+        companyId
       );
       return res.json({
         questions: [],
@@ -566,12 +688,12 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
       parsedLimit,
       "(original:",
       limit,
-      ")",
+      ")"
     );
 
     // 10x APPROACH: Use response-level granularity for proper display
     console.log(
-      "[GET_TOP_RANKING_QUESTIONS] Using response-level calculation for accurate counts",
+      "[GET_TOP_RANKING_QUESTIONS] Using response-level calculation for accurate counts"
     );
     const { calculateTopResponses } = await import(
       "../services/dashboardService"
@@ -584,7 +706,7 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
         questionType: questionType as string,
       },
       parsedLimit,
-      0,
+      0
     );
 
     // Transform response format to match frontend expectations
@@ -595,39 +717,41 @@ export const getTopRankingQuestions = async (req: Request, res: Response) => {
       "[GET_TOP_RANKING_QUESTIONS] Response-level calculation returned:",
       responses.length,
       "responses, totalCount:",
-      totalCount,
+      totalCount
     );
 
     // Transform to expected frontend format (backwards compatibility)
-    const questions = responses.map((r: {
-      id: string;
-      questionId: string;
-      question: string;
-      questionType: string | null;
-      model: string;
-      response: string;
-      position: number | null;
-      totalMentions: number;
-      questionBestPosition: number | null;
-      createdAt: string;
-    }) => ({
-      id: r.id,
-      question: r.question,
-      type: r.questionType,
-      bestPosition: r.questionBestPosition,
-      totalMentions: r.position !== null ? 1 : 0, // Simplified for response-level
-      averagePosition: r.position,
-      bestResponse: r.response,
-      bestResponseModel: r.model,
-      responses: [
-        {
-          model: r.model,
-          response: r.response,
-          position: r.position,
-          createdAt: r.createdAt,
-        },
-      ],
-    }));
+    const questions = responses.map(
+      (r: {
+        id: string;
+        questionId: string;
+        question: string;
+        questionType: string | null;
+        model: string;
+        response: string;
+        position: number | null;
+        totalMentions: number;
+        questionBestPosition: number | null;
+        createdAt: string;
+      }) => ({
+        id: r.id,
+        question: r.question,
+        type: r.questionType,
+        bestPosition: r.questionBestPosition,
+        totalMentions: r.position !== null ? 1 : 0, // Simplified for response-level
+        averagePosition: r.position,
+        bestResponse: r.response,
+        bestResponseModel: r.model,
+        responses: [
+          {
+            model: r.model,
+            response: r.response,
+            position: r.position,
+            createdAt: r.createdAt,
+          },
+        ],
+      })
+    );
 
     res.json({
       questions,
@@ -669,7 +793,7 @@ export const getShareOfVoiceHistory = async (req: Request, res: Response) => {
     );
     const history = await calculateShareOfVoiceHistory("", companyId, {
       aiModel: aiModel as string,
-      granularity: granularity as 'hour' | 'day' | 'week' | undefined,
+      granularity: granularity as "hour" | "day" | "week" | undefined,
       dateRange: dateRange as string,
     });
 
@@ -677,6 +801,112 @@ export const getShareOfVoiceHistory = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("[GET SHARE OF VOICE HISTORY ERROR]", error);
     res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+// ===== Report Schedule =====
+const reportScheduleSchema = zod.object({
+  mode: zod.enum(["MANUAL", "DAILY", "WEEKLY", "CUSTOM"]),
+  timezone: zod.string().min(1).optional().nullable(),
+  weeklyDays: zod.array(zod.number().int().min(0).max(6)).default([]),
+  dates: zod.array(zod.string()).default([]), // Expect YYYY-MM-DD strings
+});
+
+export const getCompanyReportSchedule = async (req: Request, res: Response) => {
+  try {
+    const prismaReadReplica = await getReadPrismaClient();
+    const userId = req.user?.id;
+    const { id: companyId } = req.params;
+
+    if (!userId) return res.status(401).json({ error: "Not authenticated" });
+
+    const companyOwned = await prismaReadReplica.company.findFirst({
+      where: { id: companyId, userId },
+      select: { id: true },
+    });
+    if (!companyOwned) {
+      return res
+        .status(404)
+        .json({ error: "Company not found or unauthorized" });
+    }
+
+    const schedule = await serviceGetCompanyReportSchedule(
+      prismaReadReplica as unknown as any,
+      companyId
+    );
+    return res.status(200).json({ schedule });
+  } catch (error) {
+    console.error("[GET COMPANY REPORT SCHEDULE ERROR]", error);
+    return res
+      .status(500)
+      .json({ error: "Failed to get company report schedule" });
+  }
+};
+
+export const updateCompanyReportSchedule = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const prisma = await getPrismaClient();
+    const userId = req.user?.id;
+    const { id: companyId } = req.params;
+    if (!userId) return res.status(401).json({ error: "Not authenticated" });
+
+    const companyOwned = await prisma.company.findFirst({
+      where: { id: companyId, userId },
+      select: { id: true },
+    });
+    if (!companyOwned) {
+      return res
+        .status(404)
+        .json({ error: "Company not found or unauthorized" });
+    }
+
+    const parsed = reportScheduleSchema.parse(req.body);
+
+    // Additional validation constraints
+    if (
+      parsed.mode === "WEEKLY" &&
+      (!parsed.weeklyDays || parsed.weeklyDays.length === 0)
+    ) {
+      return res.status(400).json({
+        error: "weeklyDays must include at least one day when mode is WEEKLY",
+      });
+    }
+    if (
+      parsed.mode === "CUSTOM" &&
+      (!parsed.dates || parsed.dates.length === 0)
+    ) {
+      return res.status(400).json({
+        error: "dates must include at least one date when mode is CUSTOM",
+      });
+    }
+
+    // Normalize timezone default
+    const payload = {
+      mode: parsed.mode,
+      timezone: parsed.timezone || "UTC",
+      weeklyDays: parsed.weeklyDays || [],
+      dates: (parsed.dates || []).map((d) => d.slice(0, 10)),
+    };
+
+    const schedule = await upsertCompanyReportSchedule(
+      prisma as any,
+      companyId,
+      payload
+    );
+    return res
+      .status(200)
+      .json({ message: "Report schedule updated", schedule });
+  } catch (error) {
+    console.error("[UPDATE COMPANY REPORT SCHEDULE ERROR]", error);
+    if (error instanceof zod.ZodError) {
+      return res.status(400).json({ error: error.errors });
+    }
+    return res
+      .status(500)
+      .json({ error: "Failed to update company report schedule" });
   }
 };
 
@@ -708,7 +938,7 @@ export const getInclusionRateHistory = async (req: Request, res: Response) => {
     );
     const history = await calculateInclusionRateHistory("", companyId, {
       aiModel: aiModel as string,
-      granularity: granularity as 'hour' | 'day' | 'week' | undefined,
+      granularity: granularity as "hour" | "day" | "week" | undefined,
       dateRange: dateRange as string,
     });
 
@@ -854,11 +1084,11 @@ export const getCitations = async (req: Request, res: Response) => {
       where: {
         response: {
           question: {
-            companyId: companyId
-          }
-        }
+            companyId: companyId,
+          },
+        },
       },
-      orderBy: { url: 'asc' },
+      orderBy: { url: "asc" },
     });
 
     res.json({ citations });
@@ -896,7 +1126,7 @@ export const getAcceptedCompetitors = async (req: Request, res: Response) => {
           { AND: [{ isGenerated: true }, { isAccepted: true }] }, // Accepted auto-discovered
         ],
       },
-      orderBy: { name: 'asc' },
+      orderBy: { name: "asc" },
     });
 
     // Add user's company to the list
@@ -952,11 +1182,11 @@ export const getSuggestedCompetitors = async (req: Request, res: Response) => {
           select: { id: true },
         },
       },
-      orderBy: { name: 'asc' },
+      orderBy: { name: "asc" },
     });
 
     // Transform to include mention counts
-    const competitors = suggestedCompetitors.map(competitor => ({
+    const competitors = suggestedCompetitors.map((competitor) => ({
       id: competitor.id,
       name: competitor.name,
       website: competitor.website,
@@ -1106,9 +1336,13 @@ export const addCompetitor = async (req: Request, res: Response) => {
     if (error && typeof error === "object" && "code" in error) {
       if (error.code === "P2002" && "meta" in error && error.meta) {
         const meta = error.meta as { target?: string[] };
-        if (meta.target?.includes("website") && meta.target?.includes("companyId")) {
+        if (
+          meta.target?.includes("website") &&
+          meta.target?.includes("companyId")
+        ) {
           return res.status(400).json({
-            error: "A competitor with this website already exists for your company.",
+            error:
+              "A competitor with this website already exists for your company.",
           });
         }
       }
@@ -1169,9 +1403,13 @@ export const updateCompetitor = async (req: Request, res: Response) => {
     if (error && typeof error === "object" && "code" in error) {
       if (error.code === "P2002" && "meta" in error && error.meta) {
         const meta = error.meta as { target?: string[] };
-        if (meta.target?.includes("website") && meta.target?.includes("companyId")) {
+        if (
+          meta.target?.includes("website") &&
+          meta.target?.includes("companyId")
+        ) {
           return res.status(400).json({
-            error: "A competitor with this website already exists for your company.",
+            error:
+              "A competitor with this website already exists for your company.",
           });
         }
       }
@@ -1255,17 +1493,24 @@ export const addQuestion = async (req: Request, res: Response) => {
       // Free users limited to 5 active questions
       const user = req.user;
       const hasActiveSubscription = user?.subscriptionStatus === "active";
-      const isInActiveTrial = user?.subscriptionStatus === "trialing" && 
-        user?.trialEndsAt && new Date() < new Date(user.trialEndsAt);
-      
+      const isInActiveTrial =
+        user?.subscriptionStatus === "trialing" &&
+        user?.trialEndsAt &&
+        new Date() < new Date(user.trialEndsAt);
+
       // Admins have unlimited access
       const isAdmin = user?.role === "ADMIN";
-      if (!isAdmin && !hasActiveSubscription && !isInActiveTrial && activeQuestions >= 5) {
-        return res.status(403).json({ 
+      if (
+        !isAdmin &&
+        !hasActiveSubscription &&
+        !isInActiveTrial &&
+        activeQuestions >= 5
+      ) {
+        return res.status(403).json({
           error: "Free accounts are limited to 5 active questions",
           message: "Upgrade to add more active questions",
           currentActive: activeQuestions,
-          limit: 5
+          limit: 5,
         });
       }
     }
@@ -1332,14 +1577,16 @@ export const updateQuestion = async (req: Request, res: Response) => {
 
     // Only allow updating query text for user questions, but allow isActive updates for all questions
     const updateData: { query?: string; isActive?: boolean } = {};
-    
+
     if (validatedData.query !== undefined) {
       if (existingQuestion.source !== "user") {
-        return res.status(403).json({ error: "Cannot edit query text for AI-generated questions" });
+        return res
+          .status(403)
+          .json({ error: "Cannot edit query text for AI-generated questions" });
       }
       updateData.query = validatedData.query;
     }
-    
+
     if (validatedData.isActive !== undefined) {
       updateData.isActive = validatedData.isActive;
     }
@@ -1385,10 +1632,10 @@ export const getCompanyReadiness = async (req: Request, res: Response) => {
         _count: {
           select: {
             questions: {
-              where: { isActive: true }
-            }
-          }
-        }
+              where: { isActive: true },
+            },
+          },
+        },
       },
     });
 
@@ -1396,7 +1643,7 @@ export const getCompanyReadiness = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Company not found" });
     }
 
-    res.json({ 
+    res.json({
       companyId: company.id,
       companyName: company.name,
       questionsReady: company.questionsReady,
@@ -1471,19 +1718,19 @@ export const getCompanyQuestions = async (req: Request, res: Response) => {
 
     // Build filter conditions
     const whereConditions: Record<string, unknown> = { companyId };
-    if (source && typeof source === 'string') {
+    if (source && typeof source === "string") {
       whereConditions.source = source;
     }
     if (isActive !== undefined) {
-      whereConditions.isActive = isActive === 'true';
+      whereConditions.isActive = isActive === "true";
     }
 
     const questions = await prismaReadReplica.question.findMany({
       where: whereConditions,
       orderBy: [
-        { isActive: 'desc' }, // Active questions first
-        { source: 'asc' },    // AI questions before user questions
-        { createdAt: 'asc' }, // Oldest first within each group
+        { isActive: "desc" }, // Active questions first
+        { source: "asc" }, // AI questions before user questions
+        { createdAt: "asc" }, // Oldest first within each group
       ],
     });
 

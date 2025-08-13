@@ -272,16 +272,18 @@ class PerformanceAnalyzer {
       0;
 
     // Resource metrics
-    const networkRequests = audits["network-requests"]?.details?.items || [];
-    const resourceCount = networkRequests.length;
+    const networkRequests =
+      (
+        audits["network-requests"]?.details as unknown as {
+          items?: Array<{ transferSize?: number }>;
+        }
+      )?.items || [];
+    const resourceCount = (networkRequests as Array<unknown>).length;
 
     // Calculate total page size
-    const pageSize = networkRequests.reduce(
-      (total: number, item: { transferSize?: number }) => {
-        return total + (item.transferSize || 0);
-      },
-      0
-    );
+    const pageSize = (
+      networkRequests as Array<{ transferSize?: number }>
+    ).reduce((total: number, item) => total + (item.transferSize || 0), 0);
 
     return {
       loadTime,

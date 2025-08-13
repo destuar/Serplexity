@@ -44,6 +44,7 @@ import {
   healthCheckWithRecovery,
 } from "./middleware/autoRecovery";
 import authRouter from "./routes/authRoutes";
+import billingRouter from "./routes/billingRoutes";
 import blogRouter from "./routes/blogRoutes";
 import companyRouter from "./routes/companyRoutes";
 import googleIntegrationRouter from "./routes/googleIntegrationRoutes";
@@ -288,6 +289,7 @@ app.use("/api/health", healthRouter);
 // Protected routes
 app.use("/api/companies", companyRouter);
 app.use("/api/payments", paymentRouter);
+app.use("/api/billing", billingRouter);
 app.use("/api/reports", reportRouter);
 app.use("/api/users", userRouter);
 app.use("/api/search", searchRouter);

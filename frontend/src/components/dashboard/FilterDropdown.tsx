@@ -13,9 +13,9 @@
  * @exports
  * - FilterDropdown: React functional component for a customizable filter dropdown.
  */
-import React, { useState, useRef, useEffect, ComponentType } from 'react';
-import { ChevronDown, Check, LucideProps } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { Check, ChevronDown, LucideProps } from "lucide-react";
+import React, { ComponentType, useEffect, useRef, useState } from "react";
+import { cn } from "../../lib/utils";
 
 interface FilterOption {
   value: string;
@@ -42,7 +42,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
   options,
   onChange,
   icon: Icon,
-  className = '',
+  className = "",
   disabled = false,
   noShadow = false,
   autoWidth = false,
@@ -53,14 +53,17 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
@@ -69,7 +72,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
     setIsOpen(false);
   };
 
-  const selectedOption = options.find(option => option.value === value);
+  const selectedOption = options.find((option) => option.value === value);
   const displayLabel = selectedOption?.label || label;
 
   return (
@@ -79,43 +82,43 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
         className={cn(
-          `flex items-center justify-between ${autoWidth ? 'w-auto' : 'w-full lg:w-48'} gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg ${noShadow ? 'shadow-none' : 'shadow-md'} text-sm transition-colors`,
-          disabled 
-            ? "opacity-50 cursor-not-allowed" 
+          `flex items-center justify-between ${autoWidth ? "w-auto" : "w-full lg:w-48"} gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg ${noShadow ? "shadow-none" : "shadow-md"} text-sm transition-colors`,
+          disabled
+            ? "opacity-50 cursor-not-allowed"
             : "hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-black"
         )}
       >
         <span className="flex items-center gap-2 truncate">
           {Icon && <Icon size={16} />}
           {selectedOption?.logoUrl && (
-            <img 
-              src={selectedOption.logoUrl} 
+            <img
+              src={selectedOption.logoUrl}
               alt={selectedOption.label}
               className="w-5 h-5 rounded-sm"
               onError={(e) => {
-                e.currentTarget.style.display = 'none';
+                e.currentTarget.style.display = "none";
               }}
             />
           )}
           <span className="truncate">{displayLabel}</span>
         </span>
-        <ChevronDown 
-          size={16} 
+        <ChevronDown
+          size={16}
           className={cn(
             "transition-transform duration-200",
             isOpen ? "rotate-180" : "",
             disabled ? "text-gray-400" : "text-gray-500"
-          )} 
+          )}
         />
       </button>
 
       {/* Dropdown Menu */}
       {isOpen && !disabled && (
-        <div className="absolute top-full left-0 mt-1 w-full min-w-48 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md z-50 py-1 max-h-64 overflow-y-auto">
+        <div className="absolute top-full left-0 mt-1 w-full min-w-48 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md z-50 py-1">
           {options.map((option) => {
             const OptionIcon = option.icon;
             const isSelected = option.value === value;
-            
+
             return (
               <button
                 key={option.value}
@@ -123,27 +126,29 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
                 className="w-full px-4 py-3 text-left hover:bg-white/20 transition-colors flex items-center justify-between group"
               >
                 <div className="flex items-center gap-3">
-                  {OptionIcon && <OptionIcon size={16} className="text-gray-400" />}
+                  {OptionIcon && (
+                    <OptionIcon size={16} className="text-gray-400" />
+                  )}
                   {option.logoUrl && (
-                    <img 
-                      src={option.logoUrl} 
+                    <img
+                      src={option.logoUrl}
                       alt={option.label}
                       className="w-4 h-4 rounded-sm"
                       onError={(e) => {
-                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.style.display = "none";
                       }}
                     />
                   )}
-                  <span className={cn(
-                    "text-sm truncate",
-                    isSelected ? "font-medium text-gray-900" : "text-gray-700"
-                  )}>
+                  <span
+                    className={cn(
+                      "text-sm truncate",
+                      isSelected ? "font-medium text-gray-900" : "text-gray-700"
+                    )}
+                  >
                     {option.label}
                   </span>
                 </div>
-                {isSelected && (
-                                      <Check size={16} className="text-black" />
-                )}
+                {isSelected && <Check size={16} className="text-black" />}
               </button>
             );
           })}
@@ -153,4 +158,4 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
   );
 };
 
-export default FilterDropdown; 
+export default FilterDropdown;

@@ -23,7 +23,15 @@ Non-Negotiables
 - Controllers are thin; business logic lives in services; utilities are pure and reusable.
 - All prompt TypeScript files live in backend/src/prompts/ (import via @/prompts/\*).
 - Secrets are retrieved via AWS Secrets Manager flows (scripts/run-with-secrets.ts). Do not add new .env secrets.
-- Never hand-edit migration SQL. Use Prisma migrate commands.
+
+  Database change policy
+  - Do NOT run Prisma migrations on shared/live databases. This can drop or rewrite data.
+  - Apply idempotent SQL patches instead, executed via the AWS Secrets wrapper.
+    - Example: `ts-node src/scripts/run-with-secrets.ts npx prisma db execute --file /absolute/path/to.sql --schema prisma/schema.prisma`
+    - Prefer safe statements like `ALTER TABLE ... ADD COLUMN IF NOT EXISTS ...`.
+  - Keep `prisma/schema.prisma` authoritative and run `npm run generate` after changes.
+  - You MAY use `npm run migrate:dev` only against local, disposable dev databases.
+
 - Keep files focused (≈≤200 LOC). Extract helpers early. No massive “god” files.
 - TypeScript must be explicit. Avoid any and unsafe casts.
 - Every change ships with tests as appropriate and passes lint/typecheck. No TODOs left behind.
@@ -72,7 +80,9 @@ Command Cheatsheet (absolute paths)
   - cd /Users/diegoestuar/Desktop/Serplexity/backend && npm run dev
   - cd /Users/diegoestuar/Desktop/Serplexity/backend && npm run build && npm run typecheck && npm run lint
   - cd /Users/diegoestuar/Desktop/Serplexity/backend && npm test
-  - cd /Users/diegoestuar/Desktop/Serplexity/backend && npm run migrate:dev && npm run generate && npm run studio:dev
+  - cd /Users/diegoestuar/Desktop/Serplexity/backend && npm run generate && npm run studio:dev
+  - Apply DB SQL patch (live/shared):
+    - cd /Users/diegoestuar/Desktop/Serplexity/backend && ts-node src/scripts/run-with-secrets.ts npx prisma db execute --file /absolute/path/to.sql --schema prisma/schema.prisma
 - Frontend
   - cd /Users/diegoestuar/Desktop/Serplexity/frontend && npm install
   - cd /Users/diegoestuar/Desktop/Serplexity/frontend && npm run dev
@@ -88,7 +98,9 @@ Editing Rules
 Troubleshooting Quicklist
 
 - Ports: backend 8001, frontend 3000.
-- Prisma: after schema edits, npm run generate and migrate. If client mismatched, regenerate.
+- Prisma: after schema edits, run `npm run generate`.
+  - Live/shared DB: apply SQL patch via `prisma db execute` (through secrets wrapper). Do NOT run migrations.
+  - Local dev: you MAY run `npm run migrate:dev` on a disposable DB.
 - Queues: verify Redis and BULLMQ_QUEUE_PREFIX.
 - Agents: use backend/start.sh to ensure venv and Python deps.
 

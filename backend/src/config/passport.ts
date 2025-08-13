@@ -14,9 +14,12 @@
  * - passport: The configured Passport.js instance.
  */
 import passport from "passport";
-import { Strategy as GoogleStrategy, Profile } from "passport-google-oauth20";
+import {
+  Strategy as GoogleStrategy,
+  Profile,
+  VerifyCallback,
+} from "passport-google-oauth20";
 import { getDbClient } from "./database";
-import { VerifyCallback } from "passport-google-oauth20";
 import env from "./env";
 
 const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_CALLBACK_URL } = env;
@@ -36,7 +39,7 @@ passport.use(
       _accessToken: string,
       _refreshToken: string,
       profile: Profile,
-      done: VerifyCallback,
+      done: VerifyCallback
     ) => {
       try {
         const prisma = await getDbClient();
@@ -60,9 +63,7 @@ passport.use(
             });
           }
         } else {
-          // If user does not exist, create a new one with trial information
-          const trialStartedAt = new Date();
-          const trialEndsAt = new Date(trialStartedAt.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
+          // If user does not exist, create a new one (trials removed)
 
           user = await prisma.user.create({
             data: {
@@ -70,9 +71,7 @@ passport.use(
               name: profile.displayName,
               provider: "google",
               providerId: profile.id,
-              trialStartedAt,
-              trialEndsAt,
-              subscriptionStatus: "trialing",
+              subscriptionStatus: null,
             },
             include: { companies: { include: { competitors: true } } },
           });
@@ -84,11 +83,11 @@ passport.use(
           return done(error);
         }
         return done(
-          new Error("An unknown error occurred during authentication"),
+          new Error("An unknown error occurred during authentication")
         );
       }
-    },
-  ),
+    }
+  )
 );
 
 passport.serializeUser((user: Express.User, done) => {

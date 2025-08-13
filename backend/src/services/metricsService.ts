@@ -14,12 +14,13 @@
  * - computeAndPersistMetrics: Computes and persists all relevant metrics for a given report.
  * - getFullReportMetrics: Retrieves all pre-computed metrics for dashboard display.
  */
+import { Prisma, ReportMetric } from "@prisma/client";
 import { getDbClient, getReadDbClient } from "../config/database";
-import { ReportMetric, Prisma } from "@prisma/client";
 import {
-  calculateTopQuestions,
-  calculateCompetitorRankings,
   calculateCitationRankings,
+  calculateCompetitorRankings,
+  calculateTopQuestions,
+  saveInclusionRateHistoryPoint,
   saveSentimentOverTimePoint,
   saveShareOfVoiceHistoryPoint,
 } from "./dashboardService";
@@ -40,7 +41,7 @@ interface CompetitorData {
   id: string;
   shareOfVoice: number;
   change?: number;
-  changeType?: 'increase' | 'decrease' | 'stable';
+  changeType?: "increase" | "decrease" | "stable";
 }
 
 interface CompetitorRankings {
@@ -62,18 +63,18 @@ interface MentionRecord {
 // Type guards for JSON data
 function isSentimentRating(value: unknown): value is SentimentRating {
   return (
-    typeof value === 'object' &&
+    typeof value === "object" &&
     value !== null &&
-    'ratings' in value &&
+    "ratings" in value &&
     Array.isArray((value as { ratings?: unknown }).ratings)
   );
 }
 
 function isCompetitorRankings(value: unknown): value is CompetitorRankings {
   return (
-    typeof value === 'object' &&
+    typeof value === "object" &&
     value !== null &&
-    'chartCompetitors' in value &&
+    "chartCompetitors" in value &&
     Array.isArray((value as { chartCompetitors?: unknown }).chartCompetitors)
   );
 }
@@ -94,10 +95,10 @@ async function getModelsUsedInReport(runId: string): Promise<string[]> {
 // Count mentions for a specific entity (company or competitor)
 async function getMentions(
   runId: string,
-  filters?: { aiModel?: string; companyId?: string; competitorId?: string },
+  filters?: { aiModel?: string; companyId?: string; competitorId?: string }
 ): Promise<MentionRecord[]> {
   const prismaReadReplica = await getReadDbClient();
-  
+
   // CRITICAL FIX: Handle Perplexity model name variations
   let modelFilter = {};
   if (filters?.aiModel && filters.aiModel !== "all") {
@@ -111,7 +112,10 @@ async function getMentions(
     }
   }
 
-  console.log(`🔍 [METRICS DEBUG] getMentions - runId: ${runId}, aiModel: ${filters?.aiModel || "all"}, modelFilter:`, modelFilter);
+  console.log(
+    `🔍 [METRICS DEBUG] getMentions - runId: ${runId}, aiModel: ${filters?.aiModel || "all"}, modelFilter:`,
+    modelFilter
+  );
 
   const mentions = await prismaReadReplica.mention.findMany({
     where: {
@@ -124,28 +128,38 @@ async function getMentions(
     },
     include: {
       response: {
-        select: { model: true, engine: true }
-      }
-    }
+        select: { model: true, engine: true },
+      },
+    },
   });
 
-  console.log(`🔍 [METRICS DEBUG] Found ${mentions.length} mentions for runId: ${runId}, aiModel: ${filters?.aiModel || "all"}`);
-  
-  // Debug: Log model distribution in mentions
-  const modelCounts = mentions.reduce((acc, mention) => {
-    const model = mention.response?.model || 'unknown';
-    acc[model] = (acc[model] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-  
-  console.log(`🔍 [METRICS DEBUG] Model distribution in mentions:`, modelCounts);
+  console.log(
+    `🔍 [METRICS DEBUG] Found ${mentions.length} mentions for runId: ${runId}, aiModel: ${filters?.aiModel || "all"}`
+  );
 
-  return mentions.map(m => ({
+  // Debug: Log model distribution in mentions
+  const modelCounts = mentions.reduce(
+    (acc, mention) => {
+      const model = mention.response?.model || "unknown";
+      acc[model] = (acc[model] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
+  console.log(
+    `🔍 [METRICS DEBUG] Model distribution in mentions:`,
+    modelCounts
+  );
+
+  return mentions.map((m) => ({
     id: m.id,
-    entityId: m.companyId || m.competitorId || '',
-    entityType: m.companyId ? 'company' : 'competitor',
+    entityId: m.companyId || m.competitorId || "",
+    entityType: m.companyId ? "company" : "competitor",
     position: m.position,
-    response: m.response ? { id: m.response.model, model: m.response.model } : undefined
+    response: m.response
+      ? { id: m.response.model, model: m.response.model }
+      : undefined,
   }));
 }
 
@@ -153,7 +167,7 @@ async function getMentions(
 async function getPreviousReportMetric(
   companyId: string,
   currentRunId: string,
-  aiModel: string,
+  aiModel: string
 ): Promise<ReportMetric | null> {
   const prismaReadReplica = await getReadDbClient();
   return await prismaReadReplica.reportMetric.findFirst({
@@ -171,6 +185,8 @@ async function getPreviousReportMetric(
 export interface DashboardMetrics {
   shareOfVoice: number;
   shareOfVoiceChange: number | null;
+  averageInclusionRate: number;
+  averageInclusionChange: number | null;
   averagePosition: number;
   averagePositionChange: number | null;
   sentimentScore: SentimentRating | null;
@@ -202,46 +218,96 @@ export interface DashboardMetrics {
 async function calculateBrandShareOfVoice(
   runId: string,
   companyId: string,
-  filters?: { aiModel?: string },
+  filters?: { aiModel?: string }
 ): Promise<{ shareOfVoice: number; change: number | null }> {
-  console.log(`📊 [SOV DEBUG] Calculating share of voice - runId: ${runId}, companyId: ${companyId}, aiModel: ${filters?.aiModel || "all"}`);
-  
+  console.log(
+    `📊 [SOV DEBUG] Calculating share of voice - runId: ${runId}, companyId: ${companyId}, aiModel: ${filters?.aiModel || "all"}`
+  );
+
   const mentions = await getMentions(runId, filters);
   const total = mentions.length;
   const companyMentions = mentions.filter(
-    (m) => m.entityType === 'company' && m.entityId === companyId,
+    (m) => m.entityType === "company" && m.entityId === companyId
   ).length;
   const competitorMentions = mentions.filter(
-    (m) => m.entityType === 'competitor',
+    (m) => m.entityType === "competitor"
   ).length;
-  
+
   const shareOfVoice = total === 0 ? 0 : (companyMentions / total) * 100;
 
-  console.log(`📊 [SOV DEBUG] Results - Total mentions: ${total}, Company mentions: ${companyMentions}, Competitor mentions: ${competitorMentions}, Share of Voice: ${shareOfVoice.toFixed(2)}%`);
+  console.log(
+    `📊 [SOV DEBUG] Results - Total mentions: ${total}, Company mentions: ${companyMentions}, Competitor mentions: ${competitorMentions}, Share of Voice: ${shareOfVoice.toFixed(2)}%`
+  );
 
   const aiModel = filters?.aiModel ?? "all";
   const previousMetric = await getPreviousReportMetric(
     companyId,
     runId,
-    aiModel,
+    aiModel
   );
   const change = previousMetric
     ? shareOfVoice - previousMetric.shareOfVoice
     : null;
 
-  console.log(`📊 [SOV DEBUG] Previous metric: ${previousMetric?.shareOfVoice || "none"}, Change: ${change || "none"}`);
+  console.log(
+    `📊 [SOV DEBUG] Previous metric: ${previousMetric?.shareOfVoice || "none"}, Change: ${change || "none"}`
+  );
 
   return { shareOfVoice, change };
 }
 
-// Average Inclusion Rate: how often company is mentioned across all responses
-// Removed: Average Inclusion Rate calculation (AIR not used)
+// Average Inclusion Rate: % of responses that mention the company
+async function calculateInclusionRate(
+  runId: string,
+  companyId: string,
+  filters?: { aiModel?: string }
+): Promise<{ rate: number; change: number | null }> {
+  const prismaReadReplica = await getReadDbClient();
+
+  const responseFilter: Record<string, unknown> = {
+    runId,
+    ...(filters?.aiModel && filters.aiModel !== "all"
+      ? { model: filters.aiModel }
+      : {}),
+  };
+
+  const [totalResponses, withCompanyMention] = await Promise.all([
+    prismaReadReplica.response.count({ where: responseFilter }),
+    prismaReadReplica.response.count({
+      where: {
+        ...responseFilter,
+        mentions: { some: { companyId } },
+      },
+    }),
+  ]);
+
+  const rate =
+    totalResponses === 0 ? 0 : (withCompanyMention / totalResponses) * 100;
+
+  const aiModel = filters?.aiModel ?? "all";
+  const previousMetric = await getPreviousReportMetric(
+    companyId,
+    runId,
+    aiModel
+  );
+  const change = previousMetric
+    ? rate - (previousMetric.averageInclusionRate || 0)
+    : null;
+
+  console.log(
+    `📊 [AIR DEBUG] runId=${runId}, aiModel=${aiModel}, totalResponses=${totalResponses}, withCompanyMention=${withCompanyMention}, rate=${rate.toFixed(
+      2
+    )}%`
+  );
+
+  return { rate, change };
+}
 
 // Average Position: average ranking when mentioned
 async function calculateAveragePosition(
   runId: string,
   companyId: string,
-  filters?: { aiModel?: string },
+  filters?: { aiModel?: string }
 ): Promise<{ position: number; change: number | null }> {
   const mentions = await getMentions(runId, { ...filters, companyId });
   const positions = mentions.map((m) => m.position).filter((p) => p != null);
@@ -254,7 +320,7 @@ async function calculateAveragePosition(
   const previousMetric = await getPreviousReportMetric(
     companyId,
     runId,
-    aiModel,
+    aiModel
   );
   const change = previousMetric
     ? position - previousMetric.averagePosition
@@ -267,7 +333,7 @@ async function calculateAveragePosition(
 async function calculateTopRankings(
   runId: string,
   companyId: string,
-  filters?: { aiModel?: string },
+  filters?: { aiModel?: string }
 ): Promise<{ count: number; change: number | null }> {
   const mentions = await getMentions(runId, { ...filters, companyId });
   const count = mentions.filter((m) => m.position === 1).length;
@@ -276,7 +342,7 @@ async function calculateTopRankings(
   const previousMetric = await getPreviousReportMetric(
     companyId,
     runId,
-    aiModel,
+    aiModel
   );
   const change = previousMetric
     ? count - (previousMetric.topRankingsCount ?? 0)
@@ -314,7 +380,7 @@ function getAverage(sentimentRating: SentimentRating): number | null {
 export async function computeAndPersistMetrics(
   reportId: string,
   companyId: string,
-  userTimezone?: string,
+  userTimezone?: string
 ): Promise<void> {
   const prisma = await getDbClient();
   const prismaReadReplica = await getReadDbClient();
@@ -324,11 +390,11 @@ export async function computeAndPersistMetrics(
     let timezone = userTimezone;
     if (!timezone) {
       // For now, default to UTC. Later we can add timezone to user profile
-      timezone = 'UTC';
+      timezone = "UTC";
     }
 
     console.log(
-      `[METRICS] Starting computation for report ${reportId}, company ${companyId}, timezone: ${timezone}`,
+      `[METRICS] Starting computation for report ${reportId}, company ${companyId}, timezone: ${timezone}`
     );
 
     // ====== Get all models used in this report ======
@@ -339,11 +405,11 @@ export async function computeAndPersistMetrics(
     const previousOverallMetric = await getPreviousReportMetric(
       companyId,
       reportId,
-      "all",
+      "all"
     );
 
     console.log(
-      `[METRICS] Previous overall metric: ${previousOverallMetric ? "found" : "not found"}`,
+      `[METRICS] Previous overall metric: ${previousOverallMetric ? "found" : "not found"}`
     );
 
     // ====== Retrieve sentiment scores for overall sentiment calculation ======
@@ -375,12 +441,16 @@ export async function computeAndPersistMetrics(
       calculateTopRankings(reportId, companyId, { aiModel: "all" }),
     ]);
 
+    // Compute Inclusion Rate (overall)
+    const { rate: allInclusionRate, change: allInclusionChange } =
+      await calculateInclusionRate(reportId, companyId, { aiModel: "all" });
+
     // ====== Compute and Enrich Competitor Rankings ======
     console.log("[METRICS] Computing and enriching competitor rankings...");
     const competitorRankings = await calculateCompetitorRankings(
       reportId,
       companyId,
-      { aiModel: "all" },
+      { aiModel: "all" }
     );
 
     // Enrich with change metric
@@ -388,12 +458,13 @@ export async function computeAndPersistMetrics(
       previousOverallMetric?.competitorRankings &&
       isCompetitorRankings(previousOverallMetric.competitorRankings)
     ) {
-      const previousCompetitors = previousOverallMetric.competitorRankings.chartCompetitors;
+      const previousCompetitors =
+        previousOverallMetric.competitorRankings.chartCompetitors;
 
       if (isCompetitorRankings(competitorRankings)) {
         for (const competitor of competitorRankings.chartCompetitors) {
           const prevCompData = previousCompetitors.find(
-            (pc: CompetitorData) => pc.id === competitor.id,
+            (pc: CompetitorData) => pc.id === competitor.id
           );
           if (prevCompData) {
             competitor.change =
@@ -417,17 +488,19 @@ export async function computeAndPersistMetrics(
     const citationRankings = await calculateCitationRankings(
       reportId,
       companyId,
-      { aiModel: "all" },
+      { aiModel: "all" }
     );
 
     // Add citation rankings to competitor rankings object for storage
-    const enhancedCompetitorRankings = isCompetitorRankings(competitorRankings) ? {
-      ...competitorRankings,
-      citationRankings,
-    } : {
-      chartCompetitors: [],
-      citationRankings,
-    };
+    const enhancedCompetitorRankings = isCompetitorRankings(competitorRankings)
+      ? {
+          ...competitorRankings,
+          citationRankings,
+        }
+      : {
+          chartCompetitors: [],
+          citationRankings,
+        };
 
     // ====== Compute Top Questions for "all" models ======
     const topQuestions = await calculateTopQuestions(reportId, companyId, {
@@ -440,11 +513,14 @@ export async function computeAndPersistMetrics(
 
     // Look for summary engine first
     const summaryEngineData = rawSentiments.find(
-      (s) => s.engine === "serplexity-summary",
+      (s) => s.engine === "serplexity-summary"
     );
     if (summaryEngineData && isSentimentRating(summaryEngineData.value)) {
       overallSentimentScore = summaryEngineData.value;
-    } else if (rawSentiments.length > 0 && isSentimentRating(rawSentiments[0].value)) {
+    } else if (
+      rawSentiments.length > 0 &&
+      isSentimentRating(rawSentiments[0].value)
+    ) {
       // Fallback to first available engine
       overallSentimentScore = rawSentiments[0].value;
     }
@@ -474,13 +550,19 @@ export async function computeAndPersistMetrics(
       update: {
         shareOfVoice: allSoV,
         shareOfVoiceChange: allSoVChange,
+        averageInclusionRate: allInclusionRate,
+        averageInclusionChange: allInclusionChange,
         averagePosition: allAvgPos,
         averagePositionChange: allAvgPosChange,
         topRankingsCount: allTopRankings,
         rankingsChange: allRankingsChange,
-        sentimentScore: JSON.parse(JSON.stringify(overallSentimentScore)) as Prisma.InputJsonValue,
+        sentimentScore: JSON.parse(
+          JSON.stringify(overallSentimentScore)
+        ) as Prisma.InputJsonValue,
         sentimentChange: overallSentimentChange,
-        competitorRankings: JSON.parse(JSON.stringify(enhancedCompetitorRankings)) as Prisma.InputJsonValue,
+        competitorRankings: JSON.parse(
+          JSON.stringify(enhancedCompetitorRankings)
+        ) as Prisma.InputJsonValue,
         topQuestions: topQuestions.questions,
         sentimentDetails: sentimentDetails,
       },
@@ -490,13 +572,19 @@ export async function computeAndPersistMetrics(
         aiModel: "all",
         shareOfVoice: allSoV,
         shareOfVoiceChange: allSoVChange,
+        averageInclusionRate: allInclusionRate,
+        averageInclusionChange: allInclusionChange,
         averagePosition: allAvgPos,
         averagePositionChange: allAvgPosChange,
         topRankingsCount: allTopRankings,
         rankingsChange: allRankingsChange,
-        sentimentScore: JSON.parse(JSON.stringify(overallSentimentScore)) as Prisma.InputJsonValue,
+        sentimentScore: JSON.parse(
+          JSON.stringify(overallSentimentScore)
+        ) as Prisma.InputJsonValue,
         sentimentChange: overallSentimentChange,
-        competitorRankings: JSON.parse(JSON.stringify(enhancedCompetitorRankings)) as Prisma.InputJsonValue,
+        competitorRankings: JSON.parse(
+          JSON.stringify(enhancedCompetitorRankings)
+        ) as Prisma.InputJsonValue,
         topQuestions: topQuestions.questions,
         sentimentDetails: sentimentDetails,
       },
@@ -512,7 +600,7 @@ export async function computeAndPersistMetrics(
           "all",
           avgSentiment,
           reportId,
-          timezone,
+          timezone
         );
       }
     }
@@ -524,10 +612,18 @@ export async function computeAndPersistMetrics(
       "all",
       allSoV,
       reportId,
-      timezone,
+      timezone
     );
 
-    // Removed: Inclusion rate history point (AIR not used)
+    // Save inclusion rate history (overall)
+    await saveInclusionRateHistoryPoint(
+      companyId,
+      new Date(),
+      "all",
+      allInclusionRate,
+      reportId,
+      timezone
+    );
 
     /******************************
      * Per-model metrics
@@ -545,19 +641,28 @@ export async function computeAndPersistMetrics(
         calculateTopRankings(reportId, companyId, { aiModel: model }),
       ]);
 
+      // Compute inclusion rate per model
+      const { rate: modelInclusionRate, change: modelInclusionChange } =
+        await calculateInclusionRate(reportId, companyId, { aiModel: model });
+
       const modelSentimentData = rawSentiments.find(
-        (s) => s.engine === model,
+        (s) => s.engine === model
       )?.value;
       const modelSentiment = modelSentimentData || null;
       const previousModelMetric = await getPreviousReportMetric(
         companyId,
         reportId,
-        model,
+        model
       );
 
       // Calculate sentiment change based on average values for comparison
       let modelSentimentChange: number | null = null;
-      if (modelSentiment && previousModelMetric?.sentimentScore && isSentimentRating(modelSentiment) && isSentimentRating(previousModelMetric.sentimentScore)) {
+      if (
+        modelSentiment &&
+        previousModelMetric?.sentimentScore &&
+        isSentimentRating(modelSentiment) &&
+        isSentimentRating(previousModelMetric.sentimentScore)
+      ) {
         const currentAvg = getAverage(modelSentiment);
         const previousAvg = getAverage(previousModelMetric.sentimentScore);
         if (currentAvg !== null && previousAvg !== null) {
@@ -578,17 +683,18 @@ export async function computeAndPersistMetrics(
       const compRankModel = await calculateCompetitorRankings(
         reportId,
         companyId,
-        { aiModel: model },
+        { aiModel: model }
       );
       if (
         previousModelMetric?.competitorRankings &&
         isCompetitorRankings(previousModelMetric.competitorRankings)
       ) {
-        const previousCompetitors = previousModelMetric.competitorRankings.chartCompetitors;
+        const previousCompetitors =
+          previousModelMetric.competitorRankings.chartCompetitors;
         if (isCompetitorRankings(compRankModel)) {
           for (const competitor of compRankModel.chartCompetitors) {
             const prevCompData = previousCompetitors.find(
-              (pc: CompetitorData) => pc.id === competitor.id,
+              (pc: CompetitorData) => pc.id === competitor.id
             );
             if (prevCompData) {
               competitor.change =
@@ -611,22 +717,24 @@ export async function computeAndPersistMetrics(
       const citationRankingsModel = await calculateCitationRankings(
         reportId,
         companyId,
-        { aiModel: model },
+        { aiModel: model }
       );
 
       // Add citation rankings to competitor rankings object for storage
-      const enhancedCompRankModel = isCompetitorRankings(compRankModel) ? {
-        ...compRankModel,
-        citationRankings: citationRankingsModel,
-      } : {
-        chartCompetitors: [],
-        citationRankings: citationRankingsModel,
-      };
+      const enhancedCompRankModel = isCompetitorRankings(compRankModel)
+        ? {
+            ...compRankModel,
+            citationRankings: citationRankingsModel,
+          }
+        : {
+            chartCompetitors: [],
+            citationRankings: citationRankingsModel,
+          };
 
       const topQuestionsModel = await calculateTopQuestions(
         reportId,
         companyId,
-        { aiModel: model },
+        { aiModel: model }
       );
 
       await prisma.reportMetric.upsert({
@@ -634,13 +742,17 @@ export async function computeAndPersistMetrics(
         update: {
           shareOfVoice,
           shareOfVoiceChange: sovChange,
+          averageInclusionRate: modelInclusionRate,
+          averageInclusionChange: modelInclusionChange,
           averagePosition: position,
           averagePositionChange: avgPosChange,
           topRankingsCount: count,
           rankingsChange,
           sentimentScore: modelSentiment ?? undefined,
           sentimentChange: modelSentimentChange,
-          competitorRankings: JSON.parse(JSON.stringify(enhancedCompRankModel)) as Prisma.InputJsonValue,
+          competitorRankings: JSON.parse(
+            JSON.stringify(enhancedCompRankModel)
+          ) as Prisma.InputJsonValue,
           topQuestions: topQuestionsModel.questions,
           sentimentDetails: modelSentimentDetails,
         },
@@ -650,13 +762,17 @@ export async function computeAndPersistMetrics(
           aiModel: model,
           shareOfVoice,
           shareOfVoiceChange: sovChange,
+          averageInclusionRate: modelInclusionRate,
+          averageInclusionChange: modelInclusionChange,
           averagePosition: position,
           averagePositionChange: avgPosChange,
           topRankingsCount: count,
           rankingsChange,
           sentimentScore: modelSentiment ?? undefined,
           sentimentChange: modelSentimentChange,
-          competitorRankings: JSON.parse(JSON.stringify(enhancedCompRankModel)) as Prisma.InputJsonValue,
+          competitorRankings: JSON.parse(
+            JSON.stringify(enhancedCompRankModel)
+          ) as Prisma.InputJsonValue,
           topQuestions: topQuestionsModel.questions,
           sentimentDetails: modelSentimentDetails,
         },
@@ -671,7 +787,7 @@ export async function computeAndPersistMetrics(
             model,
             avgModelSentiment,
             reportId,
-            timezone,
+            timezone
           );
         }
       }
@@ -683,15 +799,23 @@ export async function computeAndPersistMetrics(
         model,
         shareOfVoice,
         reportId,
-        timezone,
+        timezone
       );
 
-      // Removed: Inclusion rate history point for model (AIR not used)
+      // Save inclusion rate history per model
+      await saveInclusionRateHistoryPoint(
+        companyId,
+        new Date(),
+        model,
+        modelInclusionRate,
+        reportId,
+        timezone
+      );
     }
   } catch (error) {
     console.error(
       `[METRICS] Failed to compute and persist metrics for report ${reportId}:`,
-      error,
+      error
     );
     // Optionally re-throw or handle as needed, for now just logging
     // Re-throwing would cause the worker to see the error immediately
@@ -705,7 +829,7 @@ export async function computeAndPersistMetrics(
  */
 export async function getFullReportMetrics(
   reportId: string,
-  aiModel: string = "all",
+  aiModel: string = "all"
 ): Promise<DashboardMetrics | null> {
   const prismaReadReplica = await getReadDbClient();
   const metric = await prismaReadReplica.reportMetric.findFirst({
@@ -728,17 +852,34 @@ export async function getFullReportMetrics(
     averageInclusionChange: metric.averageInclusionChange,
     averagePosition: metric.averagePosition,
     averagePositionChange: metric.averagePositionChange,
-    sentimentScore: isSentimentRating(metric.sentimentScore) ? metric.sentimentScore : null,
+    sentimentScore: isSentimentRating(metric.sentimentScore)
+      ? metric.sentimentScore
+      : null,
     sentimentChange: metric.sentimentChange,
     topRankingsCount: metric.topRankingsCount,
     rankingsChange: metric.rankingsChange,
-    competitorRankings: isCompetitorRankings(metric.competitorRankings) ? metric.competitorRankings : { chartCompetitors: [] },
+    competitorRankings: isCompetitorRankings(metric.competitorRankings)
+      ? metric.competitorRankings
+      : { chartCompetitors: [] },
     citationRankings: citationRankings,
     topQuestions: metric.topQuestions,
     sentimentOverTime: null, // Historical data fetched separately
     shareOfVoiceHistory: null, // Historical data fetched separately
-    sentimentDetails: Array.isArray(metric.sentimentDetails) 
-      ? metric.sentimentDetails as Array<{name: string; engine: string; value: { ratings: { quality: number; priceValue: number; brandReputation: number; brandTrust: number; customerService: number; summaryDescription: string; }[]; }}>
+    sentimentDetails: Array.isArray(metric.sentimentDetails)
+      ? (metric.sentimentDetails as Array<{
+          name: string;
+          engine: string;
+          value: {
+            ratings: {
+              quality: number;
+              priceValue: number;
+              brandReputation: number;
+              brandTrust: number;
+              customerService: number;
+              summaryDescription: string;
+            }[];
+          };
+        }>)
       : [],
   };
 }

@@ -29,21 +29,27 @@ const getCurrentLogLevel = (): LogLevel => {
 const formatMessage = (
   level: string,
   message: string,
-  context?: Record<string, unknown>
+  context?: unknown
 ): string => {
   const timestamp = new Date().toISOString();
   let formatted = `[${timestamp}] [${level}] ${message}`;
 
-  if (context && Object.keys(context).length > 0) {
-    // Only show context if it's meaningful and not too verbose
-    const cleanContext = Object.fromEntries(
-      Object.entries(context).filter(
-        ([_, value]) => value !== undefined && value !== null && value !== ""
-      )
-    );
-    if (Object.keys(cleanContext).length > 0) {
-      formatted += ` | ${JSON.stringify(cleanContext)}`;
+  try {
+    if (context && typeof context === "object") {
+      const entries = Object.entries(context as Record<string, unknown>);
+      if (entries.length > 0) {
+        const cleanContext = Object.fromEntries(
+          entries.filter(
+            ([, value]) => value !== undefined && value !== null && value !== ""
+          )
+        );
+        if (Object.keys(cleanContext).length > 0) {
+          formatted += ` | ${JSON.stringify(cleanContext)}`;
+        }
+      }
     }
+  } catch {
+    // ignore context formatting errors
   }
 
   return formatted;
@@ -53,22 +59,22 @@ const logger = {
   log: (...args: unknown[]) => {
     console.log(...args);
   },
-  info: (message: string, context?: Record<string, unknown>) => {
+  info: (message: string, context?: unknown) => {
     if (getCurrentLogLevel() <= LogLevel.INFO) {
       console.info(formatMessage("INFO", message, context));
     }
   },
-  warn: (message: string, context?: Record<string, unknown>) => {
+  warn: (message: string, context?: unknown) => {
     if (getCurrentLogLevel() <= LogLevel.WARN) {
       console.warn(formatMessage("WARN", message, context));
     }
   },
-  error: (message: string, context?: Record<string, unknown>) => {
+  error: (message: string, context?: unknown) => {
     if (getCurrentLogLevel() <= LogLevel.ERROR) {
       console.error(formatMessage("ERROR", message, context));
     }
   },
-  debug: (message: string, context?: Record<string, unknown>) => {
+  debug: (message: string, context?: unknown) => {
     if (getCurrentLogLevel() <= LogLevel.DEBUG) {
       console.debug(formatMessage("DEBUG", message, context));
     }

@@ -14,8 +14,9 @@
  * - queueReport: Function to queue a new report generation job.
  * - scheduleReport: Function to schedule a report for a specific company (placeholder).
  */
-import { reportGenerationQueue } from "../queues/reportGenerationQueue";
 import { getDbClient } from "../config/database";
+import { reportGenerationQueue } from "../queues/reportGenerationQueue";
+import { startReportForBilling } from "./usageService";
 
 // Enhanced logging for the report scheduling service
 interface SchedulingLogContext {
@@ -31,7 +32,7 @@ interface SchedulingLogContext {
 const schedulingLog = (
   context: SchedulingLogContext,
   message: string,
-  level: "INFO" | "WARN" | "ERROR" | "DEBUG" = "INFO",
+  level: "INFO" | "WARN" | "ERROR" | "DEBUG" = "INFO"
 ) => {
   const timestamp = new Date().toISOString();
   const { companyId, runId, step, duration, force, error, metadata } = context;
@@ -93,7 +94,7 @@ interface QueueResult {
  */
 export async function queueReport(
   companyId: string,
-  force = false,
+  force = false
 ): Promise<QueueResult> {
   const prisma = await getDbClient();
   const startTime = Date.now();
@@ -106,7 +107,7 @@ export async function queueReport(
         metadata: { locked: true },
       },
       "Report queuing already in progress for this company.",
-      "WARN",
+      "WARN"
     );
 
     // A report is already being queued. Find the most recent run to return its status.
@@ -126,7 +127,7 @@ export async function queueReport(
     // This case is unlikely, but as a fallback, we indicate a locked state.
     // The client should interpret this as "a process is running, please wait".
     throw new Error(
-      "A report for this company is already being processed. Please wait a moment.",
+      "A report for this company is already being processed. Please wait a moment."
     );
   }
 
@@ -140,7 +141,7 @@ export async function queueReport(
         step: "START",
         metadata: { timestamp: new Date().toISOString() },
       },
-      `Report queue request received - Force mode: ${force}`,
+      `Report queue request received - Force mode: ${force}`
     );
 
     // Check for existing runs first (unless forced)
@@ -148,7 +149,7 @@ export async function queueReport(
       const checkTimer = Date.now();
       schedulingLog(
         { companyId, force, step: "EXISTING_CHECK" },
-        "Checking for existing report runs today",
+        "Checking for existing report runs today"
       );
 
       const today = new Date();
@@ -180,7 +181,7 @@ export async function queueReport(
               checkDuration,
             },
           },
-          `Found existing report run: ${existingRun.id} (${existingRun.status})`,
+          `Found existing report run: ${existingRun.id} (${existingRun.status})`
         );
 
         return {
@@ -197,12 +198,12 @@ export async function queueReport(
           step: "NO_EXISTING_FOUND",
           duration: checkDuration,
         },
-        "No existing report runs found for today - proceeding with new report",
+        "No existing report runs found for today - proceeding with new report"
       );
     } else {
       schedulingLog(
         { companyId, force, step: "FORCE_SKIP_CHECK" },
-        "Force mode enabled - skipping existing run check",
+        "Force mode enabled - skipping existing run check"
       );
     }
 
@@ -210,7 +211,7 @@ export async function queueReport(
     const companyFetchTimer = Date.now();
     schedulingLog(
       { companyId, force, step: "COMPANY_FETCH" },
-      "Fetching company data and competitors",
+      "Fetching company data and competitors"
     );
 
     const company = await prisma.company.findUnique({
@@ -233,7 +234,7 @@ export async function queueReport(
           error: new Error(`Company with ID ${companyId} not found`),
         },
         `Company not found: ${companyId}`,
-        "ERROR",
+        "ERROR"
       );
 
       throw new Error(`Company with ID ${companyId} not found.`);
@@ -254,14 +255,14 @@ export async function queueReport(
           benchmarkQuestionsCount: 0,
         },
       },
-      `Company loaded: ${company.name} (${company.competitors.length} competitors)`,
+      `Company loaded: ${company.name} (${company.competitors.length} competitors)`
     );
 
     // Create new report run
     const reportCreateTimer = Date.now();
     schedulingLog(
       { companyId, force, step: "REPORT_CREATE" },
-      "Creating new report run in database",
+      "Creating new report run in database"
     );
 
     const reportRun = await prisma.reportRun.create({
@@ -286,7 +287,7 @@ export async function queueReport(
           createdAt: reportRun.createdAt,
         },
       },
-      `Report run created: ${reportRun.id}`,
+      `Report run created: ${reportRun.id}`
     );
 
     // Add job to queue
@@ -298,7 +299,7 @@ export async function queueReport(
         force,
         step: "QUEUE_ADD",
       },
-      "Adding report generation job to queue",
+      "Adding report generation job to queue"
     );
 
     const jobOptions = {
@@ -308,7 +309,7 @@ export async function queueReport(
 
     if (!reportGenerationQueue) {
       throw new Error(
-        "Report generation queue is not available in test environment",
+        "Report generation queue is not available in test environment"
       );
     }
 
@@ -319,7 +320,7 @@ export async function queueReport(
         company: company,
         force: force,
       },
-      jobOptions,
+      jobOptions
     );
 
     // Now that we have the job ID, update the report run record
@@ -327,6 +328,30 @@ export async function queueReport(
       where: { id: reportRun.id },
       data: { jobId: job.id },
     });
+
+    // Billing: decide if overage and place budget hold if needed, using conservative defaults
+    try {
+      await startReportForBilling(
+        company.userId,
+        company.id,
+        reportRun.id,
+        20,
+        4
+      );
+    } catch (billingError) {
+      // Mark run as failed and do not enqueue further work
+      await prisma.reportRun.update({
+        where: { id: reportRun.id },
+        data: {
+          status: "FAILED",
+          stepStatus:
+            billingError instanceof Error
+              ? billingError.message
+              : "Billing check failed",
+        },
+      });
+      throw billingError;
+    }
 
     const queueDuration = Date.now() - queueTimer;
     const totalDuration = Date.now() - startTime;
@@ -345,7 +370,7 @@ export async function queueReport(
           companyName: company.name,
         },
       },
-      `Report generation job queued successfully - Total time: ${totalDuration}ms`,
+      `Report generation job queued successfully - Total time: ${totalDuration}ms`
     );
 
     return {
@@ -364,7 +389,7 @@ export async function queueReport(
         error,
       },
       `Failed to queue report generation: ${error instanceof Error ? error.message : String(error)}`,
-      "ERROR",
+      "ERROR"
     );
 
     // Re-throw the error to be handled by the calling controller
@@ -373,7 +398,7 @@ export async function queueReport(
     reportQueueLocks.delete(companyId);
     schedulingLog(
       { companyId, step: "LOCK_RELEASED" },
-      "Report queue lock released.",
+      "Report queue lock released."
     );
   }
 }

@@ -7,7 +7,7 @@
  */
 
 import type { AxiosError } from "axios";
-import { AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle } from "lucide-react";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import apiClient from "../../lib/apiClient";
 import { AuditConfig, AuditResult } from "../../pages/WebAuditPage";
@@ -35,6 +35,8 @@ const WebAuditProgress: React.FC<WebAuditProgressProps> = ({
   const lastProgressRef = useRef<number>(0);
   const targetProgressRef = useRef<number>(0);
   const rafRef = useRef<number | null>(null);
+  const lastBackendProgressRef = useRef<number | null>(null);
+  const lastBackendUpdateAtRef = useRef<number>(Date.now());
   const expectedDurationRef = useRef<number>(
     // Heuristic expected duration in seconds based on included analyses
     (() => {
@@ -69,11 +71,41 @@ const WebAuditProgress: React.FC<WebAuditProgressProps> = ({
         onError();
         return;
       } else {
-        // Running: use backend progress if available, otherwise elapsed heuristic
+        // Running: blend backend progress with time-based heuristic to avoid early jumps & long stalls
         if (typeof statusInfo.progress === "number") {
-          const clamped = Math.max(0, Math.min(95, statusInfo.progress));
-          const nextTarget = Math.max(targetProgressRef.current, clamped);
-          targetProgressRef.current = nextTarget;
+          const backend = Math.max(0, Math.min(95, statusInfo.progress));
+          if (
+            lastBackendProgressRef.current === null ||
+            backend !== lastBackendProgressRef.current
+          ) {
+            lastBackendProgressRef.current = backend;
+            lastBackendUpdateAtRef.current = Date.now();
+          }
+
+          const elapsedSec = Math.floor(
+            (Date.now() - startTimeRef.current) / 1000
+          );
+          const expected = expectedDurationRef.current;
+          const timePct = Math.min(
+            92,
+            Math.max(0, (elapsedSec / expected) * 92)
+          );
+          const secondsSinceBackend =
+            (Date.now() - lastBackendUpdateAtRef.current) / 1000;
+
+          // If backend progress is stale for >10s, follow time-based baseline with a small cushion
+          let blended: number;
+          if (secondsSinceBackend > 10) {
+            blended = Math.max(timePct + 5, backend);
+          } else {
+            // Weighted blend so we don't jump or stall
+            blended = Math.max(timePct, 0.65 * backend + 0.35 * timePct);
+          }
+
+          targetProgressRef.current = Math.max(
+            targetProgressRef.current,
+            blended
+          );
         }
         nextDelayRef.current = 3000; // reset delay on success
       }
@@ -141,7 +173,8 @@ const WebAuditProgress: React.FC<WebAuditProgressProps> = ({
           (Date.now() - startTimeRef.current) / 1000
         );
         const expected = expectedDurationRef.current;
-        const pct = Math.min(95, Math.max(0, (elapsedSec / expected) * 95));
+        const pct = Math.min(92, Math.max(0, (elapsedSec / expected) * 92));
+        // Time-based baseline: ensure we never fall below this
         targetProgressRef.current = Math.max(targetProgressRef.current, pct);
       }
     }, 1000);
@@ -158,7 +191,7 @@ const WebAuditProgress: React.FC<WebAuditProgressProps> = ({
       const target = targetProgressRef.current;
       const delta = target - current;
       if (Math.abs(delta) > 0.1) {
-        const step = Math.max(0.2, Math.abs(delta) * 0.08); // ease-out
+        const step = Math.max(0.15, Math.abs(delta) * 0.05); // smoother ease-out
         const next = current + Math.sign(delta) * step;
         lastProgressRef.current = Math.min(100, Math.max(0, next));
         setProgress(lastProgressRef.current);
@@ -223,7 +256,6 @@ const WebAuditProgress: React.FC<WebAuditProgressProps> = ({
         <div className="px-4 py-3 border-b border-white/20 bg-white/60">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Loader2 className="w-4 h-4 text-gray-700 animate-spin" />
               <div>
                 <p className="text-sm font-medium text-gray-900">Web Audit</p>
                 <p className="text-xs text-gray-600 truncate max-w-[520px]">

@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Essential Development Commands
 
 ### Backend Development
+
 ```bash
 cd backend
 npm install                    # Install dependencies
@@ -16,7 +17,10 @@ npm run lint:fix               # ESLint with auto-fix
 npm run typecheck              # TypeScript type checking without compilation
 npm run generate               # Generate Prisma client after schema changes
 npm run prisma:dev             # Prisma commands with AWS Secrets Manager integration
-npm run migrate:dev            # Run Prisma database migrations (fetches AWS secrets)
+ # DB change policy
+ # - Live/shared DBs: DO NOT run migrations. Apply idempotent SQL patches via secrets wrapper, then `npm run generate`.
+ #   Example: ts-node src/scripts/run-with-secrets.ts npx prisma db execute --file /absolute/path/to.sql --schema prisma/schema.prisma
+ # - Local dev: You MAY use `npm run migrate:dev` on a disposable local database.
 npm run studio:dev             # Open Prisma Studio (fetches AWS secrets)
 
 # Python-specific commands
@@ -28,6 +32,7 @@ npm run check:power-of-ten     # Full Power of Ten compliance check
 ```
 
 ### Frontend Development
+
 ```bash
 cd frontend
 npm install                    # Install dependencies
@@ -38,6 +43,7 @@ npm run preview                # Preview production build locally
 ```
 
 ### Testing Commands
+
 ```bash
 # Backend Testing
 cd backend
@@ -58,6 +64,7 @@ npm run test:ui                # Vitest UI mode
 ```
 
 ### Root-level Commands
+
 ```bash
 npm test                       # Run both backend and frontend tests
 npm run test:backend           # Backend tests only
@@ -68,11 +75,13 @@ npm run test:coverage          # Coverage for both
 ## Architecture Overview
 
 ### Monorepo Structure
+
 - **backend/**: Express + TypeScript API server with background job processing
 - **frontend/**: React + Vite dashboard application with Tailwind CSS
 - **infra/**: Docker configurations and deployment scripts
 
 ### Backend Architecture (Express + Prisma + BullMQ + PydanticAI)
+
 ```
 backend/src/
 ├── app.ts                    # Express app configuration (middleware, routes)
@@ -94,6 +103,7 @@ backend/src/
 ```
 
 **Key Principles:**
+
 - Controllers are thin - business logic lives in services
 - All BullMQ workers auto-register when server starts
 - Prompts are centralized in `src/prompts/` for auditability
@@ -102,6 +112,7 @@ backend/src/
 - Python virtual environment required for PydanticAI agents (managed via `./start.sh`)
 
 ### Frontend Architecture (React + Vite + Tailwind)
+
 ```
 frontend/src/
 ├── components/               # Feature-based UI components
@@ -114,11 +125,13 @@ frontend/src/
 ```
 
 ### Database (PostgreSQL + Prisma)
+
 - Schema: `backend/prisma/schema.prisma`
 - Migrations: Auto-generated timestamp-based files
 - Client: Generated via `npm run generate` in backend
 
 ### Background Processing (BullMQ + Redis)
+
 - Queue prefix via `BULLMQ_QUEUE_PREFIX` environment variable
 - Workers: `*Worker.ts` files in `queues/` directory
 - Schedulers: `*Scheduler.ts` files for cron-like jobs
@@ -127,6 +140,7 @@ frontend/src/
 ## Development Workflow
 
 ### Local Development Setup
+
 ```bash
 # 1. Install dependencies
 npm install --prefix backend
@@ -139,8 +153,9 @@ cp frontend/.env.example frontend/.env
 # 3. Start database and Redis (via Docker)
 cd infra/docker && docker-compose up postgres redis -d
 
-# 4. Run database migrations (with AWS Secrets Manager)
-cd backend && npm run migrate:dev
+# 4. Database setup
+# - Local dev only: `cd backend && npm run migrate:dev`
+# - Live/shared DBs: apply an SQL patch via the secrets wrapper and then `npm run generate`
 
 # 5. Start development servers
 cd backend && ./start.sh      # Terminal 1 (port 8001) - includes Python env setup
@@ -148,12 +163,15 @@ cd frontend && npm run dev    # Terminal 2 (port 3000)
 ```
 
 ### Pre-deployment Testing
+
 **Always run before deploying:**
+
 ```bash
 npm test  # Runs both backend and frontend test suites
 ```
 
 ### Code Quality Checks
+
 ```bash
 # Backend (TypeScript + Python)
 cd backend
@@ -168,18 +186,21 @@ npm run lint && npm run build
 ## Important Technical Details
 
 ### Authentication & Authorization
+
 - JWT-based auth with access/refresh tokens
 - Google OAuth integration via Passport.js
 - Company-level tenant isolation
 - Payment-gated features via middleware guards
 
 ### Database Connection Management
+
 - **AWS Secrets Manager Integration**: Database credentials stored securely in AWS
 - **Automatic Secret Retrieval**: `scripts/run-with-secrets.ts` fetches DB credentials
 - **Prisma Commands**: All Prisma operations use `npm run prisma:dev` for secret management
 - **Legacy Support**: Falls back to `DATABASE_URL` environment variable if not using AWS secrets
 
 ### LLM Integration
+
 - Multi-provider setup: OpenAI, Anthropic, Gemini, Perplexity
 - Fanout system queries multiple models simultaneously
 - Prompt templates centralized in `backend/src/prompts/`
@@ -192,17 +213,20 @@ npm run lint && npm run build
   - Research Agent: Conducts research across multiple sources
 
 ### Queue System
+
 - BullMQ on Redis for background job processing
 - Report generation, data archival, scheduling
 - All workers auto-start when server boots
 - Environment-specific queue prefixes (dev-, prod-, etc.)
 
 ### Data Archival
+
 - AWS Glacier integration for long-term storage
 - Automatic cleanup of old fanout responses
 - S3 for file uploads and temporary storage
 
 ### Testing Strategy
+
 - **Backend**: Jest with 70% coverage requirement
   - Unit tests: Services and utilities
   - Agent tests: PydanticAI agent validation (`src/__tests__/agents/`)
@@ -216,12 +240,14 @@ npm run lint && npm run build
   - `frontend/src/__tests__/` - Frontend component tests
 
 ## Path Aliases
+
 - **Backend**: `@/` → `backend/src/`
 - **Frontend**: `@/` → `frontend/src/`
 
 ## Environment Configuration
 
 ### Backend Required Variables
+
 ```bash
 NODE_ENV=development
 PORT=8001
@@ -259,6 +285,7 @@ ANTHROPIC_API_KEY=sk-...
 ```
 
 ### Frontend Required Variables
+
 ```bash
 VITE_API_URL=http://localhost:8001/api
 ```
@@ -266,6 +293,7 @@ VITE_API_URL=http://localhost:8001/api
 ## Deployment Notes
 
 ### Docker Setup
+
 ```bash
 cd infra/docker
 ./docker-rebuild.sh     # Build images
@@ -273,6 +301,7 @@ docker-compose up -d    # Start all services
 ```
 
 ### Production Considerations
+
 - Use read replicas for database scaling
 - Configure Redis TLS for cloud deployment
 - Set up proper CORS origins
@@ -282,16 +311,24 @@ docker-compose up -d    # Start all services
 ## Common Operational Tasks
 
 ### Database Operations
+
 ```bash
 cd backend
-npm run studio:dev                    # Open Prisma Studio (fetches AWS secrets)
-npm run migrate:dev -- --name=add_field  # Create new migration (fetches AWS secrets)
-npm run generate                      # Regenerate Prisma client
-npm run prisma:dev -- migrate reset   # Reset database (fetches AWS secrets)
-npm run prisma:dev -- db push         # Push schema changes (fetches AWS secrets)
+# Preferred for live/shared DBs: apply idempotent SQL via secrets wrapper
+ts-node src/scripts/run-with-secrets.ts npx prisma db execute --file /absolute/path/to.sql --schema prisma/schema.prisma
+
+# Regenerate Prisma client after schema change
+npm run generate
+
+# Local dev only (disposable DB):
+npm run migrate:dev -- --name=add_field
+npm run prisma:dev -- migrate reset
+npm run prisma:dev -- db push
+npm run studio:dev
 ```
 
 ### Queue Monitoring
+
 ```bash
 cd backend
 npm run ops:monitor    # Monitor Redis queues
@@ -301,6 +338,7 @@ npm run queue-report   # Queue a report generation job
 ```
 
 ### Running Admin Scripts
+
 ```bash
 cd backend
 ts-node src/scripts/script-name.ts
@@ -309,6 +347,7 @@ ts-node src/scripts/script-name.ts
 ## Key Files to Know
 
 ### Configuration Files
+
 - `backend/src/config/env.ts` - Environment variable validation
 - `backend/src/app.ts` - Express app setup
 - `backend/src/server.ts` - Server bootstrap
@@ -319,6 +358,7 @@ ts-node src/scripts/script-name.ts
 - `frontend/vite.config.js` - Frontend build configuration
 
 ### Important Services
+
 - `backend/src/services/pydanticLlmService.ts` - LLM integration
 - `backend/src/services/dashboardService.ts` - Dashboard data
 - `backend/src/services/metricsService.ts` - Analytics calculations
@@ -336,8 +376,9 @@ ts-node src/scripts/script-name.ts
 ## Troubleshooting
 
 ### Common Issues
+
 - **Port conflicts**: Backend uses 8001, frontend uses 3000
-- **Database migrations**: Always run `npm run migrate:dev` after schema changes
+- **Database changes**: Live/shared DBs → apply SQL patch via secrets wrapper; Local-only → `migrate:dev`. Always run `npm run generate` after schema edits.
 - **Prisma client**: Run `npm run generate` after schema updates
 - **AWS Secrets**: Ensure `DATABASE_SECRET_NAME` and AWS credentials are set
 - **Python environment**: Use `./start.sh` to ensure PydanticAI dependencies are available
@@ -348,6 +389,7 @@ ts-node src/scripts/script-name.ts
 - **PydanticAI agent failures**: Run `npm run ops:health` to check agent status
 
 ### Debug Commands
+
 ```bash
 # Check service health
 curl http://localhost:8001/api/health
@@ -360,6 +402,7 @@ docker-compose logs backend
 ```
 
 ## Single Test Commands
+
 ```bash
 # Run a single test file
 cd backend && npx jest src/__tests__/auth.test.ts
@@ -379,6 +422,7 @@ cd backend && npx jest src/__tests__/integration/ --testTimeout=120000  # Integr
 This project follows the modernized "Power of Ten" principles for TypeScript/Python/React development:
 
 ## Core Safety Rules
+
 1. **Keep Control-Flow Trivial**: Forbid eval, Function(), dynamic imports in hot paths, user-generated SQL
 2. **Predictable Loop Bounds**: Express bounds as constants (MAX_BATCH_SIZE), replace while(true) with for...of
 3. **No Dynamic Allocation After Start-up**: Size connection pools at boot, cap heap via Docker --memory
@@ -391,6 +435,7 @@ This project follows the modernized "Power of Ten" principles for TypeScript/Pyt
 10. **Zero-Warning Policy**: tsc --strict, ESLint, mypy --strict, ruff check --select ALL, bandit
 
 ## Quality Gates
+
 - **TypeScript Backend**: `npm run typecheck && npm run lint`
 - **Python Backend**: `npm run python:check` (includes mypy --strict, ruff check --select ALL, bandit -r)
 - **React Frontend**: `npm run build && npm run lint`
@@ -400,16 +445,18 @@ This project follows the modernized "Power of Ten" principles for TypeScript/Pyt
 ## Development Best Practices from Cursor Rules
 
 ### Code Quality Principles
+
 - Write clean, simple, readable code with clear reasoning
 - Implement features in the simplest possible way possible
 - Keep files small and focused (<200 lines)
-- Test after every meaningful change  
+- Test after every meaningful change
 - Use clear, consistent naming conventions
 - ALWAYS ask follow-up questions to clarify requirements before coding
 - Write modular, well-documented code with explanatory comments
 - One abstraction layer per file - controllers call services, services call utils/db
 
 ### Error Handling Best Practices
+
 - DO NOT JUMP TO CONCLUSIONS when debugging - consider multiple possible causes
 - Make only minimal necessary changes when fixing issues
 - Use structured logging with appropriate log levels (debug/info/warn/error)
@@ -417,6 +464,7 @@ This project follows the modernized "Power of Ten" principles for TypeScript/Pyt
 - Prefer async/await + try/catch patterns over promises
 
 ### Project-Specific Conventions
+
 - All prompts MUST live in `backend/src/prompts/` for auditability
 - Use explicit TypeScript types everywhere - `any` is banned
 - Include LOTS of explanatory comments - document the "why" not just the "what"
@@ -424,30 +472,34 @@ This project follows the modernized "Power of Ten" principles for TypeScript/Pyt
 - All new code must include unit tests and pass lint checks
 
 ### File Organization Rules
+
 - Backend services: Pure, reusable business logic (unit test these directly)
 - Controllers: Thin request/response orchestration (keep business-logic free)
 - Queues: Import registers worker (side-effect) - never import from here in regular code
 - Frontend: Feature-based structure for components/pages/contexts/hooks
 
 # important-instruction-reminders
+
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.
-NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
+NEVER proactively create documentation files (\*.md) or README files. Only create documentation files if explicitly requested by the User.
 
 ## Development Best Practices from Cursor Rules
 
 ### Code Quality Principles
+
 - Write clean, simple, readable code with clear reasoning
 - Implement features in the simplest possible way possible
 - Keep files small and focused (<200 lines)
-- Test after every meaningful change  
+- Test after every meaningful change
 - Use clear, consistent naming conventions
 - ALWAYS ask follow-up questions to clarify requirements before coding
 - Write modular, well-documented code with explanatory comments
 - One abstraction layer per file - controllers call services, services call utils/db
 
 ### Error Handling Best Practices
+
 - DO NOT JUMP TO CONCLUSIONS when debugging - consider multiple possible causes
 - Make only minimal necessary changes when fixing issues
 - Use structured logging with appropriate log levels (debug/info/warn/error)
@@ -455,6 +507,7 @@ NEVER proactively create documentation files (*.md) or README files. Only create
 - Prefer async/await + try/catch patterns over promises
 
 ### Project-Specific Conventions
+
 - All prompts MUST live in `backend/src/prompts/` for auditability
 - Use explicit TypeScript types everywhere - `any` is banned
 - Include LOTS of explanatory comments - document the "why" not just the "what"
@@ -462,6 +515,7 @@ NEVER proactively create documentation files (*.md) or README files. Only create
 - All new code must include unit tests and pass lint checks
 
 ### File Organization Rules
+
 - Backend services: Pure, reusable business logic (unit test these directly)
 - Controllers: Thin request/response orchestration (keep business-logic free)
 - Queues: Import registers worker (side-effect) - never import from here in regular code
@@ -470,6 +524,7 @@ NEVER proactively create documentation files (*.md) or README files. Only create
 ## Additional Important Guidelines
 
 ### Development Best Practices
+
 - Follow the hybrid TypeScript/Python architecture pattern
 - Controllers should be thin - business logic belongs in services
 - All BullMQ workers auto-register when server starts
@@ -478,6 +533,7 @@ NEVER proactively create documentation files (*.md) or README files. Only create
 - Always use `./start.sh` for backend development to ensure Python environment setup
 
 ### Code Quality Standards
+
 - Backend: Jest with 70% coverage requirement
 - Frontend: Vitest + React Testing Library with 70% coverage requirement
 - Use ESLint and TypeScript strict mode
@@ -485,12 +541,14 @@ NEVER proactively create documentation files (*.md) or README files. Only create
 - Input validation should use Zod schemas
 
 ### Python Environment Management
+
 - Python virtual environment is located at `backend/venv/`
 - Requirements managed via `backend/requirements.txt`
 - PydanticAI agents require proper Python environment setup
 - Use `npm run ops:health` to check agent status
 
 ### Security Requirements
+
 - JWT-based authentication with access/refresh tokens
 - Company-level data isolation enforced at database level
 - Rate limiting on all public endpoints
@@ -499,6 +557,7 @@ NEVER proactively create documentation files (*.md) or README files. Only create
 - AWS Secrets Manager integration for database credentials
 
 ### Testing Requirements
+
 - Always run `npm test` before deploying (covers both backend and frontend)
 - Use `npm run test:quick` for fast development testing (~2 min)
 - Production validation tests require real API keys
@@ -506,7 +565,9 @@ NEVER proactively create documentation files (*.md) or README files. Only create
 - Integration tests cover end-to-end report generation flows
 
 ### AI Agent Architecture
+
 The system uses 9 specialized PydanticAI agents in `backend/src/pydantic_agents/agents/`:
+
 - **Answer Agent** (`answer_agent.py`): Generates comprehensive responses with citations
 - **Search Agent** (`search_agent.py`): Performs web searches and content extraction
 - **Sentiment Agent** (`sentiment_agent.py`): Analyzes sentiment in mentions and content
@@ -518,6 +579,7 @@ The system uses 9 specialized PydanticAI agents in `backend/src/pydantic_agents/
 - **Fanout Agent** (`fanout_agent.py`): Coordinates parallel processing across multiple AI models
 
 **Python Agent Integration**:
+
 - PydanticAI 0.4.6 with multi-provider support (OpenAI, Anthropic, Gemini, Groq)
 - Structured output validation using Pydantic schemas
 - Logfire integration for observability and debugging
@@ -525,7 +587,9 @@ The system uses 9 specialized PydanticAI agents in `backend/src/pydantic_agents/
 - Health monitoring via `npm run ops:health`
 
 ### Project Business Domain
+
 This is **Serplexity**, a Generative Engine Optimization (GEO) platform that helps brands measure and grow visibility inside AI search engines. Key business concepts:
+
 - **Brand visibility** in AI-generated search results
 - **Multi-tenant SaaS** with company-level data isolation
 - **Stripe billing** with freemium model

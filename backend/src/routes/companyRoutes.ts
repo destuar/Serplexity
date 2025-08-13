@@ -14,37 +14,42 @@
  * - router: The Express router instance for company routes.
  */
 import { Router } from "express";
-import { authenticate } from "../middleware/authMiddleware";
-import { subscriptionOnlyGuard } from "../middleware/freemiumGuard";
 import {
+  acceptCompetitor,
+  addCompetitor,
+  addQuestion,
   createCompany,
+  declineCompetitor,
   deleteCompany,
+  deleteCompetitor,
+  deleteQuestion,
+  getAcceptedCompetitors,
   getAveragePosition,
+  getCitations,
   getCompanies,
   getCompany,
+  getCompanyModelPreferences,
+  getCompanyQuestions,
+  getCompanyReadiness,
+  getCompanyReportSchedule,
   getCompetitorRankings,
+  getInclusionRateHistory,
+  getPromptsWithResponses,
   getSentimentData,
   getSentimentOverTime,
   getShareOfVoice,
   getShareOfVoiceHistory,
-  getInclusionRateHistory,
-  getTopRankingQuestions,
-  getCitations,
-  getPromptsWithResponses,
-  updateCompany,
-  getAcceptedCompetitors,
   getSuggestedCompetitors,
-  acceptCompetitor,
-  declineCompetitor,
-  addCompetitor,
+  getTopRankingQuestions,
+  updateCompany,
+  updateCompanyModelPreferences,
+  updateCompanyReportSchedule,
   updateCompetitor,
-  deleteCompetitor,
-  addQuestion,
   updateQuestion,
-  deleteQuestion,
-  getCompanyQuestions,
-  getCompanyReadiness,
 } from "../controllers/companyController";
+import { authenticate } from "../middleware/authMiddleware";
+// freemium/trial removed
+import { enforceCompanyCap } from "../middleware/quotaGuard";
 
 const router = Router();
 
@@ -52,12 +57,20 @@ const router = Router();
 router.use(authenticate);
 
 // Company CRUD routes
-router.post("/", createCompany); // POST /api/companies - Create new company
+router.post("/", enforceCompanyCap, createCompany); // POST /api/companies - Create new company
 router.get("/", getCompanies); // GET /api/companies - Get all user's companies
 router.get("/:id", getCompany); // GET /api/companies/:id - Get specific company
 router.get("/:id/readiness", getCompanyReadiness); // GET /api/companies/:id/readiness - Check if questions are ready
 router.put("/:id", updateCompany); // PUT /api/companies/:id - Update company
 router.delete("/:id", deleteCompany); // DELETE /api/companies/:id - Delete company
+
+// Company-scoped model preferences
+router.get("/:id/model-preferences", getCompanyModelPreferences);
+router.put("/:id/model-preferences", updateCompanyModelPreferences);
+
+// Company report schedule management
+router.get("/:id/report-schedule", getCompanyReportSchedule);
+router.put("/:id/report-schedule", updateCompanyReportSchedule);
 
 // Metrics
 router.get("/:id/metrics/position", getAveragePosition); // GET /api/companies/:id/metrics/position
@@ -65,7 +78,11 @@ router.get("/:id/metrics/share-of-voice", getShareOfVoice); // GET /api/companie
 router.get("/:id/metrics/competitor-rankings", getCompetitorRankings);
 router.get("/:id/metrics/sentiment", getSentimentData); // GET /api/companies/:id/metrics/sentiment
 router.get("/:id/top-ranking-questions", getTopRankingQuestions); // GET /api/companies/:id/top-ranking-questions
-router.get("/:id/prompts-with-responses", authenticate, getPromptsWithResponses); // GET /api/companies/:id/prompts-with-responses - View only for free users
+router.get(
+  "/:id/prompts-with-responses",
+  authenticate,
+  getPromptsWithResponses
+); // GET /api/companies/:id/prompts-with-responses - View only for free users
 router.get("/:id/metrics/sentiment-over-time", getSentimentOverTime);
 router.get("/:id/share-of-voice-history", getShareOfVoiceHistory);
 router.get("/:id/inclusion-rate-history", getInclusionRateHistory);
@@ -82,8 +99,8 @@ router.delete("/:id/competitors/:competitorId", deleteCompetitor); // DELETE /ap
 
 // Question management routes
 router.get("/:id/questions", authenticate, getCompanyQuestions); // View questions - free
-router.post("/:id/questions", authenticate, subscriptionOnlyGuard, addQuestion); // Add questions - subscription only
-router.put("/:id/questions/:questionId", authenticate, subscriptionOnlyGuard, updateQuestion); // Edit questions - subscription only  
-router.delete("/:id/questions/:questionId", authenticate, subscriptionOnlyGuard, deleteQuestion); // Delete questions - subscription only
+router.post("/:id/questions", authenticate, addQuestion); // Add questions - subscription only
+router.put("/:id/questions/:questionId", authenticate, updateQuestion); // Edit questions - subscription only
+router.delete("/:id/questions/:questionId", authenticate, deleteQuestion); // Delete questions - subscription only
 
 export default router;

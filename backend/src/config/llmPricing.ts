@@ -266,6 +266,27 @@ export const LLM_PRICING: Record<string, ModelPricing> = {
       searchesPerMinute: 100,
     },
   },
+
+  // Google AI Overviews (SERP scrape) pseudo-model
+  "ai-overview": {
+    modelId: "ai-overview",
+    provider: "google",
+    displayName: "AI Overviews",
+    tokens: {
+      inputTokensPerMillion: 0,
+      outputTokensPerMillion: 0,
+    },
+    webSearch: {
+      enabled: true,
+      costPer1000Searches: 0, // Treated as $0 in our internal accounting; infra costs handled separately
+      includesTokens: true,
+    },
+    rateLimits: {
+      requestsPerMinute: 8,
+      tokensPerMinute: 0,
+      searchesPerMinute: 8,
+    },
+  },
 };
 
 /**
@@ -280,7 +301,7 @@ export class CostCalculator {
     inputTokens: number,
     outputTokens: number,
     cachedTokens?: number,
-    thinkingTokens?: number,
+    thinkingTokens?: number
   ): number {
     const pricing = LLM_PRICING[modelId];
     if (!pricing) {
@@ -299,7 +320,8 @@ export class CostCalculator {
     // Thinking tokens (Gemini 2.5+ only) - CRITICAL for accurate Gemini pricing
     if (thinkingTokens && pricing.tokens.outputThinkingTokensPerMillion) {
       totalCost +=
-        (thinkingTokens / 1000000) * pricing.tokens.outputThinkingTokensPerMillion;
+        (thinkingTokens / 1000000) *
+        pricing.tokens.outputThinkingTokensPerMillion;
     }
 
     // Cached tokens (if applicable)
@@ -333,6 +355,7 @@ export class CostCalculator {
     searchCount: number = 0,
     cachedTokens?: number,
     thinkingTokens?: number,
+    otherToolCounts?: Record<string, number>
   ): {
     tokenCost: number;
     searchCost: number;
@@ -350,17 +373,32 @@ export class CostCalculator {
     }
 
     // Calculate individual cost components for transparency
-    const inputCost = (inputTokens / 1000000) * pricing.tokens.inputTokensPerMillion;
-    const outputCost = (outputTokens / 1000000) * pricing.tokens.outputTokensPerMillion;
-    const thinkingCost = thinkingTokens && pricing.tokens.outputThinkingTokensPerMillion
-      ? (thinkingTokens / 1000000) * pricing.tokens.outputThinkingTokensPerMillion
-      : 0;
-    const cachingCost = cachedTokens && pricing.tokens.contextCachingPerMillion
-      ? (cachedTokens / 1000000) * pricing.tokens.contextCachingPerMillion
-      : 0;
+    const inputCost =
+      (inputTokens / 1000000) * pricing.tokens.inputTokensPerMillion;
+    const outputCost =
+      (outputTokens / 1000000) * pricing.tokens.outputTokensPerMillion;
+    const thinkingCost =
+      thinkingTokens && pricing.tokens.outputThinkingTokensPerMillion
+        ? (thinkingTokens / 1000000) *
+          pricing.tokens.outputThinkingTokensPerMillion
+        : 0;
+    const cachingCost =
+      cachedTokens && pricing.tokens.contextCachingPerMillion
+        ? (cachedTokens / 1000000) * pricing.tokens.contextCachingPerMillion
+        : 0;
 
     const tokenCost = inputCost + outputCost + thinkingCost + cachingCost;
-    const searchCost = this.calculateWebSearchCost(modelId, searchCount);
+    let searchCost = this.calculateWebSearchCost(modelId, searchCount);
+
+    // Include other tool costs if specified (priced per-use)
+    if (otherToolCounts && pricing.otherTools) {
+      for (const [toolName, count] of Object.entries(otherToolCounts)) {
+        const perUse = pricing.otherTools[toolName];
+        if (typeof perUse === "number" && count && count > 0) {
+          searchCost += perUse * count;
+        }
+      }
+    }
 
     return {
       tokenCost,
@@ -383,7 +421,7 @@ export class CostCalculator {
     inputTokens: number,
     outputTokens: number,
     searchCount: number = 0,
-    modelIds?: string[],
+    modelIds?: string[]
   ): Array<{
     modelId: string;
     cost: number;
@@ -400,7 +438,7 @@ export class CostCalculator {
           model.modelId,
           inputTokens,
           outputTokens,
-          searchCount,
+          searchCount
         );
 
         return {
@@ -433,7 +471,7 @@ export class CostCalculator {
   static estimateSentimentAnalysisCost(
     modelId: string,
     companyName: string,
-    enableWebSearch: boolean = false,
+    enableWebSearch: boolean = false
   ): {
     estimatedTokenCost: number;
     estimatedSearchCost: number;
@@ -456,17 +494,17 @@ export class CostCalculator {
       estimatedTokenCost: this.calculateTokenCost(
         modelId,
         estimatedInputTokens,
-        estimatedOutputTokens,
+        estimatedOutputTokens
       ),
       estimatedSearchCost: this.calculateWebSearchCost(
         modelId,
-        estimatedSearchCount,
+        estimatedSearchCount
       ),
       estimatedTotalCost: this.calculateTotalCost(
         modelId,
         estimatedInputTokens,
         estimatedOutputTokens,
-        estimatedSearchCount,
+        estimatedSearchCount
       ).totalCost,
     };
   }
@@ -496,7 +534,7 @@ export class CostReporter {
         const cost = CostCalculator.estimateSentimentAnalysisCost(
           model.modelId,
           companyName,
-          true,
+          true
         );
 
         return {
@@ -518,7 +556,7 @@ export class CostReporter {
   static getCostReportForConfiguredModels(
     modelIds: string[],
     companyName: string,
-    enableWebSearch: boolean = false,
+    enableWebSearch: boolean = false
   ): Array<{
     modelId: string;
     provider: string;
@@ -546,7 +584,7 @@ export class CostReporter {
         const cost = CostCalculator.estimateSentimentAnalysisCost(
           modelId,
           companyName,
-          enableWebSearch,
+          enableWebSearch
         );
 
         return {
@@ -568,7 +606,7 @@ export class CostReporter {
   static compareCostsAcrossProviders(
     inputTokens: number,
     outputTokens: number,
-    searchCount: number = 0,
+    searchCount: number = 0
   ): Array<{
     modelId: string;
     provider: string;
@@ -583,7 +621,7 @@ export class CostReporter {
           model.modelId,
           inputTokens,
           outputTokens,
-          searchCount,
+          searchCount
         );
 
         return {
@@ -605,7 +643,7 @@ export class CostReporter {
     modelIds: string[],
     inputTokens: number,
     outputTokens: number,
-    searchCount: number = 0,
+    searchCount: number = 0
   ): Array<{
     modelId: string;
     provider: string;
@@ -634,7 +672,7 @@ export class CostReporter {
           modelId,
           inputTokens,
           outputTokens,
-          searchCount,
+          searchCount
         );
 
         return {

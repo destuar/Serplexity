@@ -30,7 +30,7 @@
  * @author Dashboard Team
  * @version 2.0.0 - Refactored to use centralized utilities
  */
-import { ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronUp, Info, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
@@ -60,6 +60,7 @@ import {
   resolveCurrentSentimentValue,
 } from "../../utils/sentimentDataResolver";
 import LiquidGlassCard from "../ui/LiquidGlassCard";
+import UiTooltip from "../ui/Tooltip";
 
 interface SentimentOverTimeCardProps {
   selectedModel?: string;
@@ -593,9 +594,28 @@ const SentimentOverTimeCard: React.FC<SentimentOverTimeCardProps> = ({
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
-            <h3 className="text-lg font-semibold text-gray-800">
-              Sentiment Over Time
-            </h3>
+            <div className="flex items-baseline gap-0.5">
+              <h3 className="text-lg font-semibold text-gray-800">
+                Sentiment Over Time
+              </h3>
+              <UiTooltip
+                content={
+                  <span>
+                    <strong>Sentiment Over Time</strong>: how your brand's
+                    sentiment (0–10) changes across the selected date range and
+                    models. Use breakdown to compare models; rising trends are
+                    positive.
+                  </span>
+                }
+              >
+                <span
+                  aria-label="What this metric means"
+                  className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-white/40 bg-white/70 text-gray-700 align-super -translate-y-0.5 md:-translate-y-1"
+                >
+                  <Info className="h-3 w-3" />
+                </span>
+              </UiTooltip>
+            </div>
             {currentValue !== null && typeof currentValue === "number" && (
               <div className="h-8 px-3 bg-white/60 backdrop-blur-sm border border-white/30 rounded-lg shadow-inner flex items-center justify-center">
                 <span className="text-sm font-medium text-gray-700">
