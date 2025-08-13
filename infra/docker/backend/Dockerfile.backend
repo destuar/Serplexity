@@ -37,12 +37,11 @@ RUN echo "Prisma - Generating client..."
 RUN npx prisma generate
 RUN echo "Prisma - Client generated"
 
+ENV NODE_OPTIONS=--max-old-space-size=3072
 RUN echo "TypeScript - Compiling..."
-RUN NODE_OPTIONS="--max-old-space-size=1024" npm run build || { \
-        echo "Build failed. Check the logs above for errors."; \
-        exit 1; \
-    }
+RUN npx tsc --skipLibCheck
 RUN echo "TypeScript - Compiled"
+RUN echo "Listing build outputs..." && ls -la && echo "dist contents:" && ls -la dist || (echo "dist missing" && exit 1)
 
 # Clean up dev dependencies after build
 RUN npm prune --production && \
@@ -81,7 +80,7 @@ RUN echo "Python dependencies - Installing..." && \
     pip3 install --no-cache-dir --break-system-packages -r requirements.txt && \
     echo "Python dependencies - Installed"
 
-# Copy built application from builder stage  
+# Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 # DON'T copy .prisma from builder - let production generate its own
@@ -89,8 +88,8 @@ COPY --from=builder /app/prisma ./prisma
 # Copy Python agents with proper structure
 COPY backend/src/pydantic_agents/ ./src/pydantic_agents/
 
-# Set Python path for module imports
-ENV PYTHONPATH="/app:/app/src:$PYTHONPATH"
+# Set Python path for module imports (avoid shell var expansion warning)
+ENV PYTHONPATH=/app:/app/src
 
 # Copy startup script
 COPY backend/start.sh ./start.sh
@@ -108,7 +107,7 @@ RUN echo "Generating production Prisma client..." && \
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S backend -u 1001
 
-# Change ownership and permissions of the app directory  
+# Change ownership and permissions of the app directory
 RUN chmod +x ./docker-start.sh && \
     chown -R backend:nodejs /app && \
     ls -la ./docker-start.sh && \
@@ -124,4 +123,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 EXPOSE 8000
 
 # Start the application
-CMD ["./docker-start.sh"] 
+CMD ["./docker-start.sh"]

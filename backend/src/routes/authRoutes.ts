@@ -21,17 +21,21 @@ import { Request, Response, Router } from "express";
 import jwt from "jsonwebtoken";
 import passport from "passport";
 import querystring from "querystring";
+import { getPrismaClient } from "../config/dbCache";
 import env from "../config/env";
 import {
   getMe,
+  listSessions,
   login,
   logout,
   refresh,
   register,
+  revokeSession,
 } from "../controllers/authController";
 import { authenticate, authorize } from "../middleware/authMiddleware";
+import { createUserSession } from "../services/sessionService";
 // Import proper Prisma types
-import type { User, Company } from "@prisma/client";
+import type { Company, User } from "@prisma/client";
 
 const router = Router();
 const { JWT_SECRET, JWT_REFRESH_SECRET } = env;
@@ -44,6 +48,10 @@ router.post("/logout", authenticate, logout);
 
 // --- User Info ---
 router.get("/me", authenticate, getMe);
+
+// --- Sessions ---
+router.get("/sessions", authenticate, listSessions);
+router.post("/sessions/:id/revoke", authenticate, revokeSession);
 
 // --- Test & Verification Routes ---
 router.get("/verify", authenticate, (req: Request, res: Response) => {
@@ -75,7 +83,7 @@ router.get(
     failureRedirect: `${env.FRONTEND_URL}/login?error=google-auth-failed`,
     session: false,
   }),
-  (req: Request, res: Response) => {
+  async (req: Request, res: Response) => {
     const user = req.user as User & { companies: Company[] };
 
     if (!user) {
@@ -84,13 +92,24 @@ router.get(
       );
     }
 
+    const prisma = await getPrismaClient();
+    const session = await createUserSession(prisma, {
+      userId: user.id,
+      userAgent: req.headers["user-agent"] || null,
+      ipAddress:
+        (req.headers["x-forwarded-for"] as string) ||
+        req.socket.remoteAddress ||
+        null,
+    });
+
     const payload = {
       userId: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
       tokenVersion: user.tokenVersion,
-    };
+      sessionId: session.id,
+    } as const;
 
     const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: "15m" });
     const refreshToken = jwt.sign(payload, JWT_REFRESH_SECRET, {

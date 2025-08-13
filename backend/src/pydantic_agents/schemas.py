@@ -20,7 +20,7 @@ Each model includes:
 """
 
 from pydantic import BaseModel, Field, validator, root_validator, model_validator
-from typing import List, Optional, Dict, Any, Union, Literal
+from typing import List, Dict, Any, Union, Literal
 from enum import Enum
 from datetime import datetime
 import re
@@ -144,7 +144,7 @@ class SentimentScores(BaseModel):
         max_items=50,
         description="List of sentiment ratings from different sources"
     )
-    webSearchMetadata: Optional[WebSearchMetadata] = Field(
+    webSearchMetadata: WebSearchMetadata | None = Field(
         default=None,
         description="Metadata about web search operations performed during analysis"
     )
@@ -385,12 +385,12 @@ class CompetitorInfo(BaseModel):
         pattern=r'^https?://[^\s/$.?#].[^\s]*$',
         description="Website URL"
     )
-    description: Optional[str] = Field(
+    description: str | None = Field(
         None,
         max_length=500,
         description="Brief company description"
     )
-    industry: Optional[str] = Field(
+    industry: str | None = Field(
         None,
         max_length=50,
         description="Industry classification"
@@ -788,23 +788,23 @@ class SimpleQuestionResponse(BaseModel):
 class AiOverviewInput(BaseModel):
     """Input for AI Overview agent (Google SERP)."""
     query: str = Field(..., min_length=3, max_length=300, description="Search query to run on Google")
-    hl: Optional[str] = Field(default="en", description="Interface language (hl)")
-    gl: Optional[str] = Field(default="us", description="Geolocation (gl)")
-    tbs: Optional[str] = Field(default=None, description="Time bound or filter params (tbs)")
-    timeoutMs: Optional[int] = Field(default=15000, ge=1000, le=60000, description="Max time to wait for SERP")
-    userAgent: Optional[str] = Field(default=None, description="Custom user agent string")
-    proxyUrl: Optional[str] = Field(default=None, description="HTTP(S) proxy URL if required")
+    hl: str | None = Field(default="en", description="Interface language (hl)")
+    gl: str | None = Field(default="us", description="Geolocation (gl)")
+    tbs: str | None = Field(default=None, description="Time bound or filter params (tbs)")
+    timeoutMs: int | None = Field(default=15000, ge=1000, le=60000, description="Max time to wait for SERP")
+    userAgent: str | None = Field(default=None, description="Custom user agent string")
+    proxyUrl: str | None = Field(default=None, description="HTTP(S) proxy URL if required")
 
 class AiOverviewResult(BaseModel):
     """Structured result of an AI Overview detection and extraction."""
     present: bool = Field(..., description="Whether AI Overview was detected on the SERP")
     query: str = Field(..., description="Original query")
     serpUrl: str = Field(..., description="Final SERP URL after navigation")
-    answerText: Optional[str] = Field(default=None, description="Extracted AI Overview text content")
-    htmlSnippet: Optional[str] = Field(default=None, description="Trimmed HTML snippet of the AI Overview region")
+    answerText: str | None = Field(default=None, description="Extracted AI Overview text content")
+    htmlSnippet: str | None = Field(default=None, description="Trimmed HTML snippet of the AI Overview region")
     citations: List[CitationSource] = Field(default_factory=list, description="Links found within AI Overview")
     detectedSelectors: List[str] = Field(default_factory=list, description="Selectors that matched AI Overview region")
-    userAgent: Optional[str] = Field(default=None, description="User agent used for navigation")
-    locale: Optional[str] = Field(default=None, description="Derived locale (hl-gl)")
+    userAgent: str | None = Field(default=None, description="User agent used for navigation")
+    locale: str | None = Field(default=None, description="Derived locale (hl-gl)")
     timingMs: int = Field(..., ge=0, description="Total execution time in milliseconds")
-    error: Optional[str] = Field(default=None, description="Error message if detection failed or blocked")
+    error: str | None = Field(default=None, description="Error message if detection failed or blocked")

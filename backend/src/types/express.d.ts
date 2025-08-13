@@ -44,6 +44,8 @@ declare module "express-serve-static-core" {
           updatedAt: Date;
         }>;
       }>;
+      // Current session id can be optionally included by middleware in future
+      // sessionId?: string;
     };
   }
 }

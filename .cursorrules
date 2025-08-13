@@ -43,6 +43,7 @@ Quality Gates
 - Backend: Jest (serial), ≥70% coverage. Mock AWS/Redis/Prisma/external APIs.
 - Frontend: Vitest + RTL, ≥70% coverage.
 - Before completing: run build, tests, and linters relevant to the change; fix what you broke.
+- After major edits, perform Docker BuildKit no-cache builds for backend and frontend to catch container-only failures; stream logs with `| cat`.
 
 Working Style in Cursor
 
@@ -89,6 +90,10 @@ Command Cheatsheet (absolute paths)
   - cd /Users/diegoestuar/Desktop/Serplexity/frontend && npm run build && npm run lint
   - cd /Users/diegoestuar/Desktop/Serplexity/frontend && npm run test
 
+- Docker build validation (no-cache, BuildKit)
+  - cd /Users/diegoestuar/Desktop/Serplexity && DOCKER_BUILDKIT=1 docker build --no-cache -f infra/docker/backend/Dockerfile.backend -t serplexity-backend:dev . | cat
+  - cd /Users/diegoestuar/Desktop/Serplexity && DOCKER_BUILDKIT=1 docker build --no-cache -f infra/docker/frontend/Dockerfile.frontend -t serplexity-frontend:dev . | cat
+
 Editing Rules
 
 - Keep diffs minimal. Add needed imports; remove unused you introduce. Do not reformat unrelated code.
@@ -117,3 +122,4 @@ Frontend Design North Star
 Exit Criteria for Any Task
 
 - Build passes, tests pass, lints clean, types valid, behavior verified as needed. Provide a short, high-signal summary.
+- Backend and frontend Docker images build successfully with BuildKit and no cache.

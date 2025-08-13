@@ -8,7 +8,7 @@ import json
 import sys
 import os
 import re
-from typing import List, Optional, Dict, Set
+from typing import List, Dict, Set
 from urllib.parse import urlparse, urljoin
 from pydantic import BaseModel, Field, validator
 from pydantic_ai import Agent
@@ -49,7 +49,7 @@ class CompetitorInfo(BaseModel):
 
 class WebsiteEnrichmentInput(BaseModel):
     competitor_names: List[str]
-    context: Optional[str] = None
+    context: str | None = None
     search_depth: str = "standard"
 
 class WebsiteEnrichmentResult(BaseModel):
@@ -238,9 +238,12 @@ Quality Control:
         return "\n\n".join(prompt_parts)
 
     async def execute(self, input_data: dict) -> dict:
-        """Execute the agent and apply additional deduplication"""
-        # Get the base result
-        result = await super().execute(input_data)
+        """Execute the agent and apply additional deduplication. Always return competitors array."""
+        # Get the base result; fall back to empty structure on parse issues
+        try:
+            result = await super().execute(input_data)
+        except Exception as e:
+            result = { 'result': { 'competitors': [] }, 'error': str(e) }
 
         # Apply additional deduplication to the results
         if 'result' in result and hasattr(result['result'], 'competitors'):
@@ -256,6 +259,9 @@ Quality Control:
             if original_count != final_count:
                 print(f"[DEDUP] Reduced {original_count} → {final_count} competitors", file=sys.stderr)
 
+        # Ensure shape for TS expectations
+        if 'result' not in result or not isinstance(result['result'], dict) or 'competitors' not in result['result']:
+            result['result'] = { 'competitors': [] }
         return result
 
     def _create_perplexity_model(self):

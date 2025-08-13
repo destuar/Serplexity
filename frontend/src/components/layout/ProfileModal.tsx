@@ -14,7 +14,6 @@
  */
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  AlertCircle,
   AlertTriangle,
   ArrowLeft,
   BarChart2,
@@ -22,12 +21,14 @@ import {
   Box,
   CreditCard,
   Edit2,
+  Globe,
   Lock,
   LogOut,
   Mail,
+  Monitor,
   PieChart,
   Settings as SettingsIcon,
-  User,
+  Smartphone,
   Users,
   X,
 } from "lucide-react";
@@ -50,12 +51,24 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useCompany } from "../../contexts/CompanyContext";
 import apiClient from "../../lib/apiClient";
 import {
+  SessionDto,
+  fetchMySessions,
+  revokeMySession,
+} from "../../services/authService";
+import {
   BillingSummary,
   UsagePoint,
   fetchBillingSummary,
   fetchUsageSeries,
   updateBudget,
 } from "../../services/billingService";
+import {
+  TeamMemberDto,
+  getTeamLimits,
+  getTeamMembers,
+  inviteTeamMember,
+  removeTeamMember,
+} from "../../services/teamService";
 import CompanyProfileForm from "../company/CompanyProfileForm";
 import { Button } from "../ui/Button";
 
@@ -70,18 +83,7 @@ const profileUpdateSchema = z.object({
   email: z.string().email("Invalid email address"),
 });
 
-const passwordChangeSchema = z
-  .object({
-    currentPassword: z.string().min(1, "Current password is required"),
-    newPassword: z
-      .string()
-      .min(8, "New password must be at least 8 characters"),
-    confirmPassword: z.string().min(1, "Please confirm your new password"),
-  })
-  .refine((data) => data.newPassword === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ["confirmPassword"],
-  });
+// Password schema and related handlers removed in this component revision
 
 interface ApiError {
   response?: {
@@ -93,24 +95,17 @@ interface ApiError {
 }
 
 type ProfileFormData = z.infer<typeof profileUpdateSchema>;
-type PasswordFormData = z.infer<typeof passwordChangeSchema>;
+// type PasswordFormData = never;
 
 const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const { user, updateUser, logout } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  // Removed unused password visibility states
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-
-  const [passwordSuccess, setPasswordSuccess] = useState(false);
-  const [feedbackText, setFeedbackText] = useState("");
-  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  // Removed unused password/feedback states
   // Company profiles state
   const { companies, deleteCompany, updateCompany } = useCompany();
   const [editingCompany, setEditingCompany] = useState<string | null>(null);
@@ -135,12 +130,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const [proposedBudget, setProposedBudget] = useState<number>(50);
   const [customBudgetInput, setCustomBudgetInput] = useState<string>("");
   const [budgetErrorLocal, setBudgetErrorLocal] = useState<string | null>(null);
-  const [selectedTier, setSelectedTier] = useState<
-    "STARTER" | "GROWTH" | "SCALE"
-  >("STARTER");
-  const [selectedInterval, setSelectedInterval] = useState<
-    "MONTHLY" | "ANNUAL"
-  >("MONTHLY");
+  // Removed unused selectedTier/selectedInterval states
   const [chartMode, setChartMode] = useState<"reports" | "responses">(
     "reports"
   );
@@ -149,6 +139,26 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     end: string;
   } | null>(null);
   const [selectedQuickDays, setSelectedQuickDays] = useState<number>(30);
+  // Sessions
+  const [sessions, setSessions] = useState<SessionDto[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [sessionsError, setSessionsError] = useState<string | null>(null);
+  // Team
+  const [teamMembers, setTeamMembers] = useState<TeamMemberDto[]>([]);
+  const [seatLimits, setSeatLimits] = useState<{
+    planTier: string;
+    seatLimit: number;
+    seatsUsed: number;
+    seatsAvailable: number;
+  } | null>(null);
+  const [teamLoading, setTeamLoading] = useState(false);
+  const [teamError, setTeamError] = useState<string | null>(null);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [selfEditing, setSelfEditing] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const chartData = useMemo(() => {
     return usageSeries.map((d) => {
@@ -187,14 +197,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   });
 
   // Password form
-  const {
-    register: registerPassword,
-    handleSubmit: handleSubmitPassword,
-    formState: { errors: passwordErrors },
-    reset: resetPassword,
-  } = useForm<PasswordFormData>({
-    resolver: zodResolver(passwordChangeSchema),
-  });
+  // Removed unused password form
 
   // no-op on open for companies
   useEffect(() => {}, [isOpen]);
@@ -222,8 +225,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
         setBudgetDollars(
           Math.max(10, Math.round((summary.overageBudgetCents || 1000) / 100))
         );
-        setSelectedTier(summary.planTier);
-        setSelectedInterval(summary.billingInterval);
+        // Removed selectedTier/selectedInterval state updates
       } catch {
         setBillingError("Failed to load billing summary");
       } finally {
@@ -257,6 +259,25 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     const shouldLoadUsage = activeTab === "usage" || isOverview;
     if (shouldLoadBilling) void loadBilling();
     if (shouldLoadUsage) void loadUsage();
+    if (activeTab === "settings") {
+      setSessionsLoading(true);
+      setSessionsError(null);
+      fetchMySessions()
+        .then(setSessions)
+        .catch(() => setSessionsError("Failed to load sessions"))
+        .finally(() => setSessionsLoading(false));
+    }
+    if (activeTab === "profile") {
+      setTeamLoading(true);
+      setTeamError(null);
+      Promise.all([getTeamLimits(), getTeamMembers()])
+        .then(([limits, members]) => {
+          setSeatLimits(limits);
+          setTeamMembers(members);
+        })
+        .catch(() => setTeamError("Failed to load team"))
+        .finally(() => setTeamLoading(false));
+    }
   }, [activeTab, user]);
 
   const refreshUsageSeries = async (
@@ -317,29 +338,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const onChangePassword = async (data: PasswordFormData) => {
-    setIsChangingPassword(true);
-    setPasswordError(null);
-    setPasswordSuccess(false);
-
-    try {
-      await apiClient.put("/users/me/password", {
-        currentPassword: data.currentPassword,
-        newPassword: data.newPassword,
-      });
-
-      setPasswordSuccess(true);
-      resetPassword();
-      setTimeout(() => setPasswordSuccess(false), 3000);
-    } catch (error) {
-      const apiError = error as ApiError;
-      setPasswordError(
-        apiError.response?.data?.error || "Failed to change password"
-      );
-    } finally {
-      setIsChangingPassword(false);
-    }
-  };
+  // Removed unused change password handler
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -435,16 +434,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleSubmitFeedback = async () => {
-    try {
-      console.log("Submitting feedback:", feedbackText);
-      setFeedbackSubmitted(true);
-      setFeedbackText("");
-      setTimeout(() => setFeedbackSubmitted(false), 3000);
-    } catch (error) {
-      console.error("Failed to submit feedback:", error);
-    }
-  };
+  // Removed unused feedback submission handler
 
   // Note: plan saving handled inline via updatePlan; no separate handler required
 
@@ -467,10 +457,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
       name: user?.name || "",
       email: user?.email || "",
     });
-    resetPassword();
     setProfileError(null);
-    setPasswordError(null);
-    setPasswordSuccess(false);
+    // Removed password reset state
     setActiveTab("overview");
     onClose();
   };
@@ -948,126 +936,268 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
               )}
               {activeTab === "profile" && (
                 <div className="space-y-6">
-                  <div>
-                    <h3 className="text-sm sm:text-base font-semibold text-gray-900 mb-4">
-                      Profile Information
-                    </h3>
-                    <p className="text-xs sm:text-sm text-gray-600 mb-4">
-                      Update your account details below.
-                    </p>
+                  {/* Team management */}
+                  <div className="bg-white rounded-lg shadow-lg p-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h3 className="font-semibold text-gray-900">Team</h3>
+                        <p className="text-sm text-gray-600">
+                          Manage your team seats and members
+                        </p>
+                      </div>
+                      {seatLimits && (
+                        <div className="text-sm text-gray-700">
+                          Seats: {seatLimits.seatsUsed} / {seatLimits.seatLimit}
+                        </div>
+                      )}
+                    </div>
+                    {teamError ? (
+                      <div className="text-sm text-red-600">{teamError}</div>
+                    ) : (
+                      <>
+                        {/* Invite */}
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 mb-4">
+                          <div className="flex-1">
+                            <label className="block text-xs text-gray-600 mb-1">
+                              Invite by email
+                            </label>
+                            <input
+                              type="email"
+                              value={inviteEmail}
+                              onChange={(e) => setInviteEmail(e.target.value)}
+                              placeholder="user@example.com"
+                              className="w-full px-3 py-2 rounded-lg text-sm bg-white border border-gray-200 shadow-inner focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <button
+                              type="button"
+                              className="px-3 py-2 rounded-lg text-sm bg-white/80 backdrop-blur-sm border border-white/20 shadow text-gray-700 active:shadow-inner cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={
+                                !inviteEmail ||
+                                (seatLimits
+                                  ? seatLimits.seatsUsed >= seatLimits.seatLimit
+                                  : false)
+                              }
+                              onClick={async () => {
+                                try {
+                                  await inviteTeamMember(
+                                    inviteEmail.trim().toLowerCase()
+                                  );
+                                  // refresh members/limits
+                                  const [limits, members] = await Promise.all([
+                                    getTeamLimits(),
+                                    getTeamMembers(),
+                                  ]);
+                                  setSeatLimits(limits);
+                                  setTeamMembers(members);
+                                  setInviteEmail("");
+                                } catch {
+                                  setTeamError("Failed to invite member");
+                                }
+                              }}
+                            >
+                              Invite
+                            </button>
+                          </div>
+                        </div>
+                        {/* Members list (includes workspace creator at top) */}
+                        <ul className="divide-y divide-gray-200">
+                          {/* Owner row */}
+                          <li className="py-3 flex items-center justify-between">
+                            <div className="min-w-0 pr-3">
+                              <div className="text-sm text-gray-900 font-medium">
+                                {user?.name || user?.email || "Owner"}
+                              </div>
+                              {user?.email && (
+                                <div className="text-xs text-gray-500">
+                                  {user.email} • Owner
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                title="Edit profile"
+                                onClick={() => setSelfEditing(true)}
+                                className="w-8 h-8 rounded-lg flex items-center justify-center font-medium focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-600 shadow active:shadow-inner cursor-pointer"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                              <button
+                                type="button"
+                                title="Sign out"
+                                onClick={() => setShowLogoutConfirm(true)}
+                                disabled={isSigningOut}
+                                className="w-8 h-8 rounded-lg flex items-center justify-center font-medium focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-600 shadow active:shadow-inner disabled:opacity-50 cursor-pointer"
+                              >
+                                {isSigningOut ? (
+                                  <InlineSpinner size={16} />
+                                ) : (
+                                  <LogOut size={16} />
+                                )}
+                              </button>
+                            </div>
+                          </li>
+                          {selfEditing && (
+                            <li className="py-3">
+                              <form
+                                onSubmit={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  void handleSubmitProfile(async (data) => {
+                                    await onUpdateProfile(data);
+                                    setSelfEditing(false);
+                                  })(e);
+                                }}
+                                className="flex flex-col sm:flex-row gap-2"
+                              >
+                                <input
+                                  type="text"
+                                  placeholder="Account name"
+                                  {...registerProfile("name")}
+                                  className="flex-1 px-3 py-2 rounded-lg text-sm bg-white border border-gray-200 shadow-inner focus:outline-none"
+                                />
+                                <input
+                                  type="email"
+                                  placeholder="Email address"
+                                  {...registerProfile("email")}
+                                  className="flex-1 px-3 py-2 rounded-lg text-sm bg-white border border-gray-200 shadow-inner focus:outline-none"
+                                />
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    type="submit"
+                                    variant="pill"
+                                    className="w-20"
+                                  >
+                                    Save
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="pill"
+                                    className="w-20"
+                                    onClick={() => {
+                                      resetProfile({
+                                        name: user?.name || "",
+                                        email: user?.email || "",
+                                      });
+                                      setSelfEditing(false);
+                                    }}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </form>
+                            </li>
+                          )}
+                          {/* Members */}
+                          {teamLoading && teamMembers.length === 0 ? (
+                            <li className="py-3">
+                              <InlineSpinner size={16} />
+                            </li>
+                          ) : teamMembers.length === 0 ? (
+                            <li className="py-3 text-sm text-gray-600">
+                              No additional members yet.
+                            </li>
+                          ) : (
+                            teamMembers.map((m) => (
+                              <li
+                                key={m.id}
+                                className="py-3 flex items-center justify-between"
+                              >
+                                <div className="min-w-0 pr-3">
+                                  <div className="text-sm text-gray-900 font-medium">
+                                    {m.member.name || m.member.email}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {m.member.email} •{" "}
+                                    {m.status === "INVITED"
+                                      ? "Invited"
+                                      : "Active"}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    title="Remove member"
+                                    className="w-8 h-8 rounded-lg flex items-center justify-center font-medium focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-600 shadow active:shadow-inner cursor-pointer"
+                                    onClick={async () => {
+                                      try {
+                                        await removeTeamMember(m.memberUserId);
+                                        setTeamMembers((prev) =>
+                                          prev.filter((x) => x.id !== m.id)
+                                        );
+                                        if (seatLimits) {
+                                          setSeatLimits({
+                                            ...seatLimits,
+                                            seatsUsed: Math.max(
+                                              0,
+                                              seatLimits.seatsUsed - 1
+                                            ),
+                                          });
+                                        }
+                                      } catch {
+                                        setTeamError("Failed to remove member");
+                                      }
+                                    }}
+                                  >
+                                    <X size={14} />
+                                  </button>
+                                </div>
+                              </li>
+                            ))
+                          )}
+                        </ul>
+                      </>
+                    )}
                   </div>
 
-                  <form
-                    onSubmit={handleSubmitProfile(onUpdateProfile)}
-                    className="space-y-4 sm:space-y-6"
-                  >
-                    <div>
-                      <label
-                        htmlFor="name"
-                        className="flex items-center text-sm font-medium text-gray-700 mb-1"
-                      >
-                        <User className="w-4 h-4 mr-2" />
-                        Account Name
-                      </label>
+                  {/* Delete Account section */}
+                  <div className="bg-white rounded-lg shadow-lg p-6">
+                    <h3 className="font-semibold text-gray-900 mb-2">
+                      Delete Account
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-3">
+                      Are you sure you want to delete your account? This action
+                      is irreversible.
+                    </p>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                       <input
-                        id="name"
                         type="text"
-                        {...registerProfile("name")}
-                        className="flex h-11 w-full rounded-lg bg-black/5 backdrop-blur-sm px-4 py-3 text-sm text-black placeholder:text-gray-500 ring-offset-transparent focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 select-none touch-manipulation shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),inset_0_-1px_2px_rgba(255,255,255,0.1)]"
-                        placeholder="Enter your account name"
-                        style={{
-                          WebkitTapHighlightColor: "transparent",
-                          WebkitUserSelect: "none",
-                          userSelect: "none",
-                          outline: "none",
-                          border: "none",
-                        }}
+                        value={deleteConfirmText}
+                        onChange={(e) => setDeleteConfirmText(e.target.value)}
+                        placeholder="Type 'Delete' to confirm"
+                        className="flex-1 px-3 py-2 rounded-lg text-sm bg-white border border-gray-200 shadow-inner focus:outline-none"
                       />
-                      {profileErrors.name && (
-                        <p className="mt-1 text-xs text-red-600">
-                          {profileErrors.name.message}
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label
-                        htmlFor="email"
-                        className="flex items-center text-sm font-medium text-gray-700 mb-1"
+                      <button
+                        type="button"
+                        disabled={
+                          deleteConfirmText !== "Delete" || deletingAccount
+                        }
+                        onClick={async () => {
+                          if (deleteConfirmText !== "Delete") return;
+                          setDeleteError(null);
+                          setDeletingAccount(true);
+                          try {
+                            await apiClient.delete("/users/me/delete");
+                            await logout();
+                            onClose();
+                          } catch (err) {
+                            setDeleteError("Failed to delete account");
+                          } finally {
+                            setDeletingAccount(false);
+                          }
+                        }}
+                        className="px-3 py-2 rounded-lg text-sm bg-red-600 text-white shadow active:shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <Mail className="w-4 h-4 mr-2" />
-                        Email Address
-                      </label>
-                      <input
-                        id="email"
-                        type="email"
-                        {...registerProfile("email")}
-                        className="flex h-11 w-full rounded-lg bg-black/5 backdrop-blur-sm px-4 py-3 text-sm text-black placeholder:text-gray-500 ring-offset-transparent focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 select-none touch-manipulation shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),inset_0_-1px_2px_rgba(255,255,255,0.1)]"
-                        placeholder="Enter your email address"
-                        style={{
-                          WebkitTapHighlightColor: "transparent",
-                          WebkitUserSelect: "none",
-                          userSelect: "none",
-                          outline: "none",
-                          border: "none",
-                        }}
-                      />
-                      {profileErrors.email && (
-                        <p className="mt-1 text-xs text-red-600">
-                          {profileErrors.email.message}
-                        </p>
-                      )}
+                        {deletingAccount ? "Deleting..." : "Delete Account"}
+                      </button>
                     </div>
-
-                    {profileError && (
-                      <div className="flex items-center p-3 text-sm text-red-700 bg-red-50 rounded-lg">
-                        <AlertCircle className="w-4 h-4 mr-2" />
-                        {profileError}
+                    {deleteError && (
+                      <div className="text-xs text-red-600 mt-2">
+                        {deleteError}
                       </div>
                     )}
-
-                    <div className="flex justify-end space-x-3 pt-4">
-                      <Button
-                        type="button"
-                        variant="pill"
-                        onClick={handleClose}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        type="submit"
-                        variant="pill"
-                        disabled={isUpdatingProfile}
-                      >
-                        {isUpdatingProfile && <InlineSpinner size={16} />}
-                        {isUpdatingProfile ? "" : "Save Changes"}
-                      </Button>
-                    </div>
-                  </form>
-
-                  {/* Sign Out Section */}
-                  <div className="mt-8 pt-6 border-t border-gray-200">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-900 mb-2">
-                        Account Actions
-                      </h4>
-                      <p className="text-xs text-gray-600 mb-4">
-                        Sign out of your account on this device.
-                      </p>
-                    </div>
-                    <Button
-                      variant="pill"
-                      onClick={handleSignOut}
-                      disabled={isSigningOut}
-                      className="flex items-center text-red-600 border-red-200"
-                    >
-                      {isSigningOut ? (
-                        <InlineSpinner size={16} className="mr-2" />
-                      ) : (
-                        <LogOut className="w-4 h-4 mr-2" />
-                      )}
-                      {isSigningOut ? "" : "Sign Out"}
-                    </Button>
                   </div>
                 </div>
               )}
@@ -1273,7 +1403,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                           />
                           <button
                             type="button"
-                            className="px-3 py-2 rounded-lg text-sm bg-white/80 backdrop-blur-sm border border-white/20 shadow text-gray-700 hover:bg-white/85 hover:shadow-md active:shadow-inner"
+                            className="px-3 py-2 rounded-lg text-sm bg-white/80 backdrop-blur-sm border border-white/20 shadow text-gray-700 active:shadow-inner"
                             onClick={async () => {
                               const dollars = Math.max(
                                 10,
@@ -1300,6 +1430,114 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                         </div>
                         <p className="text-xs text-gray-500">Minimum $10</p>
                       </div>
+                    )}
+                  </div>
+
+                  {/* Active Sessions */}
+                  <div className="bg-white rounded-lg shadow-lg p-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <h3 className="font-semibold text-gray-900">
+                          Active Sessions
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          Devices currently signed in to your account
+                        </p>
+                      </div>
+                    </div>
+                    {sessionsLoading ? (
+                      <div className="text-sm text-gray-600">Loading...</div>
+                    ) : sessionsError ? (
+                      <div className="text-sm text-red-600">
+                        {sessionsError}
+                      </div>
+                    ) : sessions.length === 0 ? (
+                      <div className="text-sm text-gray-600">
+                        No active sessions.
+                      </div>
+                    ) : (
+                      <ul className="divide-y divide-gray-200">
+                        {sessions.map((s) => {
+                          const deviceIcon = (() => {
+                            switch (s.deviceType) {
+                              case "MOBILE":
+                                return (
+                                  <Smartphone className="w-4 h-4 text-gray-600" />
+                                );
+                              case "DESKTOP":
+                                return (
+                                  <Monitor className="w-4 h-4 text-gray-600" />
+                                );
+                              case "WEB":
+                                return (
+                                  <Globe className="w-4 h-4 text-gray-600" />
+                                );
+                              default:
+                                return (
+                                  <Box className="w-4 h-4 text-gray-600" />
+                                );
+                            }
+                          })();
+                          const createdAgo = (() => {
+                            const created = new Date(s.createdAt);
+                            const diffMs = Date.now() - created.getTime();
+                            const minutes = Math.floor(diffMs / 60000);
+                            if (minutes < 60) return `${minutes}m ago`;
+                            const hours = Math.floor(minutes / 60);
+                            if (hours < 24) return `${hours}h ago`;
+                            const days = Math.floor(hours / 24);
+                            if (days < 30) return `${days}d ago`;
+                            const months = Math.floor(days / 30);
+                            return `${months}mo ago`;
+                          })();
+                          const ua = s.userAgent || "";
+                          const uaShort =
+                            ua.length > 64 ? `${ua.slice(0, 64)}…` : ua;
+                          return (
+                            <li
+                              key={s.id}
+                              className="py-3 flex items-center justify-between"
+                            >
+                              <div className="min-w-0 pr-3">
+                                <div className="flex items-center gap-2 text-sm text-gray-900">
+                                  {deviceIcon}
+                                  <span className="font-medium">
+                                    {s.deviceType}
+                                  </span>
+                                  <span className="text-gray-500">•</span>
+                                  <span className="text-gray-600">
+                                    Created {createdAgo}
+                                  </span>
+                                </div>
+                                <div className="text-xs text-gray-500 truncate">
+                                  {uaShort}
+                                  {s.ipAddress ? ` • ${s.ipAddress}` : ""}
+                                </div>
+                              </div>
+                              <div className="flex-shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      await revokeMySession(s.id);
+                                      setSessions((prev) =>
+                                        prev.filter((x) => x.id !== s.id)
+                                      );
+                                    } catch {
+                                      setSessionsError(
+                                        "Failed to revoke session"
+                                      );
+                                    }
+                                  }}
+                                  className="px-3 py-1.5 rounded-lg text-xs bg-white/80 backdrop-blur-sm border border-white/20 text-gray-700 shadow hover:bg-white/85 active:shadow-inner"
+                                >
+                                  Revoke
+                                </button>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
                     )}
                   </div>
                 </div>
@@ -1384,6 +1622,40 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                   className="bg-black text-white"
                 >
                   Got It
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Logout Confirmation Dialog */}
+        {showLogoutConfirm && (
+          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+            <div className="bg-white rounded-2xl max-w-md w-full mx-4 shadow-2xl p-6">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Confirm Sign Out
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Are you sure you want to sign out from this device?
+                </p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="text-gray-700"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={async () => {
+                    setShowLogoutConfirm(false);
+                    await handleSignOut();
+                  }}
+                  className="bg-black text-white"
+                >
+                  Sign Out
                 </Button>
               </div>
             </div>

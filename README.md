@@ -266,6 +266,12 @@ GitHub Actions workflow (`.github/workflows/ci.yml`):
 2. Static analysis (`npm run lint`).
 3. Run unit & integration tests.
 4. Build Docker images and push to `ghcr.io/serplexityai`.
+   - For local, after major changes, validate images with BuildKit and no cache:
+     ```bash
+     cd /Users/diegoestuar/Desktop/Serplexity
+     DOCKER_BUILDKIT=1 docker build --no-cache -f infra/docker/backend/Dockerfile.backend -t serplexity-backend:dev . | cat
+     DOCKER_BUILDKIT=1 docker build --no-cache -f infra/docker/frontend/Dockerfile.frontend -t serplexity-frontend:dev . | cat
+     ```
 5. Trigger deploy on ECS via `aws-deploy` action (prod only on `main`).
 
 ---

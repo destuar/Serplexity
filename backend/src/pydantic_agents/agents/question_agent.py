@@ -41,7 +41,7 @@ class GenQuestionAgent(BaseAgent):
         # Use centralized configuration instead of hardcoded model
         default_model_config = get_default_model_for_task(ModelTask.QUESTION_GENERATION)
         default_model = default_model_config.get_pydantic_model_id() if default_model_config else "openai:gpt-4.1-mini"
-        
+
         super().__init__(
             agent_id="gen_question_agent",
             default_model=default_model,
@@ -50,24 +50,24 @@ class GenQuestionAgent(BaseAgent):
             timeout=30000,
             max_retries=2
         )
-    
+
     def _clean_text(self, text: str) -> str:
         """Clean text by removing markdown formatting, company names, and extra whitespace"""
         if not text:
             return ""
-        
+
         import re
-        
+
         # Remove markdown formatting
         text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)  # Remove **bold**
         text = re.sub(r'\*(.*?)\*', r'\1', text)      # Remove *italic*
         text = re.sub(r'`(.*?)`', r'\1', text)        # Remove `code`
-        
+
         # Remove extra whitespace and normalize
         text = ' '.join(text.split())
-        
+
         return text.strip()
-    
+
     def _build_system_prompt(self) -> str:
         """Build system prompt for question generation based on company research"""
         qt_values = ", ".join([qt.value for qt in QueryType])
@@ -120,12 +120,12 @@ class GenQuestionAgent(BaseAgent):
         """Create prompt with company research context for question generation"""
         company_name = input_data.get('company_name', '')
         research_context = input_data.get('research_context', {})
-        
+
         # Debug logging
         logger.info(f"Question agent input - Company: {company_name}")
         logger.info(f"Research context keys: {list(research_context.keys())}")
         logger.info(f"Research context: {json.dumps(research_context, indent=2)}")
-        
+
         # Extract research data
         what_they_offer = research_context.get('what_they_offer', '')
         target_customers = research_context.get('target_customers', '')
@@ -138,7 +138,7 @@ class GenQuestionAgent(BaseAgent):
         clean_offer = self._clean_text(what_they_offer)
         clean_customers = self._clean_text(target_customers)
         clean_problems = self._clean_text(problems_solved)
-        
+
         prompt = (
             f"RESEARCH CONTEXT (analyze but DO NOT include company names in questions):\n\n"
             f"Industry/Category: {clean_industry}\n\n"
@@ -158,7 +158,7 @@ class GenQuestionAgent(BaseAgent):
             f"- 'Are AI-powered competitive-intelligence platforms more accurate than traditional solutions?'\n\n"
             f"Generate the JSON described above."
         )
-        
+
         return prompt
 
     async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -174,7 +174,7 @@ class GenQuestionAgent(BaseAgent):
             )
 
             prompt = await self.process_input(input_data)
-            
+
             # Add timeout protection
             import asyncio
             try:
@@ -198,12 +198,48 @@ class GenQuestionAgent(BaseAgent):
             # Debug: Log the raw LLM response
             logger.info(f"Raw LLM response (first 500 chars): {content[:500]}")
 
-            # Attempt to parse JSON directly
+            # Attempt to parse JSON directly, then normalize invalid 'type' values
             try:
                 parsed_dict = json.loads(content)
-                logger.info(f"Parsed LLM response - Active questions: {len(parsed_dict.get('activeQuestions', []))}, Suggested: {len(parsed_dict.get('suggestedQuestions', []))}")
-                if parsed_dict.get('activeQuestions'):
-                    logger.info(f"Sample active question: {parsed_dict['activeQuestions'][0].get('query', 'N/A')}")
+                # Normalize legacy or invalid enum values in both arrays
+                def coerce_type(value: str) -> str:
+                    allowed = {qt.value for qt in QueryType}
+                    if value in allowed:
+                        return value
+                    # Common mislabels from LLM outputs to map to closest allowed types
+                    mapping = {
+                        "awareness": "topical",
+                        "consideration": "comparison",
+                        "purchase": "paraphrase",
+                        "session": "session_context",
+                        "user": "user_profile",
+                        "entity_broaden": "entity_broader",
+                        "entity_narrow": "entity_narrower",
+                        "verticals": "vertical",
+                    }
+                    for k, v in mapping.items():
+                        if isinstance(value, str) and k in value:
+                            return v
+                    # Default to topical
+                    return "topical"
+
+                def normalize_questions(arr):
+                    out = []
+                    for q in arr or []:
+                        if not isinstance(q, dict):
+                            continue
+                        qn = dict(q)
+                        if "type" in qn:
+                            qn["type"] = coerce_type(str(qn["type"]))
+                        out.append(qn)
+                    return out
+
+                parsed_dict["active_questions"] = normalize_questions(parsed_dict.get("active_questions") or parsed_dict.get("activeQuestions"))
+                parsed_dict["suggested_questions"] = normalize_questions(parsed_dict.get("suggested_questions") or parsed_dict.get("suggestedQuestions"))
+
+                logger.info(f"Parsed LLM response - Active questions: {len(parsed_dict.get('active_questions', []))}, Suggested: {len(parsed_dict.get('suggested_questions', []))}")
+                if parsed_dict.get('active_questions'):
+                    logger.info(f"Sample active question: {parsed_dict['active_questions'][0].get('query', 'N/A')}")
                 result_obj = CustomerQuestions(**parsed_dict)
             except Exception as parse_err:
                 execution_time = (time.time() - start_time) * 1000
@@ -219,11 +255,17 @@ class GenQuestionAgent(BaseAgent):
                 }
 
             execution_time = (time.time() - start_time) * 1000
-            
+
+            # Ensure company/industry present to satisfy downstream expectations
+            if not result_obj.company_name:
+                result_obj.company_name = input_data.get('company_name') or 'N/A'
+            if not result_obj.industry:
+                result_obj.industry = input_data.get('industry') or 'N/A'
+
             # Convert to the format expected by TypeScript worker (camelCase)
             result_dict = result_obj.model_dump() if hasattr(result_obj, 'model_dump') else result_obj
             logger.info(f"Question agent result_dict: {result_dict}")
-            
+
             if not result_dict or not isinstance(result_dict, dict):
                 logger.error("Question agent returned empty or invalid result")
                 return {
@@ -234,14 +276,14 @@ class GenQuestionAgent(BaseAgent):
                     "error_type": "empty_result",
                     "result_dict": result_dict
                 }
-            
+
             transformed_result = {
                 "activeQuestions": result_dict.get("active_questions", []),
                 "suggestedQuestions": result_dict.get("suggested_questions", [])
             }
-            
+
             logger.info(f"Transformed result: activeQuestions={len(transformed_result['activeQuestions'])}, suggestedQuestions={len(transformed_result['suggestedQuestions'])}")
-            
+
             return {
                 "result": transformed_result,
                 "execution_time": execution_time,
@@ -271,7 +313,7 @@ async def main():
     """Main entry point for the question generation agent."""
     import logging
     import traceback
-    
+
     # Set up logging
     logging.basicConfig(
         level=logging.INFO,
@@ -279,32 +321,32 @@ async def main():
         handlers=[logging.StreamHandler(sys.stderr)]
     )
     logger = logging.getLogger(__name__)
-    
+
     try:
         logger.info("🚀 Starting Question Generation Agent")
-        
+
         # Read input from stdin
         input_data = json.loads(sys.stdin.read())
         logger.info(f"📥 Received input: {json.dumps(input_data, indent=2)}")
-        
+
         # Create agent
         logger.info("🔨 Creating GenQuestionAgent...")
         agent = GenQuestionAgent()
         logger.info(f"✅ Agent created with model: {agent.model_id}")
-        
+
         # Execute the agent
         logger.info("🚀 Executing agent...")
         result = await agent.execute(input_data)
         logger.info("✅ Agent execution completed")
-        
+
         # Convert result to JSON-serializable format
         if 'result' in result and hasattr(result['result'], 'model_dump'):
             result['result'] = result['result'].model_dump()
-        
+
         # Output result
         print(json.dumps(result, indent=2, default=str))
         logger.info("✅ Response sent successfully")
-        
+
     except json.JSONDecodeError as e:
         logger.error(f"❌ JSON decode error: {e}")
         error_output = {
@@ -314,11 +356,11 @@ async def main():
         }
         print(json.dumps(error_output, indent=2))
         sys.exit(1)
-        
+
     except Exception as e:
         logger.error(f"❌ Unexpected error: {e}")
         logger.error(f"📍 Traceback: {traceback.format_exc()}")
-        
+
         error_output = {
             "error": str(e),
             "type": "question_generation_error",

@@ -946,12 +946,19 @@ async function processReport(
                 proxyUrl,
               } as const;
 
-              result = await pydanticLlmService.executeAgent(
-                "ai_overview_agent.py",
-                aiOverviewInput,
-                null,
-                { timeout: LLM_CONFIG.TIMEOUTS.MODEL_RESPONSE }
-              );
+              // ai_overview_agent.py is deprecated; skip execution for ai-overview model
+              result = {
+                data: { present: false, query: aiOverviewInput.query },
+                metadata: {
+                  modelUsed: model.id,
+                  tokensUsed: 0,
+                  executionTime: 0,
+                  providerId: model.id,
+                  success: true,
+                  attemptCount: 1,
+                  fallbackUsed: false,
+                },
+              } as any;
 
               // Persist AI Overview as a response if present
               if (result?.metadata?.success && (result.data as any)?.present) {

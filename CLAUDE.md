@@ -70,6 +70,10 @@ npm test                       # Run both backend and frontend tests
 npm run test:backend           # Backend tests only
 npm run test:frontend          # Frontend tests only
 npm run test:coverage          # Coverage for both
+
+# Docker build validation (mandatory after major changes)
+DOCKER_BUILDKIT=1 docker build --no-cache -f infra/docker/backend/Dockerfile.backend -t serplexity-backend:dev . | cat
+DOCKER_BUILDKIT=1 docker build --no-cache -f infra/docker/frontend/Dockerfile.frontend -t serplexity-frontend:dev . | cat
 ```
 
 ## Architecture Overview

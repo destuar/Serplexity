@@ -395,7 +395,7 @@ export async function generateQuestionResponse(
     // Execute PydanticAI agent with natural question
     const result = await pydanticLlmService.executeAgent<{
       question: string;
-      answer: string;
+      answer: string | { answer: string };
       citations?: Array<{
         url: string;
         title: string;
@@ -406,7 +406,7 @@ export async function generateQuestionResponse(
       has_web_search?: boolean;
       brand_mentions_count?: number;
     }>(
-      "question_agent.py",
+      "answer_agent.py",
       {
         question: question.text,
         system_prompt: question.systemPrompt,
@@ -458,7 +458,10 @@ export async function generateQuestionResponse(
       has_web_search?: boolean;
       brand_mentions_count?: number;
     } = {
-      answer: result.data.answer,
+      answer:
+        typeof result.data.answer === "string"
+          ? result.data.answer
+          : (result.data.answer as any)?.answer || "",
       citations: citations,
     };
     if (typeof result.data.has_web_search !== "undefined") {
@@ -594,7 +597,7 @@ export async function generateChatCompletion(
     if (schema) {
       // Structured output with schema validation
       const result = await pydanticLlmService.executeAgent<unknown>(
-        "question_agent.py",
+        "answer_agent.py",
         {
           prompt,
           output_schema: schema,
@@ -622,7 +625,7 @@ export async function generateChatCompletion(
       const result = await pydanticLlmService.executeAgent<{
         response: string;
       }>(
-        "question_agent.py",
+        "answer_agent.py",
         {
           prompt,
           structured: false,
@@ -682,7 +685,7 @@ export async function generateAndValidate<T, U>(
 
     // Execute with PydanticAI agent
     const result = await pydanticLlmService.executeAgent<T>(
-      "question_agent.py",
+      "answer_agent.py",
       {
         prompt,
         task,

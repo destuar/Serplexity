@@ -75,6 +75,15 @@ Build & Commands (absolute paths)
   - cd /Users/diegoestuar/Desktop/Serplexity/backend && ts-node src/scripts/run-with-secrets.ts npx prisma db execute --file /absolute/path/to.sql --schema prisma/schema.prisma
 - Ops: cd /Users/diegoestuar/Desktop/Serplexity/backend && npm run ops:monitor && npm run ops:health && npm run ops:repair
 
+Docker Build Validation (required after major backend changes)
+
+- Run a clean BuildKit build to catch container-only failures (e.g., Python deps, Prisma generate, dist availability). Stream logs to avoid pager issues.
+
+```
+cd /Users/diegoestuar/Desktop/Serplexity
+DOCKER_BUILDKIT=1 docker build --no-cache -f infra/docker/backend/Dockerfile.backend -t serplexity-backend:dev . | cat
+```
+
 Coding Conventions
 
 - Explicit types; no any. Early returns; handle edge-cases first; meaningful names.

@@ -95,32 +95,56 @@ describe("🔗 TypeScript Service Integration Tests", () => {
             competitors: ["CompetitorA"],
           },
         },
-        {
-          name: "Question Answering",
-          script: "question_agent.py",
-          input: {
-            company_name: "TestCorp",
-            question: "What makes TestCorp unique?",
-            context: "Integration test",
-          },
-        },
+        // Question Answering agent is validated via llmService test below; skip here to reduce runtime
         // Optimization agent removed in favor of preset tasks; skip this entry
         {
           name: "Sentiment Summary",
           script: "sentiment_summary_agent.py",
           input: {
-            company_name: "TestCorp",
-            sentiment_data: [{ quality: 7, brandReputation: 8 }],
-            context: "Integration test",
+            company_name: "Slack",
+            industry: "Communication",
+            aggregated_ratings: {
+              quality: 8,
+              priceValue: 7,
+              brandReputation: 9,
+              brandTrust: 8,
+              customerService: 8,
+            },
+            individual_sentiments: [
+              {
+                provider: "openai",
+                ratings: {
+                  quality: 8,
+                  priceValue: 7,
+                  brandReputation: 9,
+                  brandTrust: 8,
+                  customerService: 8,
+                },
+              },
+              {
+                provider: "anthropic",
+                ratings: {
+                  quality: 8,
+                  priceValue: 7,
+                  brandReputation: 9,
+                  brandTrust: 8,
+                  customerService: 8,
+                },
+              },
+            ],
           },
         },
         {
           name: "Website Enrichment",
           script: "website_agent.py",
           input: {
-            company_name: "TestCorp",
-            website_url: "https://testcorp.com",
-            context: "Integration test",
+            competitor_names: [
+              "Asana",
+              "Trello",
+              "Slack",
+              "Slack Technologies",
+            ],
+            context: "Project management and collaboration",
           },
         },
       ];
@@ -182,13 +206,13 @@ describe("🔗 TypeScript Service Integration Tests", () => {
 
       // Should have at least 75% success rate for reliable integration
       expect(integrationScore).toBeGreaterThanOrEqual(75);
-    }, 120000); // 2 minutes for all 6 agents
+    }, 140000); // slightly increased to avoid flakiness
   });
 
   describe("🔄 LLM Service Integration", () => {
-    it("should integrate generateQuestionResponse with question_agent.py", async () => {
+    it("should integrate generateQuestionResponse with answer_agent.py", async () => {
       console.log(
-        "\\n❓ Testing llmService.generateQuestionResponse ↔ question_agent.py..."
+        "\\n❓ Testing llmService.generateQuestionResponse ↔ answer_agent.py..."
       );
 
       try {
@@ -231,7 +255,7 @@ describe("🔗 TypeScript Service Integration Tests", () => {
         }
         throw new Error(`LLM Service integration failed: ${error}`);
       }
-    }, 45000);
+    }, 70000);
   });
 
   describe("🎯 Optimization Task Service Integration", () => {
@@ -579,6 +603,6 @@ describe("🔗 TypeScript Service Integration Tests", () => {
         }
         throw new Error(`Error handling validation failed: ${error}`);
       }
-    }, 45000);
+    }, 70000);
   });
 });

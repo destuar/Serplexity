@@ -31,6 +31,12 @@ model User {
   billingPeriods     UserBillingPeriod[]
   budgetHolds        BudgetHold[]
   usageEvents        UsageEvent[]
+  // Auth sessions
+  sessions           UserSession[]
+  // Team relationships
+  teamMemberships    TeamMember[]        @relation("MemberUser")
+  teamOwnedMembers   TeamMember[]        @relation("OwnerUser")
+  teamInvites        TeamInvite[]
 }
 
 model Company {
@@ -473,6 +479,14 @@ enum Role {
   ADMIN
 }
 
+/// Device classification for user sessions
+enum DeviceType {
+  WEB
+  MOBILE
+  DESKTOP
+  OTHER
+}
+
 /// New models for Google integrations and normalized analytics caches
 model GoogleOAuthToken {
   id          String   @id @default(cuid())
@@ -737,4 +751,74 @@ model UsageEvent {
   @@index([billingPeriodId])
   @@index([type])
   @@index([occurredAt])
+}
+
+/// Per-device login session for a user
+model UserSession {
+  id          String     @id @default(cuid())
+  userId      String
+  deviceType  DeviceType @default(WEB)
+  userAgent   String?
+  ipAddress   String?
+  createdAt   DateTime   @default(now())
+  lastSeenAt  DateTime?
+  revokedAt   DateTime?
+
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, revokedAt])
+}
+
+/// Team-level role independent from global user Role
+enum TeamRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+/// Team member status
+enum TeamMemberStatus {
+  INVITED
+  ACTIVE
+  REMOVED
+}
+
+/// Membership of a user in an owner's team
+model TeamMember {
+  id           String            @id @default(cuid())
+  ownerUserId  String
+  memberUserId String
+  role         TeamRole          @default(MEMBER)
+  status       TeamMemberStatus  @default(ACTIVE)
+  invitedAt    DateTime?
+  acceptedAt   DateTime?
+  removedAt    DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  owner        User              @relation("OwnerUser", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  member       User              @relation("MemberUser", fields: [memberUserId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerUserId, memberUserId])
+  @@index([ownerUserId])
+  @@index([memberUserId])
+  @@index([status])
+}
+
+/// Pending invite for a user (by email) to join an owner's team
+model TeamInvite {
+  id          String    @id @default(cuid())
+  ownerUserId String
+  email       String
+  role        TeamRole  @default(MEMBER)
+  token       String    @unique
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  owner       User      @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  @@index([ownerUserId])
+  @@index([email])
 }

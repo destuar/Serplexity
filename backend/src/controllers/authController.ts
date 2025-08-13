@@ -27,6 +27,12 @@ import jwt, { SignOptions } from "jsonwebtoken";
 import { z } from "zod";
 import { getPrismaClient } from "../config/dbCache";
 import env from "../config/env";
+import {
+  createUserSession,
+  listActiveUserSessions,
+  revokeUserSession,
+  updateSessionLastSeen,
+} from "../services/sessionService";
 import logger from "../utils/logger";
 
 const { JWT_SECRET, JWT_REFRESH_SECRET } = env;
@@ -46,6 +52,7 @@ interface JwtPayload {
   userId: string;
   role: Role;
   tokenVersion?: number;
+  sessionId?: string;
 }
 
 const accessTokenOptions: SignOptions = { expiresIn: "15m" };
@@ -94,10 +101,21 @@ export const register = async (req: Request, res: Response) => {
       trialEndsAt: null,
     });
 
+    // Create a login session on register
+    const session = await createUserSession(prisma, {
+      userId: user.id,
+      userAgent: req.headers["user-agent"] || null,
+      ipAddress:
+        (req.headers["x-forwarded-for"] as string) ||
+        req.socket.remoteAddress ||
+        null,
+    });
+
     const payload: JwtPayload = {
       userId: user.id,
       role: user.role,
       tokenVersion: user.tokenVersion,
+      sessionId: session.id,
     };
     const accessToken = jwt.sign(payload, JWT_SECRET, accessTokenOptions);
     const refreshToken = jwt.sign(
@@ -125,6 +143,7 @@ export const register = async (req: Request, res: Response) => {
         companies: user.companies,
       },
       accessToken,
+      sessionId: session.id,
     });
   } catch (error) {
     logger.error("Registration failed", { error });
@@ -164,10 +183,21 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
+    // Create a login session per device
+    const session = await createUserSession(prisma, {
+      userId: user.id,
+      userAgent: req.headers["user-agent"] || null,
+      ipAddress:
+        (req.headers["x-forwarded-for"] as string) ||
+        req.socket.remoteAddress ||
+        null,
+    });
+
     const payload: JwtPayload = {
       userId: user.id,
       role: user.role,
       tokenVersion: user.tokenVersion ?? 0,
+      sessionId: session.id,
     };
 
     const accessToken = jwt.sign(payload, JWT_SECRET, accessTokenOptions);
@@ -196,6 +226,7 @@ export const login = async (req: Request, res: Response) => {
         companies: user.companies,
       },
       accessToken,
+      sessionId: session.id,
     });
   } catch (error) {
     logger.error("Login failed", { error });
@@ -221,6 +252,11 @@ export const logout = async (req: Request, res: Response) => {
         where: { id: req.user.id },
         data: { tokenVersion: { increment: 1 } },
       });
+      // Best-effort: revoke the current session if provided by header
+      const sessionId = req.headers["x-session-id"] as string | undefined;
+      if (sessionId) {
+        await revokeUserSession(prisma, { userId: req.user.id, sessionId });
+      }
     } catch (error) {
       // Log error but don't prevent logout
       logger.error("Failed to increment token version on logout", { error });
@@ -259,6 +295,32 @@ export const refresh = async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Invalid refresh token" });
     }
 
+    // Ensure session validity; gracefully create one if missing for legacy tokens
+    let sessionId = payload.sessionId;
+    let session = null as null | {
+      id: string;
+      userId: string;
+      revokedAt: Date | null;
+    };
+    if (sessionId) {
+      session = await prisma.userSession.findUnique({
+        where: { id: sessionId },
+      });
+    }
+    if (!session || session.userId !== user.id || session.revokedAt) {
+      const created = await createUserSession(prisma, {
+        userId: user.id,
+        userAgent: req.headers["user-agent"] || null,
+        ipAddress:
+          (req.headers["x-forwarded-for"] as string) ||
+          req.socket.remoteAddress ||
+          null,
+      });
+      sessionId = created.id;
+      session = { id: created.id, userId: user.id, revokedAt: null };
+    }
+    await updateSessionLastSeen(prisma, session.id);
+
     // Increment token version to invalidate the used refresh token
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
@@ -279,6 +341,7 @@ export const refresh = async (req: Request, res: Response) => {
       userId: updatedUser.id,
       role: updatedUser.role,
       tokenVersion: updatedUser.tokenVersion,
+      sessionId,
     };
     const newAccessToken = jwt.sign(newPayload, JWT_SECRET, accessTokenOptions);
     const newRefreshToken = jwt.sign(
@@ -306,10 +369,31 @@ export const refresh = async (req: Request, res: Response) => {
         companies: updatedUser.companies,
       },
       accessToken: newAccessToken,
+      sessionId,
     });
   } catch {
     return res.status(401).json({ error: "Invalid refresh token" });
   }
+};
+
+export const listSessions = async (req: Request, res: Response) => {
+  const prisma = await getPrismaClient();
+  if (!req.user) return res.status(401).json({ error: "Not authenticated" });
+  const sessions = await listActiveUserSessions(prisma, req.user.id);
+  res.json({ sessions });
+};
+
+export const revokeSession = async (req: Request, res: Response) => {
+  const prisma = await getPrismaClient();
+  if (!req.user) return res.status(401).json({ error: "Not authenticated" });
+  const { id } = req.params as { id: string };
+  const result = await revokeUserSession(prisma, {
+    userId: req.user.id,
+    sessionId: id,
+  });
+  if (!result.ok && result.code === 404)
+    return res.status(404).json({ error: "Session not found" });
+  res.json({ ok: true });
 };
 
 export const getMe = async (req: Request, res: Response) => {
