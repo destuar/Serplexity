@@ -15,7 +15,7 @@ import {
   Trash2,
   TrendingUp,
 } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useCompany } from "../../contexts/CompanyContext";
 import apiClient from "../../lib/apiClient";
 import { AuditResult } from "../../pages/WebAuditPage";
@@ -48,7 +48,7 @@ const WebAuditHistory: React.FC<WebAuditHistoryProps> = ({ onViewAudit }) => {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const { selectedCompany } = useCompany();
 
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -63,7 +63,7 @@ const WebAuditHistory: React.FC<WebAuditHistoryProps> = ({ onViewAudit }) => {
         `/web-audit/companies/${selectedCompany.id}/history`
       );
       setHistory(response.data.data.audits || []);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Failed to fetch audit history:", error);
       setError(
         error instanceof Error ? error.message : "Failed to load history"
@@ -71,11 +71,11 @@ const WebAuditHistory: React.FC<WebAuditHistoryProps> = ({ onViewAudit }) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedCompany?.id]);
 
   useEffect(() => {
     fetchHistory();
-  }, [selectedCompany?.id]);
+  }, [fetchHistory]);
 
   const handleViewAudit = async (auditId: string) => {
     try {
@@ -141,7 +141,7 @@ const WebAuditHistory: React.FC<WebAuditHistoryProps> = ({ onViewAudit }) => {
   };
 
   const sortedHistory = [...history].sort((a, b) => {
-    let aValue: any, bValue: any;
+    let aValue: number | string, bValue: number | string;
 
     switch (sortBy) {
       case "date":

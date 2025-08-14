@@ -35,21 +35,16 @@ interface WebAuditResultsProps {
 
 const WebAuditResults: React.FC<WebAuditResultsProps> = ({
   result,
-  onNewAudit,
+  onNewAudit: _onNewAudit,
   onOpenCategory,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(
+  const [_expandedSections, _setExpandedSections] = useState<Set<string>>(
     new Set()
   );
-  const toggleSection = (section: string) => {
-    setExpandedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(section)) next.delete(section);
-      else next.add(section);
-      return next;
-    });
+  const _toggleSection = (_section: string) => {
+    _setExpandedSections((prev) => new Set(prev));
   };
 
   const getScoreColor = (score: number) => {
@@ -74,7 +69,7 @@ const WebAuditResults: React.FC<WebAuditResultsProps> = ({
     return { bg: "bg-red-100", text: "text-red-800", ring: "ring-red-200" };
   };
 
-  const getScoreLabel = (score: number) => {
+  const _getScoreLabel = (score: number) => {
     if (score >= 90) return "Excellent";
     if (score >= 75) return "Good";
     if (score >= 50) return "Needs Improvement";
@@ -273,12 +268,12 @@ const WebAuditResults: React.FC<WebAuditResultsProps> = ({
           } catch {}
           return pruned;
         });
-      } catch (e) {
+      } catch {
         // non-fatal; silently ignore
       }
     };
     loadTasks();
-  }, [selectedCompany?.id]);
+  }, [selectedCompany?.id, storageKey]);
 
   const handleAddTask = async (rec: {
     category: string;
@@ -411,7 +406,7 @@ const WebAuditResults: React.FC<WebAuditResultsProps> = ({
     }
   };
 
-  const formatDate = (date: Date) => {
+  const _formatDate = (date: Date) => {
     return new Intl.DateTimeFormat("en-US", {
       year: "numeric",
       month: "short",
@@ -421,7 +416,7 @@ const WebAuditResults: React.FC<WebAuditResultsProps> = ({
     }).format(new Date(date));
   };
 
-  const formatAnalysisTime = (ms: number) => {
+  const _formatAnalysisTime = (ms: number) => {
     if (ms < 1000) return `${ms}ms`;
     const seconds = Math.round(ms / 1000);
     if (seconds < 60) return `${seconds}s`;
@@ -501,7 +496,7 @@ const WebAuditResults: React.FC<WebAuditResultsProps> = ({
               </div>
               <ol className="space-y-1 list-decimal list-inside text-sm">
                 {result.recommendations
-                  .sort((a, b) =>
+                  .sort((a, _b) =>
                     a.priority === "critical"
                       ? -1
                       : a.priority === "high"
@@ -509,8 +504,11 @@ const WebAuditResults: React.FC<WebAuditResultsProps> = ({
                         : 1
                   )
                   .slice(0, 5)
-                  .map((rec, idx) => (
-                    <li key={idx} className="text-gray-800">
+                  .map((rec) => (
+                    <li
+                      key={`${rec.category}-${rec.title}`}
+                      className="text-gray-800"
+                    >
                       <button
                         type="button"
                         className="underline underline-offset-2 hover:opacity-80"
@@ -560,7 +558,7 @@ const WebAuditResults: React.FC<WebAuditResultsProps> = ({
               </div>
             ) : (
               <div className="space-y-2">
-                {filteredRecommendations.map((recommendation, index) => {
+                {filteredRecommendations.map((recommendation) => {
                   const priorityColors = getPriorityColor(
                     recommendation.priority
                   );
@@ -570,24 +568,26 @@ const WebAuditResults: React.FC<WebAuditResultsProps> = ({
 
                   return (
                     <div
-                      key={index}
+                      key={`${recommendation.category}-${recommendation.title}`}
                       role="button"
                       tabIndex={0}
-                      onClick={() =>
-                        onOpenCategory &&
-                        onOpenCategory(
-                          recommendation.category,
-                          getCategoryLabel(recommendation.category)
-                        )
-                      }
+                      onClick={() => {
+                        if (onOpenCategory) {
+                          onOpenCategory(
+                            recommendation.category,
+                            getCategoryLabel(recommendation.category)
+                          );
+                        }
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          onOpenCategory &&
+                          if (onOpenCategory) {
                             onOpenCategory(
                               recommendation.category,
                               getCategoryLabel(recommendation.category)
                             );
+                          }
                         }
                       }}
                       className={`cursor-pointer p-3 bg-white/80 backdrop-blur-sm border border-white/20 rounded-xl shadow-md hover:bg-white/85 transition-colors`}
@@ -619,16 +619,14 @@ const WebAuditResults: React.FC<WebAuditResultsProps> = ({
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  isAdded
-                                    ? handleRemoveTask(recommendation)
-                                    : handleAddTask(recommendation);
+                                  if (isAdded) {
+                                    handleRemoveTask(recommendation);
+                                  } else {
+                                    handleAddTask(recommendation);
+                                  }
                                 }}
                                 disabled={pendingTaskOps.has(recKey)}
-                                className={`relative z-10 pointer-events-auto select-none inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium shadow-md focus:outline-none w-[112px] ${
-                                  isAdded
-                                    ? "bg-white/70 text-gray-600 border border-white/30 shadow-inner active:translate-y-[1px] active:shadow-inner"
-                                    : "bg-white/80 text-gray-900 border border-white/30 active:translate-y-[1px] active:shadow-inner"
-                                }`}
+                                className={`relative z-10 pointer-events-auto select-none inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium shadow-md focus:outline-none w-[112px] ${isAdded ? "bg-white/70 text-gray-600 border border-white/30 shadow-inner active:translate-y-[1px] active:shadow-inner" : "bg-white/80 text-gray-900 border border-white/30 active:translate-y-[1px] active:shadow-inner"}`}
                                 title={
                                   isAdded ? "Added" : "Add to Visibility Tasks"
                                 }

@@ -29,12 +29,12 @@ interface WelcomePromptProps {
 const WelcomePrompt: React.FC<WelcomePromptProps> = ({
   onGenerateReport,
   isGenerating,
-  _generationStatus, // kept for compatibility
-  generationStatus, // accepted but not currently used
+  _generationStatus: _legacyStatus, // kept for compatibility
+  generationStatus: _status,
   progress = 0,
   isButtonDisabled = false,
-  _generationState, // kept for compatibility
-  generationState, // accepted but not currently used
+  _generationState: _legacyState, // kept for compatibility
+  generationState: _state,
 }) => {
   return (
     <div className="flex-1 flex items-center justify-center p-6">

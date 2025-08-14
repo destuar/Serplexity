@@ -17,6 +17,7 @@ import { loadStripe } from "@stripe/stripe-js";
 import { ArrowRight, Check } from "lucide-react";
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import type { StripeConfig } from "../services/paymentService";
 import {
   createCheckoutSession,
   getStripeConfig,
@@ -81,17 +82,17 @@ const PaymentPage: React.FC = () => {
               starterMonthly?: string;
               monthlyPriceId?: string;
             }
-          ).starterMonthly || (cfg as any).monthlyPriceId,
+          ).starterMonthly || (cfg as StripeConfig).monthlyPriceId,
         growth_monthly:
           (
             cfg as unknown as {
               growthMonthly?: string;
               monthlyPriceId?: string;
             }
-          ).growthMonthly || (cfg as any).monthlyPriceId,
+          ).growthMonthly || (cfg as StripeConfig).monthlyPriceId,
         scale_monthly:
           (cfg as unknown as { scaleMonthly?: string; monthlyPriceId?: string })
-            .scaleMonthly || (cfg as any).monthlyPriceId,
+            .scaleMonthly || (cfg as StripeConfig).monthlyPriceId,
       };
       const resolvedPriceId = priceMap[priceId] || priceId;
       const stripe = await loadStripe(

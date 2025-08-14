@@ -207,23 +207,40 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({
           companyId: selectedCompany.id,
         });
 
-        // Compare with dashboard context data if available
+        // Compare with dashboard context data ONLY when dateRange and granularity align
         if (data?.shareOfVoiceHistory && data.shareOfVoiceHistory.length > 0) {
           const contextReport = DataPipelineMonitor.recordData(
             `${selectedCompany.id}-sov-context-${filters?.dateRange}`,
             data.shareOfVoiceHistory,
             {
               component: "DashboardContext",
-              operation: "shareOfVoiceHistory",
+              operation: "shareOfVoiceHistory_RAW",
               filters: {
                 dateRange: filters?.dateRange,
                 aiModel: filters?.aiModel,
+                granularity: "RAW",
               },
               companyId: selectedCompany.id,
             }
           );
 
-          compareDataSources(sovReport, contextReport);
+          const sameGranularity =
+            (contextReport.granularity || "RAW") ===
+            (sovReport.granularity || "RAW");
+          const sameDateRange = contextReport.dateRange === sovReport.dateRange;
+          if (sameGranularity && sameDateRange) {
+            compareDataSources(sovReport, contextReport);
+          } else {
+            console.log(
+              "[MetricsOverTimeCard] Skipping data comparison due to granularity/dateRange mismatch",
+              {
+                sovGranularity: sovReport.granularity || "RAW",
+                contextGranularity: contextReport.granularity || "RAW",
+                sovDateRange: sovReport.dateRange,
+                contextDateRange: contextReport.dateRange,
+              }
+            );
+          }
         }
 
         if (!sovValid || !inclusionValid) {

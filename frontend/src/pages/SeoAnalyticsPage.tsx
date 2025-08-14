@@ -23,18 +23,19 @@ const SeoAnalyticsPage: React.FC = () => {
         const response = await fetch("/api/website-analytics/integrations");
         if (response.ok) {
           const data = await response.json();
-          const list = data.integrations ?? data;
+          const list =
+            (data as { integrations?: unknown })?.integrations ?? data;
           setHasIntegrations(
             Array.isArray(list)
               ? list.some(
-                  (i: any) =>
+                  (i: { integrationName?: string; status?: string }) =>
                     i.integrationName === "google_search_console" &&
                     i.status === "active"
                 )
               : false
           );
         }
-      } catch (_error) {
+      } catch {
         // ignore
       }
     };

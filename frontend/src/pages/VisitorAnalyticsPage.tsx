@@ -32,10 +32,10 @@ const VisitorAnalyticsPage: React.FC = () => {
         const res = await fetch("/api/website-analytics/integrations");
         if (!res.ok) return;
         const data = await res.json();
-        const list = data.integrations ?? data; // tolerate either shape
+        const list = (data as { integrations?: unknown })?.integrations ?? data; // tolerate either shape
         const hasGa4 = Array.isArray(list)
           ? list.some(
-              (i: any) =>
+              (i: { integrationName?: string; status?: string }) =>
                 i.integrationName === "google_analytics_4" &&
                 i.status === "active"
             )
@@ -44,7 +44,7 @@ const VisitorAnalyticsPage: React.FC = () => {
         if (hasGa4) {
           await fetchMetrics();
         }
-      } catch (_e) {
+      } catch {
         // noop
       }
     };
@@ -66,7 +66,7 @@ const VisitorAnalyticsPage: React.FC = () => {
       const data = await res.json();
       // tolerate shapes {metrics: {...}} or {...}
       setMetrics(data.metrics ?? data);
-    } catch (e) {
+    } catch {
       // noop for MVP
     }
   };

@@ -26,6 +26,7 @@ import FilterDropdown from "../components/dashboard/FilterDropdown";
 import BlankLoadingState from "../components/ui/BlankLoadingState";
 import FormattedResponseViewer from "../components/ui/FormattedResponseViewer";
 import { useCompany } from "../contexts/CompanyContext";
+import { useDashboard } from "../hooks/useDashboard";
 import { getCompanyLogo } from "../lib/logoService";
 import {
   CitationData,
@@ -520,21 +521,35 @@ const ResponsesPage: React.FC<ResponsesPageProps> = ({ prompt }) => {
 
           if (promptQuestion && promptQuestion.responses) {
             // Transform responses to the format we need
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const transformedResponses: ResponseItemData[] =
-              promptQuestion.responses.map((resp: any, _index: number) => {
-                return {
-                  id: `${resp.model}-${_index}`,
-                  model: resp.model,
-                  response: resp.response,
-                  position: resp.position,
-                  brands: resp.brands || [],
-                  createdAt: resp.createdAt || new Date().toISOString(),
-                  runId: resp.runId || "unknown",
-                  runDate:
-                    resp.runDate || resp.createdAt || new Date().toISOString(),
-                };
-              });
+              promptQuestion.responses.map(
+                (
+                  resp: {
+                    model: string;
+                    response: string;
+                    position?: number | null;
+                    brands?: string[];
+                    createdAt?: string;
+                    runId?: string;
+                    runDate?: string;
+                  },
+                  _index: number
+                ) => {
+                  return {
+                    id: `${resp.model}-${_index}`,
+                    model: resp.model,
+                    response: resp.response,
+                    position: resp.position,
+                    brands: resp.brands || [],
+                    createdAt: resp.createdAt || new Date().toISOString(),
+                    runId: resp.runId || "unknown",
+                    runDate:
+                      resp.runDate ||
+                      resp.createdAt ||
+                      new Date().toISOString(),
+                  };
+                }
+              );
 
             // Sort by position (lower is better), null positions go to end
             transformedResponses.sort((a, b) => {

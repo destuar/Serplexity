@@ -11,7 +11,14 @@ import {
 export default function BillingPage() {
   const { user: _user } = useAuth();
   const [summary, setSummary] = useState<BillingSummary | null>(null);
-  const [series, setSeries] = useState<any[]>([]);
+  interface ReportSeriesPoint {
+    date: string;
+    reports: number;
+    responses?: number;
+    sentiments?: number;
+    amountCents?: number;
+  }
+  const [series, setSeries] = useState<ReportSeriesPoint[]>([]);
   const [chartMode, setChartMode] = useState<"reports" | "responses">(
     "reports"
   );
@@ -43,7 +50,7 @@ export default function BillingPage() {
           `/billing/reports?start=${encodeURIComponent(startIso)}&end=${encodeURIComponent(endIso)}`
         );
         setSeries(data);
-      } catch (e) {
+      } catch {
         setError("Failed to load billing data");
       } finally {
         setLoading(false);
@@ -204,7 +211,7 @@ export default function BillingPage() {
         </div>
         <div className="mt-2 space-y-1 max-h-64 overflow-auto">
           {chartMode === "reports" &&
-            series.map((d: any) => (
+            series.map((d) => (
               <div
                 key={d.date}
                 className="flex items-center justify-between text-sm"
@@ -216,7 +223,7 @@ export default function BillingPage() {
               </div>
             ))}
           {chartMode === "responses" &&
-            series.map((d: any) => (
+            series.map((d) => (
               <div
                 key={d.date}
                 className="flex items-center justify-between text-sm"
@@ -224,7 +231,7 @@ export default function BillingPage() {
                 <div className="text-gray-400">
                   {new Date(d.date).toLocaleDateString()}
                 </div>
-                <div>{d.responses} responses</div>
+                <div>{d.responses ?? 0} responses</div>
               </div>
             ))}
         </div>
@@ -246,7 +253,7 @@ export default function BillingPage() {
               </div>
               <div>
                 resp {d.responses} / sent {d.sentiments} / overage $
-                {(d.amountCents / 100).toFixed(2)}
+                {((d.amountCents ?? 0) / 100).toFixed(2)}
               </div>
             </div>
           ))}

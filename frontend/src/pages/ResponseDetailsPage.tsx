@@ -190,6 +190,7 @@ const ResponseDetailsPage: React.FC = () => {
     lastUpdated,
     hasReport,
     refreshTrigger,
+    activeModelPreferences,
   } = useDashboard();
 
   // ---------------------------
@@ -349,9 +350,7 @@ const ResponseDetailsPage: React.FC = () => {
               <FilterDropdown
                 label="AI Model"
                 value={filters.aiModel}
-                options={getModelFilterOptions(
-                  (useDashboard() as any).activeModelPreferences || null
-                )}
+                options={getModelFilterOptions(activeModelPreferences || null)}
                 onChange={(value) =>
                   updateFilters({
                     aiModel: value as DashboardFilters["aiModel"],

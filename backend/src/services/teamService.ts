@@ -107,28 +107,39 @@ export async function addMemberByEmail(
         invited: false as const,
       };
     }
-    await prisma.teamMember.upsert({
-      where: {
-        ownerUserId_memberUserId: {
-          ownerUserId: params.ownerUserId,
-          memberUserId: existingUser.id,
-        },
-      },
-      create: {
+    // Require invite acceptance even for existing accounts
+    const token = crypto.randomBytes(24).toString("hex");
+    const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    await prisma.teamInvite.create({
+      data: {
         ownerUserId: params.ownerUserId,
-        memberUserId: existingUser.id,
+        email: params.email,
         role: params.role,
-        status: TeamMemberStatus.ACTIVE,
-        acceptedAt: new Date(),
-      },
-      update: {
-        status: TeamMemberStatus.ACTIVE,
-        role: params.role,
-        acceptedAt: new Date(),
-        removedAt: null,
+        token,
+        expiresAt,
       },
     });
-    return { ok: true as const, added: true as const, invited: false as const };
+    const inviteLink = `${env.FRONTEND_URL || "http://localhost:3000"}/invite/accept?token=${token}`;
+    try {
+      await sendTeamInviteEmail({
+        toEmail: params.email,
+        ownerName: (
+          await prisma.user.findUnique({
+            where: { id: params.ownerUserId },
+            select: { name: true },
+          })
+        )?.name,
+        inviteLink,
+      });
+    } catch (e) {
+      // non-fatal
+    }
+    return {
+      ok: true as const,
+      added: false as const,
+      invited: true as const,
+      token,
+    };
   }
 
   const token = crypto.randomBytes(24).toString("hex");

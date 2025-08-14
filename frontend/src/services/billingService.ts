@@ -35,7 +35,9 @@ export async function fetchUsageSeries(
     const { data } = await api.get(`/billing/usage?days=${daysOrParams}`);
     return data as UsagePoint[];
   }
-  const params = new URLSearchParams(daysOrParams as any).toString();
+  const params = new URLSearchParams(
+    daysOrParams as Record<string, string>
+  ).toString();
   const { data } = await api.get(`/billing/usage?${params}`);
   return data as UsagePoint[];
 }

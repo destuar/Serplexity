@@ -40,8 +40,6 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
   onClose,
   onStatusChange,
 }) => {
-  if (!isOpen || !task) return null;
-
   const priorityColors = {
     High: "bg-red-50 text-red-700 border-red-200",
     Medium: "bg-yellow-50 text-yellow-700 border-yellow-200",
@@ -83,6 +81,9 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
+
+  // Guard after hooks to satisfy rules-of-hooks
+  if (!isOpen || !task) return null;
 
   // Infer implementation plan category from task
   const inferCategoryKey = (t: OptimizationTask): CategoryKey => {

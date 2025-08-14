@@ -98,7 +98,7 @@ const CompetitorScoresList: React.FC = () => {
     return "text-red-600";
   };
 
-  const fetchScores = async () => {
+  const fetchScores = React.useCallback(async () => {
     if (!selectedCompany?.id) return;
     setLoading(true);
     try {
@@ -106,16 +106,16 @@ const CompetitorScoresList: React.FC = () => {
         `/web-audit/companies/${selectedCompany.id}/competitor-scores`
       );
       setItems(data.data.competitors || []);
-    } catch (e) {
+    } catch {
       // silent fail in UI
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedCompany?.id]);
 
   useEffect(() => {
     fetchScores();
-  }, [selectedCompany?.id]);
+  }, [fetchScores]);
 
   // No interval polling; refreshed explicitly when user runs a new audit
 
@@ -240,11 +240,27 @@ const WebAuditPage: React.FC = () => {
   }, [setBreadcrumbs, isEmbedded]);
 
   // Fetch audit history when selectedCompany is available
+  const fetchHistory = React.useCallback(async () => {
+    if (!selectedCompany?.id) return;
+
+    setHistoryLoading(true);
+    try {
+      const response = await apiClient.get(
+        `/web-audit/companies/${selectedCompany.id}/history`
+      );
+      setHistory(response.data.data.audits || []);
+    } catch (error) {
+      console.error("Failed to fetch audit history:", error);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [selectedCompany?.id]);
+
   useEffect(() => {
     if (selectedCompany?.id) {
       fetchHistory();
     }
-  }, [selectedCompany?.id]);
+  }, [selectedCompany?.id, fetchHistory]);
 
   // Track elapsed time for running audits
   useEffect(() => {
@@ -260,22 +276,6 @@ const WebAuditPage: React.FC = () => {
       setElapsedTime(0);
     };
   }, [currentAudit]);
-
-  const fetchHistory = async () => {
-    if (!selectedCompany?.id) return;
-
-    setHistoryLoading(true);
-    try {
-      const response = await apiClient.get(
-        `/web-audit/companies/${selectedCompany.id}/history`
-      );
-      setHistory(response.data.data.audits || []);
-    } catch (error) {
-      console.error("Failed to fetch audit history:", error);
-    } finally {
-      setHistoryLoading(false);
-    }
-  };
 
   const dateRangeOptions = [
     { value: "24h", label: "Last 24 hours" },

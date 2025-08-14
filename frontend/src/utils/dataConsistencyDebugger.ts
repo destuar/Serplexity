@@ -2,7 +2,7 @@
  * @file dataConsistencyDebugger.ts
  * @description Enterprise-grade data consistency debugging and validation utilities.
  * Provides comprehensive logging, validation, and monitoring for data pipeline issues.
- * 
+ *
  * @author Infrastructure Team
  * @version 1.0.0 - Enterprise-grade debugging tools
  */
@@ -30,12 +30,17 @@ export interface DataPipelineContext {
  * Creates a hash of data for comparison
  */
 function createDataHash(data: unknown[]): string {
-  const dataStr = JSON.stringify(data.map(item => ({
-    date: (item as { date: string }).date,
-    value: (item as { shareOfVoice?: number; inclusionRate?: number }).shareOfVoice || 
-           (item as { shareOfVoice?: number; inclusionRate?: number }).inclusionRate
-  })));
-  
+  const dataStr = JSON.stringify(
+    data.map((item) => ({
+      date: (item as { date: string }).date,
+      value:
+        (item as { shareOfVoice?: number; inclusionRate?: number })
+          .shareOfVoice ||
+        (item as { shareOfVoice?: number; inclusionRate?: number })
+          .inclusionRate,
+    }))
+  );
+
   return btoa(dataStr).slice(0, 16);
 }
 
@@ -50,30 +55,35 @@ export function generateDataConsistencyReport(
     timestamp: new Date().toISOString(),
     source: `${context.component}.${context.operation}`,
     dataPoints: data.length,
-    dateRange: context.filters.dateRange as string || 'unknown',
+    dateRange: (context.filters.dateRange as string) || "unknown",
     granularity: context.filters.granularity as string,
     firstDate: data.length > 0 ? (data[0] as { date: string }).date : undefined,
-    lastDate: data.length > 0 ? (data[data.length - 1] as { date: string }).date : undefined,
+    lastDate:
+      data.length > 0
+        ? (data[data.length - 1] as { date: string }).date
+        : undefined,
     sampleData: data.slice(0, 3),
-    hash: createDataHash(data)
+    hash: createDataHash(data),
   };
-  
-  console.group(`🔍 [DATA CONSISTENCY] ${context.component} - ${context.operation}`);
-  console.log('📊 Data Points:', report.dataPoints);
-  console.log('📅 Date Range:', report.dateRange);
-  console.log('⏱️ Granularity:', report.granularity || 'raw');
-  console.log('🔑 Data Hash:', report.hash);
-  
+
+  console.group(
+    `🔍 [DATA CONSISTENCY] ${context.component} - ${context.operation}`
+  );
+  console.log("📊 Data Points:", report.dataPoints);
+  console.log("📅 Date Range:", report.dateRange);
+  console.log("⏱️ Granularity:", report.granularity || "raw");
+  console.log("🔑 Data Hash:", report.hash);
+
   if (data.length > 0) {
-    console.log('📈 First Point:', report.firstDate);
-    console.log('📉 Last Point:', report.lastDate);
-    console.log('🔍 Sample Data:', report.sampleData);
+    console.log("📈 First Point:", report.firstDate);
+    console.log("📉 Last Point:", report.lastDate);
+    console.log("🔍 Sample Data:", report.sampleData);
   } else {
-    console.warn('⚠️ NO DATA RETURNED');
+    console.warn("⚠️ NO DATA RETURNED");
   }
-  
+
   console.groupEnd();
-  
+
   return report;
 }
 
@@ -85,36 +95,42 @@ export function compareDataSources(
   report2: DataConsistencyReport
 ): void {
   console.group(`🔀 [DATA COMPARISON] ${report1.source} vs ${report2.source}`);
-  
+
   const inconsistencies: string[] = [];
-  
+
   if (report1.dataPoints !== report2.dataPoints) {
-    inconsistencies.push(`Data point count mismatch: ${report1.dataPoints} vs ${report2.dataPoints}`);
+    inconsistencies.push(
+      `Data point count mismatch: ${report1.dataPoints} vs ${report2.dataPoints}`
+    );
   }
-  
+
   if (report1.hash !== report2.hash) {
-    inconsistencies.push(`Data hash mismatch: ${report1.hash} vs ${report2.hash}`);
+    inconsistencies.push(
+      `Data hash mismatch: ${report1.hash} vs ${report2.hash}`
+    );
   }
-  
+
   if (report1.dateRange !== report2.dateRange) {
-    inconsistencies.push(`Date range mismatch: ${report1.dateRange} vs ${report2.dateRange}`);
+    inconsistencies.push(
+      `Date range mismatch: ${report1.dateRange} vs ${report2.dateRange}`
+    );
   }
-  
+
   if (inconsistencies.length > 0) {
-    console.error('🚨 DATA INCONSISTENCY DETECTED:');
-    inconsistencies.forEach(issue => console.error(`  ❌ ${issue}`));
-    
+    console.error("🚨 DATA INCONSISTENCY DETECTED:");
+    inconsistencies.forEach((issue) => console.error(`  ❌ ${issue}`));
+
     // Log for monitoring systems
-    console.error('[MONITORING] Data consistency violation', {
+    console.error("[MONITORING] Data consistency violation", {
       source1: report1.source,
       source2: report2.source,
       inconsistencies,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } else {
-    console.log('✅ Data sources are consistent');
+    console.log("✅ Data sources are consistent");
   }
-  
+
   console.groupEnd();
 }
 
@@ -127,46 +143,53 @@ export function validateDataPipeline(
   expectedMinPoints: number = 1
 ): boolean {
   const _report = generateDataConsistencyReport(data, context);
-  
+
   const validations = [
     {
-      name: 'Minimum data points',
+      name: "Minimum data points",
       check: data.length >= expectedMinPoints,
-      message: `Expected at least ${expectedMinPoints} points, got ${data.length}`
+      message: `Expected at least ${expectedMinPoints} points, got ${data.length}`,
     },
     {
-      name: 'Data structure integrity',
-      check: data.every(item => 
-        item && 
-        typeof item === 'object' && 
-        'date' in item &&
-        (item as { date: unknown }).date
+      name: "Data structure integrity",
+      check: data.every(
+        (item) =>
+          item &&
+          typeof item === "object" &&
+          "date" in item &&
+          (item as { date: unknown }).date
       ),
-      message: 'Invalid data structure detected'
+      message: "Invalid data structure detected",
     },
     {
-      name: 'Date chronology',
-      check: data.length <= 1 || (() => {
-        const dates = data.map(item => new Date((item as { date: string }).date));
-        return dates.every((date, i) => i === 0 || date >= dates[i - 1]);
-      })(),
-      message: 'Data points are not in chronological order'
-    }
+      name: "Date chronology",
+      check:
+        data.length <= 1 ||
+        (() => {
+          const dates = data.map(
+            (item) => new Date((item as { date: string }).date)
+          );
+          return dates.every((date, i) => i === 0 || date >= dates[i - 1]);
+        })(),
+      message: "Data points are not in chronological order",
+    },
   ];
-  
-  const failures = validations.filter(v => !v.check);
-  
+
+  const failures = validations.filter((v) => !v.check);
+
   if (failures.length > 0) {
-    console.group('🚨 [DATA VALIDATION] Failures detected');
-    failures.forEach(failure => {
+    console.group("🚨 [DATA VALIDATION] Failures detected");
+    failures.forEach((failure) => {
       console.error(`❌ ${failure.name}: ${failure.message}`);
     });
     console.groupEnd();
-    
+
     return false;
   }
-  
-  console.log(`✅ [DATA VALIDATION] All checks passed for ${context.component}`);
+
+  console.log(
+    `✅ [DATA VALIDATION] All checks passed for ${context.component}`
+  );
   return true;
 }
 
@@ -175,7 +198,7 @@ export function validateDataPipeline(
  */
 export class DataPipelineMonitor {
   private static reports: Map<string, DataConsistencyReport> = new Map();
-  
+
   static recordData(
     key: string,
     data: unknown[],
@@ -183,29 +206,33 @@ export class DataPipelineMonitor {
   ): DataConsistencyReport {
     const report = generateDataConsistencyReport(data, context);
     this.reports.set(key, report);
-    
+
     // Check for inconsistencies with related data sources
-    const relatedKeys = Array.from(this.reports.keys()).filter(k => 
-      k !== key && 
-      k.includes(context.companyId)
+    const relatedKeys = Array.from(this.reports.keys()).filter(
+      (k) => k !== key && k.includes(context.companyId)
     );
-    
-    relatedKeys.forEach(relatedKey => {
+
+    relatedKeys.forEach((relatedKey) => {
       const relatedReport = this.reports.get(relatedKey);
-      if (relatedReport && 
-          relatedReport.dateRange === report.dateRange &&
-          Math.abs(Date.now() - new Date(relatedReport.timestamp).getTime()) < 30000) {
+      if (!relatedReport) return;
+      const isRecent =
+        Math.abs(Date.now() - new Date(relatedReport.timestamp).getTime()) <
+        30000;
+      const sameDateRange = relatedReport.dateRange === report.dateRange;
+      const sameGranularity =
+        (relatedReport.granularity || "RAW") === (report.granularity || "RAW");
+      if (isRecent && sameDateRange && sameGranularity) {
         compareDataSources(report, relatedReport);
       }
     });
-    
+
     return report;
   }
-  
+
   static getReport(key: string): DataConsistencyReport | undefined {
     return this.reports.get(key);
   }
-  
+
   static clearOldReports(): void {
     const oneHourAgo = Date.now() - 60 * 60 * 1000;
     for (const [key, report] of this.reports.entries()) {

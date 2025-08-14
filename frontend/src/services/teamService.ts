@@ -42,8 +42,12 @@ export async function inviteTeamMember(
   try {
     const { data } = await apiClient.post("/team/invite", { email, role });
     return data;
-  } catch (err: any) {
-    const msg = err?.response?.data?.error || "Failed to invite member";
+  } catch (err: unknown) {
+    const msg =
+      typeof err === "object" && err !== null
+        ? (err as { response?: { data?: { error?: string } } }).response?.data
+            ?.error || "Failed to invite member"
+        : "Failed to invite member";
     throw new Error(msg);
   }
 }

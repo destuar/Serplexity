@@ -1,20 +1,13 @@
 import React from "react";
 import { Accordion } from "../ui/Accordion";
 import LiquidGlassCard from "../ui/LiquidGlassCard";
+import { getExplainerContent } from "./explainerContent";
 
 export type CategoryKey = "performance" | "seo" | "geo" | "security";
 
 interface CategoryExplainerProps {
   categoryKey: CategoryKey;
 }
-
-const Bullets: React.FC<{ items: Array<string> }> = ({ items }) => (
-  <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700">
-    {items.map((t, i) => (
-      <li key={i}>{t}</li>
-    ))}
-  </ul>
-);
 
 const Numbered: React.FC<{
   items: Array<{ title: string; notes?: string[] }>;
@@ -71,23 +64,23 @@ const CategoryExplainer: React.FC<CategoryExplainerProps> = ({
             },
             {
               question: "WordPress",
-              answer: numbered(content.platformSteps.wordpress),
+              answer: <Numbered items={content.platformSteps.wordpress} />,
             },
             {
               question: "Squarespace",
-              answer: numbered(content.platformSteps.squarespace),
+              answer: <Numbered items={content.platformSteps.squarespace} />,
             },
             {
               question: "Webflow",
-              answer: numbered(content.platformSteps.webflow),
+              answer: <Numbered items={content.platformSteps.webflow} />,
             },
             {
               question: "Shopify",
-              answer: numbered(content.platformSteps.shopify),
+              answer: <Numbered items={content.platformSteps.shopify} />,
             },
             {
               question: "Custom code / Developers",
-              answer: numbered(content.platformSteps.custom),
+              answer: <Numbered items={content.platformSteps.custom} />,
             },
           ]}
         />
@@ -107,172 +100,59 @@ const CategoryExplainer: React.FC<CategoryExplainerProps> = ({
   );
 };
 
-export function getExplainerContent(category: CategoryKey) {
-  if (category === "performance") {
-    return {
-      whyItMatters:
-        "Performance affects user experience, conversion rates, and search visibility. Faster sites reduce bounce rates and are favored by search engines and AI systems when selecting sources.",
-      keyTerms: [
-        {
-          term: "LCP (Largest Contentful Paint)",
-          def: "Time to render the largest content element in the viewport. Aim for ≤ 2.5s.",
-        },
-        {
-          term: "INP (Interaction to Next Paint)",
-          def: "Responsiveness to user input. Aim for ≤ 200ms.",
-        },
-        {
-          term: "CLS (Cumulative Layout Shift)",
-          def: "Visual stability during load. Aim for ≤ 0.1.",
-        },
-        {
-          term: "TTFB (Time to First Byte)",
-          def: "Server response time to first byte. Aim for ≤ 800ms.",
-        },
-        {
-          term: "Render-blocking",
-          def: "Assets (CSS/JS) that delay initial paint. Should be deferred or inlined appropriately.",
-        },
-      ],
-      highLevelSteps: [
-        "Compress and correctly size images (WebP/AVIF).",
-        "Defer non-critical JavaScript; remove unused scripts and plugins.",
-        "Inline critical CSS; load the rest asynchronously.",
-        "Use a CDN and enable server-side caching; optimize TTFB.",
-        "Minimize layout shifts with fixed dimensions for images/ads/fonts.",
-      ],
-      platformSteps: platformStepsPerformance(),
-      verify: [
-        "Run PageSpeed Insights/Lighthouse before and after; compare LCP/INP/CLS.",
-        "Use Chrome DevTools → Performance to confirm fewer long tasks (>50ms).",
-        "Check WebPageTest for TTFB and CDN effectiveness.",
-      ],
-    };
-  }
+export default CategoryExplainer;
 
-  if (category === "seo") {
-    return {
-      whyItMatters:
-        "Technical SEO ensures your content can be crawled, rendered, and indexed accurately. Clean sitemaps, robots rules, canonicalization, and metadata improve discovery and click-through.",
-      keyTerms: [
-        {
-          term: "Indexability",
-          def: "Whether search engines are allowed and able to index your pages (robots.txt, robots meta).",
-        },
-        {
-          term: "Sitemap",
-          def: "XML file listing pages to help discovery. Keep it updated.",
-        },
-        {
-          term: "Canonical",
-          def: "Tag that signals the primary version of a page to avoid duplicates.",
-        },
-        {
-          term: "OG/Twitter cards",
-          def: "Social meta tags controlling link previews across platforms.",
-        },
-        {
-          term: "Hreflang",
-          def: "Annotation indicating language/region versions of pages.",
-        },
-      ],
-      highLevelSteps: [
-        "Ensure robots.txt allows important sections and a sitemap is submitted.",
-        "Set canonical tags on pages with similar content.",
-        "Complete title and meta description with clear, concise copy.",
-        "Add Open Graph and Twitter card tags for better sharing and AI context.",
-        "Maintain clean heading hierarchy (H1 → H2 → H3) and internal linking.",
-      ],
-      platformSteps: platformStepsSEO(),
-      verify: [
-        "Open /robots.txt in a browser; ensure no accidental Disallow on key paths.",
-        "Fetch sitemap.xml; verify it lists important pages and returns 200.",
-        "Use Google Search Console: URL Inspection → Test Live URL to confirm indexability.",
-        "Validate JSON-LD via schema.org validator or Rich Results Test.",
-      ],
-    };
-  }
+// The helper functions below remain in this file and are used by getExplainerContent implementation.
 
-  if (category === "geo") {
-    return {
-      whyItMatters:
-        "AI Search (GEO) is about how AI assistants and overviews reference your brand. Clear structure, schema, and authoritative content improve inclusion in generated answers.",
-      keyTerms: [
-        {
-          term: "GEO (Generative Engine Optimization)",
-          def: "Optimizing content to be cited and represented accurately by AI systems.",
-        },
-        {
-          term: "Schema (JSON-LD)",
-          def: "Structured data describing organizations, products, FAQs, etc., helping machines understand your site.",
-        },
-        {
-          term: "Citations",
-          def: "Clear sourcing and references that AI can attribute and trust.",
-        },
-        {
-          term: "Q&A Content",
-          def: "FAQ-style, concise answers aligned with user questions that AI often aggregates.",
-        },
+function generalStepsPerformance() {
+  return [
+    {
+      title: "Measure your baseline",
+      notes: [
+        "Run PageSpeed Insights and WebPageTest on your homepage and a key template page.",
+        "Record LCP, INP, CLS, and TTFB; take screenshots for before/after.",
       ],
-      highLevelSteps: [
-        "Add Organization/Product/FAQ schema with accurate fields.",
-        "Create authoritative Q&A and how-to content; include citations and brand mentions.",
-        "Strengthen internal linking and ensure pages are indexable.",
-        "Publish consistent brand descriptors that AIs can quote (e.g., in llms.txt/about pages).",
+    },
+    {
+      title: "Fix Largest Contentful Paint (LCP)",
+      notes: [
+        "Identify the largest element (often hero image or headline).",
+        "Compress and resize the hero image; use AVIF/WebP and width/height attributes.",
+        "Preload critical hero image and primary webfont; defer non-critical CSS/JS.",
       ],
-      platformSteps: platformStepsGEO(),
-      verify: [
-        "Use AI Overviews/ChatGPT/Perplexity to ask brand queries; note if your content appears or is cited.",
-        "Check that Organization/Product/FAQ schema validates without errors.",
-        "Monitor inclusion in your Visibility dashboard over 2–4 weeks.",
+    },
+    {
+      title: "Reduce Interaction Latency (INP)",
+      notes: [
+        "Open DevTools Performance; look for long tasks (>50ms).",
+        "Defer third‑party scripts (chat, analytics) and remove unused ones.",
+        "Chunk heavy work with requestIdleCallback or web workers if applicable.",
       ],
-    };
-  }
-
-  // security
-  return {
-    whyItMatters:
-      "Security safeguards users and brand trust. Browsers and AI systems deprioritize or warn against insecure sites. Proper headers and TLS protect data and reduce risks.",
-    keyTerms: [
-      {
-        term: "HTTPS/TLS",
-        def: "Encrypted transport; all pages should be served over HTTPS with valid certificates.",
-      },
-      {
-        term: "HSTS",
-        def: "Forces HTTPS; protects against protocol downgrade attacks.",
-      },
-      {
-        term: "CSP (Content-Security-Policy)",
-        def: "Mitigates XSS by restricting allowed sources of scripts, styles, etc.",
-      },
-      { term: "X-Content-Type-Options", def: "Prevents MIME-type sniffing." },
-      {
-        term: "Referrer-Policy",
-        def: "Controls how much referrer info is sent.",
-      },
-      {
-        term: "Permissions-Policy",
-        def: "Opt-in to browser features (camera, geolocation, etc.).",
-      },
-    ],
-    highLevelSteps: [
-      "Enable HTTPS across your domain; redirect HTTP→HTTPS.",
-      "Add HSTS header (include subdomains if applicable).",
-      "Set baseline security headers (CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy).",
-      "Keep core, themes/plugins, and dependencies updated.",
-    ],
-    platformSteps: platformStepsSecurity(),
-    verify: [
-      "Visit your site over https:// and confirm no mixed content in browser console.",
-      "Run securityheaders.com; aim for at least A rating and iterate on CSP.",
-      "Confirm HSTS preload where appropriate; verify via hstspreload.org.",
-    ],
-  };
+    },
+    {
+      title: "Improve TTFB",
+      notes: [
+        "Enable server caching and a CDN; verify TTFB from multiple regions.",
+        "Cache API responses and enable HTTP/2 or HTTP/3 on hosting.",
+      ],
+    },
+    {
+      title: "Prevent layout shifts (CLS)",
+      notes: [
+        "Set explicit dimensions for images/ads; avoid late‑loading fonts without fallback.",
+        "Reserve space for embeds/components that appear after load.",
+      ],
+    },
+    {
+      title: "Re‑measure and validate",
+      notes: [
+        "Re‑run PSI and WebPageTest; confirm improvements in all core metrics.",
+      ],
+    },
+  ];
 }
 
-function platformStepsPerformance() {
+function _platformStepsPerformanceAlias() {
   return {
     wordpress: [
       {
@@ -393,55 +273,47 @@ function platformStepsPerformance() {
   } as const;
 }
 
-function generalStepsPerformance() {
+function generalStepsSEO() {
   return [
     {
-      title: "Measure your baseline",
+      title: "Allow discovery & indexing",
       notes: [
-        "Run PageSpeed Insights and WebPageTest on your homepage and a key template page.",
-        "Record LCP, INP, CLS, and TTFB; take screenshots for before/after.",
+        "Open /robots.txt; ensure important paths aren’t disallowed.",
+        "Generate/submit sitemap.xml; confirm 200 status and coverage in GSC.",
       ],
     },
     {
-      title: "Fix Largest Contentful Paint (LCP)",
+      title: "Canonical & duplicates",
       notes: [
-        "Identify the largest element (often hero image or headline).",
-        "Compress and resize the hero image; use AVIF/WebP and width/height attributes.",
-        "Preload critical hero image and primary webfont; defer non-critical CSS/JS.",
+        "On templates that produce similar URLs, add rel=canonical to the primary URL.",
+        "Verify there’s a single canonical per page in the rendered HTML.",
       ],
     },
     {
-      title: "Reduce Interaction Latency (INP)",
+      title: "Titles, descriptions, and social",
       notes: [
-        "Open DevTools Performance; look for long tasks (>50ms).",
-        "Defer third‑party scripts (chat, analytics) and remove unused ones.",
-        "Chunk heavy work with requestIdleCallback or web workers if applicable.",
+        "Add concise <title> (≈50–60 chars) and meta description (≈140–160 chars).",
+        "Include Open Graph and Twitter card tags for clean sharing previews.",
       ],
     },
     {
-      title: "Improve TTFB",
+      title: "Content structure",
       notes: [
-        "Enable server caching and a CDN; verify TTFB from multiple regions.",
-        "Cache API responses and enable HTTP/2 or HTTP/3 on hosting.",
+        "Use a single H1, logical H2/H3 hierarchy, and internal links to related pages.",
+        "Add FAQ sections and lists where helpful; ensure headings reflect content.",
       ],
     },
     {
-      title: "Prevent layout shifts (CLS)",
+      title: "Structured data",
       notes: [
-        "Set explicit dimensions for images/ads; avoid late‑loading fonts without fallback.",
-        "Reserve space for embeds/components that appear after load.",
-      ],
-    },
-    {
-      title: "Re‑measure and validate",
-      notes: [
-        "Re‑run PSI and WebPageTest; confirm improvements in all core metrics.",
+        "Add JSON‑LD for Organization/Product/FAQ as relevant; validate in Rich Results Test.",
+        "Keep schema fields accurate and up to date.",
       ],
     },
   ];
 }
 
-function platformStepsSEO() {
+function _platformStepsSEOAlias() {
   return {
     wordpress: [
       {
@@ -567,47 +439,38 @@ function platformStepsSEO() {
   } as const;
 }
 
-function generalStepsSEO() {
+function generalStepsGEO() {
   return [
     {
-      title: "Allow discovery & indexing",
+      title: "Create answer‑ready content",
       notes: [
-        "Open /robots.txt; ensure important paths aren’t disallowed.",
-        "Generate/submit sitemap.xml; confirm 200 status and coverage in GSC.",
+        "Add concise Q&A blocks addressing common queries about your brand/products.",
+        "Use bullet lists and tables for specs and comparisons where appropriate.",
       ],
     },
     {
-      title: "Canonical & duplicates",
+      title: "Be citation‑friendly",
       notes: [
-        "On templates that produce similar URLs, add rel=canonical to the primary URL.",
-        "Verify there’s a single canonical per page in the rendered HTML.",
+        "State key facts clearly (one‑sentence descriptors); keep consistent across pages.",
+        "Include sources or references where possible; maintain up‑to‑date product data.",
       ],
     },
     {
-      title: "Titles, descriptions, and social",
+      title: "Schema to reinforce meaning",
       notes: [
-        "Add concise <title> (≈50–60 chars) and meta description (≈140–160 chars).",
-        "Include Open Graph and Twitter card tags for clean sharing previews.",
+        "Add Organization/Product/FAQ JSON‑LD; ensure it matches on‑page content.",
       ],
     },
     {
-      title: "Content structure",
+      title: "Check inclusion",
       notes: [
-        "Use a single H1, logical H2/H3 hierarchy, and internal links to related pages.",
-        "Add FAQ sections and lists where helpful; ensure headings reflect content.",
-      ],
-    },
-    {
-      title: "Structured data",
-      notes: [
-        "Add JSON‑LD for Organization/Product/FAQ as relevant; validate in Rich Results Test.",
-        "Keep schema fields accurate and up to date.",
+        "Search in AI Overviews/assistants for brand queries; note whether your content is cited.",
       ],
     },
   ];
 }
 
-function platformStepsGEO() {
+function _platformStepsGEOAlias() {
   return {
     wordpress: [
       {
@@ -706,38 +569,39 @@ function platformStepsGEO() {
   } as const;
 }
 
-function generalStepsGEO() {
+function generalStepsSecurity() {
   return [
     {
-      title: "Create answer‑ready content",
+      title: "Enforce HTTPS & HSTS",
       notes: [
-        "Add concise Q&A blocks addressing common queries about your brand/products.",
-        "Use bullet lists and tables for specs and comparisons where appropriate.",
+        "Install a valid TLS certificate; redirect HTTP→HTTPS.",
+        "Enable HSTS (consider includeSubDomains + preload after testing).",
       ],
     },
     {
-      title: "Be citation‑friendly",
+      title: "Set core headers",
       notes: [
-        "State key facts clearly (one‑sentence descriptors); keep consistent across pages.",
-        "Include sources or references where possible; maintain up‑to‑date product data.",
+        "X‑Frame‑Options: DENY or SAMEORIGIN to mitigate clickjacking.",
+        "X‑Content‑Type‑Options: nosniff to prevent MIME sniffing.",
+        "Referrer‑Policy: no‑referrer‑when‑downgrade (or stricter) to limit leakage.",
+        "Permissions‑Policy: disable unneeded features (camera, geolocation, etc.).",
       ],
     },
     {
-      title: "Schema to reinforce meaning",
+      title: "Introduce CSP safely",
       notes: [
-        "Add Organization/Product/FAQ JSON‑LD; ensure it matches on‑page content.",
+        "Start with Content‑Security‑Policy‑Report‑Only; collect violations.",
+        "Iteratively restrict script/style sources; then enforce CSP.",
       ],
     },
     {
-      title: "Check inclusion",
-      notes: [
-        "Search in AI Overviews/assistants for brand queries; note whether your content is cited.",
-      ],
+      title: "Review third‑party scripts",
+      notes: ["Remove unused embeds; pin versions; prefer async/defer."],
     },
   ];
 }
 
-function platformStepsSecurity() {
+function _platformStepsSecurityAlias() {
   return {
     wordpress: [
       {
@@ -811,37 +675,3 @@ function platformStepsSecurity() {
     ],
   } as const;
 }
-
-function generalStepsSecurity() {
-  return [
-    {
-      title: "Enforce HTTPS & HSTS",
-      notes: [
-        "Install a valid TLS certificate; redirect HTTP→HTTPS.",
-        "Enable HSTS (consider includeSubDomains + preload after testing).",
-      ],
-    },
-    {
-      title: "Set core headers",
-      notes: [
-        "X‑Frame‑Options: DENY or SAMEORIGIN to mitigate clickjacking.",
-        "X‑Content‑Type‑Options: nosniff to prevent MIME sniffing.",
-        "Referrer‑Policy: no‑referrer‑when‑downgrade (or stricter) to limit leakage.",
-        "Permissions‑Policy: disable unneeded features (camera, geolocation, etc.).",
-      ],
-    },
-    {
-      title: "Introduce CSP safely",
-      notes: [
-        "Start with Content‑Security‑Policy‑Report‑Only; collect violations.",
-        "Iteratively restrict script/style sources; then enforce CSP.",
-      ],
-    },
-    {
-      title: "Review third‑party scripts",
-      notes: ["Remove unused embeds; pin versions; prefer async/defer."],
-    },
-  ];
-}
-
-export default CategoryExplainer;

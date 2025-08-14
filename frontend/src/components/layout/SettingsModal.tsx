@@ -107,7 +107,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
           dates: string[];
         };
         setScheduleMode(sched.mode);
-        setScheduleTimezone(sched.timezone || scheduleTimezone);
+        setScheduleTimezone((prev) => sched.timezone || prev);
         setWeeklyDays(sched.weeklyDays || []);
         setCustomDates((sched.dates || []).sort());
       } catch (err) {

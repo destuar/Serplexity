@@ -47,7 +47,7 @@ const VisibilityTasksPage: React.FC = () => {
     null
   );
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+  const [_deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
 
   // Set breadcrumbs
   useEffect(() => {

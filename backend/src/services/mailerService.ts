@@ -70,3 +70,37 @@ export async function sendTeamInviteEmail(params: {
   });
 }
 
+export async function sendAddedToWorkspaceEmail(params: {
+  toEmail: string;
+  ownerName?: string | null;
+}): Promise<void> {
+  ensureTransporter();
+  if (!configured || !transporter) {
+    // eslint-disable-next-line no-console
+    console.log(
+      "[mailerService] SMTP not configured; skipping added-to-workspace email"
+    );
+    return;
+  }
+  const subject = "You've been added to a Serplexity workspace";
+  const owner = params.ownerName ? ` by ${params.ownerName}` : "";
+  const dashboardUrl = `${env.FRONTEND_URL || "http://localhost:3000"}/dashboard`;
+  const text = `You've been added${owner} to a Serplexity workspace.\n\nOpen your workspace: ${dashboardUrl}`;
+  const html = `
+    <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
+      <h2>You've been added${owner}</h2>
+      <p>You now have access to a Serplexity workspace.</p>
+      <p>
+        <a href="${dashboardUrl}" style="display:inline-block;padding:10px 16px;background:#000;color:#fff;border-radius:8px;text-decoration:none">Open workspace</a>
+      </p>
+      <p>Or copy this link: <br/><code>${dashboardUrl}</code></p>
+    </div>
+  `;
+  await transporter.sendMail({
+    from: env.SMTP_FROM_EMAIL,
+    to: params.toEmail,
+    subject,
+    text,
+    html,
+  });
+}

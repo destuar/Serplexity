@@ -565,12 +565,12 @@ NEVER proactively create documentation files (\*.md) or README files. Only creat
 - Always run `npm test` before deploying (covers both backend and frontend)
 - Use `npm run test:quick` for fast development testing (~2 min)
 - Production validation tests require real API keys
-- Agent tests validate all 9 PydanticAI agents
+- Agent tests validate all 10 PydanticAI agents
 - Integration tests cover end-to-end report generation flows
 
 ### AI Agent Architecture
 
-The system uses 9 specialized PydanticAI agents in `backend/src/pydantic_agents/agents/`:
+The system uses 10 specialized PydanticAI agents in `backend/src/pydantic_agents/agents/`:
 
 - **Answer Agent** (`answer_agent.py`): Generates comprehensive responses with citations
 - **Search Agent** (`search_agent.py`): Performs web searches and content extraction
@@ -581,6 +581,7 @@ The system uses 9 specialized PydanticAI agents in `backend/src/pydantic_agents/
 - **Website Agent** (`website_agent.py`): Enriches website data and metadata
 - **Question Agent** (`question_agent.py`): Generates and processes research questions
 - **Fanout Agent** (`fanout_agent.py`): Coordinates parallel processing across multiple AI models
+- **AI Overview Agent** (`ai_overview_agent.py`): Generates AI overview responses for search queries
 
 **Python Agent Integration**:
 

@@ -113,7 +113,18 @@ type SEODetails = {
 };
 
 const asPerformance = (d: unknown): PerformanceDetails => {
-  const v: any = d ?? {};
+  const v = (d ?? {}) as {
+    coreWebVitals?: { lcp?: unknown; cls?: unknown };
+    lcp?: unknown;
+    cls?: unknown;
+    inp?: unknown;
+    ttfb?: unknown;
+    opportunities?: Array<{
+      title?: unknown;
+      description?: unknown;
+      savings?: unknown;
+    }>;
+  };
   const core = v?.coreWebVitals ?? {};
   const lcp = Number.isFinite(v?.lcp)
     ? Number(v.lcp)
@@ -130,11 +141,18 @@ const asPerformance = (d: unknown): PerformanceDetails => {
   const ttfb = Number.isFinite(v?.ttfb) ? Number(v.ttfb) : undefined;
 
   const opportunities = Array.isArray(v?.opportunities)
-    ? v.opportunities.map((o: any) => ({
-        title: String(o?.title ?? "Optimization Opportunity"),
-        description: String(o?.description ?? "Consider optimizing this area."),
-        savings: Number.isFinite(o?.savings)
-          ? Math.round(Number(o.savings))
+    ? v.opportunities.map((o) => ({
+        title: String(
+          (o as { title?: unknown })?.title ?? "Optimization Opportunity"
+        ),
+        description: String(
+          (o as { description?: unknown })?.description ??
+            "Consider optimizing this area."
+        ),
+        savings: Number.isFinite(
+          (o as { savings?: unknown })?.savings as number
+        )
+          ? Math.round(Number((o as { savings?: unknown }).savings))
           : undefined,
       }))
     : [];
@@ -143,7 +161,35 @@ const asPerformance = (d: unknown): PerformanceDetails => {
 };
 
 const asSEO = (d: unknown): SEODetails => {
-  const v: any = d ?? {};
+  type Technical = {
+    robotsTxt?: { present?: unknown; disallowAll?: unknown };
+    sitemap?: { present?: unknown; urlCount?: unknown };
+    canonical?: { present?: unknown };
+    robotsMeta?: unknown;
+    xRobotsTag?: unknown;
+  };
+  type MetaTags = {
+    title?: { content?: unknown; length?: unknown } | string;
+    description?: { content?: unknown; length?: unknown } | string;
+  };
+  type Social = { openGraph?: unknown; twitterCards?: unknown };
+  type Structure = {
+    headings?: { h1Count?: unknown; properHierarchy?: unknown };
+    internalLinks?: unknown;
+  };
+  type I18n = { hreflang?: Array<{ lang?: unknown }> };
+  type SchemaMarkup = {
+    jsonLd?: Array<{ type?: unknown; valid?: unknown }>;
+    microdata?: unknown;
+  };
+  const v = (d ?? {}) as Record<string, unknown> & {
+    technical?: Technical;
+    metaTags?: MetaTags;
+    social?: Social;
+    structure?: Structure;
+    i18n?: I18n;
+    schemaMarkup?: SchemaMarkup;
+  };
   return {
     technical: {
       robotsTxt: {
@@ -369,7 +415,14 @@ const WebAuditCategoryDetails: React.FC<WebAuditCategoryDetailsProps> = ({
 
   const renderSEO = (d: unknown) => {
     const seo = asSEO(d);
-    const v: any = d ?? {};
+    const v = (d ?? {}) as Record<string, unknown> & {
+      contentStructure?: {
+        faqSections?: unknown;
+        listStructure?: unknown;
+        tableStructure?: unknown;
+        answerReadyContent?: unknown;
+      };
+    };
     const jsonLdCount = seo.schemaMarkup?.jsonLd?.length ?? 0;
     const microdata = Boolean(seo.schemaMarkup?.microdata);
     const totalSchemas = jsonLdCount + (microdata ? 1 : 0);
@@ -545,7 +598,12 @@ const WebAuditCategoryDetails: React.FC<WebAuditCategoryDetailsProps> = ({
   };
 
   const renderGEO = (d: unknown) => {
-    const v: any = d ?? {};
+    const v = (d ?? {}) as Record<string, unknown> & {
+      aiOptimization?: Record<string, unknown>;
+      readabilityScore?: unknown;
+      structuredAnswers?: unknown;
+      contentStructure?: { answerReadyContent?: unknown };
+    };
     const ai = v?.aiOptimization ?? {};
     const citationFriendly = Boolean(ai?.citationFriendly);
     const readability = Number(
@@ -696,7 +754,29 @@ const WebAuditCategoryDetails: React.FC<WebAuditCategoryDetailsProps> = ({
   };
 
   const renderSecurity = (d: unknown) => {
-    const v: any = d ?? {};
+    const v = (d ?? {}) as Record<string, unknown> & {
+      https?: unknown;
+      transport?: {
+        enabled?: unknown;
+        certificateValid?: unknown;
+        hsts?: unknown;
+      };
+      headers?: {
+        xFrameOptions?: unknown;
+        referrerPolicy?: unknown;
+        permissionsPolicy?: unknown;
+        xContentTypeOptions?: unknown;
+        contentSecurityPolicy?: unknown;
+      };
+      vulnerabilities?: Array<{
+        type?: string;
+        severity?: string;
+        description?: string;
+      }>;
+      certificateValid?: unknown;
+      enabled?: unknown;
+      hsts?: unknown;
+    };
     const transport = v?.https ?? v?.transport ?? {};
     const httpsEnabled = Boolean(
       transport?.enabled ??
@@ -833,7 +913,11 @@ const WebAuditCategoryDetails: React.FC<WebAuditCategoryDetailsProps> = ({
         : categoryKey[0].toUpperCase() + categoryKey.slice(1);
 
   const explainer =
-    categoryKey !== "overall" ? getExplainerContent(categoryKey as any) : null;
+    categoryKey !== "overall"
+      ? getExplainerContent(
+          categoryKey as "performance" | "seo" | "geo" | "security"
+        )
+      : null;
 
   return (
     <LiquidGlassCard className="h-full">

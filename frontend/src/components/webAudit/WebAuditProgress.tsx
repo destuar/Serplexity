@@ -216,14 +216,15 @@ const WebAuditProgress: React.FC<WebAuditProgressProps> = ({
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const getStepColor = (color: string) => {
+  // kept for potential future use to colorize steps
+  const _getStepColor = (color: string) => {
     const colors = {
       orange: "bg-orange-500",
       green: "bg-green-500",
       purple: "bg-purple-500",
       blue: "bg-blue-500",
       red: "bg-red-500",
-    };
+    } as const;
     return colors[color as keyof typeof colors] || "bg-gray-500";
   };
 
