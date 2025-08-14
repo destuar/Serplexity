@@ -11,16 +11,19 @@
  * - ./index.css: Global CSS styles.
  * - ./contexts/AuthContext.tsx: Provides authentication context to the application.
  */
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import App from './App.tsx'
-import './index.css'
-import { AuthProvider } from './contexts/AuthContext.tsx'
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App.tsx";
+import { AuthProvider } from "./contexts/AuthContext.tsx";
+import { CompanyProvider } from "./contexts/CompanyContext.tsx";
+import "./index.css";
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <AuthProvider>
-      <App />
+      <CompanyProvider>
+        <App />
+      </CompanyProvider>
     </AuthProvider>
-  </React.StrictMode>,
-)
+  </React.StrictMode>
+);

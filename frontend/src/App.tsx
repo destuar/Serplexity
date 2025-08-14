@@ -23,7 +23,6 @@
 import React from "react";
 import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import CompanyGuard from "./components/company/CompanyGuard";
-import { CompanyProvider } from "./contexts/CompanyContext";
 import { DashboardProvider } from "./contexts/DashboardContext";
 import { NavigationProvider } from "./contexts/NavigationContext";
 // PaymentGuard can be used for subscription-gated routes if needed
@@ -94,23 +93,21 @@ const DashboardRoutes: React.FC = () => (
 );
 
 const ProtectedArea: React.FC = () => (
-  <CompanyProvider>
-    <CompanyGuard>
-      <Routes>
-        <Route path="/onboarding" element={<CompanyOnboardingPage />} />
-        <Route path="/payment" element={<PaymentPage />} />
-        <Route path="/billing" element={<BillingPage />} />
-        <Route
-          path="/*"
-          element={
-            <DashboardProvider>
-              <DashboardRoutes />
-            </DashboardProvider>
-          }
-        />
-      </Routes>
-    </CompanyGuard>
-  </CompanyProvider>
+  <CompanyGuard>
+    <Routes>
+      <Route path="/onboarding" element={<CompanyOnboardingPage />} />
+      <Route path="/payment" element={<PaymentPage />} />
+      <Route path="/billing" element={<BillingPage />} />
+      <Route
+        path="/*"
+        element={
+          <DashboardProvider>
+            <DashboardRoutes />
+          </DashboardProvider>
+        }
+      />
+    </Routes>
+  </CompanyGuard>
 );
 
 const AnalyticsWrapper: React.FC<{ children: React.ReactNode }> = ({
