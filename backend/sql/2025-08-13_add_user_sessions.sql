@@ -19,3 +19,4 @@ CREATE TABLE IF NOT EXISTS "UserSession" (
 
 CREATE INDEX IF NOT EXISTS "UserSession_userId_idx" ON "UserSession" ("userId");
 CREATE INDEX IF NOT EXISTS "UserSession_userId_revoked_idx" ON "UserSession" ("userId", "revokedAt");
+

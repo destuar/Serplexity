@@ -41,3 +41,4 @@ CREATE TABLE IF NOT EXISTS "TeamInvite" (
 
 CREATE INDEX IF NOT EXISTS "TeamInvite_owner_idx" ON "TeamInvite" ("ownerUserId");
 CREATE INDEX IF NOT EXISTS "TeamInvite_email_idx" ON "TeamInvite" (email);
+

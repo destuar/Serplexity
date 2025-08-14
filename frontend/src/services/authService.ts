@@ -24,3 +24,4 @@ export async function revokeMySession(sessionId: string): Promise<void> {
     `/auth/sessions/${encodeURIComponent(sessionId)}/revoke`
   );
 }
+

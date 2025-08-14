@@ -1257,15 +1257,15 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-start gap-3">
-                                <div className="flex-shrink-0 mt-1">
+                              <div className="flex items-center gap-3">
+                                <div className="flex-shrink-0">
                                   {(() => {
                                     const src = getFaviconSrc(company.website);
                                     return src ? (
                                       <img
                                         src={src}
                                         alt=""
-                                        className="w-5 h-5 rounded"
+                                        className="w-8 h-8 rounded"
                                         onError={(e) => {
                                           (
                                             e.currentTarget as HTMLImageElement
@@ -1273,7 +1273,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                         }}
                                       />
                                     ) : (
-                                      <Globe className="w-5 h-5 text-gray-400" />
+                                      <Globe className="w-8 h-8 text-gray-400" />
                                     );
                                   })()}
                                 </div>
