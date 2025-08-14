@@ -875,7 +875,7 @@ async function processReport(
     });
 
     // Get enabled models for question answering
-    let questionModels = await getModelsByTaskWithUserPreferences(
+    const questionModels = await getModelsByTaskWithUserPreferences(
       ModelTask.QUESTION_ANSWERING,
       fullCompany.userId,
       (fullCompany as any).modelPreferences || null
@@ -1013,7 +1013,7 @@ async function processReport(
                   );
 
                   const mentions = (mentionResult.data as any)?.mentions || [];
-                  let mentionsCount = Array.isArray(mentions)
+                  const mentionsCount = Array.isArray(mentions)
                     ? mentions.length
                     : 0;
 
@@ -1215,7 +1215,7 @@ async function processReport(
 
             // Extract competitor brands and add to pipeline
             const brandRegex = /<brand>(.*?)<\/brand>/gi;
-            let match;
+            let match: RegExpExecArray | null;
             while ((match = brandRegex.exec(response.answer || "")) !== null) {
               const brandName = (match[1] ?? "").trim();
               if (brandName && brandName !== fullCompany.name) {
@@ -1274,7 +1274,7 @@ async function processReport(
 
             // 1. Extract markdown-style citations [title](url)
             const markdownRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-            let markdownMatch;
+            let markdownMatch: RegExpExecArray | null;
             while (
               (markdownMatch = markdownRegex.exec(sanitizedAnswer)) !== null
             ) {
@@ -1597,17 +1597,16 @@ async function processReport(
       // Fallback defaults already set
     }
     // Clamp question models and active questions by plan limits if available
-    let effectiveQuestionModels = questionModels;
+    const _effectiveQuestionModels = questionModels;
     try {
       if (
         Array.isArray(questionModels) &&
         questionModels.length > planLimitsModels
       ) {
         // limited copy rather than reassigning const
-        effectiveQuestionModels = questionModels.slice(
-          0,
-          planLimitsModels
-        ) as typeof questionModels;
+        // Use a local limited list for iteration rather than reassigning
+        const limitedQuestionModels = questionModels.slice(0, planLimitsModels);
+        void limitedQuestionModels;
       }
       if (
         Array.isArray(activeQuestions) &&

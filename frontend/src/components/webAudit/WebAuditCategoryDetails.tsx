@@ -4,7 +4,8 @@ import type { AuditResult } from "../../pages/WebAuditPage";
 import LiquidGlassCard from "../ui/LiquidGlassCard";
 import StructuredObjectView from "../ui/StructuredObjectView";
 import Tooltip from "../ui/Tooltip";
-import CategoryExplainer, { getExplainerContent } from "./CategoryExplainer";
+import CategoryExplainer from "./CategoryExplainer";
+import { getExplainerContent } from "./explainerContent";
 
 interface WebAuditCategoryDetailsProps {
   categoryKey: "overall" | "performance" | "seo" | "geo" | "security";

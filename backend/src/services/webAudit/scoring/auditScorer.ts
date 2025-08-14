@@ -180,7 +180,7 @@ class AuditScorer {
     }
 
     if (seo.structure.internalLinks > 0) {
-      score += Math.min(3, seo.structure.internalLinks / 5); // Up to 3 points
+      score += Math.min(3, Math.floor(seo.structure.internalLinks / 5));
     }
 
     // Content quality (15 points)
@@ -486,7 +486,7 @@ class AuditScorer {
 
   private generatePerformanceRecommendations(
     performance: PerformanceResults,
-    score: number
+    _score: number
   ): Recommendation[] {
     const recommendations: Recommendation[] = [];
 
@@ -536,7 +536,7 @@ class AuditScorer {
 
   private generateSEORecommendations(
     seo: SEOResults,
-    score: number
+    _score: number
   ): Recommendation[] {
     const recommendations: Recommendation[] = [];
 
@@ -594,7 +594,7 @@ class AuditScorer {
 
   private generateGEORecommendations(
     geo: GEOResults,
-    score: number
+    _score: number
   ): Recommendation[] {
     const recommendations: Recommendation[] = [];
 
@@ -642,7 +642,7 @@ class AuditScorer {
 
   private generateSecurityRecommendations(
     security: SecurityResults,
-    score: number
+    _score: number
   ): Recommendation[] {
     const recommendations: Recommendation[] = [];
 

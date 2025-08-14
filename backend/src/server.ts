@@ -40,6 +40,51 @@ const PORT = env.PORT;
 
 const server = http.createServer(app);
 
+// Prevent process crashes when stdout/stderr are closed (e.g., piped consumer exits)
+const isEpipeError = (err: unknown): boolean => {
+  return Boolean((err as NodeJS.ErrnoException)?.code === "EPIPE");
+};
+
+// Silently ignore EPIPE on std streams and guard all console methods
+const safeConsoleMethod = <T extends unknown[]>(fn: (...args: T) => void) => {
+  return (...args: T) => {
+    try {
+      fn(...args);
+    } catch (err) {
+      if (!isEpipeError(err)) {
+        try {
+          // eslint-disable-next-line no-console
+          console.error("console write error:", err);
+        } catch {}
+      }
+    }
+  };
+};
+
+// Wrap global console methods to prevent EPIPE crash loops
+console.log = safeConsoleMethod(console.log.bind(console));
+console.info = safeConsoleMethod(console.info.bind(console));
+console.warn = safeConsoleMethod(console.warn.bind(console));
+console.error = safeConsoleMethod(console.error.bind(console));
+
+// Also trap stream errors to avoid process crash
+process.stdout.on("error", (err) => {
+  if (!isEpipeError(err)) {
+    try {
+      // eslint-disable-next-line no-console
+      console.error("stdout error:", err);
+    } catch {}
+  }
+});
+process.stderr.on("error", (err) => {
+  if (!isEpipeError(err)) {
+    try {
+      // eslint-disable-next-line no-console
+      console.error("stderr error:", err);
+    } catch {}
+  }
+});
+
 const startServer = async () => {
   try {
     // Perform comprehensive startup validation

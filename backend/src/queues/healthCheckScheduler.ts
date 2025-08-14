@@ -66,9 +66,8 @@ class HealthCheckScheduler {
         attempts: 1, // Don't retry health checks
       },
     });
-    // Lazily initialize QueueEvents if available
+    // Lazily initialize QueueEvents if available (CommonJS require to avoid top-level await)
     try {
-      // dynamic import to avoid type issues
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { QueueEvents } = require("bullmq");
       this.queueEvents = new QueueEvents(this.QUEUE_NAME, {
@@ -148,11 +147,10 @@ class HealthCheckScheduler {
 
     // Wait for job completion
     // In tests or single-process mode we may not have QueueEvents wired; poll the job result instead
-    const result =
-      (await job.waitUntilFinished?.(this.queueEvents)) ??
-      (await job.getState());
+    const result = this.queueEvents
+      ? await job.waitUntilFinished(this.queueEvents)
+      : ((await job.getState()) as unknown);
     if (typeof result === "string") {
-      // getState returns a string; fall back to retrieving return value
       const rv = await job.returnvalue;
       return rv as HealthCheckResult;
     }
@@ -216,7 +214,7 @@ class HealthCheckScheduler {
    */
   private async handleHealthCheckResult(
     result: HealthCheckResult,
-    triggeredBy: string
+    _triggeredBy: string
   ): Promise<void> {
     const isHealthy = result.status === "healthy";
 

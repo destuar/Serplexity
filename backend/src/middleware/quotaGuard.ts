@@ -19,7 +19,7 @@ export async function enforceCompanyCap(
       return res.status(400).json({ error: "Maximum company limit reached" });
     }
     return next();
-  } catch (e) {
+  } catch (_e) {
     return res.status(500).json({ error: "Internal server error" });
   }
 }

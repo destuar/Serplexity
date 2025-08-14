@@ -336,7 +336,7 @@ export async function processAudit(
     includeSecurity: boolean;
     summaryOnly?: boolean;
   },
-  companyId: string
+  _companyId: string
 ): Promise<AuditResult> {
   const startTime = Date.now();
   const prisma = await getDbClient();
@@ -422,7 +422,7 @@ export async function processAudit(
     try {
       await setAuditJobProgress(auditId, 90);
     } catch {}
-    const baseUpdate: any = {
+    const baseUpdate: Record<string, unknown> = {
       status: "completed",
       completedAt: new Date(),
       performanceScore: scores.performance,

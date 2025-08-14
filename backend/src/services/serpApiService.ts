@@ -40,10 +40,11 @@ export async function fetchGoogleAiOverview(
     try {
       const resp = await axios.get(url, { params, timeout: 15000 });
       return resp.data as any;
-    } catch (e: any) {
-      const msg = e?.response?.data
-        ? JSON.stringify(e.response.data)
-        : String(e?.message || e);
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: unknown }; message?: string };
+      const msg = err?.response?.data
+        ? JSON.stringify(err.response.data)
+        : String(err?.message || e);
       throw new Error(`SerpAPI ${engine} request failed: ${msg}`);
     }
   };

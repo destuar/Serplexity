@@ -449,7 +449,7 @@ export const trackEvent = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { trackingId, event, data } = req.body;
+    const { trackingId, event, data: _data } = req.body;
 
     if (!trackingId || !event) {
       res.status(400).json({ error: "Tracking ID and event are required" });

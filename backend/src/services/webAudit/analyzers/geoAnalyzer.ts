@@ -82,13 +82,13 @@ class GEOAnalyzer {
       });
 
       return result;
-    } catch (error) {
+    } catch (_error) {
       const analysisTime = Date.now() - startTime;
 
       logger.error("GEO analysis failed", {
         url,
         analysisTime,
-        error: error instanceof Error ? error.message : String(error),
+        error: _error instanceof Error ? _error.message : String(_error),
       });
 
       // Return default results on failure
@@ -121,7 +121,7 @@ class GEOAnalyzer {
             data: jsonData,
           });
         }
-      } catch (error) {
+      } catch (_error) {
         // Invalid JSON-LD, mark as invalid
         schemas.push({
           type: "Unknown",
@@ -226,7 +226,7 @@ class GEOAnalyzer {
         ) {
           faqCount++;
         }
-      } catch (error) {
+      } catch (_error) {
         // Ignore parsing errors
       }
     });
@@ -382,7 +382,7 @@ class GEOAnalyzer {
         ) {
           citationScore += 25;
         }
-      } catch (error) {
+      } catch (_error) {
         // Ignore parsing errors
       }
     });
@@ -429,7 +429,7 @@ class GEOAnalyzer {
         ) {
           structuredCount++;
         }
-      } catch (error) {
+      } catch (_error) {
         // Ignore parsing errors
       }
     });
@@ -494,7 +494,7 @@ class GEOAnalyzer {
         default:
           return true; // Basic validation passed
       }
-    } catch (error) {
+    } catch (_error) {
       return false;
     }
   }
@@ -573,7 +573,7 @@ class GEOAnalyzer {
   }
 
   private scoreSchemaCompleteness($: cheerio.CheerioAPI): number {
-    let scores: number[] = [];
+    const scores: number[] = [];
     $('script[type="application/ld+json"]').each((_, el) => {
       try {
         const jsonText = $(el).html() || "";

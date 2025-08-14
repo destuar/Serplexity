@@ -251,10 +251,10 @@ class PerformanceAnalyzer {
     const audits = data.lighthouseResult.audits;
 
     // Load time metrics
-    const firstContentfulPaint =
+    const _firstContentfulPaint =
       audits["first-contentful-paint"]?.numericValue || 0;
     const speedIndex = audits["speed-index"]?.numericValue || 0;
-    const interactive = audits["interactive"]?.numericValue || 0;
+    const _interactive = audits["interactive"]?.numericValue || 0;
 
     // Use Speed Index as primary load time metric
     const loadTime = Math.round(speedIndex);
@@ -381,7 +381,7 @@ class PerformanceAnalyzer {
    */
   private getAuditDescription(
     auditKey: string,
-    audit: { details?: Record<string, unknown> }
+    _audit: { details?: Record<string, unknown> }
   ): string {
     const descriptions: { [key: string]: string } = {
       "unused-css-rules":

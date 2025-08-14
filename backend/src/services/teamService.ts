@@ -131,7 +131,7 @@ export async function addMemberByEmail(
         )?.name,
         inviteLink,
       });
-    } catch (e) {
+    } catch (_e) {
       // non-fatal
     }
     return {
@@ -165,7 +165,7 @@ export async function addMemberByEmail(
       )?.name,
       inviteLink,
     });
-  } catch (e) {
+  } catch (_e) {
     // non-fatal
   }
   return {

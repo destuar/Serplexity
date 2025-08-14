@@ -87,13 +87,13 @@ class SEOAnalyzer {
       });
 
       return result;
-    } catch (error) {
+    } catch (_error) {
       const analysisTime = Date.now() - startTime;
 
       logger.error("SEO analysis failed", {
         url,
         analysisTime,
-        error: error instanceof Error ? error.message : String(error),
+        error: _error instanceof Error ? _error.message : String(_error),
       });
 
       // Return default results on failure
@@ -252,13 +252,11 @@ class SEOAnalyzer {
           errors: [`robots.txt returned status ${response.status}`],
         };
       }
-    } catch (error) {
+    } catch (_error) {
       return {
         exists: false,
         accessible: false,
-        errors: [
-          `Failed to fetch robots.txt: ${error instanceof Error ? error.message : String(error)}`,
-        ],
+        errors: [`Failed to fetch robots.txt`],
       };
     }
   }
@@ -282,7 +280,7 @@ class SEOAnalyzer {
         exists: response.status === 200,
         accessible: response.status === 200,
       };
-    } catch (error) {
+    } catch (_error) {
       return {
         exists: false,
         accessible: false,
@@ -321,7 +319,7 @@ class SEOAnalyzer {
             urlCount,
           };
         }
-      } catch (error) {
+      } catch (_error) {
         // Continue to next sitemap URL
         continue;
       }
@@ -354,7 +352,7 @@ class SEOAnalyzer {
               accessible: true,
               urlCount,
             };
-          } catch (error) {
+          } catch (_error) {
             // Sitemap referenced but not accessible
             return {
               exists: true,
@@ -364,7 +362,7 @@ class SEOAnalyzer {
           }
         }
       }
-    } catch (error) {
+    } catch (_error) {
       // Ignore errors when checking robots.txt
     }
 
@@ -450,9 +448,9 @@ class SEOAnalyzer {
       const sitemapCount = $("sitemap").length;
 
       return sitemapCount; // Approximate count for sitemap index
-    } catch (error) {
+    } catch (_error) {
       logger.warn("Failed to parse sitemap XML", {
-        error: error instanceof Error ? error.message : String(error),
+        error: "parse-error",
       });
       return 0;
     }

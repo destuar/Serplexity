@@ -38,7 +38,7 @@ const AuditIdSchema = z.object({
   id: z.string().min(1, "Audit ID is required"),
 });
 
-const CompanyIdSchema = z.object({
+const _CompanyIdSchema = z.object({
   companyId: z.string().min(1, "Company ID is required"),
 });
 
