@@ -929,41 +929,15 @@ async function processReport(
 
             let result;
             if (model.id === "ai-overview") {
-              const { getProxyUrlFromSecrets } = await import(
-                "../services/networkProxy"
+              // Integrate Google AI Overview via SerpApi
+              const { fetchGoogleAiOverview } = await import(
+                "../services/serpApiService"
               );
-              const proxyUrl =
-                (await getProxyUrlFromSecrets().catch(() => null)) ||
-                process.env.HTTP_PROXY ||
-                process.env.HTTPS_PROXY ||
-                undefined;
 
-              const aiOverviewInput = {
-                query: question.query,
-                hl: "en",
-                gl: "us",
-                timeoutMs: Math.min(LLM_CONFIG.TIMEOUTS.MODEL_RESPONSE, 20000),
-                proxyUrl,
-              } as const;
+              const aiOverview = await fetchGoogleAiOverview(question.query);
+              const content = (aiOverview.content || "").trim();
 
-              // ai_overview_agent.py is deprecated; skip execution for ai-overview model
-              result = {
-                data: { present: false, query: aiOverviewInput.query },
-                metadata: {
-                  modelUsed: model.id,
-                  tokensUsed: 0,
-                  executionTime: 0,
-                  providerId: model.id,
-                  success: true,
-                  attemptCount: 1,
-                  fallbackUsed: false,
-                },
-              } as any;
-
-              // Persist AI Overview as a response if present
-              if (result?.metadata?.success && (result.data as any)?.present) {
-                const overview = result.data as any;
-                const content = overview.content || overview.summary || "";
+              if (content) {
                 const responseRecord = await prisma.response.create({
                   data: {
                     questionId: question.id,
@@ -972,17 +946,17 @@ async function processReport(
                     engine: model.id,
                     runId,
                     metadata: {
-                      citations: overview.citations || [],
                       source: "google-serp",
                       has_web_search: true,
                     } as Prisma.JsonObject,
                   },
                 });
+                // responseRecord.id used below for mentions and citations
 
-                // Persist structured citations to DB if present
-                if (Array.isArray(overview.citations)) {
+                // Save structured citations if present
+                if (Array.isArray(aiOverview.citations)) {
                   let position = 1;
-                  for (const cite of overview.citations as Array<{
+                  for (const cite of aiOverview.citations as Array<{
                     url?: string;
                     title?: string;
                     domain?: string;
@@ -1009,6 +983,132 @@ async function processReport(
                   }
                 }
 
+                // Run Mention Agent on AI Overview content
+                try {
+                  const existingCompetitors = await prisma.competitor.findMany({
+                    where: { companyId: fullCompany.id },
+                    select: { id: true, name: true },
+                  });
+                  const competitorNames = existingCompetitors.map(
+                    (c) => c.name
+                  );
+
+                  const mentionResult = await pydanticLlmService.executeAgent<{
+                    mentions?: Array<{
+                      name: string;
+                      type: string;
+                      confidence: number;
+                      position: number;
+                    }>;
+                    total_count?: number;
+                  }>(
+                    "mention_agent.py",
+                    {
+                      text: content,
+                      company_name: fullCompany.name,
+                      competitors: competitorNames,
+                    },
+                    null,
+                    { timeout: LLM_CONFIG.TIMEOUTS.MODEL_RESPONSE }
+                  );
+
+                  const mentions = (mentionResult.data as any)?.mentions || [];
+                  let mentionsCount = Array.isArray(mentions)
+                    ? mentions.length
+                    : 0;
+
+                  for (const m of mentions as Array<{
+                    name: string;
+                    type: string;
+                    confidence: number;
+                    position: number;
+                  }>) {
+                    const brandName = (m?.name || "").trim();
+                    if (!brandName) continue;
+
+                    // Determine if mention is the main company
+                    const companyNameLower = fullCompany.name.toLowerCase();
+                    const brandNameLower = brandName.toLowerCase();
+                    const isCompanyMention =
+                      brandNameLower === companyNameLower ||
+                      brandNameLower.includes(companyNameLower) ||
+                      companyNameLower.includes(brandNameLower) ||
+                      brandNameLower === companyNameLower.replace(/\s+/g, "") ||
+                      companyNameLower.replace(/\s+/g, "") === brandNameLower ||
+                      brandNameLower.replace(/[^a-z0-9]/g, "") ===
+                        companyNameLower.replace(/[^a-z0-9]/g, "");
+
+                    if (isCompanyMention) {
+                      await prisma.mention.create({
+                        data: {
+                          responseId: responseRecord.id,
+                          position:
+                            typeof m.position === "number" ? m.position : 0,
+                          companyId: fullCompany.id,
+                        },
+                      });
+                      continue;
+                    }
+
+                    // Try to match existing competitor
+                    let competitor: { id: string; name: string } | undefined =
+                      existingCompetitors.find(
+                        (c) => c.name.toLowerCase() === brandNameLower
+                      );
+                    if (!competitor) {
+                      // Create competitor if not found
+                      try {
+                        const created = await prisma.competitor.create({
+                          data: {
+                            name: brandName,
+                            companyId: fullCompany.id,
+                            website: `https://${brandNameLower.replace(/\s+/g, "")}.com`,
+                            isGenerated: true,
+                          },
+                        });
+                        competitor = { id: created.id, name: created.name };
+                      } catch {
+                        const found = await prisma.competitor.findFirst({
+                          where: {
+                            companyId: fullCompany.id,
+                            name: { equals: brandName, mode: "insensitive" },
+                          },
+                          select: { id: true, name: true },
+                        });
+                        if (found) competitor = found;
+                      }
+                    }
+
+                    if (competitor?.id) {
+                      await prisma.mention.create({
+                        data: {
+                          responseId: responseRecord.id,
+                          position:
+                            typeof m.position === "number" ? m.position : 0,
+                          competitorId: competitor.id,
+                        },
+                      });
+                      // Seed competitor enrichment pipeline
+                      await competitorPipeline.addBrand(brandName);
+                    }
+                  }
+
+                  // Update response metadata with mention count
+                  try {
+                    await prisma.response.update({
+                      where: { id: responseRecord.id },
+                      data: {
+                        metadata: {
+                          ...(responseRecord.metadata as object),
+                          brand_mentions_count: mentionsCount,
+                        } as Prisma.JsonObject,
+                      },
+                    });
+                  } catch {}
+                } catch (e) {
+                  console.warn("[AI Overview] Mention agent failed", e);
+                }
+
                 // Billing usage (count as one unit like other models)
                 try {
                   await import("../services/usageService").then(
@@ -1025,37 +1125,14 @@ async function processReport(
                 }
               }
 
-              // Compute token usage/cost (should be near-zero) and return early
-              const usage = (result.metadata as any)?.usage as
-                | {
-                    prompt_tokens?: number;
-                    completion_tokens?: number;
-                    total_tokens?: number;
-                    input_tokens?: number;
-                    output_tokens?: number;
-                    thinking_tokens?: number;
-                    cache_read_tokens?: number;
-                    cache_write_tokens?: number;
-                  }
-                | undefined;
+              // Account near-zero tokens and at least one web search
+              const promptTokens = 0;
+              const completionTokens = 0;
+              const thinkingTokens = 0;
+              const cachedTokens = 0;
+              const searchCount = 1;
 
-              const promptTokens =
-                usage?.prompt_tokens ?? usage?.input_tokens ?? 0;
-              const completionTokens =
-                usage?.completion_tokens ?? usage?.output_tokens ?? 0;
-              const thinkingTokens = usage?.thinking_tokens ?? 0;
-              const cachedTokens =
-                (usage?.cache_read_tokens ?? 0) +
-                (usage?.cache_write_tokens ?? 0);
-              const totalUsed =
-                usage?.total_tokens ??
-                promptTokens + completionTokens + thinkingTokens;
-              totalTokens += totalUsed || 0;
-
-              const providerSearchCount = (result.metadata as any)
-                ?.searchCount as number | undefined;
-              const searchCount = providerSearchCount ?? 1;
-
+              totalTokens += 0;
               totalCost += calculateCost(
                 model.id,
                 promptTokens,

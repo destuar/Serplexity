@@ -1,5 +1,7 @@
 import { PrismaClient, TeamMemberStatus, TeamRole } from "@prisma/client";
 import crypto from "crypto";
+import env from "../config/env";
+import { sendTeamInviteEmail } from "./mailerService";
 
 export function getSeatLimitForPlan(planTier?: string | null): number {
   switch (planTier) {
@@ -72,6 +74,21 @@ export async function addMemberByEmail(
     where: { email: params.email },
   });
   if (existingUser) {
+    // Disallow a user from joining multiple workspaces (owners)
+    const otherMembership = await prisma.teamMember.findFirst({
+      where: {
+        memberUserId: existingUser.id,
+        status: TeamMemberStatus.ACTIVE,
+        ownerUserId: { not: params.ownerUserId },
+      },
+    });
+    if (otherMembership) {
+      return {
+        ok: false as const,
+        code: 409 as const,
+        error: "This user has already joined another workspace",
+      };
+    }
     const existingMembership = await prisma.teamMember.findUnique({
       where: {
         ownerUserId_memberUserId: {
@@ -125,6 +142,21 @@ export async function addMemberByEmail(
       expiresAt,
     },
   });
+  const inviteLink = `${env.FRONTEND_URL || "http://localhost:3000"}/invite/accept?token=${token}`;
+  try {
+    await sendTeamInviteEmail({
+      toEmail: params.email,
+      ownerName: (
+        await prisma.user.findUnique({
+          where: { id: params.ownerUserId },
+          select: { name: true },
+        })
+      )?.name,
+      inviteLink,
+    });
+  } catch (e) {
+    // non-fatal
+  }
   return {
     ok: true as const,
     added: false as const,

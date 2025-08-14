@@ -61,7 +61,15 @@ services:
     ports:
       - "80:80"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost/",
+        ]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -107,7 +115,7 @@ services:
           memory: 256M
     ports:
       - "16686:16686" # Jaeger UI
-      - "4318:4318"   # OTLP HTTP receiver
+      - "4318:4318" # OTLP HTTP receiver
     networks:
       - app-network
     restart: unless-stopped
@@ -147,4 +155,4 @@ volumes:
   redis-data:
     driver: local
   postgres-data:
-    driver: local 
+    driver: local

@@ -39,8 +39,13 @@ export async function inviteTeamMember(
   email: string,
   role: TeamRole = "MEMBER"
 ): Promise<{ invited: boolean; added: boolean; inviteLink?: string }> {
-  const { data } = await apiClient.post("/team/invite", { email, role });
-  return data;
+  try {
+    const { data } = await apiClient.post("/team/invite", { email, role });
+    return data;
+  } catch (err: any) {
+    const msg = err?.response?.data?.error || "Failed to invite member";
+    throw new Error(msg);
+  }
 }
 
 export async function acceptTeamInvite(token: string): Promise<void> {

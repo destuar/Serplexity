@@ -15,7 +15,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   AlertTriangle,
-  ArrowLeft,
   BarChart2,
   BookOpen,
   Box,
@@ -69,7 +68,7 @@ import {
   inviteTeamMember,
   removeTeamMember,
 } from "../../services/teamService";
-import CompanyProfileForm from "../company/CompanyProfileForm";
+import InlineIndustryAutocomplete from "../company/InlineIndustryAutocomplete";
 import { Button } from "../ui/Button";
 
 interface ProfileModalProps {
@@ -102,15 +101,16 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
   // Removed unused password visibility states
-  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [_isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [profileError, setProfileError] = useState<string | null>(null);
+  const [_profileError, setProfileError] = useState<string | null>(null);
   // Removed unused password/feedback states
   // Company profiles state
   const { companies, deleteCompany, updateCompany } = useCompany();
   const [editingCompany, setEditingCompany] = useState<string | null>(null);
   const [editName, setEditName] = useState<string>("");
   const [editWebsite, setEditWebsite] = useState<string>("");
+  const [editIndustry, setEditIndustry] = useState<string>("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
   // Billing/Usage state
@@ -156,6 +156,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const [inviteEmail, setInviteEmail] = useState("");
   const [selfEditing, setSelfEditing] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] =
+    useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -186,7 +188,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const {
     register: registerProfile,
     handleSubmit: handleSubmitProfile,
-    formState: { errors: profileErrors },
+    formState: { errors: _profileErrors },
     reset: resetProfile,
   } = useForm<ProfileFormData>({
     resolver: zodResolver(profileUpdateSchema),
@@ -386,6 +388,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     setEditingCompany(companyId);
     setEditName(company?.name || "");
     setEditWebsite(company?.website || "");
+    setEditIndustry(company?.industry || "");
   };
 
   const handleSaveEditCompany = async () => {
@@ -394,6 +397,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
       await updateCompany(editingCompany, {
         name: editName.trim(),
         website: editWebsite.trim(),
+        industry: editIndustry.trim(),
       });
       setEditingCompany(null);
     } catch (error) {
@@ -464,6 +468,20 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   };
 
   const isOAuthUser = user?.provider !== "credentials";
+  // Compute a favicon URL from a company's website
+  const getFaviconSrc = (website?: string | null): string | null => {
+    if (!website) return null;
+    try {
+      const urlStr = website.startsWith("http")
+        ? website
+        : `https://${website}`;
+      const hostname = new URL(urlStr).hostname;
+      if (!hostname) return null;
+      return `https://icons.duckduckgo.com/ip3/${hostname}.ico`;
+    } catch {
+      return null;
+    }
+  };
 
   const formatPlanTierLabel = (
     tier?: "STARTER" | "GROWTH" | "SCALE" | null
@@ -518,208 +536,226 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
         </div>
       )}
       <div className="bg-white rounded-lg shadow-lg p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h4 className="font-semibold text-gray-900">Current Plan</h4>
-            <div className="text-sm text-gray-600 flex items-center gap-2">
-              <span>
-                {formatPlanTierLabel(billingSummary?.planTier)} •{" "}
-                {formatIntervalLabel(billingSummary?.billingInterval)}
-              </span>
-              <span
-                className={`inline-flex px-2 py-0.5 text-[11px] font-semibold rounded-full ${
-                  user?.subscriptionStatus === "active"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-gray-100 text-gray-800"
-                }`}
-              >
-                {user?.subscriptionStatus === "active" ? "Active" : "Inactive"}
-              </span>
-            </div>
+        {_billingLoading ? (
+          <div className="py-6 flex items-center justify-center">
+            <InlineSpinner size={16} />
           </div>
-        </div>
-        <div className="space-y-6">
-          <Button variant="pill" onClick={handleManageSubscription}>
-            Manage Subscription
-          </Button>
-          {user?.subscriptionStatus === "active" && (
-            <div className="text-sm text-gray-600">
-              <p>• Update payment method</p>
-              <p>• Download invoices</p>
-              <p>• Cancel subscription</p>
-              <p>• Change billing frequency</p>
-            </div>
-          )}
-        </div>
-        <div className="mt-6 rounded-lg bg-white p-4 shadow-inner border border-white/30">
-          <div className="flex items-center justify-between">
-            <div className="flex-1 pr-4">
-              {(() => {
-                const budgetEnabled = billingSummary?.budgetEnabled ?? false;
-                const spent = Math.round(
-                  (billingSummary?.overageAmountCents ?? 0) / 100
-                );
-                const limit = budgetEnabled
-                  ? Math.round((billingSummary?.overageBudgetCents ?? 0) / 100)
-                  : 0;
-                const pct =
-                  limit > 0
-                    ? Math.min(100, Math.round((spent / limit) * 100))
-                    : 0;
-                return (
-                  <>
-                    <div className="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
-                      <div
-                        className="h-full bg-black"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
-            <div className="text-sm font-semibold">
-              {(() => {
-                const budgetEnabled = billingSummary?.budgetEnabled ?? false;
-                const spent = Math.round(
-                  (billingSummary?.overageAmountCents ?? 0) / 100
-                );
-                const limit = budgetEnabled
-                  ? Math.round((billingSummary?.overageBudgetCents ?? 0) / 100)
-                  : 0;
-                return (
+        ) : (
+          <>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h4 className="font-semibold text-gray-900">Current Plan</h4>
+                <div className="text-sm text-gray-600 flex items-center gap-2">
                   <span>
-                    <span className="text-gray-900">${spent}</span>
-                    <span className="text-gray-400"> / ${limit}</span>
+                    {formatPlanTierLabel(billingSummary?.planTier)} •{" "}
+                    {formatIntervalLabel(billingSummary?.billingInterval)}
                   </span>
-                );
-              })()}
-            </div>
-          </div>
-          <p className="text-sm text-gray-600 mt-2">
-            Usage-Based Spending this Month
-          </p>
-          {!isEditingBudget ? (
-            <div className="mt-3">
-              <Button
-                variant="pill"
-                onClick={() => {
-                  const current = Math.max(
-                    50,
-                    Math.round(
-                      (billingSummary?.overageBudgetCents ?? 0) / 100
-                    ) || 50
-                  );
-                  setProposedBudget(current);
-                  setCustomBudgetInput("");
-                  setBudgetErrorLocal(null);
-                  setIsEditingBudget(true);
-                }}
-              >
-                Edit limit
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-3 mt-3">
-              <div className="grid grid-cols-5 gap-2">
-                {[50, 100, 200, 500].map((amt) => (
-                  <button
-                    key={amt}
-                    type="button"
-                    onClick={() => {
-                      setProposedBudget(amt);
-                      setCustomBudgetInput("");
-                      setBudgetErrorLocal(null);
-                    }}
-                    className={`px-3 py-2 rounded-lg text-sm transition-colors select-none touch-manipulation ${
-                      proposedBudget === amt
-                        ? "bg-white/60 backdrop-blur-sm border border-white/30 shadow-inner text-gray-900"
-                        : "bg-white/80 backdrop-blur-sm border border-white/20 shadow-md text-gray-700"
+                  <span
+                    className={`inline-flex px-2 py-0.5 text-[11px] font-semibold rounded-full ${
+                      user?.subscriptionStatus === "active"
+                        ? "bg-green-100 text-green-800"
+                        : "bg-gray-100 text-gray-800"
                     }`}
                   >
-                    ${amt}
-                  </button>
-                ))}
-                <div
-                  className={`px-2 py-2 rounded-lg text-sm flex items-center transition-colors select-none touch-manipulation ${
-                    customBudgetInput.trim() !== "" &&
-                    /^\d+$/.test(customBudgetInput) &&
-                    Number(customBudgetInput) >= 50
-                      ? "bg-white/60 backdrop-blur-sm border border-white/30 shadow-inner text-gray-900"
-                      : "bg-white/80 backdrop-blur-sm border border-white/20 shadow-md text-gray-700"
-                  }`}
-                >
-                  <span className="mr-1">$</span>
-                  <input
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={customBudgetInput}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      setCustomBudgetInput(raw);
-                      if (raw.trim() === "") {
-                        setBudgetErrorLocal(null);
-                        return;
-                      }
-                      if (!/^\d+$/.test(raw)) {
-                        setBudgetErrorLocal("Whole dollars only");
-                        return;
-                      }
-                      const num = parseInt(raw, 10);
-                      if (num <= 0) {
-                        setBudgetErrorLocal("Must be > 0");
-                        return;
-                      }
-                      if (num < 10) {
-                        setBudgetErrorLocal("Minimum is $10");
-                        return;
-                      }
-                      setBudgetErrorLocal(null);
-                      setProposedBudget(num);
-                    }}
-                    className="w-20 bg-transparent outline-none text-current placeholder:text-gray-400"
-                    placeholder="Custom"
-                  />
+                    {user?.subscriptionStatus === "active"
+                      ? "Active"
+                      : "Inactive"}
+                  </span>
                 </div>
               </div>
-              {budgetErrorLocal && (
-                <div className="text-xs text-red-600">{budgetErrorLocal}</div>
-              )}
-              <div className="flex items-center justify-start gap-3 mt-4 mb-1 pt-2 pb-1">
-                <Button
-                  variant="pill"
-                  className="w-28"
-                  onClick={async () => {
-                    if (proposedBudget < 10) {
-                      setBudgetErrorLocal("Minimum is $10");
-                      return;
-                    }
-                    setBudgetDollars(proposedBudget);
-                    setBudgetEnabledLocal(true);
-                    await handleSaveBudget();
-                    const refreshed = await fetchBillingSummary();
-                    setBillingSummary(refreshed);
-                    setIsEditingBudget(false);
-                  }}
-                  disabled={!!budgetErrorLocal}
-                >
-                  Save
-                </Button>
-                <Button
-                  variant="pill"
-                  className="w-28"
-                  onClick={() => {
-                    setIsEditingBudget(false);
-                    setBudgetErrorLocal(null);
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
             </div>
-          )}
-        </div>
+            <div className="space-y-6">
+              <Button variant="pill" onClick={handleManageSubscription}>
+                Manage Subscription
+              </Button>
+              {user?.subscriptionStatus === "active" && (
+                <div className="text-sm text-gray-600">
+                  <p>• Update payment method</p>
+                  <p>• Download invoices</p>
+                  <p>• Cancel subscription</p>
+                  <p>• Change billing frequency</p>
+                </div>
+              )}
+            </div>
+            <div className="mt-6 rounded-lg bg-white p-4 shadow-inner border border-white/30">
+              <div className="flex items-center justify-between">
+                <div className="flex-1 pr-4">
+                  {(() => {
+                    const budgetEnabled =
+                      billingSummary?.budgetEnabled ?? false;
+                    const spent = Math.round(
+                      (billingSummary?.overageAmountCents ?? 0) / 100
+                    );
+                    const limit = budgetEnabled
+                      ? Math.round(
+                          (billingSummary?.overageBudgetCents ?? 0) / 100
+                        )
+                      : 0;
+                    const pct =
+                      limit > 0
+                        ? Math.min(100, Math.round((spent / limit) * 100))
+                        : 0;
+                    return (
+                      <>
+                        <div className="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
+                          <div
+                            className="h-full bg-black"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+                <div className="text-sm font-semibold">
+                  {(() => {
+                    const budgetEnabled =
+                      billingSummary?.budgetEnabled ?? false;
+                    const spent = Math.round(
+                      (billingSummary?.overageAmountCents ?? 0) / 100
+                    );
+                    const limit = budgetEnabled
+                      ? Math.round(
+                          (billingSummary?.overageBudgetCents ?? 0) / 100
+                        )
+                      : 0;
+                    return (
+                      <span>
+                        <span className="text-gray-900">${spent}</span>
+                        <span className="text-gray-400"> / ${limit}</span>
+                      </span>
+                    );
+                  })()}
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 mt-2">
+                Usage-Based Spending this Month
+              </p>
+              {!isEditingBudget ? (
+                <div className="mt-3">
+                  <Button
+                    variant="pill"
+                    onClick={() => {
+                      const current = Math.max(
+                        50,
+                        Math.round(
+                          (billingSummary?.overageBudgetCents ?? 0) / 100
+                        ) || 50
+                      );
+                      setProposedBudget(current);
+                      setCustomBudgetInput("");
+                      setBudgetErrorLocal(null);
+                      setIsEditingBudget(true);
+                    }}
+                  >
+                    Edit limit
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3 mt-3">
+                  <div className="grid grid-cols-5 gap-2">
+                    {[50, 100, 200, 500].map((amt) => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => {
+                          setProposedBudget(amt);
+                          setCustomBudgetInput("");
+                          setBudgetErrorLocal(null);
+                        }}
+                        className={`px-3 py-2 rounded-lg text-sm transition-colors select-none touch-manipulation ${
+                          proposedBudget === amt
+                            ? "bg-white/60 backdrop-blur-sm border border-white/30 shadow-inner text-gray-900"
+                            : "bg-white/80 backdrop-blur-sm border border-white/20 shadow-md text-gray-700"
+                        }`}
+                      >
+                        ${amt}
+                      </button>
+                    ))}
+                    <div
+                      className={`px-2 py-2 rounded-lg text-sm flex items-center transition-colors select-none touch-manipulation ${
+                        customBudgetInput.trim() !== "" &&
+                        /^\d+$/.test(customBudgetInput) &&
+                        Number(customBudgetInput) >= 50
+                          ? "bg-white/60 backdrop-blur-sm border border-white/30 shadow-inner text-gray-900"
+                          : "bg-white/80 backdrop-blur-sm border border-white/20 shadow-md text-gray-700"
+                      }`}
+                    >
+                      <span className="mr-1">$</span>
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={customBudgetInput}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          setCustomBudgetInput(raw);
+                          if (raw.trim() === "") {
+                            setBudgetErrorLocal(null);
+                            return;
+                          }
+                          if (!/^\d+$/.test(raw)) {
+                            setBudgetErrorLocal("Whole dollars only");
+                            return;
+                          }
+                          const num = parseInt(raw, 10);
+                          if (num <= 0) {
+                            setBudgetErrorLocal("Must be > 0");
+                            return;
+                          }
+                          if (num < 10) {
+                            setBudgetErrorLocal("Minimum is $10");
+                            return;
+                          }
+                          setBudgetErrorLocal(null);
+                          setProposedBudget(num);
+                        }}
+                        className="w-20 bg-transparent outline-none text-current placeholder:text-gray-400"
+                        placeholder="Custom"
+                      />
+                    </div>
+                  </div>
+                  {budgetErrorLocal && (
+                    <div className="text-xs text-red-600">
+                      {budgetErrorLocal}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-start gap-3 mt-4 mb-1 pt-2 pb-1">
+                    <Button
+                      variant="pill"
+                      className="w-28"
+                      onClick={async () => {
+                        if (proposedBudget < 10) {
+                          setBudgetErrorLocal("Minimum is $10");
+                          return;
+                        }
+                        setBudgetDollars(proposedBudget);
+                        setBudgetEnabledLocal(true);
+                        await handleSaveBudget();
+                        const refreshed = await fetchBillingSummary();
+                        setBillingSummary(refreshed);
+                        setIsEditingBudget(false);
+                      }}
+                      disabled={!!budgetErrorLocal}
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      variant="pill"
+                      className="w-28"
+                      onClick={() => {
+                        setIsEditingBudget(false);
+                        setBudgetErrorLocal(null);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -738,127 +774,145 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
         </div>
       )}
       <div className="bg-white rounded-lg shadow-lg p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="font-semibold text-gray-900">
-              {opts?.title ?? "Credits"}
-            </h4>
-            <p className="text-sm text-gray-600">
-              Reports left: {billingSummary?.reportsLeft ?? "—"} of{" "}
-              {billingSummary?.includedReportsLimit ?? "—"}
-            </p>
+        {_usageLoading ? (
+          <div className="py-6 flex items-center justify-center">
+            <InlineSpinner size={16} />
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant={chartMode === "reports" ? "pillActive" : "pill"}
-              className="w-28"
-              onClick={async () => {
-                setChartMode("reports");
-                if (dateRange) await refreshUsageSeries("reports", dateRange);
-              }}
-            >
-              Reports
-            </Button>
-            <Button
-              variant={chartMode === "responses" ? "pillActive" : "pill"}
-              className="w-28"
-              onClick={async () => {
-                setChartMode("responses");
-                if (dateRange) await refreshUsageSeries("responses", dateRange);
-              }}
-            >
-              Responses
-            </Button>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 text-sm mt-4">
-          <span className="text-gray-600">Range:</span>
-          <Button
-            variant={selectedQuickDays === 1 ? "pillActive" : "pill"}
-            className="w-16"
-            onClick={() => void setQuickUsageRange(1)}
-          >
-            1d
-          </Button>
-          <Button
-            variant={selectedQuickDays === 7 ? "pillActive" : "pill"}
-            className="w-16"
-            onClick={() => void setQuickUsageRange(7)}
-          >
-            7d
-          </Button>
-          <Button
-            variant={selectedQuickDays === 30 ? "pillActive" : "pill"}
-            className="w-16"
-            onClick={() => void setQuickUsageRange(30)}
-          >
-            30d
-          </Button>
-        </div>
-        <div className="mt-4">
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart
-              data={chartData}
-              margin={{ top: 5, right: 15, bottom: 0, left: 20 }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="#e2e8f0"
-                strokeWidth={1}
-              />
-              <XAxis
-                dataKey="dateLabel"
-                axisLine={{ stroke: "#e2e8f0", strokeWidth: 1 }}
-                tickLine={false}
-                tick={{ fontSize: 11, fill: "#64748b" }}
-              />
-              <YAxis
-                domain={[0, "dataMax + 1"]}
-                allowDecimals={false}
-                axisLine={{ stroke: "#e2e8f0", strokeWidth: 1 }}
-                tickLine={false}
-                tick={{ fontSize: 11, fill: "#64748b" }}
-                width={28}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#ffffff",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "8px",
-                  fontSize: "12px",
-                  boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
-                }}
-                itemStyle={{ color: "#374151" }}
-                labelStyle={{ color: "#1f2937", fontWeight: "bold" }}
-                formatter={(value: number) => [
-                  `${value} ${chartMode === "reports" ? "reports" : "responses"}`,
-                  chartMode === "reports" ? "Reports" : "Responses",
-                ]}
-                labelFormatter={(label) => `Date: ${label}`}
-              />
-              <defs>
-                <linearGradient id="usageArea" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0.05} />
-                </linearGradient>
-              </defs>
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke="#2563eb"
-                strokeWidth={2}
-                fill="url(#usageArea)"
-                dot={false}
-                activeDot={{
-                  r: 4,
-                  stroke: "#2563eb",
-                  strokeWidth: 2,
-                  fill: "#ffffff",
-                }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-semibold text-gray-900">
+                  {opts?.title ?? "Credits"}
+                </h4>
+                <p className="text-sm text-gray-600">
+                  Reports left: {billingSummary?.reportsLeft ?? "—"} of{" "}
+                  {billingSummary?.includedReportsLimit ?? "—"}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={chartMode === "reports" ? "pillActive" : "pill"}
+                  className="w-28"
+                  onClick={async () => {
+                    setChartMode("reports");
+                    if (dateRange)
+                      await refreshUsageSeries("reports", dateRange);
+                  }}
+                >
+                  Reports
+                </Button>
+                <Button
+                  variant={chartMode === "responses" ? "pillActive" : "pill"}
+                  className="w-28"
+                  onClick={async () => {
+                    setChartMode("responses");
+                    if (dateRange)
+                      await refreshUsageSeries("responses", dateRange);
+                  }}
+                >
+                  Responses
+                </Button>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 text-sm mt-4">
+              <span className="text-gray-600">Range:</span>
+              <Button
+                variant={selectedQuickDays === 1 ? "pillActive" : "pill"}
+                className="w-16"
+                onClick={() => void setQuickUsageRange(1)}
+              >
+                1d
+              </Button>
+              <Button
+                variant={selectedQuickDays === 7 ? "pillActive" : "pill"}
+                className="w-16"
+                onClick={() => void setQuickUsageRange(7)}
+              >
+                7d
+              </Button>
+              <Button
+                variant={selectedQuickDays === 30 ? "pillActive" : "pill"}
+                className="w-16"
+                onClick={() => void setQuickUsageRange(30)}
+              >
+                30d
+              </Button>
+            </div>
+            <div className="mt-4">
+              <ResponsiveContainer width="100%" height={260}>
+                <AreaChart
+                  data={chartData}
+                  margin={{ top: 5, right: 15, bottom: 0, left: 20 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#e2e8f0"
+                    strokeWidth={1}
+                  />
+                  <XAxis
+                    dataKey="dateLabel"
+                    axisLine={{ stroke: "#e2e8f0", strokeWidth: 1 }}
+                    tickLine={false}
+                    tick={{ fontSize: 11, fill: "#64748b" }}
+                  />
+                  <YAxis
+                    domain={[0, "dataMax + 1"]}
+                    allowDecimals={false}
+                    axisLine={{ stroke: "#e2e8f0", strokeWidth: 1 }}
+                    tickLine={false}
+                    tick={{ fontSize: 11, fill: "#64748b" }}
+                    width={28}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#ffffff",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                      boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+                    }}
+                    itemStyle={{ color: "#374151" }}
+                    labelStyle={{ color: "#1f2937", fontWeight: "bold" }}
+                    formatter={(value: number) => [
+                      `${value} ${chartMode === "reports" ? "reports" : "responses"}`,
+                      chartMode === "reports" ? "Reports" : "Responses",
+                    ]}
+                    labelFormatter={(label) => `Date: ${label}`}
+                  />
+                  <defs>
+                    <linearGradient id="usageArea" x1="0" y1="0" x2="0" y2="1">
+                      <stop
+                        offset="5%"
+                        stopColor="#2563eb"
+                        stopOpacity={0.35}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor="#2563eb"
+                        stopOpacity={0.05}
+                      />
+                    </linearGradient>
+                  </defs>
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#2563eb"
+                    strokeWidth={2}
+                    fill="url(#usageArea)"
+                    dot={false}
+                    activeDot={{
+                      r: 4,
+                      stroke: "#2563eb",
+                      strokeWidth: 2,
+                      fill: "#ffffff",
+                    }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -980,11 +1034,15 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                   : false)
                               }
                               onClick={async () => {
-                                try {
-                                  await inviteTeamMember(
-                                    inviteEmail.trim().toLowerCase()
+                                const email = inviteEmail.trim().toLowerCase();
+                                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                                  setTeamError(
+                                    "Please enter a valid email address"
                                   );
-                                  // refresh members/limits
+                                  return;
+                                }
+                                try {
+                                  await inviteTeamMember(email);
                                   const [limits, members] = await Promise.all([
                                     getTeamLimits(),
                                     getTeamMembers(),
@@ -992,8 +1050,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                   setSeatLimits(limits);
                                   setTeamMembers(members);
                                   setInviteEmail("");
-                                } catch {
-                                  setTeamError("Failed to invite member");
+                                  setTeamError(null);
+                                } catch (e) {
+                                  const message =
+                                    (e as { message?: string })?.message ||
+                                    "Failed to invite member";
+                                  setTeamError(message);
                                 }
                               }}
                             >
@@ -1158,194 +1220,213 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                       Delete Account
                     </h3>
                     <p className="text-sm text-gray-600 mb-3">
-                      Are you sure you want to delete your account? This action
-                      is irreversible.
+                      Permanently delete your account and all associated data.
                     </p>
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                      <input
-                        type="text"
-                        value={deleteConfirmText}
-                        onChange={(e) => setDeleteConfirmText(e.target.value)}
-                        placeholder="Type 'Delete' to confirm"
-                        className="flex-1 px-3 py-2 rounded-lg text-sm bg-white border border-gray-200 shadow-inner focus:outline-none"
-                      />
-                      <button
-                        type="button"
-                        disabled={
-                          deleteConfirmText !== "Delete" || deletingAccount
-                        }
-                        onClick={async () => {
-                          if (deleteConfirmText !== "Delete") return;
-                          setDeleteError(null);
-                          setDeletingAccount(true);
-                          try {
-                            await apiClient.delete("/users/me/delete");
-                            await logout();
-                            onClose();
-                          } catch (err) {
-                            setDeleteError("Failed to delete account");
-                          } finally {
-                            setDeletingAccount(false);
-                          }
-                        }}
-                        className="px-3 py-2 rounded-lg text-sm bg-red-600 text-white shadow active:shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {deletingAccount ? "Deleting..." : "Delete Account"}
-                      </button>
-                    </div>
-                    {deleteError && (
-                      <div className="text-xs text-red-600 mt-2">
-                        {deleteError}
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeleteConfirmText("");
+                        setDeleteError(null);
+                        setShowDeleteAccountConfirm(true);
+                      }}
+                      className="px-3 py-2 rounded-lg text-sm bg-red-600 text-white shadow active:shadow-inner"
+                    >
+                      Delete Account
+                    </button>
                   </div>
                 </div>
               )}
 
               {activeTab === "companies" && (
                 <div className="space-y-6">
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-900 mb-4">
-                      Workspace
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-4">
-                      Manage your workspace companies.
-                    </p>
-                  </div>
+                  <div className="bg-white rounded-lg shadow-lg p-6">
+                    <div className="mb-4">
+                      <h3 className="font-semibold text-gray-900">
+                        Company Profiles
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        Manage your workspace portfolio
+                      </p>
+                    </div>
 
-                  {companies.map((company) => (
-                    <div
-                      key={company.id}
-                      className="bg-white rounded-lg shadow-lg p-4 space-y-4"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 min-w-0">
-                          {editingCompany === company.id ? (
-                            <div className="space-y-2 pb-1 pt-2">
-                              <input
-                                type="text"
-                                value={editName}
-                                onChange={(e) => setEditName(e.target.value)}
-                                className="w-full px-2 py-1 text-xs font-medium text-gray-900 bg-gray-50 border-none rounded shadow-inner focus:outline-none focus:bg-white focus:shadow-sm transition-all"
-                                placeholder="Company name"
-                              />
-                              <input
-                                type="text"
-                                value={editWebsite}
-                                onChange={(e) => setEditWebsite(e.target.value)}
-                                className="w-full px-2 py-1 text-xs text-gray-600 bg-gray-50 border-none rounded shadow-inner focus:outline-none focus:bg-white focus:shadow-sm transition-all"
-                                placeholder="https://company.com"
-                              />
-                              <div className="pt-1"></div>
+                    <div className="space-y-4">
+                      {companies.map((company) => (
+                        <div
+                          key={company.id}
+                          className="bg-white rounded-lg shadow-lg p-4 space-y-4"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start gap-3">
+                                <div className="flex-shrink-0 mt-1">
+                                  {(() => {
+                                    const src = getFaviconSrc(company.website);
+                                    return src ? (
+                                      <img
+                                        src={src}
+                                        alt=""
+                                        className="w-5 h-5 rounded"
+                                        onError={(e) => {
+                                          (
+                                            e.currentTarget as HTMLImageElement
+                                          ).style.visibility = "hidden";
+                                        }}
+                                      />
+                                    ) : (
+                                      <Globe className="w-5 h-5 text-gray-400" />
+                                    );
+                                  })()}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  {editingCompany === company.id ? (
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pb-1 pt-2">
+                                      <input
+                                        type="text"
+                                        value={editName}
+                                        onChange={(e) =>
+                                          setEditName(e.target.value)
+                                        }
+                                        className="w-full px-3 py-2 rounded-lg text-sm bg-white border border-gray-200 shadow-inner focus:outline-none"
+                                        placeholder="Company name"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={editWebsite}
+                                        onChange={(e) =>
+                                          setEditWebsite(e.target.value)
+                                        }
+                                        className="w-full px-3 py-2 rounded-lg text-sm bg-white border border-gray-200 shadow-inner focus:outline-none"
+                                        placeholder="https://company.com"
+                                      />
+                                      <InlineIndustryAutocomplete
+                                        value={editIndustry}
+                                        onChange={setEditIndustry}
+                                        placeholder="Industry (e.g., SaaS, Ecommerce)"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="py-2">
+                                      <h4 className="font-semibold text-gray-900 truncate">
+                                        {company.name}
+                                      </h4>
+                                      <div className="space-y-1">
+                                        {company.website && (
+                                          <a
+                                            href={
+                                              company.website.startsWith("http")
+                                                ? company.website
+                                                : `https://${company.website}`
+                                            }
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-xs text-blue-600 hover:text-blue-800 flex items-center truncate"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <span className="truncate">
+                                              {company.website.replace(
+                                                /^https?:\/\//,
+                                                ""
+                                              )}
+                                            </span>
+                                          </a>
+                                        )}
+                                        {company.industry && (
+                                          <span className="text-xs text-gray-500">
+                                            {company.industry}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                          ) : (
-                            <div className="py-2">
-                              <h4 className="font-semibold text-gray-900 truncate">
-                                {company.name}
-                              </h4>
-                              <div className="space-y-1">
-                                {company.website && (
-                                  <a
-                                    href={
-                                      company.website.startsWith("http")
-                                        ? company.website
-                                        : `https://${company.website}`
-                                    }
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-blue-600 hover:text-blue-800 flex items-center truncate"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <span className="truncate">
-                                      {company.website.replace(
-                                        /^https?:\/\//,
-                                        ""
-                                      )}
-                                    </span>
-                                  </a>
-                                )}
-                                {company.industry && (
-                                  <span className="text-xs text-gray-500">
-                                    {company.industry}
-                                  </span>
-                                )}
+                            <div className="flex-shrink-0 flex items-center gap-2 ml-2">
+                              {editingCompany !== company.id && (
+                                <button
+                                  onClick={() =>
+                                    handleStartEditCompany(company.id)
+                                  }
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-500 hover:text-gray-700 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner"
+                                  title="Edit company"
+                                  style={{
+                                    WebkitTapHighlightColor: "transparent",
+                                    WebkitUserSelect: "none",
+                                    userSelect: "none",
+                                  }}
+                                >
+                                  <Edit2 size={16} />
+                                </button>
+                              )}
+                              {editingCompany !== company.id && (
+                                <button
+                                  onClick={() => setDeleteConfirm(company.id)}
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-500 hover:text-gray-700 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner"
+                                  title="Delete company"
+                                  style={{
+                                    WebkitTapHighlightColor: "transparent",
+                                    WebkitUserSelect: "none",
+                                    userSelect: "none",
+                                  }}
+                                >
+                                  <X size={16} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {editingCompany === company.id && (
+                            <div className="flex items-center justify-start gap-3 mt-3">
+                              <Button
+                                variant="pill"
+                                className="w-24"
+                                onClick={handleSaveEditCompany}
+                                disabled={
+                                  !editName.trim() || !editWebsite.trim()
+                                }
+                              >
+                                Save
+                              </Button>
+                              <Button
+                                variant="pill"
+                                className="w-24"
+                                onClick={handleCancelEditCompany}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          )}
+
+                          {deleteConfirm === company.id && (
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                              <p className="text-sm text-red-800 mb-3">
+                                Are you sure you want to delete "{company.name}
+                                "? This action cannot be undone.
+                              </p>
+                              <div className="flex space-x-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    handleDeleteCompany(company.id)
+                                  }
+                                  className="bg-red-600 hover:bg-red-700"
+                                >
+                                  Yes, Delete
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setDeleteConfirm(null)}
+                                >
+                                  Cancel
+                                </Button>
                               </div>
                             </div>
                           )}
                         </div>
-                        <div className="flex-shrink-0 flex items-center gap-2 ml-2">
-                          <button
-                            onClick={() => handleStartEditCompany(company.id)}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-500 hover:text-gray-700 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner"
-                            title="Edit company"
-                            style={{
-                              WebkitTapHighlightColor: "transparent",
-                              WebkitUserSelect: "none",
-                              userSelect: "none",
-                            }}
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                          <button
-                            onClick={() => setDeleteConfirm(company.id)}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-500 hover:text-gray-700 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner"
-                            title="Delete company"
-                            style={{
-                              WebkitTapHighlightColor: "transparent",
-                              WebkitUserSelect: "none",
-                              userSelect: "none",
-                            }}
-                          >
-                            <X size={16} />
-                          </button>
-                        </div>
-                      </div>
-
-                      {editingCompany === company.id && (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={handleCancelEditCompany}
-                            className="px-3 py-1.5 text-xs bg-white/80 backdrop-blur-sm border border-white/20 text-gray-500 hover:text-gray-700 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner transition-colors rounded flex items-center justify-center gap-1"
-                          >
-                            <X size={12} />
-                            Cancel
-                          </button>
-                          <button
-                            onClick={handleSaveEditCompany}
-                            disabled={!editName.trim() || !editWebsite.trim()}
-                            className="px-3 py-1.5 text-xs bg-white/80 backdrop-blur-sm border border-white/20 text-gray-500 hover:text-gray-700 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner transition-colors rounded flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            Save
-                          </button>
-                        </div>
-                      )}
-
-                      {deleteConfirm === company.id && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                          <p className="text-sm text-red-800 mb-3">
-                            Are you sure you want to delete "{company.name}"?
-                            This action cannot be undone.
-                          </p>
-                          <div className="flex space-x-2">
-                            <Button
-                              size="sm"
-                              onClick={() => handleDeleteCompany(company.id)}
-                              className="bg-red-600 hover:bg-red-700"
-                            >
-                              Yes, Delete
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setDeleteConfirm(null)}
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      )}
+                      ))}
                     </div>
-                  ))}
+                  </div>
                 </div>
               )}
 
@@ -1446,7 +1527,9 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                       </div>
                     </div>
                     {sessionsLoading ? (
-                      <div className="text-sm text-gray-600">Loading...</div>
+                      <div className="py-3">
+                        <InlineSpinner size={16} />
+                      </div>
                     ) : sessionsError ? (
                       <div className="text-sm text-red-600">
                         {sessionsError}
@@ -1552,40 +1635,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
             </div>
           </div>
         </div>
-        {/* Full-screen company edit overlay */}
-        {editingCompany && (
-          <div className="absolute inset-0 bg-white flex flex-col z-50 shadow-xl">
-            {/* Overlay Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <button
-                onClick={() => setEditingCompany(null)}
-                className="text-gray-400 transition-colors flex items-center"
-              >
-                <ArrowLeft className="w-6 h-6" />
-              </button>
-              <h2 className="text-2xl font-bold text-gray-900">Edit Company</h2>
-              <div className="w-6 h-6" />
-            </div>
-
-            {/* Overlay Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {companies
-                .filter((c) => c.id === editingCompany)
-                .map((company) => (
-                  <CompanyProfileForm
-                    key={company.id}
-                    isModal={true}
-                    initialData={company}
-                    mode="edit"
-                    onSuccess={() => {
-                      setShowSaveConfirmation(true);
-                    }}
-                    onCancel={() => setEditingCompany(null)}
-                  />
-                ))}
-            </div>
-          </div>
-        )}
+        {/* Full-screen company edit overlay removed; editing is inline */}
 
         {/* Save Confirmation Dialog */}
         {showSaveConfirmation && (
@@ -1630,8 +1680,14 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
         {/* Logout Confirmation Dialog */}
         {showLogoutConfirm && (
-          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-            <div className="bg-white rounded-2xl max-w-md w-full mx-4 shadow-2xl p-6">
+          <div
+            className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="bg-white rounded-2xl max-w-md w-full mx-4 shadow-2xl p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">
                   Confirm Sign Out
@@ -1656,6 +1712,70 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                   className="bg-black text-white"
                 >
                   Sign Out
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Account Confirmation Dialog */}
+        {showDeleteAccountConfirm && (
+          <div
+            className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="bg-white rounded-2xl max-w-md w-full mx-4 shadow-2xl p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-3">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Delete Account
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Are you sure you want to delete your account? This action is
+                  irreversible.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="Type 'Delete' to confirm"
+                  className="w-full px-3 py-2 rounded-lg text-sm bg-white border border-gray-200 shadow-inner focus:outline-none"
+                />
+                {deleteError && (
+                  <div className="text-xs text-red-600">{deleteError}</div>
+                )}
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDeleteAccountConfirm(false)}
+                  className="text-gray-700"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  disabled={deleteConfirmText !== "Delete" || deletingAccount}
+                  onClick={async () => {
+                    if (deleteConfirmText !== "Delete") return;
+                    setDeleteError(null);
+                    setDeletingAccount(true);
+                    try {
+                      await apiClient.delete("/users/me/delete");
+                      await logout();
+                      onClose();
+                    } catch {
+                      setDeleteError("Failed to delete account");
+                    } finally {
+                      setDeletingAccount(false);
+                    }
+                  }}
+                  className="bg-red-600 text-white"
+                >
+                  {deletingAccount ? "Deleting..." : "Delete"}
                 </Button>
               </div>
             </div>

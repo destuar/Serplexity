@@ -16,9 +16,9 @@ import dotenv from "dotenv";
 import path from "path";
 import { z } from "zod";
 
-// Load environment variables from .env file in the backend directory
-// Use __dirname to ensure we always look in the backend directory regardless of process.cwd()
-const envPath = path.resolve(__dirname, "../../.env");
+// Load environment variables from backend/.env
+// Prefer process.cwd() so compiled dist resolves to backend/.env, not dist/.env
+const envPath = path.resolve(process.cwd(), ".env");
 dotenv.config({ path: envPath });
 
 // Define the schema for environment variables
@@ -90,6 +90,9 @@ const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
   PERPLEXITY_API_KEY: z.string().optional(),
+
+  // External SERP providers
+  SERP_API_KEY: z.string().optional(),
 
   // Email & Notifications
   SMTP_HOST: z.string().optional(),

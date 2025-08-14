@@ -5,12 +5,14 @@ This directory contains the Docker configuration and management scripts for the 
 ## Quick Start
 
 ### Option 1: Using the Rebuild Script (Recommended)
+
 ```bash
 # From project root
 ./infra/docker/docker-rebuild.sh
 ```
 
 ### Option 2: Manual Docker Compose
+
 ```bash
 # From project root
 docker-compose -f infra/docker/docker-compose.yml up -d
@@ -19,9 +21,11 @@ docker-compose -f infra/docker/docker-compose.yml up -d
 ## Scripts
 
 ### 🚀 `docker-rebuild.sh`
+
 Comprehensive rebuild script with cleanup and optimization.
 
 **Usage:**
+
 ```bash
 ./infra/docker/docker-rebuild.sh [OPTIONS]
 
@@ -32,6 +36,7 @@ Options:
 ```
 
 **Examples:**
+
 ```bash
 # Normal rebuild with cleanup
 ./infra/docker/docker-rebuild.sh
@@ -44,9 +49,11 @@ Options:
 ```
 
 ### 🧹 `docker-cleanup.sh`
+
 Disk space cleanup script for Docker resources.
 
 **Usage:**
+
 ```bash
 ./infra/docker/docker-cleanup.sh [OPTIONS]
 
@@ -58,6 +65,7 @@ Options:
 ## Architecture
 
 ### Services
+
 - **Backend**: Node.js/Express API server
 - **Frontend**: React SPA served by Nginx
 - **PostgreSQL**: Database
@@ -65,6 +73,7 @@ Options:
 - **Jaeger**: Distributed tracing
 
 ### Resource Limits
+
 - **Backend**: 1GB memory limit, 512MB reserved
 - **Frontend**: 512MB memory limit, 256MB reserved
 - **PostgreSQL**: 512MB memory limit, 256MB reserved
@@ -74,6 +83,7 @@ Options:
 ## Optimizations
 
 ### Build Optimizations
+
 - **Multi-stage builds** for smaller production images
 - **Layer caching** optimization for faster rebuilds
 - **npm cache cleanup** to reduce disk usage
@@ -81,6 +91,7 @@ Options:
 - **Memory limits** for Node.js processes
 
 ### Runtime Optimizations
+
 - **Health checks** for all services
 - **Dependency ordering** with health check conditions
 - **Resource limits** to prevent memory issues
@@ -91,6 +102,7 @@ Options:
 ### Common Issues
 
 #### 1. Disk Space Issues
+
 ```bash
 # Check Docker disk usage
 docker system df
@@ -100,6 +112,7 @@ docker system df
 ```
 
 #### 2. Build Failures
+
 ```bash
 # Rebuild without cache
 ./infra/docker/docker-rebuild.sh --no-cache
@@ -109,6 +122,7 @@ docker-compose -f infra/docker/docker-compose.yml logs backend
 ```
 
 #### 3. Memory Issues
+
 ```bash
 # Check container resource usage
 docker stats
@@ -118,11 +132,14 @@ docker-compose -f infra/docker/docker-compose.yml restart backend
 ```
 
 ### Environment Variables
+
 Make sure you have the required environment files:
+
 - `backend/.env` - Backend configuration
 - See `backend/.env.example` for required variables
 
 ### Port Mappings
+
 - **Frontend**: http://localhost:80
 - **Backend**: http://localhost:8001
 - **PostgreSQL**: localhost:5432
@@ -132,6 +149,7 @@ Make sure you have the required environment files:
 ## Development vs Production
 
 ### Development
+
 ```bash
 # Start services
 docker-compose -f infra/docker/docker-compose.yml up -d
@@ -144,17 +162,21 @@ docker-compose -f infra/docker/docker-compose.yml down
 ```
 
 ### Production
+
 The same compose file is used, but with production environment variables and optimizations.
 
 ## Monitoring
 
 ### Health Checks
+
 All services have health checks configured. Check status with:
+
 ```bash
 docker-compose -f infra/docker/docker-compose.yml ps
 ```
 
 ### Logs
+
 ```bash
 # All services
 docker-compose -f infra/docker/docker-compose.yml logs -f
@@ -164,6 +186,7 @@ docker-compose -f infra/docker/docker-compose.yml logs -f backend
 ```
 
 ### Metrics
+
 Access Jaeger UI at http://localhost:16686 for distributed tracing.
 
 ## Best Practices
@@ -173,4 +196,4 @@ Access Jaeger UI at http://localhost:16686 for distributed tracing.
 3. **Check logs** for errors and performance issues
 4. **Keep environment files** up to date
 5. **Use health checks** to verify service status
-6. **Clean up** unused resources periodically 
+6. **Clean up** unused resources periodically
