@@ -1,12 +1,14 @@
 import { TeamRole } from "@prisma/client";
 import { Request, Response } from "express";
 import { getPrismaClient } from "../config/dbCache";
+import logger from "../utils/logger";
 import {
   acceptInvite,
   addMemberByEmail,
   getSeatUsage,
   listMembers,
   removeMember,
+  removeInvite,
 } from "../services/teamService";
 
 export const getLimits = async (req: Request, res: Response) => {
@@ -84,5 +86,18 @@ export const deleteMember = async (req: Request, res: Response) => {
   });
   if (!result.ok)
     return res.status(400).json({ error: "Failed to remove member" });
+  res.json({ ok: true });
+};
+
+export const deleteInvite = async (req: Request, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: "Not authenticated" });
+  const prisma = await getPrismaClient();
+  const { email } = req.params as { email: string };
+  const result = await removeInvite(prisma, {
+    ownerUserId: req.user.id,
+    email: decodeURIComponent(email),
+  });
+  if (!result.ok)
+    return res.status(400).json({ error: "Failed to remove invite" });
   res.json({ ok: true });
 };

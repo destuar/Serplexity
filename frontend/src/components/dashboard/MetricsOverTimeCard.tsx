@@ -42,6 +42,17 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+
+// Suppress Recharts dimension warnings during development
+if (process.env.NODE_ENV === 'development') {
+  const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    if (typeof args[0] === 'string' && args[0].includes('width(0) and height(0) of chart should be greater than 0')) {
+      return; // Suppress this specific warning
+    }
+    originalWarn(...args);
+  };
+}
 import {
   Area,
   AreaChart,
@@ -575,13 +586,18 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({
     }
 
     return (
-      <div className="flex-1 min-h-0 relative" style={{ minHeight: "290px" }}>
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="flex-1 min-h-0 relative" style={{ minHeight: "240px" }}>
+        <ResponsiveContainer 
+          width="100%" 
+          height="100%" 
+          minHeight={200}
+          debounce={50}
+        >
           <AreaChart
             data={chartData}
             margin={{
               top: 5,
-              right: showModelBreakdown ? 35 : 15, // Just enough space for icons when in breakdown mode
+              right: showModelBreakdown ? 35 : 20, // Extra space for last data point label
               bottom: 0,
               left: 20,
             }}

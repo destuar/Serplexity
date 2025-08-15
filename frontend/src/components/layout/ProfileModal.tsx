@@ -67,6 +67,7 @@ import {
   getTeamMembers,
   inviteTeamMember,
   removeTeamMember,
+  removeTeamInvite,
 } from "../../services/teamService";
 import InlineIndustryAutocomplete from "../company/InlineIndustryAutocomplete";
 import { Button } from "../ui/Button";
@@ -154,11 +155,16 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const [teamLoading, setTeamLoading] = useState(false);
   const [teamError, setTeamError] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [isInviting, setIsInviting] = useState(false);
   const [selfEditing, setSelfEditing] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] =
     useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [showRemoveMemberConfirm, setShowRemoveMemberConfirm] = useState<{
+    member: TeamMemberDto;
+    isRemoving: boolean;
+  } | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -1018,9 +1024,10 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                           <div>
                             <button
                               type="button"
-                              className="px-3 py-2 rounded-lg text-sm bg-white/80 backdrop-blur-sm border border-white/20 shadow text-gray-700 active:shadow-inner cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="px-3 py-2 rounded-lg text-sm bg-white/80 backdrop-blur-sm border border-white/20 shadow text-gray-700 active:shadow-inner cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                               disabled={
                                 !inviteEmail ||
+                                isInviting ||
                                 (seatLimits
                                   ? seatLimits.seatsUsed >= seatLimits.seatLimit
                                   : false)
@@ -1033,6 +1040,10 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                   );
                                   return;
                                 }
+                                
+                                setIsInviting(true);
+                                setTeamError(null);
+                                
                                 try {
                                   const result = await inviteTeamMember(email);
                                   const [limits, members] = await Promise.all([
@@ -1060,10 +1071,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                     (e as { message?: string })?.message ||
                                     "Failed to invite member";
                                   setTeamError(message);
+                                } finally {
+                                  setIsInviting(false);
                                 }
                               }}
                             >
-                              Invite
+                              {isInviting ? <InlineSpinner size={14} /> : "Invite"}
                             </button>
                           </div>
                         </div>
@@ -1185,26 +1198,13 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                 <div className="flex items-center gap-2">
                                   <button
                                     type="button"
-                                    title="Remove member"
+                                    title={m.status === "INVITED" ? "Remove invite" : "Remove member"}
                                     className="w-8 h-8 rounded-lg flex items-center justify-center font-medium focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-600 shadow active:shadow-inner cursor-pointer"
-                                    onClick={async () => {
-                                      try {
-                                        await removeTeamMember(m.memberUserId);
-                                        setTeamMembers((prev) =>
-                                          prev.filter((x) => x.id !== m.id)
-                                        );
-                                        if (seatLimits) {
-                                          setSeatLimits({
-                                            ...seatLimits,
-                                            seatsUsed: Math.max(
-                                              0,
-                                              seatLimits.seatsUsed - 1
-                                            ),
-                                          });
-                                        }
-                                      } catch {
-                                        setTeamError("Failed to remove member");
-                                      }
+                                    onClick={() => {
+                                      setShowRemoveMemberConfirm({
+                                        member: m,
+                                        isRemoving: false,
+                                      });
                                     }}
                                   >
                                     <X size={14} />
@@ -1780,6 +1780,84 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                   className="bg-red-600 text-white"
                 >
                   {deletingAccount ? "Deleting..." : "Delete"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Remove Member/Invite Confirmation Dialog */}
+        {showRemoveMemberConfirm && (
+          <div
+            className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="bg-white rounded-2xl max-w-md w-full mx-4 shadow-2xl p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-3">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {showRemoveMemberConfirm.member.status === "INVITED" 
+                    ? "Remove Invitation" 
+                    : "Remove Team Member"}
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  {showRemoveMemberConfirm.member.status === "INVITED"
+                    ? `Are you sure you want to remove the invitation for ${showRemoveMemberConfirm.member.member.email}?`
+                    : `Are you sure you want to remove ${showRemoveMemberConfirm.member.member.name || showRemoveMemberConfirm.member.member.email} from the team?`}
+                </p>
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowRemoveMemberConfirm(null)}
+                  className="text-gray-700"
+                  disabled={showRemoveMemberConfirm.isRemoving}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  disabled={showRemoveMemberConfirm.isRemoving}
+                  onClick={async () => {
+                    const member = showRemoveMemberConfirm.member;
+                    setShowRemoveMemberConfirm({ 
+                      ...showRemoveMemberConfirm, 
+                      isRemoving: true 
+                    });
+                    
+                    try {
+                      if (member.status === "INVITED" && !member.memberUserId) {
+                        // This is a pending invite without a user account
+                        await removeTeamInvite(member.member.email);
+                      } else {
+                        // This is an existing user (invited or active)
+                        await removeTeamMember(member.memberUserId);
+                      }
+                      
+                      // Refresh the team members list
+                      const [limits, members] = await Promise.all([
+                        getTeamLimits(),
+                        getTeamMembers(),
+                      ]);
+                      setSeatLimits(limits);
+                      setTeamMembers(members);
+                      setShowRemoveMemberConfirm(null);
+                    } catch (e) {
+                      const message = (e as { message?: string })?.message || "Failed to remove member";
+                      setTeamError(message);
+                      setShowRemoveMemberConfirm({ 
+                        ...showRemoveMemberConfirm, 
+                        isRemoving: false 
+                      });
+                    }
+                  }}
+                  className="bg-red-600 text-white"
+                >
+                  {showRemoveMemberConfirm.isRemoving ? 
+                    (showRemoveMemberConfirm.member.status === "INVITED" ? "Removing..." : "Removing...") :
+                    (showRemoveMemberConfirm.member.status === "INVITED" ? "Remove Invitation" : "Remove Member")
+                  }
                 </Button>
               </div>
             </div>

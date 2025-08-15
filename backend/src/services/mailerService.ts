@@ -92,15 +92,44 @@ export async function sendTeamInviteEmail(params: {
   const owner = params.ownerName ? ` by ${params.ownerName}` : "";
   const text = `You've been invited${owner} to join a Serplexity workspace.\n\nClick the link to accept: ${params.inviteLink}\n\nThis link expires in 14 days.`;
   const html = `
-    <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
-      <h2>You're invited${owner}</h2>
-      <p>You've been invited to join a Serplexity workspace.</p>
-      <p>
-        <a href="${params.inviteLink}" style="display:inline-block;padding:10px 16px;background:#000;color:#fff;border-radius:8px;text-decoration:none">Accept invite</a>
-      </p>
-      <p>Or copy this link: <br/><code>${params.inviteLink}</code></p>
-      <p style="color:#6b7280">This link expires in 14 days.</p>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Team Invitation - Serplexity</title>
+    </head>
+    <body style="margin: 0; padding: 20px; background-color: #f6f9fc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    <div style="max-width: 520px; margin: 0 auto; padding: 0; background: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+      <!-- Header -->
+      <div style="text-align: center; padding: 32px 24px 24px 24px; border-bottom: 1px solid #f1f5f9;">
+        <div style="text-align: center;">
+          <img src="https://www.serplexity.com/Serplexity.png" alt="Serplexity Logo" style="width: 120px; height: auto; margin: 0 auto 16px auto; display: block;" />
+          <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #1e293b; letter-spacing: -0.025em;">Serplexity</h1>
+        </div>
+      </div>
+      
+      <!-- Main Content -->
+      <div style="padding: 32px 24px;">
+        <h2 style="margin: 0 0 16px 0; font-size: 24px; font-weight: 700; color: #0f172a; line-height: 1.2; text-align: center;">You're invited${owner}</h2>
+        
+        <p style="margin: 0 0 32px 0; font-size: 16px; line-height: 1.6; color: #475569; text-align: center;">You've been invited to join a Serplexity workspace and start optimizing your brand's visibility in AI search results.</p>
+        
+        <!-- CTA Button -->
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${params.inviteLink}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #000000 0%, #1f2937 100%); color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; letter-spacing: 0.025em; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); transition: all 0.2s ease;">Accept Invitation</a>
+        </div>
+        
+        <p style="margin: 24px 0 0 0; font-size: 14px; line-height: 1.5; color: #94a3b8; text-align: center;">This invitation expires in 14 days</p>
+      </div>
+      
+      <!-- Footer -->
+      <div style="padding: 24px; border-top: 1px solid #f1f5f9; text-align: center;">
+        <p style="margin: 0; font-size: 12px; color: #94a3b8;">© 2025 Serplexity. All rights reserved.</p>
+      </div>
     </div>
+    </body>
+    </html>
   `;
   
   const fromEmail = smtpSecret?.fromEmail || env.SMTP_FROM_EMAIL;
@@ -109,11 +138,27 @@ export async function sendTeamInviteEmail(params: {
   }
   
   await transporter.sendMail({
-    from: fromEmail,
+    from: `"The Serplexity Team" <${fromEmail}>`,
     to: params.toEmail,
     subject,
     text,
     html,
+    headers: {
+      'X-Priority': '3',
+      'X-MSMail-Priority': 'Normal',
+      'X-Mailer': 'Serplexity Platform',
+      'X-MimeOLE': 'Produced By Serplexity',
+      'Reply-To': fromEmail,
+      'Return-Path': fromEmail,
+      'List-Unsubscribe': '<mailto:unsubscribe@serplexity.com>',
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      'Message-ID': `<${Date.now()}-${Math.random().toString(36)}@serplexity.com>`,
+      'Date': new Date().toUTCString(),
+      'MIME-Version': '1.0',
+      'Content-Type': 'multipart/alternative',
+      'X-Auto-Response-Suppress': 'OOF, DR, RN, NRN, AutoReply',
+      'Precedence': 'bulk',
+    },
   });
   
   logger.info("[mailerService] Team invite email sent successfully", {
@@ -138,14 +183,42 @@ export async function sendAddedToWorkspaceEmail(params: {
   const dashboardUrl = `${env.FRONTEND_URL || "http://localhost:3000"}/dashboard`;
   const text = `You've been added${owner} to a Serplexity workspace.\n\nOpen your workspace: ${dashboardUrl}`;
   const html = `
-    <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
-      <h2>You've been added${owner}</h2>
-      <p>You now have access to a Serplexity workspace.</p>
-      <p>
-        <a href="${dashboardUrl}" style="display:inline-block;padding:10px 16px;background:#000;color:#fff;border-radius:8px;text-decoration:none">Open workspace</a>
-      </p>
-      <p>Or copy this link: <br/><code>${dashboardUrl}</code></p>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Team Invitation - Serplexity</title>
+    </head>
+    <body style="margin: 0; padding: 20px; background-color: #f6f9fc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    <div style="max-width: 520px; margin: 0 auto; padding: 0; background: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+      <!-- Header -->
+      <div style="text-align: center; padding: 32px 24px 24px 24px; border-bottom: 1px solid #f1f5f9;">
+        <div style="text-align: center;">
+          <img src="https://www.serplexity.com/Serplexity.png" alt="Serplexity Logo" style="width: 120px; height: auto; margin: 0 auto 16px auto; display: block;" />
+          <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #1e293b; letter-spacing: -0.025em;">Serplexity</h1>
+        </div>
+      </div>
+      
+      <!-- Main Content -->
+      <div style="padding: 32px 24px;">
+        <h2 style="margin: 0 0 16px 0; font-size: 24px; font-weight: 700; color: #0f172a; line-height: 1.2; text-align: center;">Welcome to Serplexity${owner}</h2>
+        
+        <p style="margin: 0 0 32px 0; font-size: 16px; line-height: 1.6; color: #475569; text-align: center;">You now have access to your Serplexity workspace. Start tracking and optimizing your brand's visibility in AI search results.</p>
+        
+        <!-- CTA Button -->
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${dashboardUrl}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #000000 0%, #1f2937 100%); color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; letter-spacing: 0.025em; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); transition: all 0.2s ease;">Open Workspace</a>
+        </div>
+      </div>
+      
+      <!-- Footer -->
+      <div style="padding: 24px; border-top: 1px solid #f1f5f9; text-align: center;">
+        <p style="margin: 0; font-size: 12px; color: #94a3b8;">© 2025 Serplexity. All rights reserved.</p>
+      </div>
     </div>
+    </body>
+    </html>
   `;
   
   const fromEmail = smtpSecret?.fromEmail || env.SMTP_FROM_EMAIL;
@@ -154,11 +227,27 @@ export async function sendAddedToWorkspaceEmail(params: {
   }
   
   await transporter.sendMail({
-    from: fromEmail,
+    from: `"The Serplexity Team" <${fromEmail}>`,
     to: params.toEmail,
     subject,
     text,
     html,
+    headers: {
+      'X-Priority': '3',
+      'X-MSMail-Priority': 'Normal',
+      'X-Mailer': 'Serplexity Platform',
+      'X-MimeOLE': 'Produced By Serplexity',
+      'Reply-To': fromEmail,
+      'Return-Path': fromEmail,
+      'List-Unsubscribe': '<mailto:unsubscribe@serplexity.com>',
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      'Message-ID': `<${Date.now()}-${Math.random().toString(36)}@serplexity.com>`,
+      'Date': new Date().toUTCString(),
+      'MIME-Version': '1.0',
+      'Content-Type': 'multipart/alternative',
+      'X-Auto-Response-Suppress': 'OOF, DR, RN, NRN, AutoReply',
+      'Precedence': 'bulk',
+    },
   });
   
   logger.info("[mailerService] Workspace notification email sent successfully", {

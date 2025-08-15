@@ -36,7 +36,8 @@ export async function getSeatUsage(prisma: PrismaClient, ownerUserId: string) {
 }
 
 export async function listMembers(prisma: PrismaClient, ownerUserId: string) {
-  return prisma.teamMember.findMany({
+  // Get active team members and existing user invites
+  const teamMembers = await prisma.teamMember.findMany({
     where: {
       ownerUserId,
       status: { in: [TeamMemberStatus.INVITED, TeamMemberStatus.ACTIVE] },
@@ -53,6 +54,49 @@ export async function listMembers(prisma: PrismaClient, ownerUserId: string) {
       member: { select: { id: true, email: true, name: true } },
     },
   });
+
+  // Get pending invites for non-existing users (not yet in TeamMember table)
+  const pendingInvites = await prisma.teamInvite.findMany({
+    where: {
+      ownerUserId,
+      consumedAt: null,
+      expiresAt: { gt: new Date() },
+      // Only get invites that don't have a corresponding TeamMember record
+      email: {
+        notIn: teamMembers
+          .filter(member => member.member?.email)
+          .map(member => member.member!.email)
+      }
+    },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      createdAt: true,
+    },
+  });
+
+  // Convert pending invites to the same format as team members
+  const pendingInvitesFormatted = pendingInvites.map(invite => ({
+    id: invite.id,
+    memberUserId: null as string | null,
+    role: invite.role,
+    status: TeamMemberStatus.INVITED,
+    invitedAt: invite.createdAt,
+    acceptedAt: null as Date | null,
+    createdAt: invite.createdAt,
+    member: {
+      id: null as string | null,
+      email: invite.email,
+      name: null as string | null,
+    },
+  }));
+
+  // Combine and sort all members
+  return [...teamMembers, ...pendingInvitesFormatted].sort(
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+  );
 }
 
 export async function addMemberByEmail(
@@ -111,6 +155,31 @@ export async function addMemberByEmail(
     // Require invite acceptance even for existing accounts
     const token = crypto.randomBytes(24).toString("hex");
     const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    
+    // Create or update TeamMember record with INVITED status
+    await prisma.teamMember.upsert({
+      where: {
+        ownerUserId_memberUserId: {
+          ownerUserId: params.ownerUserId,
+          memberUserId: existingUser.id,
+        },
+      },
+      create: {
+        ownerUserId: params.ownerUserId,
+        memberUserId: existingUser.id,
+        role: params.role,
+        status: TeamMemberStatus.INVITED,
+        invitedAt: new Date(),
+      },
+      update: {
+        status: TeamMemberStatus.INVITED,
+        role: params.role,
+        invitedAt: new Date(),
+        acceptedAt: null,
+        removedAt: null,
+      },
+    });
+    
     await prisma.teamInvite.create({
       data: {
         ownerUserId: params.ownerUserId,
@@ -121,6 +190,9 @@ export async function addMemberByEmail(
       },
     });
     const inviteLink = `${env.FRONTEND_URL || "http://localhost:3000"}/invite/accept?token=${token}`;
+    let emailSent = false;
+    let emailError: string | undefined;
+    
     try {
       await sendTeamInviteEmail({
         toEmail: params.email,
@@ -132,19 +204,29 @@ export async function addMemberByEmail(
         )?.name,
         inviteLink,
       });
-    } catch (_e) {
-      // non-fatal
+      emailSent = true;
+    } catch (e) {
+      emailError = e instanceof Error ? e.message : String(e);
+      logger.warn("[teamService] Failed to send invite email for existing user", { 
+        email: params.email, 
+        error: emailError 
+      });
     }
     return {
       ok: true as const,
       added: false as const,
       invited: true as const,
+      emailSent,
+      emailError,
       token,
     };
   }
 
   const token = crypto.randomBytes(24).toString("hex");
   const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+  
+  // For non-existing users, we can only create the TeamInvite record
+  // The TeamMember record will be created when they accept the invite
   await prisma.teamInvite.create({
     data: {
       ownerUserId: params.ownerUserId,
@@ -259,13 +341,50 @@ export async function removeMember(
   prisma: PrismaClient,
   params: { ownerUserId: string; memberUserId: string }
 ) {
-  await prisma.teamMember.updateMany({
+  await prisma.$transaction(async (tx) => {
+    // Remove active team member
+    await tx.teamMember.updateMany({
+      where: {
+        ownerUserId: params.ownerUserId,
+        memberUserId: params.memberUserId,
+        status: { in: [TeamMemberStatus.ACTIVE, TeamMemberStatus.INVITED] },
+      },
+      data: { status: TeamMemberStatus.REMOVED, removedAt: new Date() },
+    });
+
+    // Also remove any pending invites for this member
+    const member = await tx.user.findUnique({
+      where: { id: params.memberUserId },
+      select: { email: true },
+    });
+    
+    if (member?.email) {
+      await tx.teamInvite.updateMany({
+        where: {
+          ownerUserId: params.ownerUserId,
+          email: member.email,
+          consumedAt: null,
+        },
+        data: { consumedAt: new Date() },
+      });
+    }
+  });
+  
+  return { ok: true as const };
+}
+
+export async function removeInvite(
+  prisma: PrismaClient,
+  params: { ownerUserId: string; email: string }
+) {
+  await prisma.teamInvite.updateMany({
     where: {
       ownerUserId: params.ownerUserId,
-      memberUserId: params.memberUserId,
-      status: TeamMemberStatus.ACTIVE,
+      email: params.email,
+      consumedAt: null,
     },
-    data: { status: TeamMemberStatus.REMOVED, removedAt: new Date() },
+    data: { consumedAt: new Date() },
   });
+  
   return { ok: true as const };
 }

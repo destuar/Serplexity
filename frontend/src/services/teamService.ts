@@ -65,3 +65,7 @@ export async function acceptTeamInvite(token: string): Promise<void> {
 export async function removeTeamMember(memberUserId: string): Promise<void> {
   await apiClient.delete(`/team/members/${encodeURIComponent(memberUserId)}`);
 }
+
+export async function removeTeamInvite(email: string): Promise<void> {
+  await apiClient.delete(`/team/invites/${encodeURIComponent(email)}`);
+}

@@ -77,7 +77,7 @@ export const FadeIn: React.FC<FadeInProps> = ({
     <div
       ref={ref}
       className={cn(
-        'transition-[opacity,transform] duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]',
+        'transition-[opacity,transform] duration-700 ease-&lsqb;cubic-bezier(0.25,0.46,0.45,0.94)&rsqb;',
         isVisible ? 'opacity-100 translate-y-0 translate-x-0' : `opacity-0 ${directionClasses[direction]}`,
         className
       )}
