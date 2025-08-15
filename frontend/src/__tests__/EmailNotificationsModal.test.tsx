@@ -20,7 +20,7 @@ vi.mock("../services/emailNotificationService", () => ({
   getNotificationStats: vi.fn(),
 }));
 
-const mockEmailService = emailNotificationService as any;
+const mockEmailService = vi.mocked(emailNotificationService);
 
 // Mock user and company data
 const mockUser = {

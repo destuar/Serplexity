@@ -139,7 +139,7 @@ const EmailNotificationsModal: React.FC<EmailNotificationsModalProps> = ({
           selectedCompanyFilter === "all" ? undefined : selectedCompanyFilter;
         const s = await getNotificationStats(companyId);
         setStats(s);
-      } catch (_err) {
+      } catch {
         // Non-blocking; silently ignore in UI to avoid noise
       } finally {
         setStatsLoading(false);

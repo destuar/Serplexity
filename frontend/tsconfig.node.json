@@ -4,7 +4,9 @@
     "skipLibCheck": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "types": ["node", "vitest"],
+    "typeRoots": ["./node_modules/@types"]
   },
   "include": ["vite.config.js", "vitest.config.ts"]
 }
