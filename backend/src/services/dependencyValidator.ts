@@ -95,14 +95,6 @@ export class DependencyValidator {
         validator: this.validatePydanticAgentsDirectory.bind(this),
         remediation: "Ensure pydantic_agents directory and Python files exist",
       },
-      {
-        name: "playwright-installed",
-        type: "python",
-        required: false,
-        validator: this.validatePlaywright.bind(this),
-        remediation:
-          "Run: pip install playwright && python -m playwright install --with-deps chromium",
-      },
     ];
   }
 
@@ -202,28 +194,6 @@ export class DependencyValidator {
     };
   }
 
-  private async validatePlaywright(): Promise<DependencyResult> {
-    try {
-      const pythonPath = process.env["PYTHON_PATH"] || "python3";
-      await new Promise<void>((resolve, reject) => {
-        const proc = spawn(pythonPath, [
-          "-c",
-          "import playwright; print('ok')",
-        ]);
-        proc.on("exit", (code) =>
-          code === 0 ? resolve() : reject(new Error("playwright import failed"))
-        );
-        proc.on("error", reject);
-      });
-      return { success: true, message: "Playwright available" };
-    } catch (e) {
-      return {
-        success: false,
-        message: "Playwright not installed",
-        details: { error: e instanceof Error ? e.message : String(e) },
-      };
-    }
-  }
 
   /**
    * Python availability check

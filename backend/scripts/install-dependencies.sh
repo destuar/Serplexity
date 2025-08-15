@@ -135,10 +135,6 @@ install_python_dependencies() {
 
     # Install requirements
     pip install -r requirements.txt
-    # Install Playwright browsers if Playwright is present
-    if python -c "import importlib, sys; sys.exit(0 if importlib.util.find_spec('playwright') else 1)"; then
-        python -m playwright install --with-deps chromium || true
-    fi
 
     # Verify installation
     if pip show pydantic-ai &> /dev/null; then
