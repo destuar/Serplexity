@@ -47,6 +47,7 @@ import authRouter from "./routes/authRoutes";
 import billingRouter from "./routes/billingRoutes";
 import blogRouter from "./routes/blogRoutes";
 import companyRouter from "./routes/companyRoutes";
+import emailNotificationRouter from "./routes/emailNotificationRoutes";
 import googleIntegrationRouter from "./routes/googleIntegrationRoutes";
 import healthRouter from "./routes/healthRoutes";
 import paymentRouter from "./routes/paymentRoutes";
@@ -298,6 +299,7 @@ app.use("/api/search", searchRouter);
 app.use("/api/web-audit", webAuditRouter);
 app.use("/api/website-analytics", websiteAnalyticsRouter);
 app.use("/api/integrations/google", googleIntegrationRouter);
+app.use("/api/notifications", emailNotificationRouter);
 
 // Blog routes (mixed public/admin)
 app.use("/api/blog", blogRouter);

@@ -25,6 +25,15 @@ export interface DatabaseSecret {
   database: string;
 }
 
+export interface SmtpSecret {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  fromEmail: string;
+  secure?: boolean;
+}
+
 export interface SecretMetadata {
   provider: string;
   secretName: string;
@@ -37,13 +46,18 @@ export interface SecretResult {
   metadata: SecretMetadata;
 }
 
+export interface SmtpSecretResult {
+  secret: SmtpSecret;
+  metadata: SecretMetadata;
+}
+
 /**
  * Abstract base class for secrets providers
  * Enables consistent interface across all cloud providers
  */
 export abstract class SecretsProvider {
   protected readonly providerName: string;
-  protected cache = new Map<string, { result: SecretResult; expiry: number }>();
+  protected cache = new Map<string, { result: SecretResult | SmtpSecretResult; expiry: number }>();
   protected readonly cacheTtl: number;
 
   constructor(providerName: string, cacheTtlMs: number = 5 * 60 * 1000) {
@@ -61,7 +75,7 @@ export abstract class SecretsProvider {
       logger.info(
         `[SecretsProvider:${this.providerName}] Cache hit for secret: ${secretName}`
       );
-      return cached.result;
+      return cached.result as SecretResult;
     }
 
     // Fetch from provider
@@ -69,12 +83,45 @@ export abstract class SecretsProvider {
 
     // Cache the result
     this.cache.set(secretName, {
-      result,
+      result: result as SecretResult | SmtpSecretResult,
       expiry: Date.now() + this.cacheTtl,
     });
 
     logger.info(
       `[SecretsProvider:${this.providerName}] Secret retrieved: ${secretName}`,
+      {
+        provider: this.providerName,
+        host: result.secret.host,
+      }
+    );
+
+    return result;
+  }
+
+  /**
+   * Get SMTP secret with caching
+   */
+  async getSmtpSecret(secretName: string): Promise<SmtpSecretResult> {
+    // Check cache first
+    const cached = this.cache.get(`smtp:${secretName}`);
+    if (cached && Date.now() < cached.expiry) {
+      logger.info(
+        `[SecretsProvider:${this.providerName}] Cache hit for SMTP secret: ${secretName}`
+      );
+      return cached.result as SmtpSecretResult;
+    }
+
+    // Fetch from provider
+    const result = await this.fetchSmtpSecret(secretName);
+
+    // Cache the result
+    this.cache.set(`smtp:${secretName}`, {
+      result: result as SecretResult | SmtpSecretResult,
+      expiry: Date.now() + this.cacheTtl,
+    });
+
+    logger.info(
+      `[SecretsProvider:${this.providerName}] SMTP secret retrieved: ${secretName}`,
       {
         provider: this.providerName,
         host: result.secret.host,
@@ -111,6 +158,11 @@ export abstract class SecretsProvider {
    * Fetch secret from the provider (implementation-specific)
    */
   protected abstract fetchSecret(secretName: string): Promise<SecretResult>;
+
+  /**
+   * Fetch SMTP secret from the provider (implementation-specific)
+   */
+  protected abstract fetchSmtpSecret(secretName: string): Promise<SmtpSecretResult>;
 }
 
 /**
@@ -192,6 +244,57 @@ export class AwsSecretsProvider extends SecretsProvider {
     };
   }
 
+  protected async fetchSmtpSecret(secretName: string): Promise<SmtpSecretResult> {
+    await this.initializeClient();
+    if (!this.client) {
+      throw new Error("Failed to initialize AWS SecretsManager client");
+    }
+
+    const { GetSecretValueCommand } = await import(
+      "@aws-sdk/client-secrets-manager"
+    );
+
+    const response = await this.client.send(
+      new GetSecretValueCommand({
+        SecretId: secretName,
+        VersionStage: "AWSCURRENT",
+      })
+    );
+
+    if (!response.SecretString) {
+      throw new Error(
+        `[AWS SecretsProvider] SMTP secret ${secretName} has no value`
+      );
+    }
+
+    const awsSecret = JSON.parse(response.SecretString);
+
+    const metadata: SecretMetadata = {
+      provider: this.providerName,
+      secretName: secretName,
+    };
+
+    if (response.VersionId) {
+      metadata.version = response.VersionId;
+    }
+
+    if (response.CreatedDate) {
+      metadata.lastUpdated = response.CreatedDate;
+    }
+
+    return {
+      secret: {
+        host: awsSecret.SMTP_HOST || awsSecret.host || awsSecret.smtp_host,
+        port: Number(awsSecret.SMTP_PORT || awsSecret.port || awsSecret.smtp_port || 587),
+        user: awsSecret.SMTP_USER || awsSecret.user || awsSecret.username || awsSecret.smtp_user,
+        password: awsSecret.SMTP_PASSWORD || awsSecret.password || awsSecret.smtp_password,
+        fromEmail: awsSecret.SMTP_FROM_EMAIL || awsSecret.fromEmail || awsSecret.from_email || awsSecret.smtp_from_email,
+        secure: awsSecret.secure === true || Number(awsSecret.SMTP_PORT || awsSecret.port || awsSecret.smtp_port) === 465,
+      },
+      metadata,
+    };
+  }
+
   private async initializeClient(): Promise<void> {
     if (this.client) return;
 
@@ -236,6 +339,11 @@ export class AzureKeyVaultProvider extends SecretsProvider {
     // const { SecretClient } = await import('@azure/keyvault-secrets');
     throw new Error("[Azure KeyVault] Not implemented yet");
   }
+
+  protected async fetchSmtpSecret(_secretName: string): Promise<SmtpSecretResult> {
+    // TODO: Implement Azure Key Vault SMTP secret retrieval
+    throw new Error("[Azure KeyVault] SMTP secrets not implemented yet");
+  }
 }
 
 /**
@@ -255,6 +363,11 @@ export class GcpSecretManagerProvider extends SecretsProvider {
     // TODO: Implement GCP Secret Manager secret retrieval
     // const { SecretManagerServiceClient } = await import('@google-cloud/secret-manager');
     throw new Error("[GCP SecretManager] Not implemented yet");
+  }
+
+  protected async fetchSmtpSecret(_secretName: string): Promise<SmtpSecretResult> {
+    // TODO: Implement GCP Secret Manager SMTP secret retrieval
+    throw new Error("[GCP SecretManager] SMTP secrets not implemented yet");
   }
 }
 
@@ -299,6 +412,33 @@ export class EnvironmentSecretsProvider extends SecretsProvider {
 
     return {
       secret,
+      metadata: {
+        provider: this.providerName,
+        secretName: _secretName,
+        lastUpdated: new Date(),
+      },
+    };
+  }
+
+  protected async fetchSmtpSecret(_secretName: string): Promise<SmtpSecretResult> {
+    // Import environment configuration
+    const env = (await import("../config/env")).default;
+
+    if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASSWORD || !env.SMTP_FROM_EMAIL) {
+      throw new Error(
+        "[Environment SecretsProvider] SMTP environment variables not set (SMTP_HOST, SMTP_USER, SMTP_PASSWORD, SMTP_FROM_EMAIL)"
+      );
+    }
+
+    return {
+      secret: {
+        host: env.SMTP_HOST,
+        port: env.SMTP_PORT || 587,
+        user: env.SMTP_USER,
+        password: env.SMTP_PASSWORD,
+        fromEmail: env.SMTP_FROM_EMAIL,
+        secure: env.SMTP_PORT === 465,
+      },
       metadata: {
         provider: this.providerName,
         secretName: _secretName,
@@ -356,7 +496,7 @@ export class SecretsProviderFactory {
   static async createFromEnvironment(): Promise<SecretsProvider> {
     const env = (await import("../config/env")).default;
 
-    if (env.USE_AWS_SECRETS) {
+    if (env.COMPUTED_SECRETS_PROVIDER === "aws") {
       return this.createProvider("aws");
     } else {
       return this.createProvider("environment");

@@ -29,6 +29,7 @@ import { scheduleBackupDailyReportTrigger } from "./queues/backupScheduler";
 import "./queues/backupSchedulerWorker"; // This initializes the backup scheduler worker
 import "./queues/billingPeriodScheduler"; // initialize worker
 import { scheduleDailyBillingClose } from "./queues/billingPeriodScheduler";
+import "./queues/emailNotificationWorker"; // This initializes and starts the email notification worker
 import { initializeHealthCheckScheduler } from "./queues/healthCheckScheduler";
 import { scheduleDailyReportTrigger } from "./queues/masterScheduler";
 import "./queues/masterSchedulerWorker"; // This initializes the daily report scheduler worker

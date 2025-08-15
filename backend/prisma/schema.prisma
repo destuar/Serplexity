@@ -822,3 +822,38 @@ model TeamInvite {
   @@index([ownerUserId])
   @@index([email])
 }
+
+/// Email notification configuration for monitoring metrics
+model NotificationRule {
+  id                String   @id @default(cuid())
+  ownerUserId       String   // User who owns this notification rule
+  companyId         String?  // Optional company filter (null = all companies)
+  metric            String   // RANKING, SOV_CHANGE, INCLUSION_RATE, SENTIMENT_SCORE
+  thresholdType     String   // ABSOLUTE, PERCENT
+  thresholdValue    Float    // Threshold value to trigger notification
+  direction         String   // UP, DOWN, BETTER, WORSE, ANY
+  frequency         String   // INSTANT
+  emails            String[] // Email addresses to notify
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([ownerUserId])
+  @@index([ownerUserId, companyId])
+  @@index([active])
+}
+
+/// Event log for email notifications sent
+model NotificationEvent {
+  id          String   @id @default(cuid())
+  ruleId      String   // Reference to NotificationRule that triggered this
+  dedupeKey   String   @unique // Deduplication key (hourly bucket)
+  emails      String[] // Emails that notification was sent to
+  emailsSent  String[] // Emails that were successfully delivered
+  metricData  Json     // Snapshot of metric data that triggered notification
+  sentAt      DateTime @default(now())
+
+  @@index([ruleId])
+  @@index([dedupeKey])
+  @@index([sentAt])
+}

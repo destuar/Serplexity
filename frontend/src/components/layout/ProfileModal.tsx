@@ -568,14 +568,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
               <Button variant="pill" onClick={handleManageSubscription}>
                 Manage Subscription
               </Button>
-              {user?.subscriptionStatus === "active" && (
-                <div className="text-sm text-gray-600">
-                  <p>• Update payment method</p>
-                  <p>• Download invoices</p>
-                  <p>• Cancel subscription</p>
-                  <p>• Change billing frequency</p>
-                </div>
-              )}
             </div>
             <div className="mt-6 rounded-lg bg-white p-4 shadow-inner border border-white/30">
               <div className="flex items-center justify-between">
@@ -1042,7 +1034,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                   return;
                                 }
                                 try {
-                                  await inviteTeamMember(email);
+                                  const result = await inviteTeamMember(email);
                                   const [limits, members] = await Promise.all([
                                     getTeamLimits(),
                                     getTeamMembers(),
@@ -1050,7 +1042,19 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                   setSeatLimits(limits);
                                   setTeamMembers(members);
                                   setInviteEmail("");
-                                  setTeamError(null);
+                                  
+                                  // Show email delivery status feedback
+                                  if (result.emailSent) {
+                                    setTeamError(null);
+                                  } else if (result.emailError) {
+                                    setTeamError(
+                                      `Invite created but email failed to send: ${result.emailError}`
+                                    );
+                                  } else {
+                                    setTeamError(
+                                      "Invite created but email was not sent - please check your email configuration"
+                                    );
+                                  }
                                 } catch (e) {
                                   const message =
                                     (e as { message?: string })?.message ||

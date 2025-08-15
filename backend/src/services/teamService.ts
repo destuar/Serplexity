@@ -1,6 +1,7 @@
 import { PrismaClient, TeamMemberStatus, TeamRole } from "@prisma/client";
 import crypto from "crypto";
 import env from "../config/env";
+import logger from "../utils/logger";
 import { sendTeamInviteEmail } from "./mailerService";
 
 export function getSeatLimitForPlan(planTier?: string | null): number {
@@ -154,6 +155,9 @@ export async function addMemberByEmail(
     },
   });
   const inviteLink = `${env.FRONTEND_URL || "http://localhost:3000"}/invite/accept?token=${token}`;
+  let emailSent = false;
+  let emailError: string | undefined;
+  
   try {
     await sendTeamInviteEmail({
       toEmail: params.email,
@@ -165,13 +169,21 @@ export async function addMemberByEmail(
       )?.name,
       inviteLink,
     });
-  } catch (_e) {
-    // non-fatal
+    emailSent = true;
+  } catch (e) {
+    emailError = e instanceof Error ? e.message : String(e);
+    logger.warn("[teamService] Failed to send invite email", { 
+      email: params.email, 
+      error: emailError 
+    });
   }
+  
   return {
     ok: true as const,
     added: false as const,
     invited: true as const,
+    emailSent,
+    emailError,
     token,
   };
 }

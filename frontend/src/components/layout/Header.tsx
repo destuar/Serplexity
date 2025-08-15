@@ -13,6 +13,7 @@
 import { Bell, Menu, Settings, User } from "lucide-react";
 import React, { useState } from "react";
 import Breadcrumb from "../ui/Breadcrumb";
+import EmailNotificationsModal from "./EmailNotificationsModal";
 import ProfileModal from "./ProfileModal";
 import SettingsModal from "./SettingsModal";
 
@@ -25,6 +26,7 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ toggleMobileSidebar }) => {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
 
   return (
     <>
@@ -46,7 +48,10 @@ const Header: React.FC<HeaderProps> = ({ toggleMobileSidebar }) => {
           >
             <Settings size={18} />
           </button>
-          <button className="p-1.5 ml-3 rounded-lg hover:bg-gray-100">
+          <button
+            onClick={() => setShowNotificationsModal(true)}
+            className="p-1.5 ml-3 rounded-lg hover:bg-gray-100"
+          >
             <Bell size={18} />
           </button>
           <button
@@ -68,6 +73,12 @@ const Header: React.FC<HeaderProps> = ({ toggleMobileSidebar }) => {
       <ProfileModal
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
+      />
+
+      {/* Email Notifications Modal */}
+      <EmailNotificationsModal
+        isOpen={showNotificationsModal}
+        onClose={() => setShowNotificationsModal(false)}
       />
     </>
   );

@@ -39,12 +39,23 @@ export const inviteMember = async (req: Request, res: Response) => {
   const inviteLink = result.invited
     ? `${process.env.FRONTEND_URL || "http://localhost:3000"}/invite/accept?token=${result.token}`
     : undefined;
-  res.json({
+  const response = {
     ok: true,
     invited: !!result.invited,
     added: !!result.added,
     inviteLink,
+    emailSent: result.emailSent,
+    emailError: result.emailError,
+  };
+  
+  logger.info("[teamController] Invite response", {
+    email: email.toLowerCase(),
+    emailSent: result.emailSent,
+    emailError: result.emailError,
+    responseSize: JSON.stringify(response).length
   });
+  
+  res.json(response);
 };
 
 export const acceptMemberInvite = async (req: Request, res: Response) => {

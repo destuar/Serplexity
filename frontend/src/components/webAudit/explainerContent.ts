@@ -32,22 +32,18 @@ declare function platformStepsSecurity(): {
   shopify: Array<{ title: string; notes?: string[] }>;
   custom: Array<{ title: string; notes?: string[] }>;
 };
-declare function generalStepsPerformance(): Array<{
+declare function _generalStepsPerformance(): Array<{
   title: string;
   notes?: string[];
 }>;
-declare function generalStepsSEO(): Array<{ title: string; notes?: string[] }>;
-declare function generalStepsGEO(): Array<{ title: string; notes?: string[] }>;
-declare function generalStepsSecurity(): Array<{
+declare function _generalStepsSEO(): Array<{ title: string; notes?: string[] }>;
+declare function _generalStepsGEO(): Array<{ title: string; notes?: string[] }>;
+declare function _generalStepsSecurity(): Array<{
   title: string;
   notes?: string[];
 }>;
-// Avoid unused declaration warnings by referencing them in a no-op map
-const _refs = {
-  generalStepsSEO,
-  generalStepsGEO,
-  generalStepsSecurity,
-};
+// Note: The declared functions above are implemented in CategoryExplainer.tsx
+// and are available at runtime when this module is used
 
 export function getExplainerContent(category: CategoryKey) {
   if (category === "performance") {

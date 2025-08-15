@@ -38,7 +38,13 @@ export async function getTeamMembers(): Promise<TeamMemberDto[]> {
 export async function inviteTeamMember(
   email: string,
   role: TeamRole = "MEMBER"
-): Promise<{ invited: boolean; added: boolean; inviteLink?: string }> {
+): Promise<{ 
+  invited: boolean; 
+  added: boolean; 
+  inviteLink?: string;
+  emailSent?: boolean;
+  emailError?: string;
+}> {
   try {
     const { data } = await apiClient.post("/team/invite", { email, role });
     return data;

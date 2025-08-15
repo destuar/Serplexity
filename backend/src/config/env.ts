@@ -39,6 +39,7 @@ const envSchema = z.object({
     .default("environment"),
   DATABASE_SECRET_NAME: z.string().optional(), // Name of the database secret in the secrets provider
   READ_REPLICA_SECRET_NAME: z.string().optional(), // Name of the read replica secret
+  SMTP_SECRET_NAME: z.string().optional(), // Name of the SMTP secret in the secrets provider
   USE_AWS_SECRETS: z
     .string()
     .transform((val) => val === "true")
@@ -148,7 +149,16 @@ if (secretsProvider !== "environment") {
       `FATAL ERROR: DATABASE_SECRET_NAME is required when SECRETS_PROVIDER=${secretsProvider}`
     );
   }
-  // Can't use logger here as env is needed to configure logger
+  // SMTP_SECRET_NAME is optional - will fall back to environment variables if not provided
+  if (envData.SMTP_SECRET_NAME) {
+    console.log(
+      `✅ Using ${secretsProvider.toUpperCase()} secrets provider for SMTP credentials`
+    );
+  } else {
+    console.log(
+      `⚠️ No SMTP_SECRET_NAME configured - will use environment variables for SMTP`
+    );
+  }
   console.log(
     `✅ Using ${secretsProvider.toUpperCase()} secrets provider for database credentials`
   );
@@ -159,7 +169,12 @@ if (secretsProvider !== "environment") {
       "FATAL ERROR: DATABASE_URL is required when SECRETS_PROVIDER=environment"
     );
   }
-  // Can't use logger here as env is needed to configure logger
+  // SMTP environment variables are optional
+  if (envData.SMTP_HOST && envData.SMTP_USER && envData.SMTP_PASSWORD && envData.SMTP_FROM_EMAIL) {
+    console.log("✅ Using environment variables for SMTP credentials");
+  } else {
+    console.log("⚠️ SMTP environment variables not fully configured - email features may not work");
+  }
   console.log("✅ Using environment variables for database credentials");
 }
 

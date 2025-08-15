@@ -26,6 +26,8 @@ import { getServiceStatistics, getServiceHealth } from "../services/llmService";
 import { providerManager } from "../config/pydanticProviders";
 import SystemValidator from "../startup/systemValidator";
 import DependencyValidator from "../services/dependencyValidator";
+import { testSmtpConnection } from "../services/mailerService";
+import { getPrismaClient } from "../config/dbCache";
 // Modern PydanticAI uses embedded system prompts, not external prompt management
 import logger from "../utils/logger";
 
@@ -587,6 +589,49 @@ router.post("/rotation/trigger", async (req: Request, res: Response) => {
       status: "ERROR",
       error: (error as Error).message,
       timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+/**
+ * Database health check
+ * GET /health
+ */
+router.get("/", async (req: Request, res: Response) => {
+  try {
+    const prisma = await getPrismaClient();
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: "ok", database: "connected" });
+  } catch (error) {
+    res.status(500).json({ 
+      status: "error", 
+      database: "disconnected",
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+/**
+ * SMTP health check
+ * GET /health/smtp
+ */
+router.get("/smtp", async (req: Request, res: Response) => {
+  try {
+    const result = await testSmtpConnection();
+    if (result.success) {
+      res.json({ status: "ok", smtp: "connected" });
+    } else {
+      res.status(500).json({ 
+        status: "error", 
+        smtp: "disconnected",
+        error: result.error
+      });
+    }
+  } catch (error) {
+    res.status(500).json({ 
+      status: "error", 
+      smtp: "disconnected",
+      error: error instanceof Error ? error.message : String(error)
     });
   }
 });

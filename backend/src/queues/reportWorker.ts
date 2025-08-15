@@ -1852,6 +1852,27 @@ async function processReport(
       // This non-blocking failure means dashboard will use degraded mode
     }
 
+    // Evaluate email notification rules (non-blocking)
+    try {
+      const { emailNotificationService } = await import("../services/emailNotificationService");
+      await emailNotificationService.evaluateReport({
+        ownerUserId: fullCompany.userId,
+        companyId: fullCompany.id,
+        reportId: runId,
+      });
+      console.log(`📧 Email notification rules evaluated for report ${runId}`);
+    } catch (error) {
+      console.error(
+        `⚠️  Failed to evaluate email notification rules for report ${runId}:`,
+        {
+          error: error instanceof Error ? error.message : error,
+          reportId: runId,
+          companyId: fullCompany.id,
+        }
+      );
+      // Non-blocking: notification failures should not prevent report completion
+    }
+
     // Optimization tasks are no longer auto-generated; web audit supersedes this feature
 
     console.log(`🎉 Report generation completed successfully!`);
