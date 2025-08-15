@@ -80,22 +80,24 @@ RUN echo "Python dependencies - Installing..." && \
     pip3 install --no-cache-dir --break-system-packages -r requirements.txt && \
     echo "Python dependencies - Installed"
 
+# Create non-root user early so we can chown on COPY
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S backend -u 1001
+
 # Copy built application from builder stage
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/prisma ./prisma
+COPY --from=builder --chown=backend:nodejs /app/dist ./dist
+COPY --from=builder --chown=backend:nodejs /app/prisma ./prisma
 # DON'T copy .prisma from builder - let production generate its own
 
 # Copy Python agents with proper structure
-COPY backend/src/pydantic_agents/ ./src/pydantic_agents/
+COPY --chown=backend:nodejs backend/src/pydantic_agents/ ./src/pydantic_agents/
 
 # Set Python path for module imports (avoid shell var expansion warning)
 ENV PYTHONPATH=/app:/app/src
 
-# Copy startup script
-COPY backend/start.sh ./start.sh
-
-# Copy Docker-specific startup script
-COPY backend/docker-start.sh ./docker-start.sh
+# Copy startup scripts with correct ownership
+COPY --chown=backend:nodejs backend/start.sh ./start.sh
+COPY --chown=backend:nodejs backend/docker-start.sh ./docker-start.sh
 
 # Generate Prisma client in production context with correct permissions
 RUN echo "Generating production Prisma client..." && \
@@ -103,13 +105,8 @@ RUN echo "Generating production Prisma client..." && \
     echo "Production Prisma client generated successfully" && \
     ls -la node_modules/.prisma/client/
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S backend -u 1001
-
-# Change ownership and permissions of the app directory
+# Ensure script is executable and present
 RUN chmod +x ./docker-start.sh && \
-    chown -R backend:nodejs /app && \
     ls -la ./docker-start.sh && \
     echo "Testing script execution:" && \
     head -5 ./docker-start.sh
