@@ -21,26 +21,64 @@ import { getBullMQOptions } from "../config/bullmq";
 import { getDbClient } from "../config/database";
 import logger from "../utils/logger";
 import nodemailer, { Transporter } from "nodemailer";
+import { SecretsProviderFactory, SmtpSecret } from "../services/secretsProvider";
 import type { EmailNotificationJobData } from "./emailNotificationQueue";
 
 // Queue name with environment prefix
-const QUEUE_NAME = `${env.BULLMQ_QUEUE_PREFIX}email-notifications`;
+const QUEUE_NAME = `email-notifications`;
 
 // Email transporter for sending notifications
 let emailTransporter: Transporter | null = null;
 let isEmailConfigured = false;
+let smtpSecret: SmtpSecret | null = null;
 
 /**
  * Initialize email transporter with SMTP configuration
  */
-function initializeEmailTransporter(): void {
+async function initializeEmailTransporter(): Promise<void> {
+  if (isEmailConfigured) return;
+  
   try {
+    // Try to get SMTP credentials from secrets provider first
+    if (env.SMTP_SECRET_NAME && env.COMPUTED_SECRETS_PROVIDER !== "environment") {
+      logger.info("[emailNotificationWorker] Attempting to load SMTP credentials from secrets provider");
+      const secretsProvider = await SecretsProviderFactory.createFromEnvironment();
+      const smtpSecretResult = await secretsProvider.getSmtpSecret(env.SMTP_SECRET_NAME);
+      smtpSecret = smtpSecretResult.secret;
+      
+      const transportConfig = {
+        host: smtpSecret.host,
+        port: smtpSecret.port,
+        secure: smtpSecret.secure || smtpSecret.port === 465,
+        auth: {
+          user: smtpSecret.user,
+          pass: smtpSecret.password,
+        },
+        tls: { rejectUnauthorized: false },
+      };
+      
+      logger.info("[emailNotificationWorker] Creating SMTP transporter with config", {
+        host: transportConfig.host,
+        port: transportConfig.port,
+        secure: transportConfig.secure,
+        user: transportConfig.auth.user,
+        provider: smtpSecretResult.metadata.provider
+      });
+      
+      emailTransporter = nodemailer.createTransport(transportConfig);
+      isEmailConfigured = true;
+      logger.info("[emailNotificationWorker] SMTP transporter configured from secrets provider");
+      return;
+    }
+    
+    // Fallback to environment variables
     if (
       env.SMTP_HOST &&
       env.SMTP_USER &&
       env.SMTP_PASSWORD &&
       env.SMTP_FROM_EMAIL
     ) {
+      logger.info("[emailNotificationWorker] Configuring SMTP from environment variables");
       emailTransporter = nodemailer.createTransport({
         host: env.SMTP_HOST,
         port: env.SMTP_PORT || 587,
@@ -52,13 +90,13 @@ function initializeEmailTransporter(): void {
         tls: { rejectUnauthorized: false },
       });
       isEmailConfigured = true;
-      logger.info("Email notification transporter configured successfully");
+      logger.info("[emailNotificationWorker] Email notification transporter configured from environment");
     } else {
-      logger.warn("Email not configured - missing SMTP settings");
+      logger.warn("[emailNotificationWorker] Email not configured - missing SMTP settings");
       isEmailConfigured = false;
     }
   } catch (error) {
-    logger.error("Failed to initialize email transporter", {
+    logger.error("[emailNotificationWorker] Failed to initialize email transporter", {
       error: error instanceof Error ? error.message : String(error),
     });
     isEmailConfigured = false;
@@ -124,23 +162,37 @@ function formatEmailBody(data: EmailNotificationJobData): { text: string; html: 
 
   const currentFormatted = formatValue(metricData.currentValue);
   const previousFormatted = formatValue(metricData.previousValue);
-  const changeFormatted = metricData.changePercent.toFixed(1);
   
-  // Dashboard URL for the company
-  const dashboardUrl = `${env.FRONTEND_URL || "https://app.serplexity.com"}/dashboard/companies/${metricData.companyId}`;
+  // Calculate raw change (absolute difference)
+  const rawChange = Math.abs(metricData.changeValue);
+  const changeDirection = metricData.changeValue > 0 ? 'increase' : 'decrease';
+  
+  // Dashboard URL for overview
+  const dashboardUrl = "https://serplexity.com/overview";
+  
+  // Format timestamp for display (convert string to Date if needed)
+  const timestamp = typeof metricData.timestamp === 'string' 
+    ? new Date(metricData.timestamp) 
+    : metricData.timestamp;
+  const formattedTimestamp = timestamp.toLocaleString('en-US', { 
+    month: '2-digit', 
+    day: '2-digit', 
+    year: 'numeric', 
+    hour: '2-digit', 
+    minute: '2-digit', 
+    hour12: true 
+  });
   
   const text = `
 ${metricName} Alert - ${metricData.companyName}
 
-Your ${metricName.toLowerCase()} has ${directionText.toLowerCase()}!
+Your ${metricName.toLowerCase()} has ${directionText.toLowerCase()} from ${previousFormatted} to ${currentFormatted}.
 
-Current Value: ${currentFormatted}
-Previous Value: ${previousFormatted}
-Change: ${changeFormatted}% ${metricData.changeValue > 0 ? 'increase' : 'decrease'}
+Change: ${rawChange.toFixed(1)} point ${changeDirection}
 
 View detailed analytics: ${dashboardUrl}
 
-Time: ${metricData.timestamp.toLocaleString()}
+Time: ${formattedTimestamp}
 
 ---
 This is an automated notification from Serplexity. 
@@ -148,59 +200,76 @@ To manage your notification preferences, visit your dashboard settings.
   `.trim();
 
   const html = `
-    <div style="font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8fafc; padding: 20px;">
-      <div style="background: white; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-        <div style="text-align: center; margin-bottom: 24px;">
-          <h1 style="color: #1e293b; margin: 0; font-size: 24px; font-weight: 600;">
-            ${metricName} Alert
-          </h1>
-          <p style="color: #64748b; margin: 8px 0 0 0; font-size: 16px;">
-            ${metricData.companyName}
-          </p>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${metricName} Alert - Serplexity</title>
+    </head>
+    <body style="margin: 0; padding: 10px; background-color: #f6f9fc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    <div style="max-width: 520px; margin: 0 auto; padding: 0; background: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
+      <!-- Header -->
+      <div style="text-align: center; padding: 24px 16px 16px 16px; border-bottom: 1px solid #f1f5f9;">
+        <table style="margin: 0 auto; border-collapse: collapse;">
+          <tr>
+            <td style="vertical-align: middle; padding-right: 12px;">
+              <img src="https://www.serplexity.com/Serplexity.png" alt="Serplexity" width="32" height="32" style="width: 32px; height: 32px; display: block;" />
+            </td>
+            <td style="vertical-align: middle;">
+              <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #1e293b; letter-spacing: -0.025em;">Serplexity</h1>
+            </td>
+          </tr>
+        </table>
+      </div>
+      
+      <!-- Main Content -->
+      <div style="padding: 24px 16px;">
+        <h2 style="margin: 0 0 16px 0; font-size: 24px; font-weight: 700; color: #0f172a; line-height: 1.2; text-align: center;">${metricName} Alert</h2>
+        
+        <p style="margin: 0 0 24px 0; padding: 0 16px; font-size: 16px; line-height: 1.6; color: #475569; text-align: center;">Your <strong>${metricName.toLowerCase()}</strong> for ${metricData.companyName} has ${directionText.toLowerCase()} from <strong>${previousFormatted}</strong> to <strong>${currentFormatted}</strong>.</p>
+        
+        <!-- Metrics Display -->
+        <table style="width: 100%; margin: 32px 0; border-collapse: collapse;">
+          <tr>
+            <td style="width: 33.33%; padding: 16px 8px; background: #f8fafc; border-radius: 8px 0 0 8px; text-align: center; vertical-align: top;">
+              <div style="margin-bottom: 8px;">
+                <div style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 500; letter-spacing: 0.5px; margin-bottom: 6px;">Previous</div>
+                <div style="font-size: 20px; font-weight: 700; color: #1e293b; line-height: 1.1;">${previousFormatted}</div>
+              </div>
+            </td>
+            <td style="width: 33.33%; padding: 16px 8px; background: #f8fafc; text-align: center; vertical-align: top;">
+              <div style="margin-bottom: 8px;">
+                <div style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 500; letter-spacing: 0.5px; margin-bottom: 6px;">Current</div>
+                <div style="font-size: 20px; font-weight: 700; color: #1e293b; line-height: 1.1;">${currentFormatted}</div>
+              </div>
+            </td>
+            <td style="width: 33.33%; padding: 16px 8px; background: #f8fafc; border-radius: 0 8px 8px 0; text-align: center; vertical-align: top;">
+              <div style="margin-bottom: 8px;">
+                <div style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 500; letter-spacing: 0.5px; margin-bottom: 6px;">Change</div>
+                <div style="font-size: 20px; font-weight: 700; color: ${metricData.changeValue > 0 ? '#059669' : '#dc2626'}; line-height: 1.1; white-space: nowrap;">
+                  ${metricData.changeValue > 0 ? '↗' : '↘'}&nbsp;${rawChange.toFixed(1)}
+                </div>
+              </div>
+            </td>
+          </tr>
+        </table>
+        
+        <!-- CTA Button -->
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${dashboardUrl}" style="display: inline-block; padding: 14px 32px; background-color: #000000; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">View Detailed Analytics</a>
         </div>
         
-        <div style="background: ${metricData.changeValue > 0 ? '#f0fdf4' : '#fef2f2'}; border: 1px solid ${metricData.changeValue > 0 ? '#bbf7d0' : '#fecaca'}; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
-          <p style="margin: 0; font-size: 18px; font-weight: 500; color: ${metricData.changeValue > 0 ? '#15803d' : '#dc2626'};">
-            Your ${metricName.toLowerCase()} has ${directionText.toLowerCase()}!
-          </p>
-        </div>
-        
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
-          <div style="text-align: center; padding: 16px; background: #f8fafc; border-radius: 8px;">
-            <p style="margin: 0 0 4px 0; font-size: 12px; text-transform: uppercase; color: #64748b; font-weight: 500;">Current</p>
-            <p style="margin: 0; font-size: 24px; font-weight: 600; color: #1e293b;">${currentFormatted}</p>
-          </div>
-          <div style="text-align: center; padding: 16px; background: #f8fafc; border-radius: 8px;">
-            <p style="margin: 0 0 4px 0; font-size: 12px; text-transform: uppercase; color: #64748b; font-weight: 500;">Previous</p>
-            <p style="margin: 0; font-size: 24px; font-weight: 600; color: #1e293b;">${previousFormatted}</p>
-          </div>
-        </div>
-        
-        <div style="text-align: center; margin-bottom: 24px;">
-          <p style="margin: 0; font-size: 14px; color: #64748b;">
-            <strong style="color: ${metricData.changeValue > 0 ? '#15803d' : '#dc2626'};">
-              ${changeFormatted}% ${metricData.changeValue > 0 ? 'increase' : 'decrease'}
-            </strong>
-          </p>
-        </div>
-        
-        <div style="text-align: center; margin-bottom: 24px;">
-          <a href="${dashboardUrl}" style="display: inline-block; background: #000; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500;">
-            View Detailed Analytics
-          </a>
-        </div>
-        
-        <div style="border-top: 1px solid #e2e8f0; padding-top: 16px; text-align: center;">
-          <p style="margin: 0; font-size: 12px; color: #64748b;">
-            ${metricData.timestamp.toLocaleString()}
-          </p>
-          <p style="margin: 8px 0 0 0; font-size: 12px; color: #64748b;">
-            This is an automated notification from Serplexity.<br>
-            To manage your notification preferences, visit your dashboard settings.
-          </p>
-        </div>
+        <p style="margin: 24px 0 0 0; font-size: 14px; line-height: 1.5; color: #94a3b8; text-align: center;">${formattedTimestamp}</p>
+      </div>
+      
+      <!-- Footer -->
+      <div style="padding: 16px; border-top: 1px solid #f1f5f9; text-align: center;">
+        <p style="margin: 0; font-size: 12px; color: #94a3b8;">© 2025 Serplexity. All rights reserved.</p>
       </div>
     </div>
+    </body>
+    </html>
   `;
 
   return { text, html };
@@ -217,6 +286,11 @@ async function sendEmailNotification(data: EmailNotificationJobData): Promise<st
   const subject = formatEmailSubject(data);
   const { text, html } = formatEmailBody(data);
   
+  const fromEmail = smtpSecret?.fromEmail || env.SMTP_FROM_EMAIL;
+  if (!fromEmail) {
+    throw new Error("No FROM email address configured");
+  }
+  
   const successfulEmails: string[] = [];
   const failedEmails: string[] = [];
 
@@ -224,7 +298,7 @@ async function sendEmailNotification(data: EmailNotificationJobData): Promise<st
   for (const email of data.emails) {
     try {
       await emailTransporter.sendMail({
-        from: env.SMTP_FROM_EMAIL,
+        from: `"Serplexity Alerts" <${fromEmail}>`,
         to: email,
         subject,
         text,
@@ -311,6 +385,9 @@ async function processEmailNotificationJob(
   });
 
   try {
+    // Ensure email transporter is configured
+    await initializeEmailTransporter();
+    
     // Send email notification
     const successfulEmails = await sendEmailNotification(data);
 
@@ -335,7 +412,15 @@ async function processEmailNotificationJob(
 }
 
 // Initialize email transporter
-initializeEmailTransporter();
+(async () => {
+  try {
+    await initializeEmailTransporter();
+  } catch (error) {
+    logger.error("[emailNotificationWorker] Failed to initialize on startup", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+})();
 
 // Create and start the worker
 export const emailNotificationWorker = new Worker<EmailNotificationJobData>(
@@ -348,6 +433,12 @@ export const emailNotificationWorker = new Worker<EmailNotificationJobData>(
     stalledInterval: 30 * 1000, // Check for stalled jobs every 30 seconds
   }
 );
+
+// Debug: Log worker creation
+logger.info("[emailNotificationWorker] Worker created and registered", {
+  queueName: QUEUE_NAME,
+  status: "ready"
+});
 
 // Worker event listeners
 emailNotificationWorker.on("completed", (job) => {

@@ -1529,6 +1529,24 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                           Devices currently signed in to your account
                         </p>
                       </div>
+                      {sessions.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await apiClient.post("/auth/sessions/revoke-all-others");
+                              // Refresh sessions to show only current one
+                              const updatedSessions = await fetchMySessions();
+                              setSessions(updatedSessions);
+                            } catch {
+                              setSessionsError("Failed to revoke other sessions");
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-lg text-xs bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 active:shadow-inner"
+                        >
+                          Revoke All Others
+                        </button>
+                      )}
                     </div>
                     {sessionsLoading ? (
                       <div className="py-3">
@@ -1546,29 +1564,23 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                       <ul className="divide-y divide-gray-200">
                         {sessions.map((s) => {
                           const deviceIcon = (() => {
-                            switch (s.deviceType) {
-                              case "MOBILE":
-                                return (
-                                  <Smartphone className="w-4 h-4 text-gray-600" />
-                                );
-                              case "DESKTOP":
-                                return (
-                                  <Monitor className="w-4 h-4 text-gray-600" />
-                                );
-                              case "WEB":
-                                return (
-                                  <Globe className="w-4 h-4 text-gray-600" />
-                                );
-                              default:
-                                return (
-                                  <Box className="w-4 h-4 text-gray-600" />
-                                );
+                            if (s.deviceName.includes("iPhone") || s.deviceName.includes("Android") || s.deviceName.includes("Mobile")) {
+                              return <Smartphone className="w-4 h-4 text-gray-600" />;
                             }
+                            if (s.deviceName.includes("Mac") || s.deviceName.includes("Windows") || s.deviceName.includes("Linux")) {
+                              return <Monitor className="w-4 h-4 text-gray-600" />;
+                            }
+                            if (s.browser && s.browser !== "Unknown Browser") {
+                              return <Globe className="w-4 h-4 text-gray-600" />;
+                            }
+                            return <Box className="w-4 h-4 text-gray-600" />;
                           })();
-                          const createdAgo = (() => {
-                            const created = new Date(s.createdAt);
-                            const diffMs = Date.now() - created.getTime();
+                          
+                          const lastSeenAgo = (() => {
+                            const lastSeen = new Date(s.lastSeenAt);
+                            const diffMs = Date.now() - lastSeen.getTime();
                             const minutes = Math.floor(diffMs / 60000);
+                            if (minutes < 1) return "Just now";
                             if (minutes < 60) return `${minutes}m ago`;
                             const hours = Math.floor(minutes / 60);
                             if (hours < 24) return `${hours}h ago`;
@@ -1577,28 +1589,32 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                             const months = Math.floor(days / 30);
                             return `${months}mo ago`;
                           })();
-                          const ua = s.userAgent || "";
-                          const uaShort =
-                            ua.length > 64 ? `${ua.slice(0, 64)}…` : ua;
+                          
                           return (
                             <li
                               key={s.id}
-                              className="py-3 flex items-center justify-between"
+                              className={`py-3 flex items-center justify-between ${s.isCurrent ? 'bg-blue-50 border-l-4 border-blue-500 pl-4' : ''}`}
                             >
-                              <div className="min-w-0 pr-3">
-                                <div className="flex items-center gap-2 text-sm text-gray-900">
+                              <div className="min-w-0 pr-3 flex-1">
+                                <div className="flex items-center gap-2 text-sm">
                                   {deviceIcon}
-                                  <span className="font-medium">
-                                    {s.deviceType}
+                                  <span className="font-medium text-gray-900">
+                                    {s.deviceName}
                                   </span>
-                                  <span className="text-gray-500">•</span>
-                                  <span className="text-gray-600">
-                                    Created {createdAgo}
-                                  </span>
+                                  {s.isCurrent && (
+                                    <span className="inline-flex px-2 py-0.5 text-[10px] font-semibold rounded-full bg-blue-100 text-blue-800">
+                                      Current
+                                    </span>
+                                  )}
                                 </div>
-                                <div className="text-xs text-gray-500 truncate">
-                                  {uaShort}
-                                  {s.ipAddress ? ` • ${s.ipAddress}` : ""}
+                                <div className="text-xs text-gray-600 mt-1">
+                                  {s.browser} on {s.os}
+                                </div>
+                                <div className="text-xs text-gray-500 mt-0.5">
+                                  Last active {lastSeenAgo}
+                                  {s.location && s.location !== "Unknown Location" && (
+                                    <span> • {s.location}</span>
+                                  )}
                                 </div>
                               </div>
                               <div className="flex-shrink-0">
@@ -1616,9 +1632,15 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                       );
                                     }
                                   }}
-                                  className="px-3 py-1.5 rounded-lg text-xs bg-white/80 backdrop-blur-sm border border-white/20 text-gray-700 shadow hover:bg-white/85 active:shadow-inner"
+                                  disabled={s.isCurrent}
+                                  className={`px-3 py-1.5 rounded-lg text-xs shadow transition-colors ${
+                                    s.isCurrent 
+                                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                                      : 'bg-white/80 backdrop-blur-sm border border-white/20 text-gray-700 hover:bg-white/85 active:shadow-inner cursor-pointer'
+                                  }`}
+                                  title={s.isCurrent ? "Cannot revoke current session" : "Revoke this session"}
                                 >
-                                  Revoke
+                                  {s.isCurrent ? "Current" : "Revoke"}
                                 </button>
                               </div>
                             </li>

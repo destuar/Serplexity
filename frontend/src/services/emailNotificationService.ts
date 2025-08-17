@@ -89,10 +89,24 @@ export async function deleteNotificationRule(ruleId: string): Promise<void> {
 /**
  * Send a test email notification
  * @param emails Array of email addresses to send test to
- * @returns Promise that resolves when test is sent
+ * @returns Promise that resolves with test result
  */
-export async function sendTestNotification(emails: string[]): Promise<void> {
-  await apiClient.post("/notifications/test", { emails });
+export async function sendTestNotification(emails: string[]): Promise<{
+  success: boolean;
+  message: string;
+  details?: string;
+}> {
+  try {
+    const { data } = await apiClient.post("/notifications/test", { emails });
+    return data;
+  } catch (err: unknown) {
+    const msg =
+      typeof err === "object" && err !== null
+        ? (err as { response?: { data?: { error?: string } } }).response?.data
+            ?.error || "Failed to send test notification"
+        : "Failed to send test notification";
+    throw new Error(msg);
+  }
 }
 
 /**

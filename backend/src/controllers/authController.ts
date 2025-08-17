@@ -28,10 +28,12 @@ import { z } from "zod";
 import { getPrismaClient } from "../config/dbCache";
 import env from "../config/env";
 import {
-  createUserSession,
+  findOrCreateUserSession,
   listActiveUserSessions,
   revokeUserSession,
+  revokeAllOtherSessions as revokeAllOtherUserSessions,
   updateSessionLastSeen,
+  cleanupRevokedSessions,
 } from "../services/sessionService";
 import logger from "../utils/logger";
 
@@ -102,7 +104,7 @@ export const register = async (req: Request, res: Response) => {
     });
 
     // Create a login session on register
-    const session = await createUserSession(prisma, {
+    const session = await findOrCreateUserSession(prisma, {
       userId: user.id,
       userAgent: req.headers["user-agent"] || null,
       ipAddress:
@@ -183,8 +185,8 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    // Create a login session per device
-    const session = await createUserSession(prisma, {
+    // Find or create a login session for this device
+    const session = await findOrCreateUserSession(prisma, {
       userId: user.id,
       userAgent: req.headers["user-agent"] || null,
       ipAddress:
@@ -308,7 +310,8 @@ export const refresh = async (req: Request, res: Response) => {
       });
     }
     if (!session || session.userId !== user.id || session.revokedAt) {
-      const created = await createUserSession(prisma, {
+      // Use smart session creation that avoids duplicates
+      const created = await findOrCreateUserSession(prisma, {
         userId: user.id,
         userAgent: req.headers["user-agent"] || null,
         ipAddress:
@@ -379,8 +382,20 @@ export const refresh = async (req: Request, res: Response) => {
 export const listSessions = async (req: Request, res: Response) => {
   const prisma = await getPrismaClient();
   if (!req.user) return res.status(401).json({ error: "Not authenticated" });
+  
   const sessions = await listActiveUserSessions(prisma, req.user.id);
-  res.json({ sessions });
+  const currentSessionId = req.headers["x-session-id"] as string | undefined;
+  
+  // Mark the current session
+  const sessionsWithCurrent = sessions.map(session => ({
+    ...session,
+    isCurrent: session.id === currentSessionId
+  }));
+  
+  res.json({ 
+    sessions: sessionsWithCurrent,
+    totalActive: sessionsWithCurrent.length
+  });
 };
 
 export const revokeSession = async (req: Request, res: Response) => {
@@ -394,6 +409,35 @@ export const revokeSession = async (req: Request, res: Response) => {
   if (!result.ok && result.code === 404)
     return res.status(404).json({ error: "Session not found" });
   res.json({ ok: true });
+};
+
+export const revokeAllOtherSessions = async (req: Request, res: Response) => {
+  const prisma = await getPrismaClient();
+  if (!req.user) return res.status(401).json({ error: "Not authenticated" });
+  
+  const currentSessionId = req.headers["x-session-id"] as string | undefined;
+  
+  const result = await revokeAllOtherUserSessions(prisma, {
+    userId: req.user.id,
+    currentSessionId
+  });
+  
+  res.json({ 
+    message: "All other sessions revoked successfully",
+    revokedCount: result.revokedCount 
+  });
+};
+
+export const cleanupSessions = async (req: Request, res: Response) => {
+  const prisma = await getPrismaClient();
+  if (!req.user) return res.status(401).json({ error: "Not authenticated" });
+  
+  const result = await cleanupRevokedSessions(prisma, req.user.id);
+  
+  res.json({
+    message: "Revoked sessions cleaned up (only revoked sessions >90 days old are removed)",
+    ...result
+  });
 };
 
 export const getMe = async (req: Request, res: Response) => {

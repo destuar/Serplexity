@@ -31,9 +31,11 @@ import {
   refresh,
   register,
   revokeSession,
+  revokeAllOtherSessions,
+  cleanupSessions,
 } from "../controllers/authController";
 import { authenticate, authorize } from "../middleware/authMiddleware";
-import { createUserSession } from "../services/sessionService";
+import { findOrCreateUserSession } from "../services/sessionService";
 // Import proper Prisma types
 import type { Company, User } from "@prisma/client";
 
@@ -52,6 +54,8 @@ router.get("/me", authenticate, getMe);
 // --- Sessions ---
 router.get("/sessions", authenticate, listSessions);
 router.post("/sessions/:id/revoke", authenticate, revokeSession);
+router.post("/sessions/revoke-all-others", authenticate, revokeAllOtherSessions);
+router.post("/sessions/cleanup", authenticate, cleanupSessions);
 
 // --- Test & Verification Routes ---
 router.get("/verify", authenticate, (req: Request, res: Response) => {
@@ -93,7 +97,7 @@ router.get(
     }
 
     const prisma = await getPrismaClient();
-    const session = await createUserSession(prisma, {
+    const session = await findOrCreateUserSession(prisma, {
       userId: user.id,
       userAgent: req.headers["user-agent"] || null,
       ipAddress:

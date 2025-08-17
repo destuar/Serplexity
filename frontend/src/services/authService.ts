@@ -4,12 +4,13 @@ export type DeviceType = "WEB" | "MOBILE" | "DESKTOP" | "OTHER";
 
 export interface SessionDto {
   id: string;
-  deviceType: DeviceType;
-  userAgent?: string | null;
-  ipAddress?: string | null;
+  deviceName: string;
+  browser: string;
+  os: string;
+  location: string;
   createdAt: string;
-  lastSeenAt?: string | null;
-  revokedAt?: string | null;
+  lastSeenAt: string;
+  isCurrent: boolean;
 }
 
 export async function fetchMySessions(): Promise<SessionDto[]> {

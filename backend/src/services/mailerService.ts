@@ -100,13 +100,19 @@ export async function sendTeamInviteEmail(params: {
       <title>Team Invitation - Serplexity</title>
     </head>
     <body style="margin: 0; padding: 20px; background-color: #f6f9fc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-    <div style="max-width: 520px; margin: 0 auto; padding: 0; background: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+    <div style="max-width: 520px; margin: 0 auto; padding: 0; background: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
       <!-- Header -->
       <div style="text-align: center; padding: 32px 24px 24px 24px; border-bottom: 1px solid #f1f5f9;">
-        <div style="text-align: center;">
-          <img src="https://www.serplexity.com/Serplexity.png" alt="Serplexity Logo" style="width: 120px; height: auto; margin: 0 auto 16px auto; display: block;" />
-          <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #1e293b; letter-spacing: -0.025em;">Serplexity</h1>
-        </div>
+        <table style="margin: 0 auto; border-collapse: collapse;">
+          <tr>
+            <td style="vertical-align: middle; padding-right: 12px;">
+              <img src="https://www.serplexity.com/Serplexity.png" alt="Serplexity" width="32" height="32" style="width: 32px; height: 32px; display: block;" />
+            </td>
+            <td style="vertical-align: middle;">
+              <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #1e293b; letter-spacing: -0.025em;">Serplexity</h1>
+            </td>
+          </tr>
+        </table>
       </div>
       
       <!-- Main Content -->
@@ -117,7 +123,7 @@ export async function sendTeamInviteEmail(params: {
         
         <!-- CTA Button -->
         <div style="text-align: center; margin: 32px 0;">
-          <a href="${params.inviteLink}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #000000 0%, #1f2937 100%); color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; letter-spacing: 0.025em; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); transition: all 0.2s ease;">Accept Invitation</a>
+          <a href="${params.inviteLink}" style="display: inline-block; padding: 14px 32px; background-color: #000000; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">Accept Invitation</a>
         </div>
         
         <p style="margin: 24px 0 0 0; font-size: 14px; line-height: 1.5; color: #94a3b8; text-align: center;">This invitation expires in 14 days</p>
@@ -155,7 +161,7 @@ export async function sendTeamInviteEmail(params: {
       'Message-ID': `<${Date.now()}-${Math.random().toString(36)}@serplexity.com>`,
       'Date': new Date().toUTCString(),
       'MIME-Version': '1.0',
-      'Content-Type': 'multipart/alternative',
+      // Content-Type removed - nodemailer sets this automatically for multipart/alternative when both text and html are provided
       'X-Auto-Response-Suppress': 'OOF, DR, RN, NRN, AutoReply',
       'Precedence': 'bulk',
     },
@@ -180,7 +186,7 @@ export async function sendAddedToWorkspaceEmail(params: {
   }
   const subject = "You've been added to a Serplexity workspace";
   const owner = params.ownerName ? ` by ${params.ownerName}` : "";
-  const dashboardUrl = `${env.FRONTEND_URL || "http://localhost:3000"}/dashboard`;
+  const dashboardUrl = "https://serplexity.com/overview";
   const text = `You've been added${owner} to a Serplexity workspace.\n\nOpen your workspace: ${dashboardUrl}`;
   const html = `
     <!DOCTYPE html>
@@ -191,13 +197,19 @@ export async function sendAddedToWorkspaceEmail(params: {
       <title>Team Invitation - Serplexity</title>
     </head>
     <body style="margin: 0; padding: 20px; background-color: #f6f9fc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-    <div style="max-width: 520px; margin: 0 auto; padding: 0; background: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+    <div style="max-width: 520px; margin: 0 auto; padding: 0; background: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
       <!-- Header -->
       <div style="text-align: center; padding: 32px 24px 24px 24px; border-bottom: 1px solid #f1f5f9;">
-        <div style="text-align: center;">
-          <img src="https://www.serplexity.com/Serplexity.png" alt="Serplexity Logo" style="width: 120px; height: auto; margin: 0 auto 16px auto; display: block;" />
-          <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #1e293b; letter-spacing: -0.025em;">Serplexity</h1>
-        </div>
+        <table style="margin: 0 auto; border-collapse: collapse;">
+          <tr>
+            <td style="vertical-align: middle; padding-right: 12px;">
+              <img src="https://www.serplexity.com/Serplexity.png" alt="Serplexity" width="32" height="32" style="width: 32px; height: 32px; display: block;" />
+            </td>
+            <td style="vertical-align: middle;">
+              <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #1e293b; letter-spacing: -0.025em;">Serplexity</h1>
+            </td>
+          </tr>
+        </table>
       </div>
       
       <!-- Main Content -->
@@ -208,7 +220,7 @@ export async function sendAddedToWorkspaceEmail(params: {
         
         <!-- CTA Button -->
         <div style="text-align: center; margin: 32px 0;">
-          <a href="${dashboardUrl}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #000000 0%, #1f2937 100%); color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; letter-spacing: 0.025em; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); transition: all 0.2s ease;">Open Workspace</a>
+          <a href="${dashboardUrl}" style="display: inline-block; padding: 14px 32px; background-color: #000000; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">Open Workspace</a>
         </div>
       </div>
       
@@ -244,7 +256,7 @@ export async function sendAddedToWorkspaceEmail(params: {
       'Message-ID': `<${Date.now()}-${Math.random().toString(36)}@serplexity.com>`,
       'Date': new Date().toUTCString(),
       'MIME-Version': '1.0',
-      'Content-Type': 'multipart/alternative',
+      // Content-Type removed - nodemailer sets this automatically for multipart/alternative when both text and html are provided
       'X-Auto-Response-Suppress': 'OOF, DR, RN, NRN, AutoReply',
       'Precedence': 'bulk',
     },

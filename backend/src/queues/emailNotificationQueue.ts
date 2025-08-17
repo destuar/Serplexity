@@ -15,7 +15,6 @@
  */
 
 import { Queue } from "bullmq";
-import env from "../config/env";
 import { getBullMQOptions } from "../config/bullmq";
 import logger from "../utils/logger";
 
@@ -38,8 +37,8 @@ export interface EmailNotificationJobData {
   dedupeKey: string;
 }
 
-// Queue name with environment prefix
-const QUEUE_NAME = `${env.BULLMQ_QUEUE_PREFIX}email-notifications`;
+// Queue name with environment prefix  
+const QUEUE_NAME = `email-notifications`;
 
 // Create the email notification queue
 export const emailNotificationQueue = new Queue<EmailNotificationJobData>(

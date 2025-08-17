@@ -19,6 +19,7 @@ import nodemailer from "nodemailer";
 import axios from "axios";
 import env from "../config/env";
 import { getDbClient } from "../config/database";
+import { SecretsProviderFactory, SmtpSecret } from "./secretsProvider";
 
 interface AlertLevel {
   level: "CRITICAL" | "WARNING" | "INFO";
@@ -53,19 +54,56 @@ interface SystemAlert {
 class AlertingService {
   private emailTransporter: nodemailer.Transporter | null = null;
   private isEmailConfigured = false;
+  private smtpSecret: SmtpSecret | null = null;
 
   constructor() {
     this.initializeEmailTransporter();
   }
 
-  private initializeEmailTransporter() {
+  private async initializeEmailTransporter() {
+    if (this.isEmailConfigured) return;
+    
     try {
+      // Try to get SMTP credentials from secrets provider first
+      if (env.SMTP_SECRET_NAME && env.COMPUTED_SECRETS_PROVIDER !== "environment") {
+        console.log("[AlertingService] Attempting to load SMTP credentials from secrets provider");
+        const secretsProvider = await SecretsProviderFactory.createFromEnvironment();
+        const smtpSecretResult = await secretsProvider.getSmtpSecret(env.SMTP_SECRET_NAME);
+        this.smtpSecret = smtpSecretResult.secret;
+        
+        const transportConfig = {
+          host: this.smtpSecret.host,
+          port: this.smtpSecret.port,
+          secure: this.smtpSecret.secure || this.smtpSecret.port === 465,
+          auth: {
+            user: this.smtpSecret.user,
+            pass: this.smtpSecret.password,
+          },
+          tls: { rejectUnauthorized: false },
+        };
+        
+        console.log("[AlertingService] Creating SMTP transporter with config", {
+          host: transportConfig.host,
+          port: transportConfig.port,
+          secure: transportConfig.secure,
+          user: transportConfig.auth.user,
+          provider: smtpSecretResult.metadata.provider
+        });
+        
+        this.emailTransporter = nodemailer.createTransport(transportConfig);
+        this.isEmailConfigured = true;
+        console.log("[AlertingService] SMTP transporter configured from secrets provider");
+        return;
+      }
+      
+      // Fallback to environment variables
       if (
         env.SMTP_HOST &&
         env.SMTP_USER &&
         env.SMTP_PASSWORD &&
         env.SMTP_FROM_EMAIL
       ) {
+        console.log("[AlertingService] Configuring SMTP from environment variables");
         this.emailTransporter = nodemailer.createTransport({
           host: env.SMTP_HOST,
           port: env.SMTP_PORT || 587,
@@ -74,24 +112,17 @@ class AlertingService {
             user: env.SMTP_USER,
             pass: env.SMTP_PASSWORD,
           },
-          tls: {
-            rejectUnauthorized: false, // For development/testing
-          },
+          tls: { rejectUnauthorized: false },
         });
         this.isEmailConfigured = true;
-        console.log(
-          "[AlertingService] Email transporter configured successfully",
-        );
+        console.log("[AlertingService] Email transporter configured from environment");
       } else {
-        console.log(
-          "[AlertingService] Email not configured - missing SMTP settings",
-        );
+        console.log("[AlertingService] Email not configured - missing SMTP settings");
+        this.isEmailConfigured = false;
       }
     } catch (error) {
-      console.error(
-        "[AlertingService] Failed to initialize email transporter:",
-        error,
-      );
+      console.error("[AlertingService] Failed to initialize email transporter:", error);
+      this.isEmailConfigured = false;
     }
   }
 
@@ -324,6 +355,9 @@ Immediate Actions:
     subject: string,
     message: string,
   ): Promise<void> {
+    // Ensure email transporter is initialized
+    await this.initializeEmailTransporter();
+    
     if (!this.isEmailConfigured || !env.ADMIN_EMAIL) {
       console.log(
         "[AlertingService] Email not configured, skipping email alert",
@@ -332,8 +366,14 @@ Immediate Actions:
     }
 
     try {
+      const fromEmail = this.smtpSecret?.fromEmail || env.SMTP_FROM_EMAIL;
+      if (!fromEmail) {
+        console.log("[AlertingService] No FROM email address configured");
+        return;
+      }
+      
       await this.emailTransporter!.sendMail({
-        from: env.SMTP_FROM_EMAIL,
+        from: `"Serplexity Alerts" <${fromEmail}>`,
         to: env.ADMIN_EMAIL,
         subject: `[${level.level}] Serplexity Alert: ${subject}`,
         text: message,

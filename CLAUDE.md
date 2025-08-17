@@ -341,6 +341,23 @@ npm run ops:repair     # Repair failed reports
 npm run queue-report   # Queue a report generation job
 ```
 
+### Session Management API
+
+```bash
+# List active sessions (user-friendly format)
+GET /api/auth/sessions
+# Returns: deviceName, browser, os, location, lastSeenAt, isCurrent
+
+# Revoke a specific session
+POST /api/auth/sessions/:id/revoke
+
+# Revoke all other sessions (keep current)
+POST /api/auth/sessions/revoke-all-others
+
+# Clean up old revoked sessions (90+ days)
+POST /api/auth/sessions/cleanup
+```
+
 ### Running Admin Scripts
 
 ```bash
@@ -487,43 +504,7 @@ This project follows the modernized "Power of Ten" principles for TypeScript/Pyt
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.
-NEVER proactively create documentation files (\*.md) or README files. Only create documentation files if explicitly requested by the User.
-
-## Development Best Practices from Cursor Rules
-
-### Code Quality Principles
-
-- Write clean, simple, readable code with clear reasoning
-- Implement features in the simplest possible way possible
-- Keep files small and focused (<200 lines)
-- Test after every meaningful change
-- Use clear, consistent naming conventions
-- ALWAYS ask follow-up questions to clarify requirements before coding
-- Write modular, well-documented code with explanatory comments
-- One abstraction layer per file - controllers call services, services call utils/db
-
-### Error Handling Best Practices
-
-- DO NOT JUMP TO CONCLUSIONS when debugging - consider multiple possible causes
-- Make only minimal necessary changes when fixing issues
-- Use structured logging with appropriate log levels (debug/info/warn/error)
-- Implement proper error boundaries in React components
-- Prefer async/await + try/catch patterns over promises
-
-### Project-Specific Conventions
-
-- All prompts MUST live in `backend/src/prompts/` for auditability
-- Use explicit TypeScript types everywhere - `any` is banned
-- Include LOTS of explanatory comments - document the "why" not just the "what"
-- Follow feature-based directory structure in both backend and frontend
-- All new code must include unit tests and pass lint checks
-
-### File Organization Rules
-
-- Backend services: Pure, reusable business logic (unit test these directly)
-- Controllers: Thin request/response orchestration (keep business-logic free)
-- Queues: Import registers worker (side-effect) - never import from here in regular code
-- Frontend: Feature-based structure for components/pages/contexts/hooks
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
 
 ## Additional Important Guidelines
 
