@@ -98,6 +98,15 @@ export const getModelFilterOptions = (
   ];
 };
 
+// Utility to get the appropriate model for sentiment analysis
+// AI Overviews falls back to Gemini for sentiment since it doesn't support sentiment tasks
+export const getSentimentModelFallback = (selectedModel: string): string => {
+  if (selectedModel === "ai-overview") {
+    return "gemini-2.5-flash"; // Fallback to Gemini for sentiment analysis
+  }
+  return selectedModel;
+};
+
 // Get display name for a model ID or engine
 export const getModelDisplayName = (modelIdOrEngine: string): string => {
   // First check if it's a model ID

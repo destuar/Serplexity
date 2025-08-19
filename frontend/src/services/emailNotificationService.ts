@@ -24,7 +24,7 @@ export interface NotificationRule {
   thresholdType: "ABSOLUTE" | "PERCENT";
   thresholdValue: number;
   direction: "UP" | "DOWN" | "BETTER" | "WORSE" | "ANY";
-  frequency: "INSTANT" | "DAILY_DIGEST";
+  frequency: "INSTANT" | "DAILY_DIGEST" | "WEEKLY_DIGEST";
   emails: string[];
   active: boolean;
   createdAt?: string;
@@ -126,4 +126,29 @@ export async function getNotificationStats(
     `/notifications/stats?${params.toString()}`
   );
   return data;
+}
+
+/**
+ * Submit feedback to support team
+ * @param feedback User feedback text
+ * @returns Promise that resolves with submission result
+ */
+export async function submitFeedback(feedback: string): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  try {
+    const { data } = await apiClient.post("/feedback", { 
+      feedback,
+      source: "settings_modal"
+    });
+    return data;
+  } catch (err: unknown) {
+    const msg =
+      typeof err === "object" && err !== null
+        ? (err as { response?: { data?: { error?: string } } }).response?.data
+            ?.error || "Failed to submit feedback"
+        : "Failed to submit feedback";
+    throw new Error(msg);
+  }
 }

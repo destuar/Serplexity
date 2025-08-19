@@ -147,11 +147,14 @@ validateWorkerDependencies()
       "report-generation",
       async (job: Job) => {
         try {
-          console.log(`🔥 WORKER ENTRY POINT - Job ${job.id} starting...`);
+          const jobAge = Date.now() - job.timestamp;
+          console.log(`🔥 WORKER ENTRY POINT - Job ${job.id} starting... (Age: ${Math.round(jobAge/1000)}s)`);
           const { runId, company } = job.data;
           console.log(
-            `🎯 Processing job ${job.id} - Report generation for company '${company?.name}'`
+            `🎯 Processing job ${job.id} - Report generation for company '${company?.name}' (runId: ${runId})`
           );
+          console.log(`📋 CRITICAL CHECKPOINT: Worker function called for job ${job.id} - This confirms job pickup success`);
+          
           await processReport(runId, company);
           console.log(`✅ Job ${job.id} completed successfully`);
         } catch (err) {
@@ -188,9 +191,13 @@ validateWorkerDependencies()
 
     worker.on("active", (job: Job) => {
       const { runId, company } = job.data;
+      const jobAge = Date.now() - job.timestamp;
       console.log(
-        `🚀 Worker started processing job ${job.id} for ${company?.name} (runId: ${runId})`
+        `🚀 Worker started processing job ${job.id} for ${company?.name} (runId: ${runId}) - Job age: ${Math.round(jobAge/1000)}s`
       );
+      
+      // CRITICAL: Verify we're actually processing the job
+      console.log(`✅ CONFIRMATION: Worker successfully picked up and is processing job ${job.id}`);
     });
 
     worker.on("progress", (job: Job, progress: unknown) => {
@@ -300,13 +307,22 @@ validateWorkerDependencies()
     console.log("📋 Report worker process started...");
     console.log("🔗 Initializing database connection...");
 
-    // CRITICAL: Start worker after all event handlers are attached
+    // CRITICAL FIX: Check for and resume existing active jobs BEFORE starting worker
     (async () => {
       try {
+        console.log("🔧 About to call resumeActiveJobs...");
+        await resumeActiveJobs(worker);
+        console.log("🔧 resumeActiveJobs completed");
+        
+        // Start worker after cleaning up active jobs
+        console.log("🔧 Calling worker.run()...");
         await worker.run();
         console.log("🎯 Worker started after event handler setup");
       } catch (e) {
-        console.error("❌ Failed to start worker.run():", e);
+        console.error("❌ Failed to start worker:", e);
+        if (e instanceof Error) {
+          console.error("❌ Error details:", e.stack);
+        }
       }
     })();
 
@@ -327,6 +343,36 @@ validateWorkerDependencies()
  * Calculate USD cost from ACTUAL token usage and web searches
  * CRITICAL: This replaces the dangerous estimation-based approach
  */
+/**
+ * Normalize model ID to match pricing table format
+ * Handles provider:model format from PydanticAI agents
+ */
+function normalizeModelId(modelId: string): string {
+  // Handle provider:model format (e.g., "perplexity:sonar" -> "sonar")
+  if (modelId.includes(':')) {
+    const [provider, model] = modelId.split(':', 2);
+    
+    // Handle known provider mappings
+    switch (provider) {
+      case 'perplexity':
+        return model; // "perplexity:sonar" -> "sonar"
+      case 'openai':
+        return model; // "openai:gpt-4.1-mini" -> "gpt-4.1-mini" 
+      case 'anthropic':
+        return model; // "anthropic:claude-3-5-haiku-20241022" -> "claude-3-5-haiku-20241022"
+      case 'google':
+      case 'gemini':
+        return model; // "google:gemini-2.5-flash" -> "gemini-2.5-flash"
+      default:
+        // For unknown providers, try the model part
+        return model;
+    }
+  }
+  
+  // Return as-is if no provider prefix
+  return modelId;
+}
+
 function calculateCost(
   modelId: string | undefined,
   inputTokens: number,
@@ -338,9 +384,12 @@ function calculateCost(
 ): number {
   if (!modelId) return 0;
 
+  // Normalize model ID to handle provider:model format
+  const normalizedModelId = normalizeModelId(modelId);
+
   try {
     const result = CostCalculator.calculateTotalCost(
-      modelId,
+      normalizedModelId,
       inputTokens,
       outputTokens,
       searchCount,
@@ -350,7 +399,7 @@ function calculateCost(
     );
 
     // Log cost breakdown for audit trail
-    console.log(`💰 Cost calculation for ${modelId}:`, {
+    console.log(`💰 Cost calculation for ${normalizedModelId}:`, {
       inputTokens,
       outputTokens,
       thinkingTokens,
@@ -361,12 +410,15 @@ function calculateCost(
 
     return result.totalCost;
   } catch (error) {
-    console.error(
-      `❌ CRITICAL: Cost calculation failed for model ${modelId}:`,
-      error
+    // Use warning instead of throwing to prevent job failures
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.warn(
+      `⚠️ Cost calculation failed for model ${modelId} (normalized: ${normalizedModelId}), using $0:`,
+      errorMessage
     );
-    // Don't silently return 0 - this hides cost tracking failures
-    throw new Error(`Cost calculation failed for ${modelId}: ${error}`);
+    
+    // Return 0 cost but continue processing to avoid job failures
+    return 0;
   }
 }
 
@@ -855,15 +907,39 @@ async function processReport(
       }
     }
 
+    // Apply plan limits enforcement here (after we have activeQuestions)
+    let effectiveActiveQuestions = activeQuestions;
+    try {
+      const { getPlanLimitsForUser } = await import("../services/planService");
+      const limits = await getPlanLimitsForUser(fullCompany.userId);
+      const planLimitsPrompts = limits.promptsPerReportMax;
+      
+      // Safety net: Limit active questions if somehow more than plan allows got through
+      if (
+        Array.isArray(activeQuestions) &&
+        activeQuestions.length > planLimitsPrompts
+      ) {
+        effectiveActiveQuestions = activeQuestions.slice(0, planLimitsPrompts);
+        console.log(`⚠️ SAFETY NET: Limiting questions to ${effectiveActiveQuestions.length}/${activeQuestions.length} (plan limit: ${planLimitsPrompts})`);
+        console.log(`⚠️ This indicates a bug in the activation layer - questions should be limited before reaching here`);
+      } else {
+        console.log(`📊 Processing ${activeQuestions.length} active questions (within plan limit of ${planLimitsPrompts})`);
+      }
+    } catch (error) {
+      console.error("❌ Error applying plan limits:", error);
+      // Fallback to original if there's an error
+      effectiveActiveQuestions = activeQuestions;
+    }
+
     await prisma.reportRun.update({
       where: { id: runId },
       data: {
-        stepStatus: `Ready to process ${activeQuestions.length} active questions`,
+        stepStatus: `Ready to process ${effectiveActiveQuestions.length} active questions`,
       },
     });
 
     console.log(
-      `✅ Ready to process ${activeQuestions.length} active questions`
+      `✅ Ready to process ${effectiveActiveQuestions.length} active questions`
     );
 
     // === STAGE 2: Answer Questions with Enabled Models ===
@@ -881,6 +957,29 @@ async function processReport(
       (fullCompany as any).modelPreferences || null
     );
 
+    // Apply plan limits for question models right away
+    let effectiveQuestionModels = questionModels;
+    try {
+      const { getPlanLimitsForUser } = await import("../services/planService");
+      const limits = await getPlanLimitsForUser(fullCompany.userId);
+      const planLimitsModels = limits.modelsPerReportMax;
+      
+      // Limit question models by plan limits
+      if (
+        Array.isArray(questionModels) &&
+        questionModels.length > planLimitsModels
+      ) {
+        effectiveQuestionModels = questionModels.slice(0, planLimitsModels);
+        console.log(`📊 Plan limits: Using ${effectiveQuestionModels.length}/${questionModels.length} models (limit: ${planLimitsModels})`);
+      } else {
+        console.log(`📊 Using all ${questionModels.length} available models (within plan limit of ${planLimitsModels})`);
+      }
+    } catch (error) {
+      console.error("❌ Error applying model plan limits:", error);
+      // Fallback to original values if there's an error
+      effectiveQuestionModels = questionModels;
+    }
+
     // Import pydantic service for question answering
     const { pydanticLlmService } = await import(
       "../services/pydanticLlmService"
@@ -894,8 +993,8 @@ async function processReport(
     const questionPromises = [];
     const questionTracker = new Map(); // Track processing status per question
 
-    // Initialize tracker for all questions
-    for (const question of activeQuestions) {
+    // Initialize tracker for all questions (using effective questions)
+    for (const question of effectiveActiveQuestions) {
       questionTracker.set(question.id, {
         question: question.query,
         attempted: 0,
@@ -905,10 +1004,10 @@ async function processReport(
       });
     }
 
-    for (const question of activeQuestions) {
+    for (const question of effectiveActiveQuestions) {
       // ensure effectiveQuestionModels is defined before usage
-      const localQuestionModels = Array.isArray(questionModels)
-        ? questionModels
+      const localQuestionModels = Array.isArray(effectiveQuestionModels)
+        ? effectiveQuestionModels
         : [];
       for (const model of localQuestionModels) {
         const promise = questionLimit(async () => {
@@ -1585,36 +1684,15 @@ async function processReport(
       fullCompany.userId,
       (fullCompany as any).modelPreferences || null
     );
-    // Enforce plan caps for models and prompts
+    // Get plan limits for sentiment models (models are already limited above)
     let planLimitsModels = 4;
-    let planLimitsPrompts = 20;
     try {
       const { getPlanLimitsForUser } = await import("../services/planService");
       const limits = await getPlanLimitsForUser(fullCompany.userId);
       planLimitsModels = limits.modelsPerReportMax;
-      planLimitsPrompts = limits.promptsPerReportMax;
     } catch (_e) {
       // Fallback defaults already set
     }
-    // Clamp question models and active questions by plan limits if available
-    const _effectiveQuestionModels = questionModels;
-    try {
-      if (
-        Array.isArray(questionModels) &&
-        questionModels.length > planLimitsModels
-      ) {
-        // limited copy rather than reassigning const
-        // Use a local limited list for iteration rather than reassigning
-        const limitedQuestionModels = questionModels.slice(0, planLimitsModels);
-        void limitedQuestionModels;
-      }
-      if (
-        Array.isArray(activeQuestions) &&
-        activeQuestions.length > planLimitsPrompts
-      ) {
-        activeQuestions = activeQuestions.slice(0, planLimitsPrompts);
-      }
-    } catch {}
 
     const sentimentLimit = pLimit(3);
 
@@ -1877,7 +1955,7 @@ async function processReport(
 
     console.log(`🎉 Report generation completed successfully!`);
     console.log(
-      `📊 Total: ${activeQuestions.length} questions, ${successfulAnswers} responses, ${competitors.length} competitors, ${successfulSentiments.length} sentiment analyses`
+      `📊 Total: ${effectiveActiveQuestions.length} questions, ${successfulAnswers} responses, ${competitors.length} competitors, ${successfulSentiments.length} sentiment analyses`
     );
     console.log(`💰 Cost: ${totalTokens} tokens, $${totalCost.toFixed(4)} USD`);
     console.log(`⏱️  Duration: ${(duration / 1000).toFixed(1)}s`);
@@ -2060,6 +2138,61 @@ async function fallbackErrorReporting(
       `💥 CRITICAL: Even fallback error reporting failed:`,
       fallbackError
     );
+  }
+}
+
+/**
+ * Resume processing of existing active jobs when worker restarts
+ * CRITICAL: This fixes the issue where active jobs get stuck when workers restart
+ */
+async function resumeActiveJobs(_worker: Worker): Promise<void> {
+  try {
+    const { Queue } = await import("bullmq");
+    const queue = new Queue("report-generation", getBullMQOptions());
+    
+    // Get all active jobs
+    const activeJobs = await queue.getActive();
+    
+    if (activeJobs.length > 0) {
+      console.log(`🔄 Found ${activeJobs.length} active jobs to resume:`);
+      
+      for (const job of activeJobs) {
+        console.log(`   - Job ${job.id}: ${job.name} (runId: ${job.data?.runId}) - Age: ${Date.now() - job.timestamp}ms`);
+        
+        // Check if job is truly stalled (older than lock duration)
+        const jobAge = Date.now() - job.timestamp;
+        const lockDuration = 1000 * 60 * 2; // 2 minutes (matching worker config)
+        
+        if (jobAge > lockDuration) {
+          console.log(`⚠️  Job ${job.id} appears stalled (age: ${Math.round(jobAge/1000)}s), attempting recovery...`);
+          
+          try {
+            // Move job back to waiting state for retry
+            await job.retry();
+            console.log(`✅ Job ${job.id} moved back to waiting queue for retry`);
+          } catch (retryError) {
+            console.error(`❌ Failed to retry job ${job.id}:`, retryError);
+            
+            // As a last resort, mark as failed and let it retry through normal mechanism
+            try {
+              await job.moveToFailed(new Error("Job stalled during worker restart"), "0");
+              console.log(`🔄 Job ${job.id} marked as failed for normal retry process`);
+            } catch (failError) {
+              console.error(`❌ Failed to mark job ${job.id} as failed:`, failError);
+            }
+          }
+        } else {
+          console.log(`✅ Job ${job.id} is recent (age: ${Math.round(jobAge/1000)}s), worker should pick it up automatically`);
+        }
+      }
+    } else {
+      console.log("✅ No active jobs found - worker ready for new jobs");
+    }
+    
+    await queue.close();
+  } catch (error) {
+    console.error("❌ Failed to resume active jobs:", error);
+    // Don't throw - this shouldn't prevent worker startup
   }
 }
 

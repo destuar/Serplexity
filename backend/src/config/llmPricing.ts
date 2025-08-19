@@ -287,6 +287,99 @@ export const LLM_PRICING: Record<string, ModelPricing> = {
       searchesPerMinute: 8,
     },
   },
+
+  // ============================================================================
+  // PROVIDER-PREFIXED ALIASES (for PydanticAI compatibility)
+  // These are defensive entries to handle provider:model format
+  // ============================================================================
+  
+  "perplexity:sonar": {
+    modelId: "perplexity:sonar",
+    provider: "perplexity",
+    displayName: "Perplexity Sonar (Prefixed)",
+    tokens: {
+      inputTokensPerMillion: 1.0, // Same as 'sonar'
+      outputTokensPerMillion: 1.0,
+    },
+    webSearch: {
+      enabled: true,
+      costPer1000Searches: 0,
+      includesTokens: true,
+    },
+    rateLimits: {
+      requestsPerMinute: 500,
+      tokensPerMinute: 200000,
+      searchesPerMinute: 100,
+    },
+  },
+
+  "openai:gpt-4.1-mini": {
+    modelId: "openai:gpt-4.1-mini",
+    provider: "openai",
+    displayName: "GPT-4.1 Mini (Prefixed)",
+    tokens: {
+      inputTokensPerMillion: 0.15, // Same as 'gpt-4.1-mini'
+      outputTokensPerMillion: 0.6,
+    },
+    webSearch: {
+      enabled: true,
+      costPer1000Searches: 25,
+      includesTokens: true,
+    },
+    rateLimits: {
+      requestsPerMinute: 10000,
+      tokensPerMinute: 2000000,
+      searchesPerMinute: 100,
+    },
+  },
+
+  "anthropic:claude-3-5-haiku-20241022": {
+    modelId: "anthropic:claude-3-5-haiku-20241022",
+    provider: "anthropic", 
+    displayName: "Claude 3.5 Haiku (Prefixed)",
+    tokens: {
+      inputTokensPerMillion: 0.8, // Same as 'claude-3-5-haiku-20241022'
+      outputTokensPerMillion: 4.0,
+      contextCachingPerMillion: 1.0,
+    },
+    webSearch: {
+      enabled: true,
+      costPer1000Searches: 10,
+      includesTokens: false,
+    },
+    otherTools: {
+      code_execution: 0.05,
+    },
+    rateLimits: {
+      requestsPerMinute: 4000,
+      tokensPerMinute: 400000,
+      searchesPerMinute: 50,
+    },
+  },
+
+  "google:gemini-2.5-flash": {
+    modelId: "google:gemini-2.5-flash",
+    provider: "gemini",
+    displayName: "Gemini 2.5 Flash (Prefixed)",
+    tokens: {
+      inputTokensPerMillion: 0.1, // Same as 'gemini-2.5-flash'
+      outputTokensPerMillion: 0.6,
+      outputThinkingTokensPerMillion: 3.5,
+      contextCachingPerMillion: 0.075,
+      contextCachingStoragePerHour: 1.0,
+    },
+    webSearch: {
+      enabled: true,
+      costPer1000Searches: 35,
+      includesTokens: false,
+      freeSearchesPerDay: 1500,
+    },
+    rateLimits: {
+      requestsPerMinute: 300,
+      tokensPerMinute: 4000000,
+      searchesPerMinute: 60,
+    },
+  },
 };
 
 /**

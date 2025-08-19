@@ -1032,20 +1032,27 @@ Please include actual URLs from your web searches in the response text for prope
         if improvements:
             summary_parts.append(f"Key improvement opportunities include {', '.join(improvements)}")
 
-        # Add sentiment trend analysis
+        # Add evidence-based sentiment trend analysis
         if positive_indicators > negative_indicators * 1.5:
-            summary_parts.append("Overall sentiment trends positive across review sources")
+            summary_parts.append(f"Overall sentiment trends positive with {positive_indicators} positive indicators found across sources")
         elif negative_indicators > positive_indicators * 1.5:
-            summary_parts.append("Sentiment analysis reveals concerning negative feedback patterns")
+            summary_parts.append(f"Analysis reveals {negative_indicators} negative feedback indicators requiring attention in areas like {', '.join(improvements[:2]) if improvements else 'customer experience'}")
         else:
-            summary_parts.append("Mixed sentiment signals suggest varied customer experiences")
+            summary_parts.append(f"Mixed sentiment with {positive_indicators} positive and {negative_indicators} negative signals across different review sources")
 
         # Add inline citation markers for frontend to convert to clickable badges
         if citations:
             citation_details = []
+            domain_counts = {}
             for i, cite in enumerate(citations[:3], 1):
                 citation_details.append(f"[{i}]")
-            summary_parts.append(f"Sources: {', '.join(citation_details)}")
+                domain = cite.domain.replace('www.', '')
+                domain_counts[domain] = domain_counts.get(domain, 0) + 1
+            
+            # Create meaningful source description instead of generic "Sources:"
+            top_domains = sorted(domain_counts.items(), key=lambda x: x[1], reverse=True)[:2]
+            domain_text = " and ".join([domain for domain, _ in top_domains])
+            summary_parts.append(f"Analysis based on {len(citations)} sources including {domain_text} {', '.join(citation_details)}")
 
         summary_description = ". ".join(summary_parts)
 

@@ -1484,33 +1484,25 @@ export const addQuestion = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Company not found" });
     }
 
-    // Check active question limit for free users
+    // Check active question limit based on plan limits
     if (validatedData.isActive) {
       const activeQuestions = await prisma.question.count({
         where: { companyId, isActive: true },
       });
 
-      // Free users limited to 5 active questions
-      const user = req.user;
-      const hasActiveSubscription = user?.subscriptionStatus === "active";
-      const isInActiveTrial =
-        user?.subscriptionStatus === "trialing" &&
-        user?.trialEndsAt &&
-        new Date() < new Date(user.trialEndsAt);
+      // Get plan limits for the user
+      const { getPlanLimitsForUser } = await import("../services/planService");
+      const planLimits = await getPlanLimitsForUser(userId);
 
       // Admins have unlimited access
-      const isAdmin = user?.role === "ADMIN";
-      if (
-        !isAdmin &&
-        !hasActiveSubscription &&
-        !isInActiveTrial &&
-        activeQuestions >= 5
-      ) {
+      const isAdmin = req.user?.role === "ADMIN";
+      
+      if (!isAdmin && activeQuestions >= planLimits.promptsPerReportMax) {
         return res.status(403).json({
-          error: "Free accounts are limited to 5 active questions",
-          message: "Upgrade to add more active questions",
+          error: `Your plan allows up to ${planLimits.promptsPerReportMax} active questions`,
+          message: "Upgrade your plan to add more active questions",
           currentActive: activeQuestions,
-          limit: 5,
+          limit: planLimits.promptsPerReportMax,
         });
       }
     }
@@ -1588,6 +1580,28 @@ export const updateQuestion = async (req: Request, res: Response) => {
     }
 
     if (validatedData.isActive !== undefined) {
+      // Check active question limit when activating a question
+      if (validatedData.isActive && !existingQuestion.isActive) {
+        const activeQuestions = await prisma.question.count({
+          where: { companyId, isActive: true },
+        });
+
+        // Get plan limits for the user
+        const { getPlanLimitsForUser } = await import("../services/planService");
+        const planLimits = await getPlanLimitsForUser(userId);
+
+        // Admins have unlimited access
+        const isAdmin = req.user?.role === "ADMIN";
+        
+        if (!isAdmin && activeQuestions >= planLimits.promptsPerReportMax) {
+          return res.status(403).json({
+            error: `Your plan allows up to ${planLimits.promptsPerReportMax} active questions`,
+            message: "Upgrade your plan to add more active questions",
+            currentActive: activeQuestions,
+            limit: planLimits.promptsPerReportMax,
+          });
+        }
+      }
       updateData.isActive = validatedData.isActive;
     }
 

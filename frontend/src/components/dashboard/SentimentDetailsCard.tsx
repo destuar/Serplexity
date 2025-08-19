@@ -30,7 +30,7 @@
 import { Info } from "lucide-react";
 import React from "react";
 import { useDashboard } from "../../hooks/useDashboard";
-import { getModelDisplayName } from "../../types/dashboard";
+import { getModelDisplayName, getSentimentModelFallback } from "../../types/dashboard";
 import { SentimentDetail } from "../../types/dashboardData";
 import {
   createModelFilterConfig,
@@ -228,10 +228,11 @@ const SentimentDetailsCard: React.FC<SentimentDetailsCardProps> = ({
       : `${getModelDisplayName(selectedModel)} Summary`;
 
   /**
-   * Use standardized model filtering for consistent behavior across components
-   * This eliminates the custom filtering logic and uses our centralized utilities
+   * Use fallback logic for AI Overviews - it should use Gemini data for sentiment analysis
+   * since AI Overviews doesn't support sentiment tasks
    */
-  const modelConfig = createModelFilterConfig(selectedModel);
+  const actualModelForSentiment = getSentimentModelFallback(selectedModel);
+  const modelConfig = createModelFilterConfig(actualModelForSentiment);
 
   // Apply standardized model filtering
   const filteredMetrics = filterDetailedMetricsByModel(
@@ -243,7 +244,7 @@ const SentimentDetailsCard: React.FC<SentimentDetailsCardProps> = ({
   // Fallback mechanism for when no exact match is found
   if (!metricToShow && sentimentMetrics.length > 0) {
     console.warn(
-      `[SentimentDetailsCard] No metric found for engine "${modelConfig.queryParams.engineParam}", using first available`
+      `[SentimentDetailsCard] No metric found for engine "${modelConfig.queryParams.engineParam}" (selected: ${selectedModel}, actual: ${actualModelForSentiment}), using first available`
     );
     metricToShow = sentimentMetrics[0];
   }

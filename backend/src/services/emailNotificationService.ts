@@ -27,7 +27,7 @@ export interface EmailNotificationRule {
   thresholdType: "ABSOLUTE" | "PERCENT";
   thresholdValue: number;
   direction: "UP" | "DOWN" | "BETTER" | "WORSE" | "ANY";
-  frequency: "INSTANT" | "DAILY_DIGEST";
+  frequency: "INSTANT" | "DAILY_DIGEST" | "WEEKLY_DIGEST";
   emails: string[];
   active: boolean;
   createdAt: Date;
@@ -413,7 +413,7 @@ class EmailNotificationService {
           dedupeKey,
         });
       }
-      // DAILY_DIGEST notifications will be handled by the digest worker
+      // DAILY_DIGEST and WEEKLY_DIGEST notifications will be handled by the digest worker
 
       // Log the notification event
       await prisma.notificationEvent.create({

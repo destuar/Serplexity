@@ -40,14 +40,9 @@ function getLocalDateParts(
     local.toLocaleDateString(locale, { timeZone: tz, day: "2-digit" }),
     10
   );
-  const dow = parseInt(
-    local.toLocaleDateString("en-US", { timeZone: tz, weekday: "0" as any }) ||
-      String(local.getDay()),
-    10
-  );
-
-  // Fallback if weekday formatting above is not supported in the runtime
-  const dayOfWeek = isNaN(dow) ? local.getDay() : dow;
+  // Get day of week (0=Sunday, 1=Monday, etc.) using timezone
+  const localDate = new Date(dateUtc.toLocaleString("en-US", { timeZone: tz }));
+  const dayOfWeek = localDate.getDay();
   return { y, m, d, dow: dayOfWeek };
 }
 

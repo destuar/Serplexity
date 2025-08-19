@@ -269,6 +269,145 @@ export async function sendAddedToWorkspaceEmail(params: {
   });
 }
 
+export async function sendFeedbackEmail(params: {
+  userEmail: string;
+  userName: string;
+  userId: string;
+  feedback: string;
+  source: string;
+}): Promise<void> {
+  await ensureTransporter();
+  if (!configured || !transporter) {
+    const error = "SMTP not configured - cannot send feedback email";
+    logger.error("[mailerService] Email delivery failed", { error, userEmail: params.userEmail });
+    throw new Error(error);
+  }
+
+  const subject = `User Feedback - ${params.userName || params.userEmail}`;
+  const timestamp = new Date().toISOString();
+  
+  const text = `New feedback received from ${params.userName} (${params.userEmail})
+
+Source: ${params.source}
+User ID: ${params.userId}
+Submitted: ${timestamp}
+
+Feedback:
+${params.feedback}
+
+---
+This feedback was submitted through the Serplexity platform.`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>User Feedback - Serplexity</title>
+    </head>
+    <body style="margin: 0; padding: 20px; background-color: #f6f9fc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 0; background: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
+      <!-- Header -->
+      <div style="text-align: center; padding: 32px 24px 24px 24px; border-bottom: 1px solid #f1f5f9;">
+        <table style="margin: 0 auto; border-collapse: collapse;">
+          <tr>
+            <td style="vertical-align: middle; padding-right: 12px;">
+              <img src="https://www.serplexity.com/Serplexity.png" alt="Serplexity" width="32" height="32" style="width: 32px; height: 32px; display: block;" />
+            </td>
+            <td style="vertical-align: middle;">
+              <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #1e293b; letter-spacing: -0.025em;">Serplexity</h1>
+            </td>
+          </tr>
+        </table>
+      </div>
+      
+      <!-- Main Content -->
+      <div style="padding: 32px 24px;">
+        <h2 style="margin: 0 0 16px 0; font-size: 24px; font-weight: 700; color: #0f172a; line-height: 1.2;">New User Feedback</h2>
+        
+        <!-- User Info -->
+        <div style="background-color: #f8fafc; border-radius: 8px; padding: 16px; margin: 0 0 24px 0;">
+          <h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: #374151;">User Information</h3>
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <tr>
+              <td style="padding: 4px 0; color: #6b7280; width: 80px;">Name:</td>
+              <td style="padding: 4px 0; color: #374151; font-weight: 500;">${params.userName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #6b7280;">Email:</td>
+              <td style="padding: 4px 0; color: #374151; font-weight: 500;">${params.userEmail}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #6b7280;">User ID:</td>
+              <td style="padding: 4px 0; color: #374151; font-family: monospace;">${params.userId}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #6b7280;">Source:</td>
+              <td style="padding: 4px 0; color: #374151;">${params.source}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #6b7280;">Submitted:</td>
+              <td style="padding: 4px 0; color: #374151;">${timestamp}</td>
+            </tr>
+          </table>
+        </div>
+        
+        <!-- Feedback Content -->
+        <div style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 0 0 24px 0;">
+          <h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: #374151;">Feedback</h3>
+          <div style="white-space: pre-wrap; font-size: 14px; line-height: 1.6; color: #374151; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${params.feedback}</div>
+        </div>
+        
+        <!-- Action Button -->
+        <div style="text-align: center; margin: 24px 0;">
+          <a href="mailto:${params.userEmail}?subject=Re: Your Serplexity Feedback" style="display: inline-block; padding: 12px 24px; background-color: #000000; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;">Reply to User</a>
+        </div>
+      </div>
+      
+      <!-- Footer -->
+      <div style="padding: 24px; border-top: 1px solid #f1f5f9; text-align: center;">
+        <p style="margin: 0; font-size: 12px; color: #94a3b8;">© 2025 Serplexity. All rights reserved.</p>
+      </div>
+    </div>
+    </body>
+    </html>
+  `;
+  
+  const fromEmail = smtpSecret?.fromEmail || env.SMTP_FROM_EMAIL;
+  if (!fromEmail) {
+    throw new Error("No FROM email address configured");
+  }
+  
+  await transporter.sendMail({
+    from: `"Serplexity Platform" <${fromEmail}>`,
+    to: "support@serplexity.com",
+    subject,
+    text,
+    html,
+    headers: {
+      'X-Priority': '3',
+      'X-MSMail-Priority': 'Normal',
+      'X-Mailer': 'Serplexity Platform',
+      'X-MimeOLE': 'Produced By Serplexity',
+      'Reply-To': params.userEmail,
+      'Return-Path': fromEmail,
+      'Message-ID': `<feedback-${Date.now()}-${Math.random().toString(36)}@serplexity.com>`,
+      'Date': new Date().toUTCString(),
+      'MIME-Version': '1.0',
+      'X-Auto-Response-Suppress': 'OOF, DR, RN, NRN, AutoReply',
+      'Precedence': 'bulk',
+    },
+  });
+  
+  logger.info("[mailerService] Feedback email sent successfully", {
+    userEmail: params.userEmail,
+    userName: params.userName,
+    fromEmail,
+    subject
+  });
+}
+
 export function resetSmtpConfiguration(): void {
   transporter = null;
   configured = false;

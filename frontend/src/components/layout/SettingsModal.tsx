@@ -23,12 +23,13 @@ import {
 import React, { useState } from "react";
 import { InlineSpinner } from "../ui/InlineSpinner";
 // Note: buttonClasses and formClasses imports removed as they're unused
-// import { useAuth } from '../../contexts/AuthContext';
 import { useCompany } from "../../contexts/CompanyContext";
 import { useReportGeneration } from "../../hooks/useReportGeneration";
 import apiClient from "../../lib/apiClient";
 import { MODEL_CONFIGS, getModelDisplayName } from "../../types/dashboard";
 import { Button } from "../ui/Button";
+import { submitFeedback } from "../../services/emailNotificationService";
+import InlineTimezoneAutocomplete from "../ui/InlineTimezoneAutocomplete";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -36,11 +37,13 @@ interface SettingsModalProps {
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
-  // const { user } = useAuth();
+  // User info will be automatically included by the backend from the authenticated session
   const { selectedCompany } = useCompany();
   const [activeTab, setActiveTab] = useState("models");
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
   // Models state
   const [modelPreferences, setModelPreferences] = useState<
     Record<string, boolean>
@@ -57,9 +60,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   // Report schedule state
   type ScheduleMode = "MANUAL" | "DAILY" | "WEEKLY" | "CUSTOM";
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>("DAILY");
-  const [scheduleTimezone, setScheduleTimezone] = useState<string>(
-    Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
-  );
+  const [scheduleTimezone, setScheduleTimezone] = useState<string>(() => {
+    // Detect browser timezone on component initialization
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Los_Angeles";
+    } catch {
+      return "America/Los_Angeles";
+    }
+  });
   const [weeklyDays, setWeeklyDays] = useState<number[]>([]);
   const [customDates, setCustomDates] = useState<string[]>([]);
   const [isSavingSchedule, setIsSavingSchedule] = useState(false);
@@ -74,14 +82,25 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   } = useReportGeneration(selectedCompany);
 
   const handleSubmitFeedback = async () => {
+    if (!feedbackText.trim()) return;
+    
     try {
-      // In a real app, this would send feedback to your API
-      console.log("Submitting feedback:", feedbackText);
+      setFeedbackSubmitting(true);
+      setFeedbackError(null);
+      
+      await submitFeedback(feedbackText.trim());
+      
       setFeedbackSubmitted(true);
       setFeedbackText("");
-      setTimeout(() => setFeedbackSubmitted(false), 3000);
+      
+      // Hide success message after 5 seconds
+      setTimeout(() => setFeedbackSubmitted(false), 5000);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to submit feedback";
+      setFeedbackError(errorMessage);
       console.error("Failed to submit feedback:", error);
+    } finally {
+      setFeedbackSubmitting(false);
     }
   };
 
@@ -107,7 +126,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
           dates: string[];
         };
         setScheduleMode(sched.mode);
-        setScheduleTimezone((prev) => sched.timezone || prev);
+        // Only use server timezone if it's explicitly set and not a default (preserve browser timezone as default)
+        setScheduleTimezone((prev) => {
+          console.log("Server timezone:", sched.timezone, "Current:", prev);
+          
+          // Don't override browser timezone with UTC or empty values from server
+          if (sched.timezone && 
+              sched.timezone !== "UTC" && 
+              sched.timezone.trim() !== "" &&
+              sched.timezone !== prev) {
+            console.log("Using server timezone:", sched.timezone);
+            return sched.timezone;
+          }
+          
+          console.log("Keeping browser timezone:", prev);
+          return prev; // Keep browser timezone
+        });
         setWeeklyDays(sched.weeklyDays || []);
         setCustomDates((sched.dates || []).sort());
       } catch (err) {
@@ -211,7 +245,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl sm:rounded-2xl max-w-4xl w-full shadow-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden text-sm"
+        className="bg-white rounded-xl sm:rounded-2xl max-w-4xl w-full shadow-md max-h-[95vh] sm:max-h-[90vh] overflow-hidden text-sm"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -272,7 +306,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
 
                 <div className="space-y-4">
                   {/* ChatGPT */}
-                  <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-lg">
+                  <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-md">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-white">
                         {MODEL_CONFIGS["gpt-4.1-mini"]?.logoUrl ? (
@@ -308,7 +342,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                   </div>
 
                   {/* Claude */}
-                  <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-lg">
+                  <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-md">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-white">
                         {MODEL_CONFIGS["claude-3-5-haiku-20241022"]?.logoUrl ? (
@@ -352,7 +386,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                   </div>
 
                   {/* Gemini */}
-                  <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-lg">
+                  <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-md">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-white">
                         {MODEL_CONFIGS["gemini-2.5-flash"]?.logoUrl ? (
@@ -388,7 +422,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                   </div>
 
                   {/* Perplexity */}
-                  <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-lg">
+                  <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-md">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-white">
                         {MODEL_CONFIGS["sonar"]?.logoUrl ? (
@@ -424,7 +458,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                   </div>
 
                   {/* AI Overviews */}
-                  <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-lg">
+                  <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-md">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-white">
                         {MODEL_CONFIGS["ai-overview"]?.logoUrl ? (
@@ -465,12 +499,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                   </div>
                 )}
 
-                <div className="flex justify-end space-x-3 pt-8">
-                  <Button type="button" variant="outline" onClick={onClose}>
-                    Cancel
-                  </Button>
+                <div className="flex justify-end pt-4">
                   <Button
                     type="button"
+                    variant="pill"
                     onClick={handleUpdateModels}
                     disabled={isUpdatingModels}
                     className="flex items-center gap-2"
@@ -485,7 +517,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
             {activeTab === "schedule" && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  <h3 className="text-base font-semibold text-gray-900 mb-4">
                     Report Schedule
                   </h3>
                   <p className="text-gray-600 mb-4">
@@ -509,13 +541,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                     <div className="grid grid-cols-2 gap-2">
                       {(["MANUAL", "DAILY", "WEEKLY", "CUSTOM"] as const).map(
                         (m) => (
-                          <button
+                          <Button
                             key={m}
+                            variant={scheduleMode === m ? "pillActive" : "pill"}
                             onClick={() => setScheduleMode(m)}
-                            className={`px-3 py-2 rounded-lg border text-sm ${scheduleMode === m ? "bg-black text-white border-black" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"}`}
+                            className="text-sm"
                           >
                             {m.charAt(0) + m.slice(1).toLowerCase()}
-                          </button>
+                          </Button>
                         )
                       )}
                     </div>
@@ -524,10 +557,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                       <label className="text-sm font-medium text-gray-700">
                         Timezone
                       </label>
-                      <input
+                      <InlineTimezoneAutocomplete
                         value={scheduleTimezone}
-                        onChange={(e) => setScheduleTimezone(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black/20"
+                        onChange={setScheduleTimezone}
                         placeholder="e.g. America/Los_Angeles"
                       />
                       <p className="text-xs text-gray-500">
@@ -544,21 +576,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                         </label>
                         <div className="grid grid-cols-7 gap-2 mt-2">
                           {[
-                            "Sun",
-                            "Mon",
-                            "Tue",
-                            "Wed",
-                            "Thu",
-                            "Fri",
-                            "Sat",
+                            "Su",
+                            "Mo",
+                            "Tu",
+                            "We",
+                            "Th",
+                            "Fr",
+                            "Sa",
                           ].map((label, idx) => (
-                            <button
+                            <Button
                               key={label}
+                              variant={weeklyDays.includes(idx) ? "pillActive" : "pill"}
                               onClick={() => toggleWeeklyDay(idx)}
-                              className={`px-2 py-2 rounded-lg text-sm border ${weeklyDays.includes(idx) ? "bg-black text-white border-black" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"}`}
+                              className="text-xs py-2 px-1 h-8 min-w-[2rem]"
                             >
                               {label}
-                            </button>
+                            </Button>
                           ))}
                         </div>
                         <p className="text-xs text-gray-500 mt-2">
@@ -634,12 +667,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                   </div>
                 )}
 
-                <div className="flex justify-end gap-3 pt-2">
-                  <Button type="button" variant="outline" onClick={onClose}>
-                    Close
-                  </Button>
+                <div className="flex justify-end pt-2">
                   <Button
                     type="button"
+                    variant="pill"
                     onClick={saveSchedule}
                     disabled={isSavingSchedule}
                     className="flex items-center gap-2"
@@ -654,7 +685,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
             {activeTab === "help" && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  <h3 className="text-base font-semibold text-gray-900 mb-4">
                     Help & Feedback
                   </h3>
                   <p className="text-gray-600 mb-4">
@@ -663,7 +694,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                 </div>
 
                 {/* Contact Support */}
-                <div className="border border-gray-200 rounded-lg p-6">
+                <div className="bg-white rounded-lg shadow-md p-6">
                   <h4 className="font-semibold text-gray-900 mb-3">
                     Contact Support
                   </h4>
@@ -672,7 +703,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                     our support team.
                   </p>
                   <Button
-                    variant="outline"
+                    variant="pill"
                     onClick={() =>
                       window.open("mailto:support@serplexity.com", "_blank")
                     }
@@ -683,7 +714,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                 </div>
 
                 {/* Feedback Form */}
-                <div className="border border-gray-200 rounded-lg p-6">
+                <div className="bg-white rounded-lg shadow-md p-6">
                   <h4 className="font-semibold text-gray-900 mb-3">
                     Send Feedback
                   </h4>
@@ -695,8 +726,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                   {feedbackSubmitted ? (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                       <p className="text-green-800">
-                        Thank you for your feedback! We'll review it and get
-                        back to you if needed.
+                        Thank you for your feedback! We've sent it to our support team at support@serplexity.com and will review it shortly.
                       </p>
                     </div>
                   ) : (
@@ -705,21 +735,35 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                         value={feedbackText}
                         onChange={(e) => setFeedbackText(e.target.value)}
                         placeholder="Tell us what you think about Serplexity, report a bug, or suggest a feature..."
-                        className="w-full h-32 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 resize-none"
+                        className="w-full h-32 px-3 py-2 bg-white border border-gray-200 shadow-inner rounded-lg text-sm focus:outline-none resize-none"
+                        disabled={feedbackSubmitting}
                       />
-                      <Button
-                        onClick={handleSubmitFeedback}
-                        disabled={!feedbackText.trim()}
-                        className="w-full"
-                      >
-                        Submit Feedback
-                      </Button>
+                      
+                      {feedbackError && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                          <p className="text-red-800 text-sm">
+                            {feedbackError}
+                          </p>
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-end">
+                        <Button
+                          variant="pill"
+                          onClick={handleSubmitFeedback}
+                          disabled={!feedbackText.trim() || feedbackSubmitting}
+                          className="flex items-center gap-2"
+                        >
+                          {feedbackSubmitting && <InlineSpinner size={16} />}
+                          {feedbackSubmitting ? "" : "Submit Feedback"}
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </div>
 
                 {/* Resources */}
-                <div className="border border-gray-200 rounded-lg p-6">
+                <div className="bg-white rounded-lg shadow-md p-6">
                   <h4 className="font-semibold text-gray-900 mb-3">
                     Resources
                   </h4>

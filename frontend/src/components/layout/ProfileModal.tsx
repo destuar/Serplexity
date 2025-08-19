@@ -121,6 +121,13 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const [usageSeries, setUsageSeries] = useState<
     Array<UsagePoint | { date: string; reports: number }>
   >([]);
+  // Separate data caches for reports and responses to avoid reloading
+  const [reportsCache, setReportsCache] = useState<
+    Map<string, Array<{ date: string; reports: number }>>
+  >(new Map());
+  const [responsesCache, setResponsesCache] = useState<
+    Map<string, Array<UsagePoint>>
+  >(new Map());
   const [_billingLoading, setBillingLoading] = useState(false);
   const [_usageLoading, setUsageLoading] = useState(false);
   const [_billingError, setBillingError] = useState<string | null>(null);
@@ -292,18 +299,47 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     mode: "reports" | "responses",
     range: { start: string; end: string }
   ) => {
+    const cacheKey = `${range.start}-${range.end}`;
+    
+    // Check cache first and immediately set data if available
+    if (mode === "reports") {
+      const cached = reportsCache.get(cacheKey);
+      if (cached) {
+        setUsageSeries(cached);
+        return; // No loading needed, data is already available
+      }
+    } else {
+      const cached = responsesCache.get(cacheKey);
+      if (cached) {
+        setUsageSeries(cached);
+        return; // No loading needed, data is already available
+      }
+    }
+
     try {
-      setUsageLoading(true);
+      // Only show loading for initial data fetch, not when switching modes
+      const hasAnyData = usageSeries.length > 0;
+      if (!hasAnyData) {
+        setUsageLoading(true);
+      }
+      
       if (mode === "reports") {
         const { data } = await apiClient.get(
           `/billing/reports?start=${encodeURIComponent(range.start)}&end=${encodeURIComponent(range.end)}`
         );
-        setUsageSeries(data as Array<{ date: string; reports: number }>);
+        const reportData = data as Array<{ date: string; reports: number }>;
+        
+        // Update cache and state
+        setReportsCache(prev => new Map(prev).set(cacheKey, reportData));
+        setUsageSeries(reportData);
       } else {
         const data = await fetchUsageSeries({
           start: range.start,
           end: range.end,
         });
+        
+        // Update cache and state
+        setResponsesCache(prev => new Map(prev).set(cacheKey, data));
         setUsageSeries(data);
       }
     } catch {
@@ -313,7 +349,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const setQuickUsageRange = async (days: number) => {
+  const setQuickUsageRange = (days: number) => {
     const end = new Date();
     const start = new Date();
     start.setDate(end.getDate() - (days - 1));
@@ -322,7 +358,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     const newRange = { start: startIso, end: endIso };
     setDateRange(newRange);
     setSelectedQuickDays(days);
-    await refreshUsageSeries(chartMode, newRange);
+    // Non-blocking call to refresh data
+    void refreshUsageSeries(chartMode, newRange);
   };
 
   if (!isOpen) return null;
@@ -541,7 +578,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
           </p>
         </div>
       )}
-      <div className="bg-white rounded-lg shadow-lg p-6">
+      <div className="bg-white rounded-lg shadow-md p-6">
         {_billingLoading ? (
           <div className="py-6 flex items-center justify-center">
             <InlineSpinner size={16} />
@@ -771,7 +808,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
           </p>
         </div>
       )}
-      <div className="bg-white rounded-lg shadow-lg p-6">
+      <div className="bg-white rounded-lg shadow-md p-6">
         {_usageLoading ? (
           <div className="py-6 flex items-center justify-center">
             <InlineSpinner size={16} />
@@ -792,10 +829,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                 <Button
                   variant={chartMode === "reports" ? "pillActive" : "pill"}
                   className="w-28"
-                  onClick={async () => {
+                  onClick={() => {
                     setChartMode("reports");
-                    if (dateRange)
-                      await refreshUsageSeries("reports", dateRange);
+                    if (dateRange) {
+                      // Non-blocking call to refresh data
+                      void refreshUsageSeries("reports", dateRange);
+                    }
                   }}
                 >
                   Reports
@@ -803,10 +842,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                 <Button
                   variant={chartMode === "responses" ? "pillActive" : "pill"}
                   className="w-28"
-                  onClick={async () => {
+                  onClick={() => {
                     setChartMode("responses");
-                    if (dateRange)
-                      await refreshUsageSeries("responses", dateRange);
+                    if (dateRange) {
+                      // Non-blocking call to refresh data
+                      void refreshUsageSeries("responses", dateRange);
+                    }
                   }}
                 >
                   Responses
@@ -818,21 +859,21 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
               <Button
                 variant={selectedQuickDays === 1 ? "pillActive" : "pill"}
                 className="w-16"
-                onClick={() => void setQuickUsageRange(1)}
+                onClick={() => setQuickUsageRange(1)}
               >
                 1d
               </Button>
               <Button
                 variant={selectedQuickDays === 7 ? "pillActive" : "pill"}
                 className="w-16"
-                onClick={() => void setQuickUsageRange(7)}
+                onClick={() => setQuickUsageRange(7)}
               >
                 7d
               </Button>
               <Button
                 variant={selectedQuickDays === 30 ? "pillActive" : "pill"}
                 className="w-16"
-                onClick={() => void setQuickUsageRange(30)}
+                onClick={() => setQuickUsageRange(30)}
               >
                 30d
               </Button>
@@ -922,7 +963,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
         onClick={handleClose}
       >
         <div
-          className="bg-white rounded-xl sm:rounded-2xl max-w-4xl w-full shadow-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden text-sm"
+          className="bg-white rounded-xl sm:rounded-2xl max-w-4xl w-full shadow-md max-h-[95vh] sm:max-h-[90vh] overflow-hidden text-sm"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -989,7 +1030,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
               {activeTab === "profile" && (
                 <div className="space-y-6">
                   {/* Team management */}
-                  <div className="bg-white rounded-lg shadow-lg p-6">
+                  <div className="bg-white rounded-lg shadow-md p-6">
                     <div className="flex items-center justify-between mb-3">
                       <div>
                         <h3 className="font-semibold text-gray-900">Team</h3>
@@ -1219,7 +1260,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                   </div>
 
                   {/* Delete Account section */}
-                  <div className="bg-white rounded-lg shadow-lg p-6">
+                  <div className="bg-white rounded-lg shadow-md p-6">
                     <h3 className="font-semibold text-gray-900 mb-2">
                       Delete Account
                     </h3>
@@ -1243,7 +1284,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
               {activeTab === "companies" && (
                 <div className="space-y-6">
-                  <div className="bg-white rounded-lg shadow-lg p-6">
+                  <div className="bg-white rounded-lg shadow-md p-6">
                     <div className="mb-4">
                       <h3 className="font-semibold text-gray-900">
                         Company Profiles
@@ -1257,7 +1298,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                       {companies.map((company) => (
                         <div
                           key={company.id}
-                          className="bg-white rounded-lg shadow-lg p-4 space-y-4"
+                          className="bg-white rounded-lg shadow-md p-4 space-y-4"
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex-1 min-w-0">
@@ -1436,7 +1477,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
               {activeTab === "settings" && (
                 <div className="space-y-6">
-                  <div className="bg-white rounded-lg shadow-lg p-6">
+                  <div className="bg-white rounded-lg shadow-md p-6">
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="font-semibold text-gray-900">
@@ -1519,8 +1560,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                   </div>
 
                   {/* Active Sessions */}
-                  <div className="bg-white rounded-lg shadow-lg p-6">
-                    <div className="flex items-center justify-between mb-2">
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <div className="mb-2">
                       <div>
                         <h3 className="font-semibold text-gray-900">
                           Active Sessions
@@ -1529,24 +1570,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                           Devices currently signed in to your account
                         </p>
                       </div>
-                      {sessions.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              await apiClient.post("/auth/sessions/revoke-all-others");
-                              // Refresh sessions to show only current one
-                              const updatedSessions = await fetchMySessions();
-                              setSessions(updatedSessions);
-                            } catch {
-                              setSessionsError("Failed to revoke other sessions");
-                            }
-                          }}
-                          className="px-3 py-1.5 rounded-lg text-xs bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 active:shadow-inner"
-                        >
-                          Revoke All Others
-                        </button>
-                      )}
                     </div>
                     {sessionsLoading ? (
                       <div className="py-3">
@@ -1666,7 +1689,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
         {/* Save Confirmation Dialog */}
         {showSaveConfirmation && (
           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-            <div className="bg-white rounded-2xl max-w-md w-full mx-4 shadow-2xl p-6">
+            <div className="bg-white rounded-2xl max-w-md w-full mx-4 shadow-md p-6">
               <div className="flex items-center mb-4">
                 <div className="flex-shrink-0">
                   <AlertTriangle className="h-6 w-6 text-yellow-500" />
@@ -1711,7 +1734,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
             onClick={(e) => e.stopPropagation()}
           >
             <div
-              className="bg-white rounded-2xl max-w-md w-full mx-4 shadow-2xl p-6"
+              className="bg-white rounded-2xl max-w-md w-full mx-4 shadow-md p-6"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mb-4">
@@ -1751,7 +1774,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
             onClick={(e) => e.stopPropagation()}
           >
             <div
-              className="bg-white rounded-2xl max-w-md w-full mx-4 shadow-2xl p-6"
+              className="bg-white rounded-2xl max-w-md w-full mx-4 shadow-md p-6"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mb-3">
@@ -1815,7 +1838,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
             onClick={(e) => e.stopPropagation()}
           >
             <div
-              className="bg-white rounded-2xl max-w-md w-full mx-4 shadow-2xl p-6"
+              className="bg-white rounded-2xl max-w-md w-full mx-4 shadow-md p-6"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mb-3">

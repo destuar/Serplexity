@@ -32,7 +32,7 @@ const notificationRuleSchema = z.object({
   thresholdType: z.enum(["ABSOLUTE", "PERCENT"]),
   thresholdValue: z.number().min(0, "Threshold value must be positive"),
   direction: z.enum(["UP", "DOWN", "BETTER", "WORSE", "ANY"]),
-  frequency: z.enum(["INSTANT", "DAILY_DIGEST"]),
+  frequency: z.enum(["INSTANT", "DAILY_DIGEST", "WEEKLY_DIGEST"]),
   emails: emailArraySchema,
   active: z.boolean().optional().default(true),
 });

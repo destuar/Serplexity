@@ -66,8 +66,9 @@ const DIRECTION_LABELS = {
 };
 
 const FREQUENCY_LABELS = {
-  INSTANT: "Instant alerts",
-  DAILY_DIGEST: "Daily digest",
+  INSTANT: "Automatic",
+  DAILY_DIGEST: "Daily",
+  WEEKLY_DIGEST: "Weekly",
 };
 
 const EmailNotificationsModal: React.FC<EmailNotificationsModalProps> = ({
@@ -97,24 +98,6 @@ const EmailNotificationsModal: React.FC<EmailNotificationsModalProps> = ({
   const [editingRuleIndex, setEditingRuleIndex] = useState<number | null>(null);
   const [savingRule, setSavingRule] = useState<number | null>(null);
 
-  // Helper function to convert emails back to userIds when loading from backend
-  const convertEmailsToUserIds = useCallback((emails: string[]): string[] => {
-    const userIds: string[] = [];
-    
-    // Check if current user's email is in the list
-    if (user?.email && emails.includes(user.email)) {
-      userIds.push(user.id);
-    }
-    
-    // Check team members
-    teamMembers.forEach(member => {
-      if (member.member.email && emails.includes(member.member.email)) {
-        userIds.push(member.memberUserId);
-      }
-    });
-    
-    return userIds;
-  }, [user, teamMembers]);
 
   // Define loadRules function before using it in useEffect
   const loadRules = useCallback(async () => {
@@ -125,10 +108,27 @@ const EmailNotificationsModal: React.FC<EmailNotificationsModalProps> = ({
 
     try {
       const response = await getNotificationRules();
-      const rulesWithUserIds = (response.rules || []).map(rule => ({
-        ...rule,
-        userIds: convertEmailsToUserIds(rule.emails) // Convert emails back to userIds for frontend
-      }));
+      const rulesWithUserIds = (response.rules || []).map(rule => {
+        // Convert emails to userIds inline to avoid dependency issues
+        const userIds: string[] = [];
+        
+        // Check if current user's email is in the list
+        if (user?.email && rule.emails.includes(user.email)) {
+          userIds.push(user.id);
+        }
+        
+        // Check team members - use current teamMembers state
+        teamMembers.forEach(member => {
+          if (member.member.email && rule.emails.includes(member.member.email)) {
+            userIds.push(member.memberUserId);
+          }
+        });
+        
+        return {
+          ...rule,
+          userIds
+        };
+      });
       setRules(rulesWithUserIds);
     } catch (_err) {
       setError("Failed to load notification rules");
@@ -136,27 +136,35 @@ const EmailNotificationsModal: React.FC<EmailNotificationsModalProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [user, convertEmailsToUserIds]);
+  }, [user, teamMembers]); // Direct dependency on teamMembers is more stable
 
-  // Load notification rules when modal opens
+  // Load notification rules and team members when modal opens
   useEffect(() => {
     if (isOpen && user) {
-      loadRules();
-      // Load team members
-      const loadTeamMembers = async () => {
+      // Load team members first, then rules
+      const loadData = async () => {
         setTeamLoading(true);
         try {
           const members = await getTeamMembers();
           setTeamMembers(members);
+          // Rules will be loaded by the separate useEffect below
         } catch (error) {
           console.error("Failed to load team members:", error);
         } finally {
           setTeamLoading(false);
         }
       };
-      loadTeamMembers();
+      loadData();
     }
-  }, [isOpen, user, loadRules]);
+  }, [isOpen, user]);
+
+  // Load notification rules when modal opens or team members change
+  useEffect(() => {
+    if (isOpen && user) {
+      loadRules();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, user, teamMembers]); // Depend on teamMembers directly, not loadRules
 
   // Load top-line notification stats to provide quick context, mirroring Profile modal overview
   useEffect(() => {
@@ -421,7 +429,7 @@ const EmailNotificationsModal: React.FC<EmailNotificationsModalProps> = ({
       onClick={handleOverlayClick}
     >
       <div
-        className="bg-white rounded-xl sm:rounded-2xl max-w-4xl w-full shadow-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden text-sm"
+        className="bg-white rounded-xl sm:rounded-2xl max-w-4xl w-full shadow-md max-h-[95vh] sm:max-h-[90vh] overflow-hidden text-sm"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -471,7 +479,7 @@ const EmailNotificationsModal: React.FC<EmailNotificationsModalProps> = ({
             {activeTab === "rules" && (
               <div className="space-y-6">
                 {/* Quick Stats */}
-                <div className="bg-white rounded-lg shadow-lg p-6">
+                <div className="bg-white rounded-lg shadow-md p-6">
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div className="rounded-lg border border-gray-200 bg-white/80 backdrop-blur-sm p-3">
                       <div className="text-[11px] text-gray-500">Total Rules</div>
@@ -519,8 +527,7 @@ const EmailNotificationsModal: React.FC<EmailNotificationsModalProps> = ({
 
                   {loading ? (
                     <div className="flex items-center justify-center py-8">
-                      <InlineSpinner className="mr-3" />
-                      Loading notification rules...
+                      <InlineSpinner />
                     </div>
                   ) : rules.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
@@ -535,7 +542,7 @@ const EmailNotificationsModal: React.FC<EmailNotificationsModalProps> = ({
                       {rules.map((rule, index) => (
                         <div
                           key={index}
-                          className="bg-white rounded-lg shadow-lg border border-gray-200"
+                          className="bg-white rounded-lg shadow-md border border-gray-200"
                         >
                           {editingRuleIndex === index ? (
                             /* Expanded Edit Mode */
@@ -634,7 +641,7 @@ const EmailNotificationsModal: React.FC<EmailNotificationsModalProps> = ({
                                     value={rule.frequency}
                                     onChange={(e) =>
                                       updateRule(index, {
-                                        frequency: e.target.value as "INSTANT" | "DAILY_DIGEST",
+                                        frequency: e.target.value as "INSTANT" | "DAILY_DIGEST" | "WEEKLY_DIGEST",
                                       })
                                     }
                                     className="w-full px-3 py-2 rounded-lg text-sm bg-white border border-gray-200 shadow-inner focus:outline-none"
@@ -673,7 +680,8 @@ const EmailNotificationsModal: React.FC<EmailNotificationsModalProps> = ({
                                               : rule.userIds.filter(id => id !== userId);
                                             updateRule(index, { userIds: newUserIds });
                                           }}
-                                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                          className="w-4 h-4 border-gray-300 rounded focus:ring-gray-500"
+                                          style={{ accentColor: '#374151' }}
                                         />
                                         <span className="text-sm font-medium text-gray-900">
                                           {user?.name || user?.email} (You)
@@ -692,7 +700,8 @@ const EmailNotificationsModal: React.FC<EmailNotificationsModalProps> = ({
                                                 : rule.userIds.filter(id => id !== member.memberUserId);
                                               updateRule(index, { userIds: newUserIds });
                                             }}
-                                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                            className="w-4 h-4 border-gray-300 rounded focus:ring-gray-500"
+                                            style={{ accentColor: '#374151' }}
                                           />
                                           <span className="text-sm text-gray-900">
                                             {member.member.name || member.member.email}
@@ -713,10 +722,7 @@ const EmailNotificationsModal: React.FC<EmailNotificationsModalProps> = ({
                                   disabled={savingRule === index || rule.userIds.length === 0}
                                 >
                                   {savingRule === index ? (
-                                    <>
-                                      <InlineSpinner size={16} className="mr-1" />
-                                      Saving...
-                                    </>
+                                    <InlineSpinner size={16} />
                                   ) : (
                                     "Save"
                                   )}
@@ -786,7 +792,7 @@ const EmailNotificationsModal: React.FC<EmailNotificationsModalProps> = ({
             {activeTab === "test" && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  <h3 className="text-base font-semibold text-gray-900 mb-4">
                     Test Notifications
                   </h3>
                   <p className="text-gray-600 mb-4">
@@ -794,7 +800,7 @@ const EmailNotificationsModal: React.FC<EmailNotificationsModalProps> = ({
                   </p>
                 </div>
 
-                <div className="bg-white rounded-lg shadow-lg p-6">
+                <div className="bg-white rounded-lg shadow-md p-6">
                   <div className="mb-4">
                     <h3 className="font-semibold text-gray-900">Send Test Email</h3>
                     <p className="text-sm text-gray-600">
