@@ -1681,6 +1681,31 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
               {activeTab === "usage" && (
                 <div className="space-y-8">{renderUsageSection()}</div>
               )}
+
+              {activeTab === "contact" && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-900 mb-4">
+                      Contact Us
+                    </h3>
+                    <p className="text-gray-600 mb-4">
+                      Need help with your account or have questions? Reach out to our support team.
+                    </p>
+                  </div>
+
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <Button
+                      variant="pill"
+                      onClick={() =>
+                        window.open("mailto:support@serplexity.com", "_blank")
+                      }
+                    >
+                      <Mail className="w-4 h-4 mr-2" />
+                      support@serplexity.com
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

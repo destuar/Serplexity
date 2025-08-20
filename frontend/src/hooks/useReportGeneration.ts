@@ -717,9 +717,10 @@ export const useReportGeneration = (selectedCompany: Company | null) => {
     // Removed competitor requirement - company research flow discovers competitors automatically
     if (generationState !== GenerationState.IDLE) return true;
     if (crossTabLock) return true;
+    if (isGenerating) return true; // Prevent clicks during generation, even after page refresh
     
     return false;
-  }, [selectedCompany, generationState, crossTabLock]);
+  }, [selectedCompany, generationState, crossTabLock, isGenerating]);
 
   // Clean up on unmount
   useEffect(() => {

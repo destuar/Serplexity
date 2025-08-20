@@ -304,7 +304,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                   </div>
                 )}
 
-                <div className="space-y-4">
+                <div className="space-y-2">
                   {/* ChatGPT */}
                   <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-md">
                     <div className="flex items-center space-x-3">
@@ -499,7 +499,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                   </div>
                 )}
 
-                <div className="flex justify-end pt-4">
+                <div className="flex justify-end pt-0">
                   <Button
                     type="button"
                     variant="pill"
@@ -563,12 +563,35 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                         placeholder="e.g. America/Los_Angeles"
                       />
                       <p className="text-xs text-gray-500">
-                        Use an IANA timezone, defaults to your browser timezone.
+                        Defaults to your browser timezone.
                       </p>
                     </div>
                   </div>
 
                   <div className="space-y-4">
+                    {scheduleMode === "MANUAL" && selectedCompany && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">
+                          Manual report
+                        </label>
+                        <div className="mt-2">
+                          <Button
+                            type="button"
+                            variant="pill"
+                            onClick={generateReport}
+                            disabled={isButtonDisabled}
+                            className="flex items-center gap-2"
+                          >
+                            {isReportGenerating && <InlineSpinner size={16} />}
+                            {isReportGenerating ? "" : "Generate Report"}
+                          </Button>
+                          <p className="text-xs text-gray-500 mt-2">
+                            Run a report on demand when using Manual mode.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     {scheduleMode === "WEEKLY" && (
                       <div>
                         <label className="text-sm font-medium text-gray-700">
@@ -601,64 +624,42 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                     )}
 
                     {scheduleMode === "CUSTOM" && (
-                      <div className="space-y-2">
+                      <div>
                         <label className="text-sm font-medium text-gray-700">
                           Specific dates
                         </label>
-                        <div className="flex items-center gap-2">
+                        <div className="mt-2">
                           <input
                             type="date"
                             onChange={(e) => addCustomDate(e.target.value)}
-                            className="px-3 py-2 border border-gray-300 rounded-lg"
+                            className="w-full px-3 py-2 bg-white border border-gray-200 shadow-inner rounded-lg text-sm focus:outline-none"
                           />
-                        </div>
-                        {customDates.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {customDates.map((d) => (
-                              <span
-                                key={d}
-                                className="inline-flex items-center gap-2 px-2 py-1 rounded-full bg-gray-100 text-sm"
-                              >
-                                {d}
-                                <button
-                                  onClick={() => removeCustomDate(d)}
-                                  className="text-gray-500 hover:text-gray-700"
+                          {customDates.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {customDates.map((d) => (
+                                <span
+                                  key={d}
+                                  className="inline-flex items-center gap-2 px-2 py-1 rounded-full bg-gray-100 text-sm"
                                 >
-                                  ×
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <p className="text-xs text-gray-500">
-                          Dates are interpreted in the selected timezone.
-                        </p>
+                                  {d}
+                                  <button
+                                    onClick={() => removeCustomDate(d)}
+                                    className="text-gray-500 hover:text-gray-700"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <p className="text-xs text-gray-500 mt-2">
+                            Dates are interpreted in the selected timezone.
+                          </p>
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
-
-                {scheduleMode === "MANUAL" && selectedCompany && (
-                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-gray-50">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        Manual report
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        Run a report on demand when using Manual mode.
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      onClick={generateReport}
-                      disabled={isButtonDisabled}
-                      className="flex items-center gap-2"
-                    >
-                      {isReportGenerating && <InlineSpinner size={16} />}
-                      {isReportGenerating ? "" : "Generate Report"}
-                    </Button>
-                  </div>
-                )}
 
                 {scheduleError && (
                   <div className="flex items-center p-3 text-sm text-red-700 bg-red-50 rounded-lg">

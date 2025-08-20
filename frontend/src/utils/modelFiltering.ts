@@ -11,6 +11,7 @@
  * - Consistent API parameter generation
  * - Model display name resolution
  * - Engine field vs aiModel field handling
+ * - Handles AI Overviews fallback logic for sentiment analysis
  * 
  * @author Dashboard Team
  * @version 2.0.0 - Unified from scattered component logic
