@@ -61,8 +61,8 @@ import {
   fetchBillingSummary,
   fetchInvoiceHistory,
   fetchReportHistory,
-  fetchUsageStatistics,
   fetchUsageSeries,
+  fetchUsageStatistics,
   updateBudget,
 } from "../../services/billingService";
 import {
@@ -71,9 +71,9 @@ import {
   getTeamMembers,
   inviteTeamMember,
 } from "../../services/teamService";
+import { formatChartDate } from "../../utils/chartDataProcessing";
 import InlineIndustryAutocomplete from "../company/InlineIndustryAutocomplete";
 import { Button } from "../ui/Button";
-import { formatChartDate } from "../../utils/chartDataProcessing";
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -141,7 +141,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const [customBudgetInput, setCustomBudgetInput] = useState<string>("");
   const [budgetErrorLocal, setBudgetErrorLocal] = useState<string | null>(null);
   const [isSavingBudget, setIsSavingBudget] = useState(false);
-  const [billingCycleReports, setBillingCycleReports] = useState<{used: number, left: number, periodStart: string, periodEnd: string} | null>(null);
+  const [billingCycleReports, setBillingCycleReports] = useState<{
+    used: number;
+    left: number;
+    periodStart: string;
+    periodEnd: string;
+  } | null>(null);
   // Invoice history state
   const [invoices, setInvoices] = useState<InvoiceHistoryItem[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
@@ -156,23 +161,27 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     end: string;
   } | null>(null);
   const [selectedQuickDays, setSelectedQuickDays] = useState<number>(30);
-  const [currentGranularity, setCurrentGranularity] = useState<"hourly" | "daily">("daily");
-  
+  const [currentGranularity, setCurrentGranularity] = useState<
+    "hourly" | "daily"
+  >("daily");
+
   // New state for report history and usage stats
-  const [reportHistory, setReportHistory] = useState<Array<{
-    id: string;
-    createdAt: string;
-    companyName: string;
-    promptCount: number | null;
-    responseCount: number | null;
-  }>>([]);
+  const [reportHistory, setReportHistory] = useState<
+    Array<{
+      id: string;
+      createdAt: string;
+      companyName: string;
+      promptCount: number | null;
+      responseCount: number | null;
+    }>
+  >([]);
   const [usageStats, setUsageStats] = useState({
     totalWorkspaces: 0,
     totalReports: 0,
     totalActivePrompts: 0,
-    totalResponses: 0
+    totalResponses: 0,
   });
-  
+
   // Sessions
   const [sessions, setSessions] = useState<SessionDto[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
@@ -194,7 +203,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const chartData = useMemo(() => {
     return usageSeries.map((d) => {
       const dt = new Date(d.date);
-      const granularityForFormatting = currentGranularity === "hourly" ? "hour" : "day";
+      const granularityForFormatting =
+        currentGranularity === "hourly" ? "hour" : "day";
       const dateLabel = formatChartDate(dt, granularityForFormatting);
       const value =
         chartMode === "reports"
@@ -244,67 +254,80 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   // TODO: TECHNICAL DEBT - Remove when backend fixes reportsUsed calculation
   // Backend should calculate reportsUsed/reportsLeft based on periodStart/periodEnd
   // instead of calendar months. This frontend calculation is a temporary workaround.
-  // 
+  //
   // BACKEND FIX REQUIRED:
   // 1. Update /billing/summary endpoint to calculate reportsUsed based on periodStart/periodEnd
   // 2. Ensure reportsLeft = includedReportsLimit - (reports used in current billing cycle)
   // 3. Test with various billing cycle start dates (not just month boundaries)
-  const fetchBillingCycleReports = useCallback(async (summary: BillingSummary): Promise<void> => {
-    // Skip if we already have data for this period
-    if (billingCycleReports?.periodStart === summary.periodStart && 
-        billingCycleReports?.periodEnd === summary.periodEnd) {
-      return;
-    }
+  const fetchBillingCycleReports = useCallback(
+    async (summary: BillingSummary): Promise<void> => {
+      // Skip if we already have data for this period
+      if (
+        billingCycleReports?.periodStart === summary.periodStart &&
+        billingCycleReports?.periodEnd === summary.periodEnd
+      ) {
+        return;
+      }
 
-    setBillingCycleLoading(true);
-    
-    try {
-      console.log('🔍 Billing Cycle Verification:', {
-        currentReportsUsed: summary.reportsUsed,
-        currentReportsLeft: summary.reportsLeft,
-        periodStart: summary.periodStart,
-        periodEnd: summary.periodEnd,
-        message: 'Fetching actual billing cycle usage...'
-      });
+      setBillingCycleLoading(true);
 
-      // Fetch reports used during actual billing cycle
-      const { data } = await apiClient.get(
-        `/billing/reports?start=${encodeURIComponent(summary.periodStart)}&end=${encodeURIComponent(summary.periodEnd)}`
-      );
-      
-      const reportData = data as Array<{ date: string; reports: number }>;
-      const actualUsed = reportData.reduce((sum, day) => sum + day.reports, 0);
-      const actualLeft = Math.max(0, summary.includedReportsLimit - actualUsed);
-      
-      console.log('📊 Billing Cycle Calculation Result:', {
-        backendReportsUsed: summary.reportsUsed,
-        actualBillingCycleUsed: actualUsed,
-        backendReportsLeft: summary.reportsLeft,
-        actualBillingCycleLeft: actualLeft,
-        discrepancy: summary.reportsUsed !== actualUsed,
-        billingPeriod: `${summary.periodStart} to ${summary.periodEnd}`
-      });
+      try {
+        console.log("🔍 Billing Cycle Verification:", {
+          currentReportsUsed: summary.reportsUsed,
+          currentReportsLeft: summary.reportsLeft,
+          periodStart: summary.periodStart,
+          periodEnd: summary.periodEnd,
+          message: "Fetching actual billing cycle usage...",
+        });
 
-      setBillingCycleReports({
-        used: actualUsed,
-        left: actualLeft,
-        periodStart: summary.periodStart,
-        periodEnd: summary.periodEnd
-      });
+        // Fetch reports used during actual billing cycle
+        const { data } = await apiClient.get(
+          `/billing/reports?start=${encodeURIComponent(summary.periodStart)}&end=${encodeURIComponent(summary.periodEnd)}`
+        );
 
-    } catch (error) {
-      console.warn('⚠️ Billing cycle calculation failed, using backend data:', error);
-      // Graceful fallback to backend data
-      setBillingCycleReports({
-        used: summary.reportsUsed,
-        left: summary.reportsLeft,
-        periodStart: summary.periodStart,
-        periodEnd: summary.periodEnd
-      });
-    } finally {
-      setBillingCycleLoading(false);
-    }
-  }, [billingCycleReports]);
+        const reportData = data as Array<{ date: string; reports: number }>;
+        const actualUsed = reportData.reduce(
+          (sum, day) => sum + day.reports,
+          0
+        );
+        const actualLeft = Math.max(
+          0,
+          summary.includedReportsLimit - actualUsed
+        );
+
+        console.log("📊 Billing Cycle Calculation Result:", {
+          backendReportsUsed: summary.reportsUsed,
+          actualBillingCycleUsed: actualUsed,
+          backendReportsLeft: summary.reportsLeft,
+          actualBillingCycleLeft: actualLeft,
+          discrepancy: summary.reportsUsed !== actualUsed,
+          billingPeriod: `${summary.periodStart} to ${summary.periodEnd}`,
+        });
+
+        setBillingCycleReports({
+          used: actualUsed,
+          left: actualLeft,
+          periodStart: summary.periodStart,
+          periodEnd: summary.periodEnd,
+        });
+      } catch (error) {
+        console.warn(
+          "⚠️ Billing cycle calculation failed, using backend data:",
+          error
+        );
+        // Graceful fallback to backend data
+        setBillingCycleReports({
+          used: summary.reportsUsed,
+          left: summary.reportsLeft,
+          periodStart: summary.periodStart,
+          periodEnd: summary.periodEnd,
+        });
+      } finally {
+        setBillingCycleLoading(false);
+      }
+    },
+    [billingCycleReports]
+  );
 
   // Fetch billing/usage when relevant tabs become visible (including overview)
   useEffect(() => {
@@ -335,12 +358,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
         // Load both report history and usage statistics
         const [historyData, statsData] = await Promise.all([
           fetchReportHistory({ days: 30, limit: 50 }),
-          fetchUsageStatistics()
+          fetchUsageStatistics(),
         ]);
-        
+
         setReportHistory(historyData);
         setUsageStats(statsData);
-        
+
         // Still load the existing series data for backward compatibility
         const end = new Date();
         const start = new Date();
@@ -355,7 +378,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
         );
         setUsageSeries(data as Array<{ date: string; reports: number }>);
       } catch (error) {
-        console.error('Failed to load usage data:', error);
+        console.error("Failed to load usage data:", error);
         setUsageError("Failed to load usage");
       } finally {
         setUsageLoading(false);
@@ -367,7 +390,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     const shouldLoadUsage = activeTab === "usage" || isOverview;
     if (shouldLoadBilling) void loadBilling();
     if (shouldLoadUsage) void loadUsage();
-    
+
     // Load invoice history when billing tab is active
     if (activeTab === "billing") {
       setInvoicesLoading(true);
@@ -470,7 +493,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     void refreshUsageSeries(chartMode, newRange, granularity);
   };
 
-
   if (!isOpen) return null;
 
   const onUpdateProfile = async (data: ProfileFormData) => {
@@ -493,7 +515,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   };
 
   // Removed unused change password handler
-
 
   const handleManageSubscription = () => {
     // If user has active subscription, redirect to customer portal
@@ -582,7 +603,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
   // Note: plan saving handled inline via updatePlan; no separate handler required
 
-
   // Removed inline report generation from profile modal (moved to header)
 
   const handleClose = () => {
@@ -618,7 +638,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     if (!tier) return "None";
     return tier.charAt(0) + tier.slice(1).toLowerCase();
   };
-
 
   const getPlanDescription = (
     tier?: "STARTER" | "GROWTH" | "SCALE" | null
@@ -697,14 +716,21 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                   {formatPlanTierLabel(billingSummary?.planTier)} Plan
                 </h4>
                 <span className="inline-flex px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-100 text-gray-600">
-                  {user?.subscriptionStatus === "active" ? "Active" : "Inactive"}
+                  {user?.subscriptionStatus === "active"
+                    ? "Active"
+                    : "Inactive"}
                 </span>
               </div>
               <div className="text-xs text-gray-600">
                 {getPlanDescription(billingSummary?.planTier)}
               </div>
             </div>
-            <Button variant="pill" size="sm" onClick={handleManageSubscription} className="w-fit">
+            <Button
+              variant="pill"
+              size="sm"
+              onClick={handleManageSubscription}
+              className="w-fit"
+            >
               Manage
             </Button>
           </div>
@@ -805,7 +831,9 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                       placeholder="$"
                     />
                     {budgetErrorLocal && (
-                      <div className="text-xs text-red-600 mt-1">{budgetErrorLocal}</div>
+                      <div className="text-xs text-red-600 mt-1">
+                        {budgetErrorLocal}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -873,12 +901,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
         )}
         {layout === "horizontal" ? (
           <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-            <div className="md:col-span-3">
-              {CurrentPlanCard}
-            </div>
-            <div className="md:col-span-3">
-              {BudgetCard}
-            </div>
+            <div className="md:col-span-3">{CurrentPlanCard}</div>
+            <div className="md:col-span-3">{BudgetCard}</div>
           </div>
         ) : (
           <>
@@ -942,8 +966,13 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                     setChartMode("reports");
                     if (dateRange) {
                       // Non-blocking call to refresh data
-                      const granularity = selectedQuickDays === 1 ? "hourly" : "daily";
-                      void refreshUsageSeries("reports", dateRange, granularity);
+                      const granularity =
+                        selectedQuickDays === 1 ? "hourly" : "daily";
+                      void refreshUsageSeries(
+                        "reports",
+                        dateRange,
+                        granularity
+                      );
                     }
                   }}
                 >
@@ -956,8 +985,13 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                     setChartMode("responses");
                     if (dateRange) {
                       // Non-blocking call to refresh data
-                      const granularity = selectedQuickDays === 1 ? "hourly" : "daily";
-                      void refreshUsageSeries("responses", dateRange, granularity);
+                      const granularity =
+                        selectedQuickDays === 1 ? "hourly" : "daily";
+                      void refreshUsageSeries(
+                        "responses",
+                        dateRange,
+                        granularity
+                      );
                     }
                   }}
                 >
@@ -1069,7 +1103,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
       </div>
     </div>
   );
-
 
   return (
     <>
@@ -1272,9 +1305,9 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                 onClick={async () => {
                                   try {
                                     // Simple sign out without confirmation dialog
-                                    window.location.href = '/api/auth/logout';
+                                    window.location.href = "/api/auth/logout";
                                   } catch (error) {
-                                    console.error('Sign out failed:', error);
+                                    console.error("Sign out failed:", error);
                                   }
                                 }}
                                 disabled={_isSigningOut}
@@ -1833,33 +1866,43 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                 <div className="space-y-6">
                   {/* Usage Summary */}
                   <div className="bg-white rounded-lg shadow-md p-4 h-36">
-                    <h4 className="font-semibold text-gray-900 mb-3">Usage Statistics</h4>
-                    
+                    <h4 className="font-semibold text-gray-900 mb-3">
+                      Usage Statistics
+                    </h4>
+
                     {usageStats ? (
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                         <div className="bg-gray-50 rounded-lg p-3">
-                          <div className="text-xs text-gray-600 mb-1">Workspaces</div>
+                          <div className="text-xs text-gray-600 mb-1">
+                            Workspaces
+                          </div>
                           <div className="text-lg font-semibold text-gray-900">
                             {usageStats.totalWorkspaces}
                           </div>
                         </div>
-                        
+
                         <div className="bg-gray-50 rounded-lg p-3">
-                          <div className="text-xs text-gray-600 mb-1">Reports</div>
+                          <div className="text-xs text-gray-600 mb-1">
+                            Reports
+                          </div>
                           <div className="text-lg font-semibold text-gray-900">
                             {usageStats.totalReports}
                           </div>
                         </div>
-                        
+
                         <div className="bg-gray-50 rounded-lg p-3">
-                          <div className="text-xs text-gray-600 mb-1">Active Prompts</div>
+                          <div className="text-xs text-gray-600 mb-1">
+                            Active Prompts
+                          </div>
                           <div className="text-lg font-semibold text-gray-900">
                             {usageStats.totalActivePrompts}
                           </div>
                         </div>
 
                         <div className="bg-gray-50 rounded-lg p-3">
-                          <div className="text-xs text-gray-600 mb-1">Responses</div>
+                          <div className="text-xs text-gray-600 mb-1">
+                            Responses
+                          </div>
                           <div className="text-lg font-semibold text-gray-900">
                             {usageStats.totalResponses}
                           </div>
@@ -1874,8 +1917,10 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
                   {/* Report History Table */}
                   <div className="bg-white rounded-lg shadow-md p-6">
-                    <h4 className="font-semibold text-gray-900 mb-4">Report History</h4>
-                    
+                    <h4 className="font-semibold text-gray-900 mb-4">
+                      Report History
+                    </h4>
+
                     {reportHistory.length > 0 ? (
                       <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
@@ -1899,10 +1944,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                             {reportHistory.map((report) => (
                               <tr key={report.id} className="hover:bg-gray-50">
                                 <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">
-                                  {new Date(report.createdAt).toLocaleDateString('en-US', {
-                                    month: 'short',
-                                    day: 'numeric',
-                                    year: 'numeric'
+                                  {new Date(
+                                    report.createdAt
+                                  ).toLocaleDateString("en-US", {
+                                    month: "short",
+                                    day: "numeric",
+                                    year: "numeric",
                                   })}
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">
@@ -1926,7 +1973,9 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                         ) : (
                           <div className="text-gray-500">
                             <p>No report history found</p>
-                            <p className="text-sm mt-1">Reports will appear here once generated</p>
+                            <p className="text-sm mt-1">
+                              Reports will appear here once generated
+                            </p>
                           </div>
                         )}
                       </div>
@@ -1950,17 +1999,25 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                           <div>
                             <div className="flex items-center gap-2 mb-1">
                               <h4 className="font-semibold text-gray-900 text-sm">
-                                {formatPlanTierLabel(billingSummary?.planTier)} Plan
+                                {formatPlanTierLabel(billingSummary?.planTier)}{" "}
+                                Plan
                               </h4>
                               <span className="inline-flex px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-100 text-gray-600">
-                                {user?.subscriptionStatus === "active" ? "Active" : "Inactive"}
+                                {user?.subscriptionStatus === "active"
+                                  ? "Active"
+                                  : "Inactive"}
                               </span>
                             </div>
                             <div className="text-xs text-gray-600">
                               {getPlanDescription(billingSummary?.planTier)}
                             </div>
                           </div>
-                          <Button variant="pill" size="sm" onClick={handleManageSubscription} className="w-fit">
+                          <Button
+                            variant="pill"
+                            size="sm"
+                            onClick={handleManageSubscription}
+                            className="w-fit"
+                          >
                             Manage
                           </Button>
                         </div>
@@ -1972,13 +2029,19 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                       {billingSummary ? (
                         <div className="space-y-2">
                           <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600">Billing Period</span>
+                            <span className="text-sm text-gray-600">
+                              Billing Period
+                            </span>
                             <span className="text-sm font-medium text-gray-900">
-                              {new Date(billingSummary.periodEnd).toLocaleDateString()}
+                              {new Date(
+                                billingSummary.periodEnd
+                              ).toLocaleDateString()}
                             </span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600">Reports Used</span>
+                            <span className="text-sm text-gray-600">
+                              Reports Used
+                            </span>
                             <span className="text-sm font-medium text-gray-900">
                               {billingCycleLoading ? (
                                 <InlineSpinner size={12} />
@@ -1990,7 +2053,9 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                             </span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600">Reports Remaining</span>
+                            <span className="text-sm text-gray-600">
+                              Reports Remaining
+                            </span>
                             <span className="text-sm font-medium text-gray-900">
                               {billingCycleLoading ? (
                                 <InlineSpinner size={12} />
@@ -2002,11 +2067,17 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                             </span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600">Workspaces Remaining</span>
+                            <span className="text-sm text-gray-600">
+                              Workspaces Remaining
+                            </span>
                             <span className="text-sm font-medium text-gray-900">
                               {(() => {
-                                const limit = billingSummary.planTier === "STARTER" ? 1 : 
-                                             billingSummary.planTier === "GROWTH" ? 3 : "∞";
+                                const limit =
+                                  billingSummary.planTier === "STARTER"
+                                    ? 1
+                                    : billingSummary.planTier === "GROWTH"
+                                      ? 3
+                                      : "∞";
                                 const used = companies.length;
                                 if (limit === "∞") return "Unlimited";
                                 const remaining = Math.max(0, limit - used);
@@ -2026,10 +2097,14 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                   {/* Invoices Table */}
                   <div className="bg-white rounded-lg shadow-md p-6">
                     <div className="mb-4">
-                      <h4 className="font-semibold text-gray-900">Recent Invoices</h4>
-                      <p className="text-sm text-gray-600">Your billing history and invoice details</p>
+                      <h4 className="font-semibold text-gray-900">
+                        Recent Invoices
+                      </h4>
+                      <p className="text-sm text-gray-600">
+                        Your billing history and invoice details
+                      </p>
                     </div>
-                    
+
                     {/* Invoices Table */}
                     <div className="overflow-x-auto">
                       <table className="w-full">
@@ -2047,9 +2122,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Period
                             </th>
-                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
-                              
-                            </th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16"></th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
@@ -2061,7 +2134,10 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                             </tr>
                           ) : invoicesError ? (
                             <tr>
-                              <td colSpan={5} className="px-4 py-8 text-center text-red-500">
+                              <td
+                                colSpan={5}
+                                className="px-4 py-8 text-center text-red-500"
+                              >
                                 <div className="space-y-2">
                                   <X className="w-8 h-8 mx-auto text-red-300" />
                                   <p className="text-sm">{invoicesError}</p>
@@ -2070,15 +2146,23 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                             </tr>
                           ) : invoices.length === 0 ? (
                             <tr>
-                              <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                                <p className="text-xs">Your billing history will appear here once payments are processed</p>
+                              <td
+                                colSpan={5}
+                                className="px-4 py-8 text-center text-gray-500"
+                              >
+                                <p className="text-xs">
+                                  Your billing history will appear here once
+                                  payments are processed
+                                </p>
                               </td>
                             </tr>
                           ) : (
                             invoices.map((invoice) => (
                               <tr key={invoice.id} className="hover:bg-gray-50">
                                 <td className="px-4 py-3 text-sm text-gray-900">
-                                  {new Date(invoice.created * 1000).toLocaleDateString()}
+                                  {new Date(
+                                    invoice.created * 1000
+                                  ).toLocaleDateString()}
                                 </td>
                                 <td className="px-4 py-3 text-sm font-medium text-gray-900">
                                   ${invoice.amount.toFixed(2)}
@@ -2087,13 +2171,25 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                   {invoice.status}
                                 </td>
                                 <td className="px-4 py-3 text-sm text-gray-600">
-                                  {new Date(invoice.periodStart * 1000).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} - {new Date(invoice.periodEnd * 1000).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                                  {new Date(
+                                    invoice.periodStart * 1000
+                                  ).toLocaleDateString("en-US", {
+                                    month: "short",
+                                    year: "numeric",
+                                  })}{" "}
+                                  -{" "}
+                                  {new Date(
+                                    invoice.periodEnd * 1000
+                                  ).toLocaleDateString("en-US", {
+                                    month: "short",
+                                    year: "numeric",
+                                  })}
                                 </td>
                                 <td className="px-4 py-3 text-sm">
                                   {invoice.invoicePdf && (
-                                    <a 
-                                      href={invoice.invoicePdf} 
-                                      target="_blank" 
+                                    <a
+                                      href={invoice.invoicePdf}
+                                      target="_blank"
                                       rel="noopener noreferrer"
                                       className="text-gray-400 hover:text-gray-600 p-1 inline-block"
                                     >
@@ -2107,7 +2203,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                         </tbody>
                       </table>
                     </div>
-                    
                   </div>
                 </div>
               )}
@@ -2119,7 +2214,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                       Documentation
                     </h3>
                     <p className="text-gray-600 mb-4">
-                      Learn how to get the most out of Serplexity with our comprehensive guides and tutorials.
+                      Learn how to get the most out of Serplexity with our
+                      comprehensive guides and tutorials.
                     </p>
                   </div>
 
@@ -2177,7 +2273,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                   <div className="bg-white rounded-lg shadow-md p-6">
                     <div className="space-y-4">
                       <div className="text-sm text-gray-600 mb-4">
-                        For security reasons, please contact support to change your password.
+                        For security reasons, please contact support to change
+                        your password.
                       </div>
                       <a
                         href="mailto:support@serplexity.ai"
