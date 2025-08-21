@@ -8,6 +8,8 @@ import {
   setOverageBudget,
   setPlan,
 } from "../services/billingService";
+import Stripe from "stripe";
+import env from "../config/env";
 
 const setBudgetSchema = z.object({
   enabled: z.boolean(),
@@ -109,5 +111,42 @@ export async function updatePlan(req: Request, res: Response) {
       return res.status(400).json({ error: e.errors });
     }
     return res.status(400).json({ error: (e as Error).message });
+  }
+}
+
+export async function getInvoiceHistory(req: Request, res: Response) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: "Not authenticated" });
+    
+    // Get user's stripe customer ID
+    const user = req.user;
+    if (!user?.stripeCustomerId) {
+      return res.json({ invoices: [] });
+    }
+
+    const stripe = new Stripe(env.STRIPE_SECRET_KEY as string);
+    
+    // Fetch invoices from Stripe
+    const invoices = await stripe.invoices.list({
+      customer: user.stripeCustomerId,
+      limit: 20,
+      status: 'paid'
+    });
+
+    const invoiceHistory = invoices.data.map(invoice => ({
+      id: invoice.id,
+      amount: invoice.total / 100, // Convert from cents to dollars
+      status: invoice.status,
+      created: invoice.created,
+      periodStart: invoice.period_start,
+      periodEnd: invoice.period_end,
+      invoicePdf: invoice.invoice_pdf
+    }));
+
+    return res.json({ invoices: invoiceHistory });
+  } catch (error) {
+    console.error('Failed to fetch invoice history:', error);
+    return res.status(500).json({ error: "Failed to fetch invoice history" });
   }
 }

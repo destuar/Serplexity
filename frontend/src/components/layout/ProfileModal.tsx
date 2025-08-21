@@ -14,11 +14,11 @@
  */
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  AlertTriangle,
   BarChart2,
   BookOpen,
   Box,
   CreditCard,
+  Download,
   Edit2,
   Globe,
   Lock,
@@ -31,7 +31,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { InlineSpinner } from "../ui/InlineSpinner";
@@ -56,8 +56,12 @@ import {
 } from "../../services/authService";
 import {
   BillingSummary,
+  InvoiceHistoryItem,
   UsagePoint,
   fetchBillingSummary,
+  fetchInvoiceHistory,
+  fetchReportHistory,
+  fetchUsageStatistics,
   fetchUsageSeries,
   updateBudget,
 } from "../../services/billingService";
@@ -66,11 +70,10 @@ import {
   getTeamLimits,
   getTeamMembers,
   inviteTeamMember,
-  removeTeamMember,
-  removeTeamInvite,
 } from "../../services/teamService";
 import InlineIndustryAutocomplete from "../company/InlineIndustryAutocomplete";
 import { Button } from "../ui/Button";
+import { formatChartDate } from "../../utils/chartDataProcessing";
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -98,12 +101,12 @@ type ProfileFormData = z.infer<typeof profileUpdateSchema>;
 // type PasswordFormData = never;
 
 const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
-  const { user, updateUser, logout } = useAuth();
+  const { user, updateUser } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
   // Removed unused password visibility states
   const [_isUpdatingProfile, setIsUpdatingProfile] = useState(false);
-  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [_isSigningOut] = useState(false);
   const [_profileError, setProfileError] = useState<string | null>(null);
   // Removed unused password/feedback states
   // Company profiles state
@@ -113,7 +116,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const [editWebsite, setEditWebsite] = useState<string>("");
   const [editIndustry, setEditIndustry] = useState<string>("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
   // Billing/Usage state
   const [billingSummary, setBillingSummary] = useState<BillingSummary | null>(
     null
@@ -138,6 +140,13 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const [proposedBudget, setProposedBudget] = useState<number>(50);
   const [customBudgetInput, setCustomBudgetInput] = useState<string>("");
   const [budgetErrorLocal, setBudgetErrorLocal] = useState<string | null>(null);
+  const [isSavingBudget, setIsSavingBudget] = useState(false);
+  const [billingCycleReports, setBillingCycleReports] = useState<{used: number, left: number, periodStart: string, periodEnd: string} | null>(null);
+  // Invoice history state
+  const [invoices, setInvoices] = useState<InvoiceHistoryItem[]>([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
+  const [invoicesError, setInvoicesError] = useState<string | null>(null);
+  const [billingCycleLoading, setBillingCycleLoading] = useState(false);
   // Removed unused selectedTier/selectedInterval states
   const [chartMode, setChartMode] = useState<"reports" | "responses">(
     "reports"
@@ -147,6 +156,23 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     end: string;
   } | null>(null);
   const [selectedQuickDays, setSelectedQuickDays] = useState<number>(30);
+  const [currentGranularity, setCurrentGranularity] = useState<"hourly" | "daily">("daily");
+  
+  // New state for report history and usage stats
+  const [reportHistory, setReportHistory] = useState<Array<{
+    id: string;
+    createdAt: string;
+    companyName: string;
+    promptCount: number | null;
+    responseCount: number | null;
+  }>>([]);
+  const [usageStats, setUsageStats] = useState({
+    totalWorkspaces: 0,
+    totalReports: 0,
+    totalActivePrompts: 0,
+    totalResponses: 0
+  });
+  
   // Sessions
   const [sessions, setSessions] = useState<SessionDto[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
@@ -164,24 +190,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const [inviteEmail, setInviteEmail] = useState("");
   const [isInviting, setIsInviting] = useState(false);
   const [selfEditing, setSelfEditing] = useState(false);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] =
-    useState(false);
-  const [deletingAccount, setDeletingAccount] = useState(false);
-  const [showRemoveMemberConfirm, setShowRemoveMemberConfirm] = useState<{
-    member: TeamMemberDto;
-    isRemoving: boolean;
-  } | null>(null);
-  const [deleteConfirmText, setDeleteConfirmText] = useState("");
-  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const chartData = useMemo(() => {
     return usageSeries.map((d) => {
       const dt = new Date(d.date);
-      const dateLabel = dt.toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-      });
+      const granularityForFormatting = currentGranularity === "hourly" ? "hour" : "day";
+      const dateLabel = formatChartDate(dt, granularityForFormatting);
       const value =
         chartMode === "reports"
           ? "reports" in d
@@ -195,7 +209,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
         value,
       };
     });
-  }, [usageSeries, chartMode]);
+  }, [usageSeries, chartMode, currentGranularity]);
 
   // Profile form
   const {
@@ -227,6 +241,71 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     }
   }, [user, resetProfile]);
 
+  // TODO: TECHNICAL DEBT - Remove when backend fixes reportsUsed calculation
+  // Backend should calculate reportsUsed/reportsLeft based on periodStart/periodEnd
+  // instead of calendar months. This frontend calculation is a temporary workaround.
+  // 
+  // BACKEND FIX REQUIRED:
+  // 1. Update /billing/summary endpoint to calculate reportsUsed based on periodStart/periodEnd
+  // 2. Ensure reportsLeft = includedReportsLimit - (reports used in current billing cycle)
+  // 3. Test with various billing cycle start dates (not just month boundaries)
+  const fetchBillingCycleReports = useCallback(async (summary: BillingSummary): Promise<void> => {
+    // Skip if we already have data for this period
+    if (billingCycleReports?.periodStart === summary.periodStart && 
+        billingCycleReports?.periodEnd === summary.periodEnd) {
+      return;
+    }
+
+    setBillingCycleLoading(true);
+    
+    try {
+      console.log('🔍 Billing Cycle Verification:', {
+        currentReportsUsed: summary.reportsUsed,
+        currentReportsLeft: summary.reportsLeft,
+        periodStart: summary.periodStart,
+        periodEnd: summary.periodEnd,
+        message: 'Fetching actual billing cycle usage...'
+      });
+
+      // Fetch reports used during actual billing cycle
+      const { data } = await apiClient.get(
+        `/billing/reports?start=${encodeURIComponent(summary.periodStart)}&end=${encodeURIComponent(summary.periodEnd)}`
+      );
+      
+      const reportData = data as Array<{ date: string; reports: number }>;
+      const actualUsed = reportData.reduce((sum, day) => sum + day.reports, 0);
+      const actualLeft = Math.max(0, summary.includedReportsLimit - actualUsed);
+      
+      console.log('📊 Billing Cycle Calculation Result:', {
+        backendReportsUsed: summary.reportsUsed,
+        actualBillingCycleUsed: actualUsed,
+        backendReportsLeft: summary.reportsLeft,
+        actualBillingCycleLeft: actualLeft,
+        discrepancy: summary.reportsUsed !== actualUsed,
+        billingPeriod: `${summary.periodStart} to ${summary.periodEnd}`
+      });
+
+      setBillingCycleReports({
+        used: actualUsed,
+        left: actualLeft,
+        periodStart: summary.periodStart,
+        periodEnd: summary.periodEnd
+      });
+
+    } catch (error) {
+      console.warn('⚠️ Billing cycle calculation failed, using backend data:', error);
+      // Graceful fallback to backend data
+      setBillingCycleReports({
+        used: summary.reportsUsed,
+        left: summary.reportsLeft,
+        periodStart: summary.periodStart,
+        periodEnd: summary.periodEnd
+      });
+    } finally {
+      setBillingCycleLoading(false);
+    }
+  }, [billingCycleReports]);
+
   // Fetch billing/usage when relevant tabs become visible (including overview)
   useEffect(() => {
     if (!user) return;
@@ -240,6 +319,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
         setBudgetDollars(
           Math.max(10, Math.round((summary.overageBudgetCents || 1000) / 100))
         );
+        // Calculate actual billing cycle usage (non-blocking)
+        void fetchBillingCycleReports(summary);
         // Removed selectedTier/selectedInterval state updates
       } catch {
         setBillingError("Failed to load billing summary");
@@ -251,6 +332,16 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
       setUsageLoading(true);
       setUsageError(null);
       try {
+        // Load both report history and usage statistics
+        const [historyData, statsData] = await Promise.all([
+          fetchReportHistory({ days: 30, limit: 50 }),
+          fetchUsageStatistics()
+        ]);
+        
+        setReportHistory(historyData);
+        setUsageStats(statsData);
+        
+        // Still load the existing series data for backward compatibility
         const end = new Date();
         const start = new Date();
         start.setDate(end.getDate() - 29);
@@ -258,11 +349,13 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
         const endIso = new Date(end.setHours(0, 0, 0, 0)).toISOString();
         setDateRange({ start: startIso, end: endIso });
         setSelectedQuickDays(30);
+        setCurrentGranularity("daily"); // 30 days uses daily granularity
         const { data } = await apiClient.get(
           `/billing/reports?start=${encodeURIComponent(startIso)}&end=${encodeURIComponent(endIso)}`
         );
         setUsageSeries(data as Array<{ date: string; reports: number }>);
-      } catch {
+      } catch (error) {
+        console.error('Failed to load usage data:', error);
         setUsageError("Failed to load usage");
       } finally {
         setUsageLoading(false);
@@ -274,6 +367,16 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     const shouldLoadUsage = activeTab === "usage" || isOverview;
     if (shouldLoadBilling) void loadBilling();
     if (shouldLoadUsage) void loadUsage();
+    
+    // Load invoice history when billing tab is active
+    if (activeTab === "billing") {
+      setInvoicesLoading(true);
+      setInvoicesError(null);
+      fetchInvoiceHistory()
+        .then(setInvoices)
+        .catch(() => setInvoicesError("Failed to load invoice history"))
+        .finally(() => setInvoicesLoading(false));
+    }
     if (activeTab === "settings") {
       setSessionsLoading(true);
       setSessionsError(null);
@@ -293,14 +396,17 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
         .catch(() => setTeamError("Failed to load team"))
         .finally(() => setTeamLoading(false));
     }
-  }, [activeTab, user]);
+  }, [activeTab, user, fetchBillingCycleReports]);
 
   const refreshUsageSeries = async (
     mode: "reports" | "responses",
-    range: { start: string; end: string }
+    range: { start: string; end: string },
+    granularity: "hourly" | "daily" = "daily"
   ) => {
-    const cacheKey = `${range.start}-${range.end}`;
-    
+    // Update the current granularity state for chart formatting
+    setCurrentGranularity(granularity);
+    const cacheKey = `${range.start}-${range.end}-${granularity}`;
+
     // Check cache first and immediately set data if available
     if (mode === "reports") {
       const cached = reportsCache.get(cacheKey);
@@ -322,24 +428,25 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
       if (!hasAnyData) {
         setUsageLoading(true);
       }
-      
+
       if (mode === "reports") {
         const { data } = await apiClient.get(
-          `/billing/reports?start=${encodeURIComponent(range.start)}&end=${encodeURIComponent(range.end)}`
+          `/billing/reports?start=${encodeURIComponent(range.start)}&end=${encodeURIComponent(range.end)}&granularity=${granularity}`
         );
         const reportData = data as Array<{ date: string; reports: number }>;
-        
+
         // Update cache and state
-        setReportsCache(prev => new Map(prev).set(cacheKey, reportData));
+        setReportsCache((prev) => new Map(prev).set(cacheKey, reportData));
         setUsageSeries(reportData);
       } else {
         const data = await fetchUsageSeries({
           start: range.start,
           end: range.end,
+          granularity: granularity,
         });
-        
+
         // Update cache and state
-        setResponsesCache(prev => new Map(prev).set(cacheKey, data));
+        setResponsesCache((prev) => new Map(prev).set(cacheKey, data));
         setUsageSeries(data);
       }
     } catch {
@@ -354,13 +461,15 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     const start = new Date();
     start.setDate(end.getDate() - (days - 1));
     const startIso = new Date(start.setHours(0, 0, 0, 0)).toISOString();
-    const endIso = new Date(end.setHours(0, 0, 0, 0)).toISOString();
+    const endIso = new Date(end.setHours(23, 59, 59, 999)).toISOString();
     const newRange = { start: startIso, end: endIso };
+    const granularity = days === 1 ? "hourly" : "daily";
     setDateRange(newRange);
     setSelectedQuickDays(days);
     // Non-blocking call to refresh data
-    void refreshUsageSeries(chartMode, newRange);
+    void refreshUsageSeries(chartMode, newRange, granularity);
   };
+
 
   if (!isOpen) return null;
 
@@ -385,20 +494,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
   // Removed unused change password handler
 
-  const handleSignOut = async () => {
-    setIsSigningOut(true);
-    try {
-      await logout();
-      onClose(); // Close the modal after successful logout
-    } catch (error) {
-      console.error("Sign out failed:", error);
-      // Even if logout fails, we should still close the modal
-      // as the logout function in AuthContext handles clearing local state
-      onClose();
-    } finally {
-      setIsSigningOut(false);
-    }
-  };
 
   const handleManageSubscription = () => {
     // If user has active subscription, redirect to customer portal
@@ -454,13 +549,15 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
   const handleSaveBudget = async () => {
     try {
-      const dollars = Math.max(50, Math.round(budgetDollars));
+      const dollars = Math.max(50, Math.round(proposedBudget || budgetDollars));
       await updateBudget({
         enabled: budgetEnabledLocal,
         budgetCents: budgetEnabledLocal ? dollars * 100 : undefined,
       });
       const summary = await fetchBillingSummary();
       setBillingSummary(summary);
+      // Calculate actual billing cycle usage (non-blocking)
+      void fetchBillingCycleReports(summary);
     } catch {
       setBillingError("Failed to update budget");
     }
@@ -485,17 +582,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
   // Note: plan saving handled inline via updatePlan; no separate handler required
 
-  const handleSaveConfirmation = () => {
-    setShowSaveConfirmation(false);
-    setEditingCompany(null);
-    setTimeout(() => {
-      window.location.reload();
-    }, 500);
-  };
-
-  const handleCancelSaveConfirmation = () => {
-    setShowSaveConfirmation(false);
-  };
 
   // Removed inline report generation from profile modal (moved to header)
 
@@ -533,11 +619,21 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     return tier.charAt(0) + tier.slice(1).toLowerCase();
   };
 
-  const formatIntervalLabel = (
-    interval?: "MONTHLY" | "ANNUAL" | null
+
+  const getPlanDescription = (
+    tier?: "STARTER" | "GROWTH" | "SCALE" | null
   ): string => {
-    if (!interval) return "—";
-    return interval.charAt(0) + interval.slice(1).toLowerCase();
+    if (!tier) return "No plan selected";
+    switch (tier) {
+      case "STARTER":
+        return "1 workspace, 10 included reports, and access to 2 models per report.";
+      case "GROWTH":
+        return "3 workspaces, 30 included reports, and access to all models.";
+      case "SCALE":
+        return "Unlimited workspaces, 60 included reports, and access to all models.";
+      default:
+        return "Plan details unavailable";
+    }
   };
 
   // Shared "puffed" pill styles (matches metrics/budget buttons)
@@ -566,130 +662,98 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     tabs.push({ id: "password", label: "Change Password", icon: Lock });
   }
 
-  const renderBillingSection = (opts?: { showHeader?: boolean }) => (
-    <div className="space-y-6">
-      {opts?.showHeader !== false && (
-        <div>
-          <h3 className="text-base font-semibold text-gray-900 mb-4">
-            Billing & Subscription
-          </h3>
-          <p className="text-sm text-gray-600 mb-4">
-            Manage your plan, billing period, and overage budget.
-          </p>
-        </div>
-      )}
-      <div className="bg-white rounded-lg shadow-md p-6">
+  const renderBillingSection = (opts?: {
+    showHeader?: boolean;
+    layout?: "vertical" | "horizontal";
+  }) => {
+    const showHeader = opts?.showHeader !== false;
+    const layout = opts?.layout ?? "vertical";
+
+    const budgetEnabled = billingSummary?.budgetEnabled ?? false;
+    const spent = Math.round((billingSummary?.overageAmountCents ?? 0) / 100);
+    const limit = budgetEnabled
+      ? Math.round((billingSummary?.overageBudgetCents ?? 0) / 100)
+      : 0;
+    const pct =
+      limit > 0 ? Math.min(100, Math.round((spent / limit) * 100)) : 0;
+
+    const ProgressBar = (
+      <div className="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
+        <div className="h-full bg-black" style={{ width: `${pct}%` }} />
+      </div>
+    );
+
+    const CurrentPlanCard = (
+      <div className="bg-white rounded-lg shadow-md p-4 h-36 flex flex-col">
         {_billingLoading ? (
-          <div className="py-6 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center">
             <InlineSpinner size={16} />
           </div>
         ) : (
-          <>
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h4 className="font-semibold text-gray-900">Current Plan</h4>
-                <div className="text-sm text-gray-600 flex items-center gap-2">
-                  <span>
-                    {formatPlanTierLabel(billingSummary?.planTier)} •{" "}
-                    {formatIntervalLabel(billingSummary?.billingInterval)}
-                  </span>
-                  <span
-                    className={`inline-flex px-2 py-0.5 text-[11px] font-semibold rounded-full ${
-                      user?.subscriptionStatus === "active"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {user?.subscriptionStatus === "active"
-                      ? "Active"
-                      : "Inactive"}
-                  </span>
-                </div>
+          <div className="flex flex-col justify-between h-full">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <h4 className="font-semibold text-gray-900 text-sm">
+                  {formatPlanTierLabel(billingSummary?.planTier)} Plan
+                </h4>
+                <span className="inline-flex px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-100 text-gray-600">
+                  {user?.subscriptionStatus === "active" ? "Active" : "Inactive"}
+                </span>
+              </div>
+              <div className="text-xs text-gray-600">
+                {getPlanDescription(billingSummary?.planTier)}
               </div>
             </div>
-            <div className="space-y-6">
-              <Button variant="pill" onClick={handleManageSubscription}>
-                Manage Subscription
-              </Button>
-            </div>
-            <div className="mt-6 rounded-lg bg-white p-4 shadow-inner border border-white/30">
-              <div className="flex items-center justify-between">
-                <div className="flex-1 pr-4">
-                  {(() => {
-                    const budgetEnabled =
-                      billingSummary?.budgetEnabled ?? false;
-                    const spent = Math.round(
-                      (billingSummary?.overageAmountCents ?? 0) / 100
-                    );
-                    const limit = budgetEnabled
-                      ? Math.round(
-                          (billingSummary?.overageBudgetCents ?? 0) / 100
-                        )
-                      : 0;
-                    const pct =
-                      limit > 0
-                        ? Math.min(100, Math.round((spent / limit) * 100))
-                        : 0;
-                    return (
-                      <>
-                        <div className="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
-                          <div
-                            className="h-full bg-black"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
+            <Button variant="pill" size="sm" onClick={handleManageSubscription} className="w-fit">
+              Manage
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+
+    const BudgetCard = (
+      <div className="bg-white rounded-lg shadow-md p-4 h-36 flex flex-col">
+        {_billingLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <InlineSpinner size={16} />
+          </div>
+        ) : (
+          <div className="flex flex-col h-full">
+            <div className="flex-1">
+              <div className="mb-2">
                 <div className="text-sm font-semibold">
-                  {(() => {
-                    const budgetEnabled =
-                      billingSummary?.budgetEnabled ?? false;
-                    const spent = Math.round(
-                      (billingSummary?.overageAmountCents ?? 0) / 100
-                    );
-                    const limit = budgetEnabled
-                      ? Math.round(
-                          (billingSummary?.overageBudgetCents ?? 0) / 100
-                        )
-                      : 0;
-                    return (
-                      <span>
-                        <span className="text-gray-900">${spent}</span>
-                        <span className="text-gray-400"> / ${limit}</span>
-                      </span>
-                    );
-                  })()}
+                  <span className="text-gray-900">${spent}</span>
+                  <span className="text-gray-400"> / ${limit}</span>
                 </div>
               </div>
-              <p className="text-sm text-gray-600 mt-2">
-                Usage-Based Spending this Month
-              </p>
-              {!isEditingBudget ? (
-                <div className="mt-3">
-                  <Button
-                    variant="pill"
-                    onClick={() => {
-                      const current = Math.max(
-                        50,
-                        Math.round(
-                          (billingSummary?.overageBudgetCents ?? 0) / 100
-                        ) || 50
-                      );
-                      setProposedBudget(current);
-                      setCustomBudgetInput("");
-                      setBudgetErrorLocal(null);
-                      setIsEditingBudget(true);
-                    }}
-                  >
-                    Edit limit
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3 mt-3">
-                  <div className="grid grid-cols-5 gap-2">
-                    {[50, 100, 200, 500].map((amt) => (
+              <div className="mb-1 mt-1">{ProgressBar}</div>
+            </div>
+            {!isEditingBudget ? (
+              <div>
+                <Button
+                  variant="pill"
+                  onClick={() => {
+                    const current = Math.max(
+                      50,
+                      Math.round(
+                        (billingSummary?.overageBudgetCents ?? 0) / 100
+                      ) || 50
+                    );
+                    setProposedBudget(current);
+                    setCustomBudgetInput("");
+                    setBudgetErrorLocal(null);
+                    setIsEditingBudget(true);
+                  }}
+                >
+                  Edit limit
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-start gap-2">
+                  <div className="flex items-center gap-2">
+                    {[50, 100, 200].map((amt) => (
                       <button
                         key={amt}
                         type="button"
@@ -698,102 +762,133 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                           setCustomBudgetInput("");
                           setBudgetErrorLocal(null);
                         }}
-                        className={`px-3 py-2 rounded-lg text-sm transition-colors select-none touch-manipulation ${
+                        className={`px-2 py-1 rounded text-xs transition-colors ${
                           proposedBudget === amt
-                            ? "bg-white/60 backdrop-blur-sm border border-white/30 shadow-inner text-gray-900"
-                            : "bg-white/80 backdrop-blur-sm border border-white/20 shadow-md text-gray-700"
+                            ? "bg-gray-900 text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                         }`}
                       >
                         ${amt}
                       </button>
                     ))}
-                    <div
-                      className={`px-2 py-2 rounded-lg text-sm flex items-center transition-colors select-none touch-manipulation ${
-                        customBudgetInput.trim() !== "" &&
-                        /^\d+$/.test(customBudgetInput) &&
-                        Number(customBudgetInput) >= 50
-                          ? "bg-white/60 backdrop-blur-sm border border-white/30 shadow-inner text-gray-900"
-                          : "bg-white/80 backdrop-blur-sm border border-white/20 shadow-md text-gray-700"
-                      }`}
-                    >
-                      <span className="mr-1">$</span>
-                      <input
-                        type="number"
-                        min={1}
-                        step={1}
-                        value={customBudgetInput}
-                        onChange={(e) => {
-                          const raw = e.target.value;
-                          setCustomBudgetInput(raw);
-                          if (raw.trim() === "") {
-                            setBudgetErrorLocal(null);
-                            return;
-                          }
-                          if (!/^\d+$/.test(raw)) {
-                            setBudgetErrorLocal("Whole dollars only");
-                            return;
-                          }
-                          const num = parseInt(raw, 10);
-                          if (num <= 0) {
-                            setBudgetErrorLocal("Must be > 0");
-                            return;
-                          }
-                          if (num < 10) {
-                            setBudgetErrorLocal("Minimum is $10");
-                            return;
-                          }
-                          setBudgetErrorLocal(null);
-                          setProposedBudget(num);
-                        }}
-                        className="w-20 bg-transparent outline-none text-current placeholder:text-gray-400"
-                        placeholder="Custom"
-                      />
-                    </div>
                   </div>
-                  {budgetErrorLocal && (
-                    <div className="text-xs text-red-600">
-                      {budgetErrorLocal}
-                    </div>
-                  )}
-                  <div className="flex items-center justify-start gap-3 mt-4 mb-1 pt-2 pb-1">
-                    <Button
-                      variant="pill"
-                      className="w-28"
-                      onClick={async () => {
-                        if (proposedBudget < 10) {
+                  <div className="flex flex-col">
+                    <input
+                      type="number"
+                      min={10}
+                      step={1}
+                      value={customBudgetInput}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        setCustomBudgetInput(raw);
+                        if (raw.trim() === "") {
+                          setBudgetErrorLocal(null);
+                          return;
+                        }
+                        if (!/^\d+$/.test(raw)) {
+                          setBudgetErrorLocal("Whole dollars only");
+                          return;
+                        }
+                        const num = parseInt(raw, 10);
+                        if (num <= 0) {
+                          setBudgetErrorLocal("Must be > 0");
+                          return;
+                        }
+                        if (num < 10) {
                           setBudgetErrorLocal("Minimum is $10");
                           return;
                         }
+                        setBudgetErrorLocal(null);
+                        setProposedBudget(num);
+                      }}
+                      className="w-16 px-2 py-1 text-xs border border-gray-300 rounded"
+                      placeholder="$"
+                    />
+                    {budgetErrorLocal && (
+                      <div className="text-xs text-red-600 mt-1">{budgetErrorLocal}</div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="pill"
+                    size="sm"
+                    onClick={async () => {
+                      if (proposedBudget < 10) {
+                        setBudgetErrorLocal("Minimum is $10");
+                        return;
+                      }
+                      setIsSavingBudget(true);
+                      try {
                         setBudgetDollars(proposedBudget);
                         setBudgetEnabledLocal(true);
                         await handleSaveBudget();
                         const refreshed = await fetchBillingSummary();
                         setBillingSummary(refreshed);
+                        // Calculate actual billing cycle usage (non-blocking)
+                        void fetchBillingCycleReports(refreshed);
                         setIsEditingBudget(false);
-                      }}
-                      disabled={!!budgetErrorLocal}
-                    >
-                      Save
-                    </Button>
-                    <Button
-                      variant="pill"
-                      className="w-28"
-                      onClick={() => {
-                        setIsEditingBudget(false);
-                        setBudgetErrorLocal(null);
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
+                      } finally {
+                        setIsSavingBudget(false);
+                      }
+                    }}
+                    disabled={!!budgetErrorLocal || isSavingBudget}
+                    className="w-12 h-6 text-xs"
+                  >
+                    {isSavingBudget ? <InlineSpinner size={10} /> : "Save"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="pill"
+                    size="sm"
+                    onClick={() => {
+                      setIsEditingBudget(false);
+                      setBudgetErrorLocal(null);
+                    }}
+                    disabled={isSavingBudget}
+                    className="w-12 h-6 text-xs"
+                  >
+                    Cancel
+                  </Button>
                 </div>
-              )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+
+    return (
+      <div className="space-y-6">
+        {showHeader && (
+          <div>
+            <h3 className="text-base font-semibold text-gray-900 mb-4">
+              Billing & Subscription
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Manage your plan, billing period, and overage budget.
+            </p>
+          </div>
+        )}
+        {layout === "horizontal" ? (
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+            <div className="md:col-span-3">
+              {CurrentPlanCard}
             </div>
+            <div className="md:col-span-3">
+              {BudgetCard}
+            </div>
+          </div>
+        ) : (
+          <>
+            {CurrentPlanCard}
+            {BudgetCard}
           </>
         )}
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderUsageSection = (opts?: {
     showHeader?: boolean;
@@ -821,8 +916,22 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                   {opts?.title ?? "Credits"}
                 </h4>
                 <p className="text-sm text-gray-600">
-                  Reports left: {billingSummary?.reportsLeft ?? "—"} of{" "}
-                  {billingSummary?.includedReportsLimit ?? "—"}
+                  {billingCycleLoading ? (
+                    <span className="flex items-center gap-2">
+                      <InlineSpinner size={12} />
+                      Calculating...
+                    </span>
+                  ) : billingCycleReports ? (
+                    <>
+                      Reports left: {billingCycleReports.left} of{" "}
+                      {billingSummary?.includedReportsLimit ?? "—"}
+                    </>
+                  ) : (
+                    <>
+                      Reports left: {billingSummary?.reportsLeft ?? "—"} of{" "}
+                      {billingSummary?.includedReportsLimit ?? "—"}
+                    </>
+                  )}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -833,7 +942,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                     setChartMode("reports");
                     if (dateRange) {
                       // Non-blocking call to refresh data
-                      void refreshUsageSeries("reports", dateRange);
+                      const granularity = selectedQuickDays === 1 ? "hourly" : "daily";
+                      void refreshUsageSeries("reports", dateRange, granularity);
                     }
                   }}
                 >
@@ -846,7 +956,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                     setChartMode("responses");
                     if (dateRange) {
                       // Non-blocking call to refresh data
-                      void refreshUsageSeries("responses", dateRange);
+                      const granularity = selectedQuickDays === 1 ? "hourly" : "daily";
+                      void refreshUsageSeries("responses", dateRange, granularity);
                     }
                   }}
                 >
@@ -854,32 +965,35 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                 </Button>
               </div>
             </div>
-            <div className="flex items-center gap-3 text-sm mt-4">
-              <span className="text-gray-600">Range:</span>
+            <div className="flex items-center gap-2 text-sm mt-4">
+              <span className="text-gray-600 text-xs">Range:</span>
               <Button
                 variant={selectedQuickDays === 1 ? "pillActive" : "pill"}
-                className="w-16"
+                size="sm"
+                className="w-10 text-xs"
                 onClick={() => setQuickUsageRange(1)}
               >
                 1d
               </Button>
               <Button
                 variant={selectedQuickDays === 7 ? "pillActive" : "pill"}
-                className="w-16"
+                size="sm"
+                className="w-10 text-xs"
                 onClick={() => setQuickUsageRange(7)}
               >
                 7d
               </Button>
               <Button
                 variant={selectedQuickDays === 30 ? "pillActive" : "pill"}
-                className="w-16"
+                size="sm"
+                className="w-10 text-xs"
                 onClick={() => setQuickUsageRange(30)}
               >
                 30d
               </Button>
             </div>
             <div className="mt-4">
-              <ResponsiveContainer width="100%" height={260}>
+              <ResponsiveContainer width="100%" height={200}>
                 <AreaChart
                   data={chartData}
                   margin={{ top: 5, right: 15, bottom: 0, left: 20 }}
@@ -956,6 +1070,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     </div>
   );
 
+
   return (
     <>
       <div
@@ -1019,8 +1134,11 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
               {activeTab === "overview" && (
-                <div className="space-y-8">
-                  {renderBillingSection({ showHeader: false })}
+                <div className="space-y-4">
+                  {renderBillingSection({
+                    showHeader: false,
+                    layout: "horizontal",
+                  })}
                   {renderUsageSection({
                     showHeader: false,
                     title: "Your Analytics",
@@ -1081,10 +1199,10 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                   );
                                   return;
                                 }
-                                
+
                                 setIsInviting(true);
                                 setTeamError(null);
-                                
+
                                 try {
                                   const result = await inviteTeamMember(email);
                                   const [limits, members] = await Promise.all([
@@ -1094,7 +1212,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                   setSeatLimits(limits);
                                   setTeamMembers(members);
                                   setInviteEmail("");
-                                  
+
                                   // Show email delivery status feedback
                                   if (result.emailSent) {
                                     setTeamError(null);
@@ -1117,7 +1235,11 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                 }
                               }}
                             >
-                              {isInviting ? <InlineSpinner size={14} /> : "Invite"}
+                              {isInviting ? (
+                                <InlineSpinner size={14} />
+                              ) : (
+                                "Invite"
+                              )}
                             </button>
                           </div>
                         </div>
@@ -1147,11 +1269,18 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                               <button
                                 type="button"
                                 title="Sign out"
-                                onClick={() => setShowLogoutConfirm(true)}
-                                disabled={isSigningOut}
+                                onClick={async () => {
+                                  try {
+                                    // Simple sign out without confirmation dialog
+                                    window.location.href = '/api/auth/logout';
+                                  } catch (error) {
+                                    console.error('Sign out failed:', error);
+                                  }
+                                }}
+                                disabled={_isSigningOut}
                                 className="w-8 h-8 rounded-lg flex items-center justify-center font-medium focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-600 shadow active:shadow-inner disabled:opacity-50 cursor-pointer"
                               >
-                                {isSigningOut ? (
+                                {_isSigningOut ? (
                                   <InlineSpinner size={16} />
                                 ) : (
                                   <LogOut size={16} />
@@ -1239,7 +1368,11 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                 <div className="flex items-center gap-2">
                                   <button
                                     type="button"
-                                    title={m.status === "INVITED" ? "Remove invite" : "Remove member"}
+                                    title={
+                                      m.status === "INVITED"
+                                        ? "Remove invite"
+                                        : "Remove member"
+                                    }
                                     className="w-8 h-8 rounded-lg flex items-center justify-center font-medium focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-600 shadow active:shadow-inner cursor-pointer"
                                     onClick={() => {
                                       setShowRemoveMemberConfirm({
@@ -1543,6 +1676,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                               });
                               const refreshed = await fetchBillingSummary();
                               setBillingSummary(refreshed);
+                              // Calculate actual billing cycle usage (non-blocking)
+                              void fetchBillingCycleReports(refreshed);
                               setBudgetEnabledLocal(refreshed.budgetEnabled);
                               if (refreshed.overageBudgetCents != null) {
                                 setBudgetDollars(
@@ -1587,18 +1722,32 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                       <ul className="divide-y divide-gray-200">
                         {sessions.map((s) => {
                           const deviceIcon = (() => {
-                            if (s.deviceName.includes("iPhone") || s.deviceName.includes("Android") || s.deviceName.includes("Mobile")) {
-                              return <Smartphone className="w-4 h-4 text-gray-600" />;
+                            if (
+                              s.deviceName.includes("iPhone") ||
+                              s.deviceName.includes("Android") ||
+                              s.deviceName.includes("Mobile")
+                            ) {
+                              return (
+                                <Smartphone className="w-4 h-4 text-gray-600" />
+                              );
                             }
-                            if (s.deviceName.includes("Mac") || s.deviceName.includes("Windows") || s.deviceName.includes("Linux")) {
-                              return <Monitor className="w-4 h-4 text-gray-600" />;
+                            if (
+                              s.deviceName.includes("Mac") ||
+                              s.deviceName.includes("Windows") ||
+                              s.deviceName.includes("Linux")
+                            ) {
+                              return (
+                                <Monitor className="w-4 h-4 text-gray-600" />
+                              );
                             }
                             if (s.browser && s.browser !== "Unknown Browser") {
-                              return <Globe className="w-4 h-4 text-gray-600" />;
+                              return (
+                                <Globe className="w-4 h-4 text-gray-600" />
+                              );
                             }
                             return <Box className="w-4 h-4 text-gray-600" />;
                           })();
-                          
+
                           const lastSeenAgo = (() => {
                             const lastSeen = new Date(s.lastSeenAt);
                             const diffMs = Date.now() - lastSeen.getTime();
@@ -1612,11 +1761,11 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                             const months = Math.floor(days / 30);
                             return `${months}mo ago`;
                           })();
-                          
+
                           return (
                             <li
                               key={s.id}
-                              className={`py-3 flex items-center justify-between ${s.isCurrent ? 'bg-blue-50 border-l-4 border-blue-500 pl-4' : ''}`}
+                              className={`py-3 flex items-center justify-between ${s.isCurrent ? "bg-blue-50 border-l-4 border-blue-500 pl-4" : ""}`}
                             >
                               <div className="min-w-0 pr-3 flex-1">
                                 <div className="flex items-center gap-2 text-sm">
@@ -1635,9 +1784,10 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                 </div>
                                 <div className="text-xs text-gray-500 mt-0.5">
                                   Last active {lastSeenAgo}
-                                  {s.location && s.location !== "Unknown Location" && (
-                                    <span> • {s.location}</span>
-                                  )}
+                                  {s.location &&
+                                    s.location !== "Unknown Location" && (
+                                      <span> • {s.location}</span>
+                                    )}
                                 </div>
                               </div>
                               <div className="flex-shrink-0">
@@ -1657,11 +1807,15 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                   }}
                                   disabled={s.isCurrent}
                                   className={`px-3 py-1.5 rounded-lg text-xs shadow transition-colors ${
-                                    s.isCurrent 
-                                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                                      : 'bg-white/80 backdrop-blur-sm border border-white/20 text-gray-700 hover:bg-white/85 active:shadow-inner cursor-pointer'
+                                    s.isCurrent
+                                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                      : "bg-white/80 backdrop-blur-sm border border-white/20 text-gray-700 hover:bg-white/85 active:shadow-inner cursor-pointer"
                                   }`}
-                                  title={s.isCurrent ? "Cannot revoke current session" : "Revoke this session"}
+                                  title={
+                                    s.isCurrent
+                                      ? "Cannot revoke current session"
+                                      : "Revoke this session"
+                                  }
                                 >
                                   {s.isCurrent ? "Current" : "Revoke"}
                                 </button>
@@ -1675,11 +1829,312 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                 </div>
               )}
 
-              {activeTab === "billing" && (
-                <div className="space-y-8">{renderBillingSection()}</div>
-              )}
               {activeTab === "usage" && (
-                <div className="space-y-8">{renderUsageSection()}</div>
+                <div className="space-y-6">
+                  {/* Usage Summary */}
+                  <div className="bg-white rounded-lg shadow-md p-4 h-36">
+                    <h4 className="font-semibold text-gray-900 mb-3">Usage Statistics</h4>
+                    
+                    {usageStats ? (
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <div className="bg-gray-50 rounded-lg p-3">
+                          <div className="text-xs text-gray-600 mb-1">Workspaces</div>
+                          <div className="text-lg font-semibold text-gray-900">
+                            {usageStats.totalWorkspaces}
+                          </div>
+                        </div>
+                        
+                        <div className="bg-gray-50 rounded-lg p-3">
+                          <div className="text-xs text-gray-600 mb-1">Reports</div>
+                          <div className="text-lg font-semibold text-gray-900">
+                            {usageStats.totalReports}
+                          </div>
+                        </div>
+                        
+                        <div className="bg-gray-50 rounded-lg p-3">
+                          <div className="text-xs text-gray-600 mb-1">Active Prompts</div>
+                          <div className="text-lg font-semibold text-gray-900">
+                            {usageStats.totalActivePrompts}
+                          </div>
+                        </div>
+
+                        <div className="bg-gray-50 rounded-lg p-3">
+                          <div className="text-xs text-gray-600 mb-1">Responses</div>
+                          <div className="text-lg font-semibold text-gray-900">
+                            {usageStats.totalResponses}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="py-4 flex items-center justify-center">
+                        <InlineSpinner size={16} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Report History Table */}
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <h4 className="font-semibold text-gray-900 mb-4">Report History</h4>
+                    
+                    {reportHistory.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Date
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Company
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Prompts
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Responses
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {reportHistory.map((report) => (
+                              <tr key={report.id} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">
+                                  {new Date(report.createdAt).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric'
+                                  })}
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">
+                                  {report.companyName}
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">
+                                  {report.promptCount || 0}
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">
+                                  {report.responseCount || 0}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        {reportHistory === null ? (
+                          <InlineSpinner size={16} />
+                        ) : (
+                          <div className="text-gray-500">
+                            <p>No report history found</p>
+                            <p className="text-sm mt-1">Reports will appear here once generated</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "billing" && (
+                <div className="space-y-6">
+                  {/* Current Plan & Billing Cycle */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Current Plan */}
+                    <div className="bg-white rounded-lg shadow-md p-4 h-36 flex flex-col">
+                      {_billingLoading ? (
+                        <div className="flex-1 flex items-center justify-center">
+                          <InlineSpinner size={16} />
+                        </div>
+                      ) : (
+                        <div className="flex flex-col justify-between h-full">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-semibold text-gray-900 text-sm">
+                                {formatPlanTierLabel(billingSummary?.planTier)} Plan
+                              </h4>
+                              <span className="inline-flex px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-100 text-gray-600">
+                                {user?.subscriptionStatus === "active" ? "Active" : "Inactive"}
+                              </span>
+                            </div>
+                            <div className="text-xs text-gray-600">
+                              {getPlanDescription(billingSummary?.planTier)}
+                            </div>
+                          </div>
+                          <Button variant="pill" size="sm" onClick={handleManageSubscription} className="w-fit">
+                            Manage
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Billing Cycle */}
+                    <div className="bg-white rounded-lg shadow-md p-4 h-36">
+                      {billingSummary ? (
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">Billing Period</span>
+                            <span className="text-sm font-medium text-gray-900">
+                              {new Date(billingSummary.periodEnd).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">Reports Used</span>
+                            <span className="text-sm font-medium text-gray-900">
+                              {billingCycleLoading ? (
+                                <InlineSpinner size={12} />
+                              ) : billingCycleReports ? (
+                                `${billingCycleReports.used} of ${billingSummary.includedReportsLimit}`
+                              ) : (
+                                `${billingSummary.reportsUsed} of ${billingSummary.includedReportsLimit}`
+                              )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">Reports Remaining</span>
+                            <span className="text-sm font-medium text-gray-900">
+                              {billingCycleLoading ? (
+                                <InlineSpinner size={12} />
+                              ) : billingCycleReports ? (
+                                billingCycleReports.left
+                              ) : (
+                                billingSummary.reportsLeft
+                              )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">Workspaces Remaining</span>
+                            <span className="text-sm font-medium text-gray-900">
+                              {(() => {
+                                const limit = billingSummary.planTier === "STARTER" ? 1 : 
+                                             billingSummary.planTier === "GROWTH" ? 3 : "∞";
+                                const used = companies.length;
+                                if (limit === "∞") return "Unlimited";
+                                const remaining = Math.max(0, limit - used);
+                                return remaining.toString();
+                              })()}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="py-4 flex items-center justify-center">
+                          <InlineSpinner size={16} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Invoices Table */}
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <div className="mb-4">
+                      <h4 className="font-semibold text-gray-900">Recent Invoices</h4>
+                      <p className="text-sm text-gray-600">Your billing history and invoice details</p>
+                    </div>
+                    
+                    {/* Invoices Table */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-gray-50 border-b border-gray-200">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Invoice Date
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Amount
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Status
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Period
+                            </th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+                              
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {invoicesLoading ? (
+                            <tr>
+                              <td colSpan={5} className="px-4 py-8 text-center">
+                                <InlineSpinner size={16} />
+                              </td>
+                            </tr>
+                          ) : invoicesError ? (
+                            <tr>
+                              <td colSpan={5} className="px-4 py-8 text-center text-red-500">
+                                <div className="space-y-2">
+                                  <X className="w-8 h-8 mx-auto text-red-300" />
+                                  <p className="text-sm">{invoicesError}</p>
+                                </div>
+                              </td>
+                            </tr>
+                          ) : invoices.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                                <p className="text-xs">Your billing history will appear here once payments are processed</p>
+                              </td>
+                            </tr>
+                          ) : (
+                            invoices.map((invoice) => (
+                              <tr key={invoice.id} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 text-sm text-gray-900">
+                                  {new Date(invoice.created * 1000).toLocaleDateString()}
+                                </td>
+                                <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                  ${invoice.amount.toFixed(2)}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-600 capitalize">
+                                  {invoice.status}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-600">
+                                  {new Date(invoice.periodStart * 1000).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} - {new Date(invoice.periodEnd * 1000).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                                </td>
+                                <td className="px-4 py-3 text-sm">
+                                  {invoice.invoicePdf && (
+                                    <a 
+                                      href={invoice.invoicePdf} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-gray-400 hover:text-gray-600 p-1 inline-block"
+                                    >
+                                      <Download className="w-4 h-4" />
+                                    </a>
+                                  )}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "docs" && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-900 mb-4">
+                      Documentation
+                    </h3>
+                    <p className="text-gray-600 mb-4">
+                      Learn how to get the most out of Serplexity with our comprehensive guides and tutorials.
+                    </p>
+                  </div>
+
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <Button
+                      variant="pill"
+                      onClick={() =>
+                        window.open("https://serplexity.com/docs", "_blank")
+                      }
+                    >
+                      <BookOpen className="w-4 h-4 mr-2" />
+                      View Documentation
+                    </Button>
+                  </div>
+                </div>
               )}
 
               {activeTab === "contact" && (
@@ -1689,7 +2144,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                       Contact Us
                     </h3>
                     <p className="text-gray-600 mb-4">
-                      Need help with your account or have questions? Reach out to our support team.
+                      Need help with your account or have questions? Reach out
+                      to our support team.
                     </p>
                   </div>
 
@@ -1706,233 +2162,36 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                   </div>
                 </div>
               )}
+
+              {activeTab === "password" && !isOAuthUser && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-900 mb-4">
+                      Change Password
+                    </h3>
+                    <p className="text-gray-600 mb-6">
+                      Update your password to keep your account secure.
+                    </p>
+                  </div>
+
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <div className="space-y-4">
+                      <div className="text-sm text-gray-600 mb-4">
+                        For security reasons, please contact support to change your password.
+                      </div>
+                      <a
+                        href="mailto:support@serplexity.ai"
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                      >
+                        Contact Support
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
-        {/* Full-screen company edit overlay removed; editing is inline */}
-
-        {/* Save Confirmation Dialog */}
-        {showSaveConfirmation && (
-          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-            <div className="bg-white rounded-2xl max-w-md w-full mx-4 shadow-md p-6">
-              <div className="flex items-center mb-4">
-                <div className="flex-shrink-0">
-                  <AlertTriangle className="h-6 w-6 text-yellow-500" />
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Changes Saved Successfully
-                  </h3>
-                </div>
-              </div>
-
-              <div className="mb-6">
-                <p className="text-sm text-gray-600">
-                  Your company profile has been updated. These changes will be
-                  reflected in the next report generated for this company.
-                </p>
-              </div>
-
-              <div className="flex justify-end space-x-3">
-                <Button
-                  variant="outline"
-                  onClick={handleCancelSaveConfirmation}
-                  className="text-gray-700"
-                >
-                  Continue Editing
-                </Button>
-                <Button
-                  onClick={handleSaveConfirmation}
-                  className="bg-black text-white"
-                >
-                  Got It
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Logout Confirmation Dialog */}
-        {showLogoutConfirm && (
-          <div
-            className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              className="bg-white rounded-2xl max-w-md w-full mx-4 shadow-md p-6"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Confirm Sign Out
-                </h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  Are you sure you want to sign out from this device?
-                </p>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowLogoutConfirm(false)}
-                  className="text-gray-700"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={async () => {
-                    setShowLogoutConfirm(false);
-                    await handleSignOut();
-                  }}
-                  className="bg-black text-white"
-                >
-                  Sign Out
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Delete Account Confirmation Dialog */}
-        {showDeleteAccountConfirm && (
-          <div
-            className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              className="bg-white rounded-2xl max-w-md w-full mx-4 shadow-md p-6"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="mb-3">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Delete Account
-                </h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  Are you sure you want to delete your account? This action is
-                  irreversible.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  value={deleteConfirmText}
-                  onChange={(e) => setDeleteConfirmText(e.target.value)}
-                  placeholder="Type 'Delete' to confirm"
-                  className="w-full px-3 py-2 rounded-lg text-sm bg-white border border-gray-200 shadow-inner focus:outline-none"
-                />
-                {deleteError && (
-                  <div className="text-xs text-red-600">{deleteError}</div>
-                )}
-              </div>
-              <div className="flex justify-end gap-2 mt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowDeleteAccountConfirm(false)}
-                  className="text-gray-700"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  disabled={deleteConfirmText !== "Delete" || deletingAccount}
-                  onClick={async () => {
-                    if (deleteConfirmText !== "Delete") return;
-                    setDeleteError(null);
-                    setDeletingAccount(true);
-                    try {
-                      await apiClient.delete("/users/me/delete");
-                      await logout();
-                      onClose();
-                    } catch {
-                      setDeleteError("Failed to delete account");
-                    } finally {
-                      setDeletingAccount(false);
-                    }
-                  }}
-                  className="bg-red-600 text-white"
-                >
-                  {deletingAccount ? "Deleting..." : "Delete"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Remove Member/Invite Confirmation Dialog */}
-        {showRemoveMemberConfirm && (
-          <div
-            className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              className="bg-white rounded-2xl max-w-md w-full mx-4 shadow-md p-6"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="mb-3">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {showRemoveMemberConfirm.member.status === "INVITED" 
-                    ? "Remove Invitation" 
-                    : "Remove Team Member"}
-                </h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  {showRemoveMemberConfirm.member.status === "INVITED"
-                    ? `Are you sure you want to remove the invitation for ${showRemoveMemberConfirm.member.member.email}?`
-                    : `Are you sure you want to remove ${showRemoveMemberConfirm.member.member.name || showRemoveMemberConfirm.member.member.email} from the team?`}
-                </p>
-              </div>
-              <div className="flex justify-end gap-2 mt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowRemoveMemberConfirm(null)}
-                  className="text-gray-700"
-                  disabled={showRemoveMemberConfirm.isRemoving}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  disabled={showRemoveMemberConfirm.isRemoving}
-                  onClick={async () => {
-                    const member = showRemoveMemberConfirm.member;
-                    setShowRemoveMemberConfirm({ 
-                      ...showRemoveMemberConfirm, 
-                      isRemoving: true 
-                    });
-                    
-                    try {
-                      if (member.status === "INVITED" && !member.memberUserId) {
-                        // This is a pending invite without a user account
-                        await removeTeamInvite(member.member.email);
-                      } else {
-                        // This is an existing user (invited or active)
-                        await removeTeamMember(member.memberUserId);
-                      }
-                      
-                      // Refresh the team members list
-                      const [limits, members] = await Promise.all([
-                        getTeamLimits(),
-                        getTeamMembers(),
-                      ]);
-                      setSeatLimits(limits);
-                      setTeamMembers(members);
-                      setShowRemoveMemberConfirm(null);
-                    } catch (e) {
-                      const message = (e as { message?: string })?.message || "Failed to remove member";
-                      setTeamError(message);
-                      setShowRemoveMemberConfirm({ 
-                        ...showRemoveMemberConfirm, 
-                        isRemoving: false 
-                      });
-                    }
-                  }}
-                  className="bg-red-600 text-white"
-                >
-                  {showRemoveMemberConfirm.isRemoving ? 
-                    (showRemoveMemberConfirm.member.status === "INVITED" ? "Removing..." : "Removing...") :
-                    (showRemoveMemberConfirm.member.status === "INVITED" ? "Remove Invitation" : "Remove Member")
-                  }
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </>
   );

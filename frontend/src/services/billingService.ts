@@ -29,7 +29,7 @@ export interface UsagePoint {
 }
 
 export async function fetchUsageSeries(
-  daysOrParams: number | { start: string; end: string }
+  daysOrParams: number | { start: string; end: string; granularity?: string }
 ): Promise<UsagePoint[]> {
   if (typeof daysOrParams === "number") {
     const { data } = await api.get(`/billing/usage?days=${daysOrParams}`);
@@ -47,6 +47,55 @@ export async function updateBudget(options: {
   budgetCents?: number;
 }) {
   await api.post("/billing/budget", options);
+}
+
+// New interfaces for report history
+export interface ReportRunHistory {
+  id: string;
+  createdAt: string;
+  companyName: string;
+  promptCount: number | null;
+  responseCount: number | null;
+}
+
+export interface UsageStatistics {
+  totalWorkspaces: number;
+  totalReports: number;
+  totalActivePrompts: number;
+  totalResponses: number;
+}
+
+// New API functions for enhanced usage data
+export async function fetchReportHistory(options?: {
+  days?: number;
+  limit?: number;
+}): Promise<ReportRunHistory[]> {
+  const params = new URLSearchParams();
+  if (options?.days) params.append('days', options.days.toString());
+  if (options?.limit) params.append('limit', options.limit.toString());
+  
+  const { data } = await api.get(`/usage/reports?${params.toString()}`);
+  return data as ReportRunHistory[];
+}
+
+export async function fetchUsageStatistics(): Promise<UsageStatistics> {
+  const { data } = await api.get("/usage/stats");
+  return data as UsageStatistics;
+}
+
+export interface InvoiceHistoryItem {
+  id: string;
+  amount: number;
+  status: 'paid' | 'open' | 'void' | 'draft';
+  created: number;
+  periodStart: number;
+  periodEnd: number;
+  invoicePdf?: string;
+}
+
+export async function fetchInvoiceHistory(): Promise<InvoiceHistoryItem[]> {
+  const { data } = await api.get("/billing/invoices");
+  return data.invoices as InvoiceHistoryItem[];
 }
 
 export async function updatePlan(options: {

@@ -232,9 +232,9 @@ npm run lint && npm run build
 ### Testing Strategy
 
 - **Backend**: Jest with 70% coverage requirement
-  - Unit tests: Services and utilities
+  - Unit tests: Services and utilities (`src/__tests__/`)
   - Agent tests: PydanticAI agent validation (`src/__tests__/agents/`)
-  - Integration tests: End-to-end report generation flows
+  - Integration tests: End-to-end report generation flows (`src/__tests__/integration/`)
   - Production validation: Real API provider tests (separate config)
 - **Frontend**: Vitest + React Testing Library with 70% coverage requirement
 - **Test Organization**:

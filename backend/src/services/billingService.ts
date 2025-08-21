@@ -330,7 +330,7 @@ export async function getUsageTimeSeries(
 
 export async function getReportsTimeSeries(
   userId: string,
-  options: { start?: Date; end?: Date; days?: number } = {}
+  options: { start?: Date; end?: Date; days?: number; granularity?: string } = {}
 ): Promise<
   Array<{
     date: string;
@@ -360,6 +360,15 @@ export async function getReportsTimeSeries(
     orderBy: { createdAt: "asc" },
   });
 
+  // For hourly granularity, return individual report run times
+  if (options.granularity === 'hourly') {
+    return runs.map(run => ({
+      date: run.createdAt.toISOString(),
+      reports: 1
+    }));
+  }
+
+  // For daily granularity, aggregate by day
   const byDay = new Map<string, number>();
   const ONE_DAY_MS = 24 * 60 * 60 * 1000;
   // seed dates to zero

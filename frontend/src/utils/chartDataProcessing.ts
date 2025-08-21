@@ -188,10 +188,8 @@ export function calculateZeroPointDate(firstDataDate: Date, dateRange: DateRange
 export function formatChartDate(date: Date, granularity?: GranularityFilter | 'raw'): string {
   switch (granularity) {
     case 'hour':
-      // Show precise time including minutes for actual report execution times
+      // Show only time for 1d view (when granularity is hourly)
       return date.toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
         hour: 'numeric',
         minute: '2-digit',
         hour12: true

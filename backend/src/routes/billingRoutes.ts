@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   getBillingSummary,
+  getInvoiceHistory,
   getReportsSeries,
   getUsageSeries,
   updateBudget,
@@ -16,6 +17,7 @@ router.use(authenticate);
 router.get("/summary", getBillingSummary);
 router.get("/usage", getUsageSeries);
 router.get("/reports", getReportsSeries);
+router.get("/invoices", getInvoiceHistory);
 router.post("/budget", updateBudget);
 router.post("/plan", updatePlan);
 

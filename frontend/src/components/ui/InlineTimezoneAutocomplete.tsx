@@ -244,9 +244,6 @@ const InlineTimezoneAutocomplete: React.FC<Props> = ({
         }
         
         // Fallback: Manual calculation (more reliable than previous method)
-        const now = new Date();
-        const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
-        const tzTime = new Date(utcTime + (getTimezoneOffsetMinutes(tz) * 60000));
         
         const offsetMinutes = getTimezoneOffsetMinutes(tz);
         const hours = Math.floor(Math.abs(offsetMinutes) / 60);

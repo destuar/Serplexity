@@ -345,7 +345,7 @@ Website Enrichment Search Strategy:
         async def google_search(query: str) -> str:
             """Search Google using Gemini's Google Search grounding tool"""
             try:
-                import google.generativeai as genai
+                import google.generativeai as genai  # type: ignore[import-untyped]
                 from google.generativeai import types
                 
                 api_key = os.getenv('GEMINI_API_KEY')
