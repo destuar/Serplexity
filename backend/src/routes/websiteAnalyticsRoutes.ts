@@ -12,13 +12,23 @@
 import { Router } from "express";
 import * as websiteAnalyticsController from "../controllers/websiteAnalyticsController";
 import { authenticate } from "../middleware/authMiddleware";
+import { addCompanyContext } from "../middleware/companyMiddleware";
 
 const router = Router();
 
 // All routes require authentication - these are for Serplexity users managing their website analytics
 router.use(authenticate);
+router.use(addCompanyContext);
 
-// Integration management routes
+// Integration management routes - company-scoped
+router.post("/companies/:companyId/integrations", websiteAnalyticsController.createIntegration);
+router.get("/companies/:companyId/integrations", websiteAnalyticsController.getIntegrations);
+router.delete(
+  "/companies/:companyId/integrations/:integrationId",
+  websiteAnalyticsController.deleteIntegration
+);
+
+// Legacy routes (for backward compatibility)
 router.post("/integrations", websiteAnalyticsController.createIntegration);
 router.get("/integrations", websiteAnalyticsController.getIntegrations);
 router.delete(

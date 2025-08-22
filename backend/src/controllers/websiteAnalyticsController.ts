@@ -17,11 +17,12 @@ import logger from "../utils/logger";
 
 // Validation schemas
 const CreateIntegrationSchema = z.object({
-  integrationName: z.enum(["google_search_console", "manual_tracking"]),
+  integrationName: z.enum(["google_search_console", "manual_tracking", "google_analytics_4"]),
   verificationMethod: z
     .enum(["meta_tag", "dns_record", "file_upload", "oauth"])
     .optional(),
   gscPropertyUrl: z.string().url().optional(),
+  ga4PropertyIdOrTag: z.string().optional(),
 });
 
 const GetMetricsSchema = z.object({
@@ -47,10 +48,20 @@ export const createIntegration = async (
   res: Response
 ): Promise<void> => {
   try {
-    const companyId = req.user?.companyId;
+    // Get companyId from URL params (new pattern) or fall back to user context (legacy)
+    const companyId = req.params.companyId || req.user?.companyId;
     if (!companyId) {
-      res.status(401).json({ error: "Company not found" });
+      res.status(400).json({ error: "Company ID is required" });
       return;
+    }
+
+    // Verify user has access to this company
+    if (req.params.companyId) {
+      const userCompanyIds = req.user?.companies?.map(c => c.id) || [];
+      if (!userCompanyIds.includes(companyId)) {
+        res.status(403).json({ error: "Access denied to this company" });
+        return;
+      }
     }
 
     const validatedData = CreateIntegrationSchema.parse(req.body);
@@ -69,7 +80,7 @@ export const createIntegration = async (
         ...result,
         authUrl,
       });
-    } else if (false) {
+    } else if (validatedData.integrationName === "google_analytics_4" && validatedData.verificationMethod === "oauth") {
       // Return OAuth URL for GA4
       const authUrl = googleAnalyticsService.getAuthUrl(result.integration.id);
       res.json({
@@ -77,7 +88,7 @@ export const createIntegration = async (
         authUrl,
       });
     } else {
-      // Return verification details for manual tracking
+      // Return verification details for manual tracking or GA4 manual setup
       res.json(result);
     }
   } catch (error) {
@@ -220,10 +231,20 @@ export const getIntegrations = async (
   res: Response
 ): Promise<void> => {
   try {
-    const companyId = req.user?.companyId;
+    // Get companyId from URL params (new pattern) or fall back to user context (legacy)
+    const companyId = req.params.companyId || req.user?.companyId;
     if (!companyId) {
-      res.status(401).json({ error: "Company not found" });
+      res.status(400).json({ error: "Company ID is required" });
       return;
+    }
+
+    // Verify user has access to this company
+    if (req.params.companyId) {
+      const userCompanyIds = req.user?.companies?.map(c => c.id) || [];
+      if (!userCompanyIds.includes(companyId)) {
+        res.status(403).json({ error: "Access denied to this company" });
+        return;
+      }
     }
 
     const integrations =
@@ -246,10 +267,20 @@ export const getMetrics = async (
   res: Response
 ): Promise<void> => {
   try {
-    const companyId = req.user?.companyId;
+    // Get companyId from URL params (new pattern) or fall back to user context (legacy)
+    const companyId = req.params.companyId || req.user?.companyId;
     if (!companyId) {
-      res.status(401).json({ error: "Company not found" });
+      res.status(400).json({ error: "Company ID is required" });
       return;
+    }
+
+    // Verify user has access to this company
+    if (req.params.companyId) {
+      const userCompanyIds = req.user?.companies?.map(c => c.id) || [];
+      if (!userCompanyIds.includes(companyId)) {
+        res.status(403).json({ error: "Access denied to this company" });
+        return;
+      }
     }
 
     const validatedData = GetMetricsSchema.parse(req.query);
@@ -292,10 +323,20 @@ export const getGa4Metrics = async (
   res: Response
 ): Promise<void> => {
   try {
-    const companyId = req.user?.companyId;
+    // Get companyId from URL params (new pattern) or fall back to user context (legacy)
+    const companyId = req.params.companyId || req.user?.companyId;
     if (!companyId) {
-      res.status(401).json({ error: "Company not found" });
+      res.status(400).json({ error: "Company ID is required" });
       return;
+    }
+
+    // Verify user has access to this company
+    if (req.params.companyId) {
+      const userCompanyIds = req.user?.companies?.map(c => c.id) || [];
+      if (!userCompanyIds.includes(companyId)) {
+        res.status(403).json({ error: "Access denied to this company" });
+        return;
+      }
     }
 
     const startDateParam = req.query["startDate"] as string;
@@ -489,10 +530,20 @@ export const getIntegrationHealth = async (
       return;
     }
 
-    const companyId = req.user?.companyId;
+    // Get companyId from URL params (new pattern) or fall back to user context (legacy)
+    const companyId = req.params.companyId || req.user?.companyId;
     if (!companyId) {
-      res.status(401).json({ error: "Company not found" });
+      res.status(400).json({ error: "Company ID is required" });
       return;
+    }
+
+    // Verify user has access to this company
+    if (req.params.companyId) {
+      const userCompanyIds = req.user?.companies?.map(c => c.id) || [];
+      if (!userCompanyIds.includes(companyId)) {
+        res.status(403).json({ error: "Access denied to this company" });
+        return;
+      }
     }
 
     const integrations =

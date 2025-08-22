@@ -15,7 +15,7 @@ import { Role } from "@prisma/client";
 declare module "express-serve-static-core" {
   interface Request {
     user?: {
-      companyId?: string | null;
+      companyId?: string | null; // Added by companyMiddleware
       id: string;
       email: string;
       name: string | null;

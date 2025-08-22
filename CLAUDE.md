@@ -438,6 +438,18 @@ cd backend && npx jest src/__tests__/agents/ --testTimeout=60000  # Agent tests 
 cd backend && npx jest src/__tests__/integration/ --testTimeout=120000  # Integration tests only
 ```
 
+## Docker Build Validation
+
+After major changes, validate Docker images build successfully:
+
+```bash
+# Backend validation (mandatory after major changes)
+DOCKER_BUILDKIT=1 docker build --no-cache -f infra/docker/backend/Dockerfile.backend -t serplexity-backend:dev . | cat
+
+# Frontend validation (mandatory after major changes)
+DOCKER_BUILDKIT=1 docker build --no-cache -f infra/docker/frontend/Dockerfile.frontend -t serplexity-frontend:dev . | cat
+```
+
 # Power of Ten Development Principles
 
 This project follows the modernized "Power of Ten" principles for TypeScript/Python/React development:
@@ -498,13 +510,6 @@ This project follows the modernized "Power of Ten" principles for TypeScript/Pyt
 - Controllers: Thin request/response orchestration (keep business-logic free)
 - Queues: Import registers worker (side-effect) - never import from here in regular code
 - Frontend: Feature-based structure for components/pages/contexts/hooks
-
-# important-instruction-reminders
-
-Do what has been asked; nothing more, nothing less.
-NEVER create files unless they're absolutely necessary for achieving your goal.
-ALWAYS prefer editing an existing file to creating a new one.
-NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
 
 ## Additional Important Guidelines
 
@@ -579,3 +584,10 @@ This is **Serplexity**, a Generative Engine Optimization (GEO) platform that hel
 - **Brand visibility** in AI-generated search results
 - **Multi-tenant SaaS** with company-level data isolation
 - **Stripe billing** with freemium model
+
+# Important Instruction Reminders
+
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.

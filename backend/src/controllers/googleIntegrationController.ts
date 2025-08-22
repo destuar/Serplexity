@@ -35,7 +35,8 @@ export const startGoogleAuth = async (
         ? googleAnalyticsService.getAuthUrl(integration.id)
         : googleSearchConsoleService.getAuthUrl(integration.id);
 
-    res.redirect(authUrl);
+    // Return auth URL instead of redirecting directly
+    res.json({ authUrl, integrationId: integration.id });
   } catch (error) {
     logger.error("Error starting Google OAuth:", error);
     if (error instanceof z.ZodError) {
