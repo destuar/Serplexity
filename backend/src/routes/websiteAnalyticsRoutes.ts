@@ -66,6 +66,7 @@ router.post(
 // Analytics data routes
 router.get("/metrics", websiteAnalyticsController.getMetrics);
 router.get("/ga4/metrics", websiteAnalyticsController.getGa4Metrics);
+router.get("/ga4/active-users", websiteAnalyticsController.getGa4ActiveUsers);
 
 // GA4 property management routes
 router.get("/ga4/properties", websiteAnalyticsController.getGA4Properties);

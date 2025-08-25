@@ -240,7 +240,7 @@ jobs:
     - name: Power of Ten Compliance Check
       run: |
         cd backend
-        npm run check:power-of-ten
+        npm run typecheck && npm run lint:all && npm run test:quick
     
     - name: Generate Compliance Report
       run: |

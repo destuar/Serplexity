@@ -473,6 +473,146 @@ export const getGa4Metrics = async (
 };
 
 /**
+ * Get real-time active users from GA4
+ */
+export const getGa4ActiveUsers = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    // Get companyId from URL params (new pattern) or fall back to user context (legacy)
+    const companyId = req.params.companyId || req.user?.companyId;
+    if (!companyId) {
+      res.status(400).json({ error: "Company ID is required" });
+      return;
+    }
+
+    // Verify user has access to this company
+    if (req.params.companyId) {
+      const userCompanyIds = req.user?.companies?.map(c => c.id) || [];
+      if (!userCompanyIds.includes(companyId)) {
+        res.status(403).json({ error: "Access denied to this company" });
+        return;
+      }
+    }
+
+    const propertyIdParam = req.query["propertyId"] as string | undefined;
+
+    const prisma = await (
+      await import("../config/dbCache")
+    ).dbCache.getPrimaryClient();
+    const ga4Integration = await prisma.analyticsIntegration.findFirst({
+      where: {
+        companyId,
+        integrationName: "google_analytics_4",
+        status: "active",
+      },
+    });
+
+    if (!ga4Integration && !propertyIdParam) {
+      res.status(404).json({
+        error: "No active GA4 integration found. Connect GA4 or provide propertyId.",
+      });
+      return;
+    }
+
+    const propertyId = propertyIdParam || ga4Integration?.trackingCode;
+    if (!propertyId) {
+      res.status(400).json({
+        error: "GA4 propertyId is required. Store it during integration or pass ?propertyId=",
+      });
+      return;
+    }
+
+    const stored = await googleOAuthTokenService.getDecryptedToken(companyId);
+    if (!stored?.accessToken) {
+      res.status(400).json({ error: "No Google OAuth token. Reconnect GA4." });
+      return;
+    }
+
+    let accessToken = stored.accessToken;
+    
+    // Try to refresh token if it's expired or close to expiring
+    if (stored.expiry && stored.expiry <= new Date(Date.now() + 5 * 60 * 1000)) {
+      try {
+        if (!stored.refreshToken) {
+          res.status(400).json({ error: "Access token expired and no refresh token available. Please reconnect GA4." });
+          return;
+        }
+        
+        const refreshedTokens = await googleAnalyticsService.refreshAccessToken(stored.refreshToken);
+        
+        // Update stored tokens
+        await googleOAuthTokenService.upsertToken(
+          companyId,
+          stored.scopes,
+          refreshedTokens.access_token,
+          refreshedTokens.refresh_token,
+          refreshedTokens.expiry_date
+        );
+        
+        accessToken = refreshedTokens.access_token;
+        logger.info(`[GA4] Refreshed access token for company ${companyId}`);
+      } catch (refreshError) {
+        logger.error(`[GA4] Failed to refresh token for company ${companyId}:`, refreshError);
+        res.status(400).json({ error: "Failed to refresh access token. Please reconnect GA4." });
+        return;
+      }
+    }
+
+    try {
+      const activeUsers = await googleAnalyticsService.getCurrentActiveUsers(
+        accessToken,
+        propertyId
+      );
+      res.json({ activeUsers });
+    } catch (apiError: any) {
+      // If we get a 401 unauthorized error, try to refresh the token once
+      if (apiError.code === 401 || apiError.message?.includes('unauthorized') || apiError.message?.includes('invalid_grant')) {
+        try {
+          if (!stored.refreshToken) {
+            res.status(400).json({ error: "Access token unauthorized and no refresh token available. Please reconnect GA4." });
+            return;
+          }
+          
+          logger.info(`[GA4] Real-time API call failed with 401, attempting token refresh for company ${companyId}`);
+          const refreshedTokens = await googleAnalyticsService.refreshAccessToken(stored.refreshToken);
+          
+          // Update stored tokens
+          await googleOAuthTokenService.upsertToken(
+            companyId,
+            stored.scopes,
+            refreshedTokens.access_token,
+            refreshedTokens.refresh_token,
+            refreshedTokens.expiry_date
+          );
+          
+          // Retry the API call with new token
+          const activeUsers = await googleAnalyticsService.getCurrentActiveUsers(
+            refreshedTokens.access_token,
+            propertyId
+          );
+          res.json({ activeUsers });
+          logger.info(`[GA4] Successfully refreshed token and retried real-time API call for company ${companyId}`);
+        } catch (retryError) {
+          logger.error(`[GA4] Failed to refresh token after real-time API 401 for company ${companyId}:`, retryError);
+          res.status(400).json({ error: "Token refresh failed after API unauthorized error. Please reconnect GA4." });
+        }
+      } else {
+        // Re-throw non-auth errors
+        throw apiError;
+      }
+    }
+  } catch (error) {
+    logger.error("Error getting GA4 active users:", error);
+    res.status(500).json({
+      error: "Failed to get GA4 active users",
+      message: (error as Error).message,
+    });
+  }
+};
+
+/**
  * Delete an integration
  */
 export const deleteIntegration = async (

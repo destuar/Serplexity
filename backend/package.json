@@ -31,8 +31,7 @@
     "python:check": "cd src/pydantic_agents && python -m mypy . && python -m ruff check . && python -m bandit -r .",
     "python:lint": "cd src/pydantic_agents && python -m ruff check . --fix",
     "python:format": "cd src/pydantic_agents && python -m ruff format .",
-    "lint:all": "npm run lint && npm run python:check",
-    "check:power-of-ten": "npm run typecheck && npm run lint:all && npm run test:quick"
+    "lint:all": "npm run lint && npm run python:check"
   },
   "keywords": [],
   "author": "",
