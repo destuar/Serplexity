@@ -404,11 +404,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                   className={`flex flex-col space-y-1 ${!isDesktopCollapsed ? "mt-2" : ""}`}
                 >
                   <Link
-                    to="/visitor-analytics"
-                    className={getLinkClass("/visitor-analytics")}
+                    to="/web-analytics"
+                    className={getLinkClass("/web-analytics")}
                     onClick={(e) => {
                       if (isDesktopCollapsed) e.stopPropagation();
-                      closeEmbeddedPageForRoute("/visitor-analytics");
+                      closeEmbeddedPageForRoute("/web-analytics");
                     }}
                   >
                     <Eye className="text-gray-600" size={16} />

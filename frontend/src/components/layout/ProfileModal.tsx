@@ -70,6 +70,8 @@ import {
   getTeamLimits,
   getTeamMembers,
   inviteTeamMember,
+  removeTeamMember,
+  removeTeamInvite,
 } from "../../services/teamService";
 import { formatChartDate } from "../../utils/chartDataProcessing";
 import InlineIndustryAutocomplete from "../company/InlineIndustryAutocomplete";
@@ -199,6 +201,15 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const [inviteEmail, setInviteEmail] = useState("");
   const [isInviting, setIsInviting] = useState(false);
   const [selfEditing, setSelfEditing] = useState(false);
+  // Member removal confirmation modal state
+  const [showRemoveMemberConfirm, setShowRemoveMemberConfirm] = useState<{
+    member: TeamMemberDto;
+    isRemoving: boolean;
+  } | null>(null);
+  // Delete account confirmation modal state  
+  const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const chartData = useMemo(() => {
     return usageSeries.map((d) => {
@@ -2290,6 +2301,154 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
           </div>
         </div>
       </div>
+
+      {/* Remove Member Confirmation Modal */}
+      {showRemoveMemberConfirm && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4"
+          onClick={() => setShowRemoveMemberConfirm(null)}
+        >
+          <div
+            className="bg-white rounded-xl max-w-md w-full shadow-md p-6 text-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {showRemoveMemberConfirm.member.status === "INVITED"
+                ? "Remove Invite"
+                : "Remove Member"}
+            </h3>
+            <p className="text-gray-600 mb-6">
+              {showRemoveMemberConfirm.member.status === "INVITED"
+                ? `Are you sure you want to remove the invitation for ${showRemoveMemberConfirm.member.member.email}?`
+                : `Are you sure you want to remove ${showRemoveMemberConfirm.member.member.name || showRemoveMemberConfirm.member.member.email} from the team?`}
+              {showRemoveMemberConfirm.member.status === "ACTIVE" &&
+                " They will lose access to this workspace immediately."}
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowRemoveMemberConfirm(null)}
+                disabled={showRemoveMemberConfirm.isRemoving}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  setShowRemoveMemberConfirm({
+                    ...showRemoveMemberConfirm,
+                    isRemoving: true,
+                  });
+
+                  try {
+                    if (showRemoveMemberConfirm.member.status === "INVITED") {
+                      await removeTeamInvite(
+                        showRemoveMemberConfirm.member.member.email
+                      );
+                    } else {
+                      await removeTeamMember(
+                        showRemoveMemberConfirm.member.memberUserId
+                      );
+                    }
+
+                    // Refresh team data
+                    const [limits, members] = await Promise.all([
+                      getTeamLimits(),
+                      getTeamMembers(),
+                    ]);
+                    setSeatLimits(limits);
+                    setTeamMembers(members);
+                    setShowRemoveMemberConfirm(null);
+                    setTeamError(null);
+                  } catch (error) {
+                    console.error("Failed to remove team member:", error);
+                    setTeamError(
+                      showRemoveMemberConfirm.member.status === "INVITED"
+                        ? "Failed to remove invite"
+                        : "Failed to remove member"
+                    );
+                    setShowRemoveMemberConfirm({
+                      ...showRemoveMemberConfirm,
+                      isRemoving: false,
+                    });
+                  }
+                }}
+                disabled={showRemoveMemberConfirm.isRemoving}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {showRemoveMemberConfirm.isRemoving ? (
+                  <InlineSpinner size={14} />
+                ) : showRemoveMemberConfirm.member.status === "INVITED" ? (
+                  "Remove Invite"
+                ) : (
+                  "Remove Member"
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteAccountConfirm && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4"
+          onClick={() => setShowDeleteAccountConfirm(false)}
+        >
+          <div
+            className="bg-white rounded-xl max-w-md w-full shadow-md p-6 text-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Delete Account
+            </h3>
+            <p className="text-gray-600 mb-4">
+              This action cannot be undone. All your data, workspaces, and
+              reports will be permanently deleted.
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm text-gray-700 mb-2">
+                Type "DELETE" to confirm:
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="DELETE"
+              />
+            </div>
+            {deleteError && (
+              <div className="mb-4 text-sm text-red-600">{deleteError}</div>
+            )}
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDeleteAccountConfirm(false);
+                  setDeleteConfirmText("");
+                  setDeleteError(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (deleteConfirmText !== "DELETE") {
+                    setDeleteError('Please type "DELETE" to confirm');
+                    return;
+                  }
+                  // This would typically call an API to delete the account
+                  setDeleteError("Account deletion is not yet implemented. Please contact support.");
+                }}
+                disabled={deleteConfirmText !== "DELETE"}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                Delete Account
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

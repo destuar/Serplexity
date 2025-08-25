@@ -44,8 +44,11 @@ const GoogleAnalyticsConnector: React.FC<Props> = ({
         });
         onComplete();
       } else {
-        // OAuth flow - get auth URL from backend then redirect
-        const response = await apiClient.get(`/integrations/google/auth?provider=ga4`);
+        // OAuth flow - create GA4 integration and get auth URL
+        const response = await apiClient.post("/website-analytics/integrations", {
+          integrationName: "google_analytics_4",
+          verificationMethod: "oauth",
+        });
         if (response.data.authUrl) {
           window.location.href = response.data.authUrl;
         } else {

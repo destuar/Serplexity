@@ -163,7 +163,7 @@ export const handleOAuthCallback = async (
       await prisma.analyticsIntegration.update({
         where: { id: integrationId },
         data: {
-          status: "active",
+          status: "pending_property_selection",
           verificationMethod: "oauth",
         },
       });
@@ -182,9 +182,11 @@ export const handleOAuthCallback = async (
       }
     }
 
-    // Redirect to frontend success page
+    // Redirect to property selection page for GA4 integrations
     const env = (await import("../config/env")).default;
-    const redirectUrl = `${env.FRONTEND_URL}/analytics/integration/success?id=${integrationId}`;
+    const redirectUrl = integration.integrationName === "google_analytics_4" 
+      ? `${env.FRONTEND_URL}/analytics/ga4-setup?integrationId=${integrationId}`
+      : `${env.FRONTEND_URL}/web-analytics`;
     res.redirect(redirectUrl);
   } catch (error) {
     logger.error("Error handling OAuth callback:", error);
@@ -383,14 +385,84 @@ export const getGa4Metrics = async (
       res.status(400).json({ error: "No Google OAuth token. Reconnect GA4." });
       return;
     }
-    const metrics = await googleAnalyticsService.getSummaryMetrics(
-      stored.accessToken,
-      propertyId,
-      startDateParam,
-      endDateParam
-    );
 
-    res.json({ metrics });
+    let accessToken = stored.accessToken;
+    
+    // Try to refresh token if it's expired or close to expiring
+    if (stored.expiry && stored.expiry <= new Date(Date.now() + 5 * 60 * 1000)) { // 5 minutes buffer
+      try {
+        if (!stored.refreshToken) {
+          res.status(400).json({ error: "Access token expired and no refresh token available. Please reconnect GA4." });
+          return;
+        }
+        
+        const refreshedTokens = await googleAnalyticsService.refreshAccessToken(stored.refreshToken);
+        
+        // Update stored tokens
+        await googleOAuthTokenService.upsertToken(
+          companyId,
+          stored.scopes,
+          refreshedTokens.access_token,
+          refreshedTokens.refresh_token,
+          refreshedTokens.expiry_date
+        );
+        
+        accessToken = refreshedTokens.access_token;
+        logger.info(`[GA4] Refreshed access token for company ${companyId}`);
+      } catch (refreshError) {
+        logger.error(`[GA4] Failed to refresh token for company ${companyId}:`, refreshError);
+        res.status(400).json({ error: "Failed to refresh access token. Please reconnect GA4." });
+        return;
+      }
+    }
+
+    try {
+      const metrics = await googleAnalyticsService.getSummaryMetrics(
+        accessToken,
+        propertyId,
+        startDateParam,
+        endDateParam
+      );
+      res.json({ metrics });
+    } catch (apiError: any) {
+      // If we get a 401 unauthorized error, try to refresh the token once
+      if (apiError.code === 401 || apiError.message?.includes('unauthorized') || apiError.message?.includes('invalid_grant')) {
+        try {
+          if (!stored.refreshToken) {
+            res.status(400).json({ error: "Access token unauthorized and no refresh token available. Please reconnect GA4." });
+            return;
+          }
+          
+          logger.info(`[GA4] API call failed with 401, attempting token refresh for company ${companyId}`);
+          const refreshedTokens = await googleAnalyticsService.refreshAccessToken(stored.refreshToken);
+          
+          // Update stored tokens
+          await googleOAuthTokenService.upsertToken(
+            companyId,
+            stored.scopes,
+            refreshedTokens.access_token,
+            refreshedTokens.refresh_token,
+            refreshedTokens.expiry_date
+          );
+          
+          // Retry the API call with new token
+          const metrics = await googleAnalyticsService.getSummaryMetrics(
+            refreshedTokens.access_token,
+            propertyId,
+            startDateParam,
+            endDateParam
+          );
+          res.json({ metrics });
+          logger.info(`[GA4] Successfully refreshed token and retried API call for company ${companyId}`);
+        } catch (retryError) {
+          logger.error(`[GA4] Failed to refresh token after API 401 for company ${companyId}:`, retryError);
+          res.status(400).json({ error: "Token refresh failed after API unauthorized error. Please reconnect GA4." });
+        }
+      } else {
+        // Re-throw non-auth errors
+        throw apiError;
+      }
+    }
   } catch (error) {
     logger.error("Error getting GA4 metrics:", error);
     res.status(500).json({
@@ -565,6 +637,82 @@ export const getIntegrationHealth = async (
     logger.error("Error getting integration health:", error);
     res.status(500).json({
       error: "Failed to get integration health",
+      message: (error as Error).message,
+    });
+  }
+};
+
+/**
+ * Get available GA4 properties for authenticated user
+ */
+export const getGA4Properties = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const companyId = req.user?.companyId;
+    if (!companyId) {
+      res.status(400).json({ error: "Company ID is required" });
+      return;
+    }
+
+    const stored = await googleOAuthTokenService.getDecryptedToken(companyId);
+    if (!stored?.accessToken) {
+      res.status(400).json({ error: "No Google OAuth token. Complete GA4 OAuth first." });
+      return;
+    }
+
+    const properties = await googleAnalyticsService.discoverGA4Properties(stored.accessToken);
+    res.json({ properties });
+  } catch (error) {
+    logger.error("Error getting GA4 properties:", error);
+    res.status(500).json({
+      error: "Failed to get GA4 properties",
+      message: (error as Error).message,
+    });
+  }
+};
+
+/**
+ * Set selected GA4 property for an integration
+ */
+export const setGA4Property = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { integrationId } = req.params;
+    const { propertyId } = req.body;
+
+    if (!integrationId) {
+      res.status(400).json({ error: "Integration ID is required" });
+      return;
+    }
+
+    if (!propertyId) {
+      res.status(400).json({ error: "Property ID is required" });
+      return;
+    }
+
+    const prisma = await (
+      await import("../config/dbCache")
+    ).dbCache.getPrimaryClient();
+
+    // Update the integration with the selected property ID
+    const integration = await prisma.analyticsIntegration.update({
+      where: { id: integrationId },
+      data: {
+        trackingCode: propertyId,
+        status: "active",
+      },
+    });
+
+    logger.info(`[GA4] Set property ${propertyId} for integration ${integrationId}`);
+    res.json({ success: true, integration });
+  } catch (error) {
+    logger.error("Error setting GA4 property:", error);
+    res.status(500).json({
+      error: "Failed to set GA4 property",
       message: (error as Error).message,
     });
   }

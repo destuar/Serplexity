@@ -63,9 +63,16 @@ const envSchema = z.object({
     .string()
     .min(1, "JWT_REFRESH_SECRET must be a non-empty string"),
   JWT_EXPIRES_IN: z.string().default("15m"),
+  
+  // Google OAuth (Login)
   GOOGLE_CLIENT_ID: z.string(),
   GOOGLE_CLIENT_SECRET: z.string(),
   GOOGLE_CALLBACK_URL: z.string().url(),
+  
+  // Google Analytics 4 OAuth (Separate client for GA4 integration)
+  GA4_GOOGLE_CLIENT_ID: z.string(),
+  GA4_GOOGLE_CLIENT_SECRET: z.string(),
+  GA4_GOOGLE_CALLBACK_URL: z.string().url(),
 
   // Frontend
   FRONTEND_URL: z.string().url(),

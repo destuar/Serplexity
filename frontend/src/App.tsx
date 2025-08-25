@@ -35,7 +35,7 @@ import PromptsPage from "./pages/PromptsPage";
 import SeoAnalyticsPage from "./pages/SeoAnalyticsPage";
 import VisibilityReportPage from "./pages/VisibilityReportPage";
 import VisibilityTasksPage from "./pages/VisibilityTasksPage";
-import VisitorAnalyticsPage from "./pages/VisitorAnalyticsPage";
+import WebAnalyticsPage from "./pages/WebAnalyticsPage";
 import WebAuditPage from "./pages/WebAuditPage";
 
 import ProtectedRoute from "./components/auth/ProtectedRoute";
@@ -53,6 +53,8 @@ import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import RegisterPage from "./pages/RegisterPage";
 import ResearchPage from "./pages/ResearchPage";
 import TermsOfServicePage from "./pages/TermsOfServicePage";
+import IntegrationErrorPage from "./pages/IntegrationErrorPage";
+import GA4SetupPage from "./pages/GA4SetupPage";
 
 const DashboardRoutes: React.FC = () => (
   <NavigationProvider>
@@ -70,8 +72,8 @@ const DashboardRoutes: React.FC = () => (
             />
             <Route path="/web-audit" element={<WebAuditPage />} />
             <Route
-              path="/visitor-analytics"
-              element={<VisitorAnalyticsPage />}
+              path="/web-analytics"
+              element={<WebAnalyticsPage />}
             />
             <Route
               path="/visibility-analytics"
@@ -85,6 +87,7 @@ const DashboardRoutes: React.FC = () => (
               path="/experimental-search"
               element={<ExperimentalSearchPage />}
             />
+            <Route path="/analytics/ga4-setup" element={<GA4SetupPage />} />
           </Routes>
         </DashboardLayout>
       </div>
@@ -133,6 +136,7 @@ function App() {
           <Route path="/research/edit/:id" element={<BlogEditorPage />} />
           <Route path="/research/:slug" element={<BlogPostPage />} />
           <Route path="/oauth-callback" element={<OAuthCallbackPage />} />
+          <Route path="/analytics/integration/error" element={<IntegrationErrorPage />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/*" element={<ProtectedArea />} />
           </Route>

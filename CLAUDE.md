@@ -591,3 +591,48 @@ Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.
 NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
+
+# Working Style Guidelines
+
+When working with this codebase:
+
+### Code Quality & Architecture
+- **Think like a senior/"10x" engineer**: design-first, simplify, and prove correctness with tests
+- **Work step-by-step and validate** each step (build/tests/lints) before moving on
+- **Prefer the smallest viable, composable change** - keep edits tight and focused
+- **Controllers are thin** - business logic lives in services; utilities are pure and reusable
+- **Keep files focused (≤200 LOC)** - extract helpers early, no massive "god" files
+- **Use explicit TypeScript types everywhere** - `any` is banned
+
+### Database Change Policy (CRITICAL)
+- **Do NOT run Prisma migrations** on shared/live databases - this can drop or rewrite data
+- **Apply idempotent SQL patches instead**, executed via the AWS Secrets wrapper:
+  ```bash
+  ts-node src/scripts/run-with-secrets.ts npx prisma db execute --file /absolute/path/to.sql --schema prisma/schema.prisma
+  ```
+- **Prefer safe statements** like `ALTER TABLE ... ADD COLUMN IF NOT EXISTS ...`
+- **Keep `prisma/schema.prisma` authoritative** and run `npm run generate` after changes
+- **You MAY use `npm run migrate:dev`** only against local, disposable dev databases
+
+### Quality Gates & Validation
+- **Every change ships with tests** as appropriate and passes lint/typecheck
+- **Before completing**: run build, tests, and linters relevant to the change; fix what you broke
+- **After major edits**, perform Docker BuildKit no-cache builds for backend and frontend to catch container-only failures
+- **Respect multi-tenant boundaries** (companyId) - enforce auth, rate limits, and validation
+
+### Working with Queues & Prompts
+- **All prompt TypeScript files** MUST live in `backend/src/prompts/` (import via `@/prompts/*`)
+- **Queue workers/schedulers self-register** on import - never import them from app code paths
+- **Use provided npm scripts** - don't invent bespoke commands if a script already exists
+
+### Error Handling & Debugging
+- **DO NOT JUMP TO CONCLUSIONS** when debugging - consider multiple possible causes
+- **Make only minimal necessary changes** when fixing issues
+- **Use structured logging** with appropriate log levels (debug/info/warn/error)
+- **Implement proper error boundaries** in React components
+- **Prefer async/await + try/catch** patterns over promises
+
+### Security & Compliance
+- **Never commit secrets** - prefer AWS Secrets Manager as source of truth
+- **JWT auth, company isolation, rate limiting, Helmet, and Zod input validation** must remain intact
+- **Avoid dynamic code execution** in hot paths; keep control-flow predictable

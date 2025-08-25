@@ -7,7 +7,7 @@
  * - Fetch summary metrics (sessions, users, page views, engagement)
  */
 
-import { google, analyticsdata_v1beta } from "googleapis";
+import { google, analyticsdata_v1beta, analyticsadmin_v1alpha } from "googleapis";
 import env from "../config/env";
 import logger from "../utils/logger";
 
@@ -28,21 +28,30 @@ export interface Ga4SummaryMetrics {
   topPages: Array<{ pagePath: string; views: number; users: number }>; // limited selection
 }
 
+export interface GA4Property {
+  propertyId: string;
+  displayName: string;
+  websiteUrl?: string;
+  industryCategory?: string;
+  timeZone?: string;
+}
+
 class GoogleAnalyticsService {
   private oauth2: any;
 
   constructor() {
     this.oauth2 = new google.auth.OAuth2(
-      env.GOOGLE_CLIENT_ID,
-      env.GOOGLE_CLIENT_SECRET,
-      // Use shared callback env for simplicity; must include the GA4 route in OAuth config
-      env.GOOGLE_CALLBACK_URL ||
-        `${env.FRONTEND_URL}/api/website-analytics/oauth/callback`
+      env.GA4_GOOGLE_CLIENT_ID,
+      env.GA4_GOOGLE_CLIENT_SECRET,
+      env.GA4_GOOGLE_CALLBACK_URL
     );
   }
 
   getAuthUrl(state?: string): string {
-    const scopes = ["https://www.googleapis.com/auth/analytics.readonly"];
+    const scopes = [
+      "https://www.googleapis.com/auth/analytics.readonly",
+      "https://www.googleapis.com/auth/analytics.manage.users.readonly"
+    ];
 
     return this.oauth2.generateAuthUrl({
       access_type: "offline",
@@ -54,7 +63,7 @@ class GoogleAnalyticsService {
 
   async getTokensFromCode(code: string): Promise<GA4AuthTokens> {
     try {
-      const { tokens } = await this.oauth2.getAccessToken(code);
+      const { tokens } = await this.oauth2.getToken(code);
       if (!tokens.access_token) {
         throw new Error("No access token received from Google");
       }
@@ -87,6 +96,60 @@ class GoogleAnalyticsService {
       throw new Error(
         `Failed to refresh GA4 token: ${(error as Error).message}`
       );
+    }
+  }
+
+  /**
+   * Discover available GA4 properties for the authenticated user
+   */
+  async discoverGA4Properties(accessToken: string): Promise<GA4Property[]> {
+    try {
+      this.oauth2.setCredentials({ access_token: accessToken });
+      const analyticsAdmin: analyticsadmin_v1alpha.Analyticsadmin = google.analyticsadmin("v1alpha");
+
+      // List all accounts first
+      const accountsResponse = await analyticsAdmin.accounts.list({
+        auth: this.oauth2,
+      });
+
+      const properties: GA4Property[] = [];
+
+      // For each account, list its properties
+      for (const account of accountsResponse.data.accounts || []) {
+        if (!account.name) continue;
+
+        try {
+          const propertiesResponse = await analyticsAdmin.properties.list({
+            filter: `parent:${account.name}`,
+            auth: this.oauth2,
+          });
+
+          for (const property of propertiesResponse.data.properties || []) {
+            if (property.name && property.displayName) {
+              // Extract numeric property ID from resource name (e.g., "properties/123456789")
+              const propertyIdMatch = property.name.match(/properties\/(\d+)/);
+              if (propertyIdMatch) {
+                properties.push({
+                  propertyId: propertyIdMatch[1],
+                  displayName: property.displayName,
+                  websiteUrl: property.websiteUrl || undefined,
+                  industryCategory: property.industryCategory || undefined,
+                  timeZone: property.timeZone || undefined,
+                });
+              }
+            }
+          }
+        } catch (propertyError) {
+          logger.warn(`[GA4] Failed to list properties for account ${account.name}:`, propertyError);
+          // Continue with other accounts
+        }
+      }
+
+      logger.info(`[GA4] Discovered ${properties.length} GA4 properties`);
+      return properties;
+    } catch (error) {
+      logger.error("[GA4] Error discovering GA4 properties:", error);
+      throw new Error(`Failed to discover GA4 properties: ${(error as Error).message}`);
     }
   }
 

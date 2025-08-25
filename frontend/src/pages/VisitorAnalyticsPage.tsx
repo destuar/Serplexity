@@ -6,6 +6,8 @@
 import React, { useEffect, useState } from "react";
 import IntegrationSetupWizard from "../components/analytics/IntegrationSetupWizard";
 import { useNavigation } from "../hooks/useNavigation";
+import { useCompany } from "../hooks/useCompany";
+import apiClient from "../lib/apiClient";
 
 interface Ga4Metrics {
   sessions: number;
@@ -18,9 +20,11 @@ interface Ga4Metrics {
 
 const VisitorAnalyticsPage: React.FC = () => {
   const { setBreadcrumbs } = useNavigation();
+  const { selectedCompany } = useCompany();
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [hasIntegrations, setHasIntegrations] = useState(false);
   const [metrics, setMetrics] = useState<Ga4Metrics | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     setBreadcrumbs([{ label: "SEO Performance" }, { label: "Web Analytics" }]);
@@ -28,10 +32,15 @@ const VisitorAnalyticsPage: React.FC = () => {
 
   useEffect(() => {
     const checkIntegrations = async () => {
+      if (!selectedCompany) {
+        console.log("No company selected yet, waiting...");
+        return;
+      }
+      
       try {
-        const res = await fetch("/api/website-analytics/integrations");
-        if (!res.ok) return;
-        const data = await res.json();
+        setIsLoading(true);
+        const res = await apiClient.get("/website-analytics/integrations");
+        const data = res.data;
         const list = (data as { integrations?: unknown })?.integrations ?? data; // tolerate either shape
         const hasGa4 = Array.isArray(list)
           ? list.some(
@@ -44,12 +53,15 @@ const VisitorAnalyticsPage: React.FC = () => {
         if (hasGa4) {
           await fetchMetrics();
         }
-      } catch {
-        // noop
+      } catch (error) {
+        console.error("Failed to check integrations:", error);
+        // Don't show setup wizard if we can't check - safer to assume no integration
+      } finally {
+        setIsLoading(false);
       }
     };
     checkIntegrations();
-  }, []);
+  }, [selectedCompany]);
 
   const fetchMetrics = async () => {
     try {
@@ -59,15 +71,15 @@ const VisitorAnalyticsPage: React.FC = () => {
         startDate: start.toISOString().slice(0, 10),
         endDate: now.toISOString().slice(0, 10),
       });
-      const res = await fetch(
-        `/api/website-analytics/ga4/metrics?${params.toString()}`
+      const res = await apiClient.get(
+        `/website-analytics/ga4/metrics?${params.toString()}`
       );
-      if (!res.ok) return;
-      const data = await res.json();
+      const data = res.data;
       // tolerate shapes {metrics: {...}} or {...}
       setMetrics(data.metrics ?? data);
-    } catch {
-      // noop for MVP
+    } catch (error) {
+      console.error("Failed to fetch GA4 metrics:", error);
+      // Show empty state but don't fail the page
     }
   };
 
@@ -76,6 +88,18 @@ const VisitorAnalyticsPage: React.FC = () => {
     setHasIntegrations(true);
     fetchMetrics();
   };
+
+  // Show loading state while waiting for company selection or integration check
+  if (isLoading || !selectedCompany) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-sm text-gray-600">Loading analytics...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (showSetupWizard || !hasIntegrations) {
     return (

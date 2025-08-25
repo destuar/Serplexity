@@ -16,7 +16,15 @@ import { addCompanyContext } from "../middleware/companyMiddleware";
 
 const router = Router();
 
-// All routes require authentication - these are for Serplexity users managing their website analytics
+// OAuth callback routes (MUST be public - no authentication required)
+// OAuth providers (Google) call these directly without auth headers
+router.get("/oauth/callback", websiteAnalyticsController.handleOAuthCallback);
+router.get(
+  "/integrations/google/callback",
+  websiteAnalyticsController.handleOAuthCallback
+);
+
+// All other routes require authentication - these are for Serplexity users managing their website analytics
 router.use(authenticate);
 router.use(addCompanyContext);
 
@@ -46,13 +54,6 @@ router.get(
   websiteAnalyticsController.getIntegrationHealth
 );
 
-// OAuth callback works for both GSC and GA4 (controller detects by integration type)
-// Support both legacy and new callback paths under this router base
-router.get("/oauth/callback", websiteAnalyticsController.handleOAuthCallback);
-router.get(
-  "/integrations/google/callback",
-  websiteAnalyticsController.handleOAuthCallback
-);
 router.get(
   "/integrations/:integrationId/properties",
   websiteAnalyticsController.getGSCProperties
@@ -65,6 +66,10 @@ router.post(
 // Analytics data routes
 router.get("/metrics", websiteAnalyticsController.getMetrics);
 router.get("/ga4/metrics", websiteAnalyticsController.getGa4Metrics);
+
+// GA4 property management routes
+router.get("/ga4/properties", websiteAnalyticsController.getGA4Properties);
+router.post("/integrations/:integrationId/ga4-property", websiteAnalyticsController.setGA4Property);
 
 // Manual tracking route (for JavaScript tracking code on user websites)
 router.post("/track", websiteAnalyticsController.trackEvent);

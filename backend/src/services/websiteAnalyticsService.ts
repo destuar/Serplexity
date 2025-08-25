@@ -103,7 +103,8 @@ class WebsiteAnalyticsService {
         },
       });
 
-      if (existingIntegration && existingIntegration.status === "active") {
+      // For OAuth re-authentication, allow updating existing integrations
+      if (existingIntegration && existingIntegration.status === "active" && request.verificationMethod !== "oauth") {
         throw new Error("Integration already exists and is active");
       }
 
