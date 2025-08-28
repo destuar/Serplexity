@@ -114,3 +114,12 @@ dist
 # Temporary folders
 tmp/
 temp/ 
+# Secret files (added by cleanup)
+frontend/.env
+*.pem
+*.key
+private.key
+config/*.pem
+**/id_rsa
+**/id_ecdsa
+**/id_ed25519

@@ -33,3 +33,13 @@ __pycache__/
 *$py.class
 *.so
 .Python
+
+# Secret files (added by cleanup)
+.env
+.env.*
+*.pem
+*.key
+private.key
+**/id_rsa
+**/id_ecdsa
+**/id_ed25519
