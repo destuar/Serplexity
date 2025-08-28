@@ -123,3 +123,8 @@ config/*.pem
 **/id_rsa
 **/id_ecdsa
 **/id_ed25519
+
+# Python venv (added by cleanup)
+venv/
+backend/venv/
+**/__pycache__/
