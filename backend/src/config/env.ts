@@ -74,6 +74,11 @@ const envSchema = z.object({
   GA4_GOOGLE_CLIENT_SECRET: z.string(),
   GA4_GOOGLE_CALLBACK_URL: z.string().url(),
 
+  // Google Search Console OAuth (Separate client for GSC integration)
+  GSC_GOOGLE_CLIENT_ID: z.string(),
+  GSC_GOOGLE_CLIENT_SECRET: z.string(),
+  GSC_GOOGLE_CALLBACK_URL: z.string().url(),
+
   // Frontend
   FRONTEND_URL: z.string().url(),
   CORS_ORIGIN: z.string().url(),

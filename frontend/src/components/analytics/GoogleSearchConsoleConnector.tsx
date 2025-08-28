@@ -8,54 +8,51 @@ import { Button } from "../ui/Button";
 import Card from "../ui/Card";
 import InlineSpinner from "../ui/InlineSpinner";
 import { Input } from "../ui/Input";
+import apiClient from "../../lib/apiClient";
+import { useCompany } from "../../hooks/useCompany";
 
 interface GoogleSearchConsoleConnectorProps {
+  onComplete: () => void;
   onCancel: () => void;
 }
 
 const GoogleSearchConsoleConnector: React.FC<
   GoogleSearchConsoleConnectorProps
-> = ({ onCancel }) => {
+> = ({ onComplete: _onComplete, onCancel }) => {
+  const { selectedCompany } = useCompany();
   const [gscPropertyUrl, setGscPropertyUrl] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleConnect = async () => {
+    if (!selectedCompany) {
+      setError("Please select a company first");
+      return;
+    }
+
     try {
       setIsConnecting(true);
       setError(null);
 
       // Create the integration
-      const response = await fetch("/api/website-analytics/integrations", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          integrationName: "google_search_console",
-          verificationMethod: "oauth",
-          // Pass URL only if user provided an override; otherwise backend will default to company website
-          ...(gscPropertyUrl.trim()
-            ? { gscPropertyUrl: gscPropertyUrl.trim() }
-            : {}),
-        }),
+      const response = await apiClient.post("/website-analytics/integrations", {
+        integrationName: "google_search_console",
+        verificationMethod: "oauth",
+        // Pass URL only if user provided an override; otherwise backend will default to company website
+        ...(gscPropertyUrl.trim()
+          ? { gscPropertyUrl: gscPropertyUrl.trim() }
+          : {}),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to create integration");
-      }
-
-      const data = await response.json();
-
       // Redirect to Google OAuth
-      if (data.authUrl) {
-        window.location.href = data.authUrl;
+      if (response.data.authUrl) {
+        window.location.href = response.data.authUrl;
       } else {
         throw new Error("No authorization URL received");
       }
-    } catch (err) {
-      setError((err as Error).message);
+    } catch (e) {
+      const error = e as { response?: { data?: { error?: string } }; message?: string };
+      setError(error.response?.data?.error || error.message || "Failed to create GSC integration");
       setIsConnecting(false);
     }
   };

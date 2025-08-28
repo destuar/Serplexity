@@ -3,21 +3,12 @@
  * @description Error page for failed OAuth integrations
  */
 
-import React, { useEffect } from "react";
+import React from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { useNavigation } from "../hooks/useNavigation";
 
 const IntegrationErrorPage: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const { setBreadcrumbs } = useNavigation();
   const errorMessage = searchParams.get("message") || "Integration failed";
-
-  useEffect(() => {
-    setBreadcrumbs([
-      { label: "SEO Performance" },
-      { label: "Integration Error" },
-    ]);
-  }, [setBreadcrumbs]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">

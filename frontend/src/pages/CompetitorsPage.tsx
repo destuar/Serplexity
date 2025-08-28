@@ -9,6 +9,7 @@ import { InlineSpinner as _InlineSpinner } from '../components/ui/InlineSpinner'
 import { useCompany } from '../contexts/CompanyContext';
 import { useNavigation } from '../hooks/useNavigation';
 import { useDashboard } from '../hooks/useDashboard';
+import { usePageCache } from '../hooks/usePageCache';
 import { getCompanyLogo } from '../lib/logoService';
 // import { cn } from '../lib/utils';
 import { 
@@ -24,6 +25,7 @@ import {
 import { useReportGeneration } from '../hooks/useReportGeneration';
 import WelcomePrompt from '../components/ui/WelcomePrompt';
 import BlankLoadingState from '../components/ui/BlankLoadingState';
+import CacheStatusIndicator from '../components/ui/CacheStatusIndicator';
 
 interface CompetitorItem extends CompetitorData {
   status: 'accepted' | 'suggested' | 'user-company';
@@ -423,8 +425,7 @@ const CompetitorsPage = () => {
   const { setBreadcrumbs } = useNavigation();
   const { data: _dashboardData, loading: dashboardLoading, hasReport } = useDashboard();
   
-  const [competitors, setCompetitors] = useState<CompetitorItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Local UI state
   const [newCompetitorName, setNewCompetitorName] = useState('');
   const [newCompetitorWebsite, setNewCompetitorWebsite] = useState('');
   const [isAddingCompetitor, setIsAddingCompetitor] = useState(false);
@@ -432,6 +433,65 @@ const CompetitorsPage = () => {
   const [editingCompetitorId, setEditingCompetitorId] = useState<string | null>(null);
   const [isUpdatingCompetitor, setIsUpdatingCompetitor] = useState(false);
   const [acceptingDeclineingId, setAcceptingDeclineingId] = useState<string | null>(null);
+
+  // Cache-aware data fetching with 15 minute expiry
+  const competitorsCache = usePageCache<CompetitorItem[]>({
+    fetcher: async () => {
+      if (!selectedCompany?.id) return [];
+      
+      console.log('[CompetitorsPage] Fetching competitors data...');
+      
+      // Always add user's company first
+      const allCompetitors: CompetitorItem[] = [{
+        id: selectedCompany.id,
+        name: selectedCompany.name,
+        website: selectedCompany.website || undefined,
+        isGenerated: false,
+        isAccepted: true,
+        status: 'user-company'
+      }];
+      
+      try {
+        // Fetch both accepted and suggested competitors
+        const [acceptedData, suggestedData] = await Promise.all([
+          getAcceptedCompetitors(selectedCompany.id).catch(() => ({ competitors: [] })),
+          getSuggestedCompetitors(selectedCompany.id).catch(() => ({ competitors: [] }))
+        ]);
+        
+        // Add accepted competitors (excluding user's company if it appears in the API response)
+        const acceptedCompetitors = (acceptedData.competitors || [])
+          .filter(comp => comp.id !== selectedCompany.id)
+          .map(comp => ({ ...comp, status: 'accepted' as const }));
+        allCompetitors.push(...acceptedCompetitors);
+        
+        // Add suggested competitors sorted by mentions (descending)
+        const suggestedCompetitors = (suggestedData.competitors || [])
+          .sort((a, b) => (b.mentions || 0) - (a.mentions || 0))
+          .map(comp => ({ ...comp, status: 'suggested' as const }));
+        allCompetitors.push(...suggestedCompetitors);
+        
+        console.log(`[CompetitorsPage] Loaded ${allCompetitors.length} total competitors`);
+        return allCompetitors;
+        
+      } catch (error) {
+        console.error('[CompetitorsPage] Failed to load competitors:', error);
+        // Return just user's company on error
+        return allCompetitors;
+      }
+    },
+    pageType: 'competitors',
+    companyId: selectedCompany?.id || '',
+    enabled: !!selectedCompany?.id,
+    onDataLoaded: (data, isFromCache) => {
+      console.log(`[CompetitorsPage] Data loaded ${isFromCache ? 'from cache' : 'fresh'}: ${data.length} competitors`);
+    },
+    onError: (error) => {
+      console.error('[CompetitorsPage] Cache fetch error:', error);
+    }
+  });
+
+  const competitors = competitorsCache.data || [];
+  const isLoading = competitorsCache.loading;
 
   // Report generation logic
   const { 
@@ -451,53 +511,6 @@ const CompetitorsPage = () => {
     ]);
   }, [setBreadcrumbs]);
 
-  const loadCompetitors = useCallback(async () => {
-    if (!selectedCompany?.id) return;
-    
-    setIsLoading(true);
-    
-    // Always add user's company first
-    const allCompetitors: CompetitorItem[] = [{
-      id: selectedCompany.id,
-      name: selectedCompany.name,
-      website: selectedCompany.website || undefined,
-      isGenerated: false,
-      isAccepted: true,
-      status: 'user-company'
-    }];
-    
-    try {
-      // Fetch both accepted and suggested competitors
-      const [acceptedData, suggestedData] = await Promise.all([
-        getAcceptedCompetitors(selectedCompany.id).catch(() => ({ competitors: [] })),
-        getSuggestedCompetitors(selectedCompany.id).catch(() => ({ competitors: [] }))
-      ]);
-      
-      // Add accepted competitors (excluding user's company if it appears in the API response)
-      const acceptedCompetitors = (acceptedData.competitors || [])
-        .filter(comp => comp.id !== selectedCompany.id)
-        .map(comp => ({ ...comp, status: 'accepted' as const }));
-      allCompetitors.push(...acceptedCompetitors);
-      
-      // Add suggested competitors sorted by mentions (descending)
-      const suggestedCompetitors = (suggestedData.competitors || [])
-        .sort((a, b) => (b.mentions || 0) - (a.mentions || 0))
-        .map(comp => ({ ...comp, status: 'suggested' as const }));
-      allCompetitors.push(...suggestedCompetitors);
-      
-    } catch (error) {
-      console.error('Failed to load competitors:', error);
-      // Continue with just user's company even if API fails
-    } finally {
-      setCompetitors(allCompetitors);
-      setIsLoading(false);
-    }
-  }, [selectedCompany?.id, selectedCompany?.name, selectedCompany?.website]);
-
-  // Load competitors when component mounts
-  useEffect(() => {
-    loadCompetitors();
-  }, [loadCompetitors]);
 
 
   const handleAcceptCompetitor = async (competitorId: string) => {
@@ -507,16 +520,18 @@ const CompetitorsPage = () => {
     try {
       await acceptCompetitor(selectedCompany.id, competitorId);
       
-      // Update local state - simply change status from 'suggested' to 'accepted'
-      setCompetitors(prev => 
-        prev.map(comp => 
-          comp.id === competitorId 
-            ? { ...comp, status: 'accepted' as const, isAccepted: true }
-            : comp
-        )
+      // Update cached data optimistically
+      const updatedCompetitors = competitors.map(comp => 
+        comp.id === competitorId 
+          ? { ...comp, status: 'accepted' as const, isAccepted: true }
+          : comp
       );
+      competitorsCache.setData(updatedCompetitors);
+      
     } catch (error) {
       console.error('Failed to accept competitor:', error);
+      // Invalidate cache to reload fresh data on error
+      competitorsCache.invalidate();
     } finally {
       setAcceptingDeclineingId(null);
     }
@@ -529,10 +544,14 @@ const CompetitorsPage = () => {
     try {
       await declineCompetitor(selectedCompany.id, competitorId);
       
-      // Remove from local state
-      setCompetitors(prev => prev.filter(comp => comp.id !== competitorId));
+      // Update cached data optimistically
+      const updatedCompetitors = competitors.filter(comp => comp.id !== competitorId);
+      competitorsCache.setData(updatedCompetitors);
+      
     } catch (error) {
       console.error('Failed to decline competitor:', error);
+      // Invalidate cache to reload fresh data on error
+      competitorsCache.invalidate();
     } finally {
       setAcceptingDeclineingId(null);
     }
@@ -548,13 +567,17 @@ const CompetitorsPage = () => {
         website: newCompetitorWebsite.trim(),
       });
       
-      // Add to local state
-      setCompetitors(prev => [...prev, { ...newCompetitor, status: 'accepted' }]);
+      // Update cached data optimistically
+      const updatedCompetitors = [...competitors, { ...newCompetitor, status: 'accepted' as const }];
+      competitorsCache.setData(updatedCompetitors);
+      
       setNewCompetitorName('');
       setNewCompetitorWebsite('');
       setShowAddForm(false);
     } catch (error) {
       console.error('Failed to add competitor:', error);
+      // Invalidate cache to reload fresh data on error
+      competitorsCache.invalidate();
     } finally {
       setIsAddingCompetitor(false);
     }
@@ -574,19 +597,20 @@ const CompetitorsPage = () => {
         website: website.trim(),
       });
       
-      // Update local state
-      setCompetitors(prev => 
-        prev.map(comp => 
-          comp.id === competitorId 
-            ? { ...comp, name: name.trim(), website: website.trim() }
-            : comp
-        )
+      // Update cached data optimistically
+      const updatedCompetitors = competitors.map(comp => 
+        comp.id === competitorId 
+          ? { ...comp, name: name.trim(), website: website.trim() }
+          : comp
       );
+      competitorsCache.setData(updatedCompetitors);
       
       setEditingCompetitorId(null);
     } catch (error) {
       console.error('Failed to update competitor:', error);
       alert('Failed to update competitor. Please try again.');
+      // Invalidate cache to reload fresh data on error
+      competitorsCache.invalidate();
     } finally {
       setIsUpdatingCompetitor(false);
     }

@@ -244,41 +244,93 @@ class WebsiteAnalyticsService {
 
       // Validate property access if property URL is specified
       if (integration.gscPropertyUrl) {
-        const hasAccess =
-          await googleSearchConsoleService.validatePropertyAccess(
-            tokens.access_token,
-            integration.gscPropertyUrl
-          );
+        try {
+          // Get all available properties for debugging
+          const properties = await googleSearchConsoleService.getProperties(tokens.access_token);
+          logger.info(`Available GSC properties for integration ${integrationId}:`, {
+            targetProperty: integration.gscPropertyUrl,
+            availableProperties: properties.map(p => ({
+              siteUrl: p.siteUrl,
+              permissionLevel: p.permissionLevel
+            }))
+          });
 
-        if (!hasAccess) {
-          throw new Error("No access to specified Search Console property");
+          const hasAccess =
+            await googleSearchConsoleService.validatePropertyAccess(
+              tokens.access_token,
+              integration.gscPropertyUrl
+            );
+
+          if (!hasAccess) {
+            // If user has access to other properties, allow integration but mark for property selection
+            if (properties.length > 0) {
+              logger.info(`Property ${integration.gscPropertyUrl} not accessible, but user has other properties. Proceeding with property selection flow.`);
+              await prisma.analyticsIntegration.update({
+                where: { id: integrationId },
+                data: {
+                  status: "pending_property_selection",
+                  gscPropertyUrl: null, // Clear invalid property URL
+                },
+              });
+            } else {
+              const availableUrls = properties.map(p => p.siteUrl).join(', ');
+              throw new Error(
+                `No access to Search Console property "${integration.gscPropertyUrl}". ` +
+                `Available properties: ${availableUrls || 'none'}. ` +
+                `Please verify the property in Google Search Console first.`
+              );
+            }
+          } else {
+            // Property access validated, mark as active
+            await prisma.analyticsIntegration.update({
+              where: { id: integrationId },
+              data: {
+                status: "active",
+                verificationMethod: "oauth",
+              },
+            });
+          }
+        } catch (error) {
+          logger.error(`Property validation failed for ${integration.gscPropertyUrl}:`, error);
+          throw error;
         }
       }
 
-      // Persist tokens centrally (scoped to company)
+      // Persist tokens centrally (scoped to company) with GSC-specific provider
       const scopes = (tokens.scope || "").split(/[\s,]+/).filter(Boolean);
       await googleOAuthTokenService.upsertToken(
         integration.companyId,
         scopes,
         tokens.access_token,
         tokens.refresh_token,
-        tokens.expiry_date
+        tokens.expiry_date,
+        "gsc" // Use GSC-specific provider to avoid collision with GA4 tokens
       );
 
-      // Mark integration active
-      await prisma.analyticsIntegration.update({
-        where: { id: integrationId },
-        data: {
-          status: "active",
-          verificationMethod: "oauth",
-        },
-      });
+      // Mark integration active only if no property URL was specified (validation was skipped)
+      if (!integration.gscPropertyUrl) {
+        await prisma.analyticsIntegration.update({
+          where: { id: integrationId },
+          data: {
+            status: "pending_property_selection",
+            verificationMethod: "oauth",
+          },
+        });
+      }
+      // If property URL was specified, status was already updated in validation section
 
-      // Trigger initial data sync
-      try {
-        await googleSearchConsoleService.syncIntegrationData(integrationId);
-      } catch (syncError) {
-        logger.warn("Initial data sync failed, will retry later:", syncError);
+      // Trigger initial data sync only for active integrations
+      const updatedIntegration = await prisma.analyticsIntegration.findUnique({
+        where: { id: integrationId },
+        select: { status: true, gscPropertyUrl: true }
+      });
+      
+      if (updatedIntegration?.status === "active" && updatedIntegration.gscPropertyUrl) {
+        try {
+          await googleSearchConsoleService.syncIntegrationData(integrationId);
+        } catch (syncError) {
+          logger.warn("Initial data sync failed, will retry later:", syncError);
+        }
       }
 
       logger.info(`Completed OAuth integration ${integrationId}`);

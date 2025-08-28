@@ -16,8 +16,13 @@ export const addCompanyContext = (
   res: Response,
   next: NextFunction
 ) => {
-  if (!req.user || !req.user.companies) {
+  if (!req.user) {
     return next();
+  }
+
+  // Ensure companies array exists
+  if (!req.user.companies || !Array.isArray(req.user.companies)) {
+    req.user.companies = [];
   }
 
   // Get company ID from header, query, or use first company as default
@@ -32,7 +37,13 @@ export const addCompanyContext = (
     if (userCompanyIds.includes(requestedCompanyId)) {
       // Add companyId to user object for backward compatibility
       req.user.companyId = requestedCompanyId;
+    } else {
+      // If requested company ID doesn't match user companies, log warning
+      console.warn(`[Company Middleware] User ${req.user.id} requested company ${requestedCompanyId} but only has access to: ${userCompanyIds.join(', ')}`);
     }
+  } else if (req.user.companies.length === 0) {
+    // No companies found - this might be expected for new users
+    console.warn(`[Company Middleware] User ${req.user.id} has no companies available`);
   }
 
   next();

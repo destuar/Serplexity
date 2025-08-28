@@ -8,7 +8,7 @@ import React, { useCallback, useEffect, useState } from "react";
 interface AnalyticsData {
   totalClicks: number;
   totalImpressions: number;
-  averageCTR: number;
+  averageCtr: number;
   averagePosition: number;
   topQueries: Array<{
     query: string;
@@ -43,6 +43,31 @@ const AnalyticsDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState("7d");
 
+  // Helper function to convert period to date range
+  const convertPeriodToDateRange = (period: string): { startDate: string; endDate: string } => {
+    const endDate = new Date();
+    const startDate = new Date();
+    
+    switch (period) {
+      case "7d":
+        startDate.setDate(startDate.getDate() - 7);
+        break;
+      case "28d":
+        startDate.setDate(startDate.getDate() - 28);
+        break;
+      case "90d":
+        startDate.setDate(startDate.getDate() - 90);
+        break;
+      default:
+        startDate.setDate(startDate.getDate() - 7);
+    }
+    
+    return {
+      startDate: startDate.toISOString().split("T")[0],
+      endDate: endDate.toISOString().split("T")[0],
+    };
+  };
+
   useEffect(() => {
     fetchIntegrations();
   }, []);
@@ -50,12 +75,39 @@ const AnalyticsDashboard: React.FC = () => {
   const fetchAnalyticsData = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(
-        `/api/website-analytics/metrics?period=${selectedPeriod}`
+      
+      // Determine which integration type is active
+      const gscIntegration = integrations.find(
+        (i) => i.integrationName === "google_search_console" && i.status === "active"
       );
+      const ga4Integration = integrations.find(
+        (i) => i.integrationName === "google_analytics_4" && i.status === "active"
+      );
+
+      let response: Response;
+      
+      if (gscIntegration) {
+        // Use GSC-specific endpoint with date range conversion
+        const { startDate, endDate } = convertPeriodToDateRange(selectedPeriod);
+        response = await fetch(
+          `/api/website-analytics/gsc/metrics?startDate=${startDate}&endDate=${endDate}`
+        );
+      } else if (ga4Integration) {
+        // Use GA4-specific endpoint with date range conversion
+        const { startDate, endDate } = convertPeriodToDateRange(selectedPeriod);
+        response = await fetch(
+          `/api/website-analytics/ga4/metrics?startDate=${startDate}&endDate=${endDate}`
+        );
+      } else {
+        // Fallback to generic endpoint for other integration types
+        response = await fetch(
+          `/api/website-analytics/metrics?period=${selectedPeriod}`
+        );
+      }
+      
       if (response.ok) {
         const data = await response.json();
-        setAnalyticsData(data);
+        setAnalyticsData(data.metrics || data);
       } else {
         throw new Error("Failed to fetch analytics data");
       }
@@ -65,7 +117,7 @@ const AnalyticsDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedPeriod]);
+  }, [selectedPeriod, integrations]);
 
   useEffect(() => {
     if (integrations.length > 0) {
@@ -179,7 +231,7 @@ const AnalyticsDashboard: React.FC = () => {
         <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md p-4">
           <div className="text-xs text-gray-500 mb-1">CTR</div>
           <div className="text-lg font-medium text-gray-900">
-            {formatPercentage(analyticsData.averageCTR)}
+            {formatPercentage(analyticsData.averageCtr / 100)}
           </div>
         </div>
 
@@ -210,7 +262,7 @@ const AnalyticsDashboard: React.FC = () => {
                   </div>
                   <div className="text-gray-600 text-right">{query.clicks}</div>
                   <div className="text-gray-600 text-right">
-                    {formatPercentage(query.ctr)}
+                    {formatPercentage(query.ctr / 100)}
                   </div>
                   <div className="text-gray-600 text-right">
                     {query.position.toFixed(1)}
@@ -238,7 +290,7 @@ const AnalyticsDashboard: React.FC = () => {
                   </div>
                   <div className="text-gray-600 text-right">{page.clicks}</div>
                   <div className="text-gray-600 text-right">
-                    {formatPercentage(page.ctr)}
+                    {formatPercentage(page.ctr / 100)}
                   </div>
                   <div className="text-gray-600 text-right">
                     {page.position.toFixed(1)}

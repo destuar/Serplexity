@@ -15,7 +15,8 @@ class GoogleOAuthTokenService {
     scopes: string[],
     accessToken: string,
     refreshToken?: string,
-    expiryMs?: number
+    expiryMs?: number,
+    provider = "google"
   ): Promise<void> {
     const prisma = await dbCache.getPrimaryClient();
     const encryptedAccess = await encryptString(accessToken, { companyId });
@@ -25,9 +26,9 @@ class GoogleOAuthTokenService {
     const tokenHash = refreshToken ? sha256Hex(refreshToken) : null;
     const expiry = expiryMs ? new Date(expiryMs) : null;
 
-    // Only one Google token per company; if multiple scopes, we merge them
+    // Only one token per company+provider; if multiple scopes, we merge them
     const existing = await prisma.googleOAuthToken.findFirst({
-      where: { companyId, provider: "google" },
+      where: { companyId, provider },
     });
 
     if (existing) {
@@ -49,7 +50,7 @@ class GoogleOAuthTokenService {
       await prisma.googleOAuthToken.create({
         data: {
           companyId,
-          provider: "google",
+          provider,
           scopes,
           accessToken: encryptedAccess,
           refreshToken: encryptedRefresh,
@@ -61,11 +62,12 @@ class GoogleOAuthTokenService {
   }
 
   async getDecryptedToken(
-    companyId: string
+    companyId: string,
+    provider = "google"
   ): Promise<StoredGoogleToken | null> {
     const prisma = await dbCache.getPrimaryClient();
     const row = await prisma.googleOAuthToken.findFirst({
-      where: { companyId, provider: "google", revokedAt: null },
+      where: { companyId, provider, revokedAt: null },
       orderBy: { updatedAt: "desc" },
     });
     if (!row) return null;
@@ -89,10 +91,10 @@ class GoogleOAuthTokenService {
     }
   }
 
-  async markRevoked(companyId: string): Promise<void> {
+  async markRevoked(companyId: string, provider = "google"): Promise<void> {
     const prisma = await dbCache.getPrimaryClient();
     await prisma.googleOAuthToken.updateMany({
-      where: { companyId, provider: "google", revokedAt: null },
+      where: { companyId, provider, revokedAt: null },
       data: { revokedAt: new Date() },
     });
   }

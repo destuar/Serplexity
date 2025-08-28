@@ -67,10 +67,14 @@ router.post(
 router.get("/metrics", websiteAnalyticsController.getMetrics);
 router.get("/ga4/metrics", websiteAnalyticsController.getGa4Metrics);
 router.get("/ga4/active-users", websiteAnalyticsController.getGa4ActiveUsers);
+router.get("/gsc/metrics", websiteAnalyticsController.getGscMetrics);
 
 // GA4 property management routes
 router.get("/ga4/properties", websiteAnalyticsController.getGA4Properties);
 router.post("/integrations/:integrationId/ga4-property", websiteAnalyticsController.setGA4Property);
+
+// GSC property management routes
+router.post("/integrations/:integrationId/gsc-property", websiteAnalyticsController.setGSCProperty);
 
 // Manual tracking route (for JavaScript tracking code on user websites)
 router.post("/track", websiteAnalyticsController.trackEvent);

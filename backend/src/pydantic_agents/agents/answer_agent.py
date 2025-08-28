@@ -378,7 +378,7 @@ class QuestionAnsweringAgent(BaseAgent):
         # Pattern 3: Try to extract citation-style patterns like "[1] Domain.com"
         citation_with_domain = re.findall(r'\[(\d+)\]\s*([A-Za-z0-9\-\.]+\.[A-Za-z]{2,})', text)
 
-        print(f"[PERPLEXITY CITATIONS] Found {len(citation_refs)} citation refs, {len(urls)} URLs, {len(citation_with_domain)} domain citations")
+        print(f"[SERPLEXITY CITATIONS] Found {len(citation_refs)} citation refs, {len(urls)} URLs, {len(citation_with_domain)} domain citations")
 
         # Create citations from extracted URLs
         for i, url in enumerate(urls[:10]):  # Limit to 10 citations
@@ -394,7 +394,7 @@ class QuestionAnsweringAgent(BaseAgent):
                     'domain': domain
                 })
             except Exception as e:
-                print(f"[PERPLEXITY CITATIONS] Error processing URL {url}: {e}")
+                print(f"[SERPLEXITY CITATIONS] Error processing URL {url}: {e}")
                 continue
 
         # If no URLs found but we have citation numbers, create placeholder citations
@@ -406,7 +406,7 @@ class QuestionAnsweringAgent(BaseAgent):
                     'domain': "perplexity.ai"
                 })
 
-        print(f"[PERPLEXITY CITATIONS] Extracted {len(citations)} citations")
+        print(f"[SERPLEXITY CITATIONS] Extracted {len(citations)} citations")
         return citations
 
     async def _execute_gemini_natural(self, input_data: Dict[str, Any]) -> Dict[str, Any]:

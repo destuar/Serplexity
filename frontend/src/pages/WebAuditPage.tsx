@@ -26,6 +26,7 @@ import { useCompany } from "../contexts/CompanyContext";
 import { useAuth } from "../hooks/useAuth";
 import { useEmbeddedPage } from "../hooks/useEmbeddedPage";
 import { useNavigation } from "../hooks/useNavigation";
+import { usePageCache } from "../hooks/usePageCache";
 import apiClient from "../lib/apiClient";
 import { getCompanyLogo } from "../lib/logoService";
 // duplicate useCompany import removed
@@ -212,11 +213,42 @@ const WebAuditPage: React.FC = () => {
   } | null>(null);
 
   const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
-  const [history, setHistory] = useState<AuditHistoryItem[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [auditDetailsLoading, setAuditDetailsLoading] = useState(false);
+
+  // Cache-aware audit history with 30 minute expiry (expensive to compute)
+  const auditHistoryCache = usePageCache<AuditHistoryItem[]>({
+    fetcher: async () => {
+      if (!selectedCompany?.id) return [];
+      
+      console.log('[WebAuditPage] Fetching audit history...');
+      
+      try {
+        const response = await apiClient.get(
+          `/web-audit/companies/${selectedCompany.id}/history`
+        );
+        const audits = response.data.data.audits || [];
+        console.log(`[WebAuditPage] Loaded ${audits.length} audit history items`);
+        return audits;
+      } catch (error) {
+        console.error('[WebAuditPage] Failed to fetch audit history:', error);
+        return [];
+      }
+    },
+    pageType: 'web-audit',
+    companyId: selectedCompany?.id || '',
+    enabled: !!selectedCompany?.id,
+    onDataLoaded: (data, isFromCache) => {
+      console.log(`[WebAuditPage] History loaded ${isFromCache ? 'from cache' : 'fresh'}: ${data.length} items`);
+    },
+    onError: (error) => {
+      console.error('[WebAuditPage] History cache error:', error);
+    }
+  });
+
+  const history = auditHistoryCache.data || [];
+  const historyLoading = auditHistoryCache.loading;
   // Settings removed; all analyses active by default
   const [_elapsedTime, setElapsedTime] = useState(0);
   const [dateRange, setDateRange] = useState<
@@ -239,28 +271,6 @@ const WebAuditPage: React.FC = () => {
     }
   }, [setBreadcrumbs, isEmbedded]);
 
-  // Fetch audit history when selectedCompany is available
-  const fetchHistory = React.useCallback(async () => {
-    if (!selectedCompany?.id) return;
-
-    setHistoryLoading(true);
-    try {
-      const response = await apiClient.get(
-        `/web-audit/companies/${selectedCompany.id}/history`
-      );
-      setHistory(response.data.data.audits || []);
-    } catch (error) {
-      console.error("Failed to fetch audit history:", error);
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, [selectedCompany?.id]);
-
-  useEffect(() => {
-    if (selectedCompany?.id) {
-      fetchHistory();
-    }
-  }, [selectedCompany?.id, fetchHistory]);
 
   // Track elapsed time for running audits
   useEffect(() => {
@@ -373,6 +383,9 @@ const WebAuditPage: React.FC = () => {
 
       // Start polling for status
       pollAuditStatus(data.data.auditId);
+
+      // Invalidate cache since we've started a new audit
+      auditHistoryCache.invalidate();
 
       // Trigger competitor scores refresh after starting audits
       try {

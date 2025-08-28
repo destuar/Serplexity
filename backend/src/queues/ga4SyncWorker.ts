@@ -21,7 +21,7 @@ const worker = new Worker<Ga4SyncJobData>(
     const { companyId, propertyId, startDate, endDate } = job.data;
     const prisma = await dbCache.getPrimaryClient();
     try {
-      const token = await googleOAuthTokenService.getDecryptedToken(companyId);
+      const token = await googleOAuthTokenService.getDecryptedToken(companyId, "ga4");
       if (!token?.accessToken) throw new Error("Missing Google OAuth token");
       const oauth2 = new google.auth.OAuth2();
       oauth2.setCredentials({ access_token: token.accessToken });

@@ -25,6 +25,7 @@ import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import CompanyGuard from "./components/company/CompanyGuard";
 import { DashboardProvider } from "./contexts/DashboardContext";
 import { NavigationProvider } from "./contexts/NavigationContext";
+import { PageCacheProvider } from "./contexts/PageCacheContext";
 // PaymentGuard can be used for subscription-gated routes if needed
 import DashboardLayout from "./components/layout/DashboardLayout";
 import TrialBanner from "./components/ui/TrialBanner";
@@ -97,19 +98,21 @@ const DashboardRoutes: React.FC = () => (
 
 const ProtectedArea: React.FC = () => (
   <CompanyGuard>
-    <Routes>
-      <Route path="/onboarding" element={<CompanyOnboardingPage />} />
-      <Route path="/payment" element={<PaymentPage />} />
-      <Route path="/billing" element={<BillingPage />} />
-      <Route
-        path="/*"
-        element={
-          <DashboardProvider>
-            <DashboardRoutes />
-          </DashboardProvider>
-        }
-      />
-    </Routes>
+    <PageCacheProvider>
+      <Routes>
+        <Route path="/onboarding" element={<CompanyOnboardingPage />} />
+        <Route path="/payment" element={<PaymentPage />} />
+        <Route path="/billing" element={<BillingPage />} />
+        <Route
+          path="/*"
+          element={
+            <DashboardProvider>
+              <DashboardRoutes />
+            </DashboardProvider>
+          }
+        />
+      </Routes>
+    </PageCacheProvider>
   </CompanyGuard>
 );
 

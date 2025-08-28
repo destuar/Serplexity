@@ -61,6 +61,12 @@ import {
   transformDashboardData,
   validateNormalizedData,
 } from "../utils/dataTransformationLayer";
+import { 
+  getCachedData, 
+  setCachedData, 
+  invalidateCache,
+  PageType 
+} from "../utils/pageCache";
 // Error handling simplified for production readiness
 
 interface ApiError {
@@ -140,7 +146,8 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
   const prevFiltersRef = useRef<DashboardFilters | null>(null);
   const prevCompanyIdRef = useRef<string | null>(null);
 
-  // Simple in-memory cache for dashboard responses keyed by company & filters
+  // Enhanced caching using global page cache system
+  // Legacy cache ref maintained for compatibility during transition
   const cacheRef = useRef<
     Record<
       string,
@@ -169,12 +176,46 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
         return;
       }
 
-      // Build cache key and check for cached data FIRST
-      const cacheKey = `${selectedCompany.id}|${filters.dateRange}|${filters.aiModel}`;
+      // Enhanced cache system with global page cache
+      const cacheFilters = {
+        dateRange: filters.dateRange,
+        aiModel: filters.aiModel
+      };
 
-      // Check cache before setting any loading states to avoid unnecessary page refreshes
-      if (!isRefresh && cacheRef.current[cacheKey]) {
-        const cached = cacheRef.current[cacheKey];
+      // Check new global cache system first
+      const cachedDashboardData = getCachedData<{
+        data: DashboardData | null;
+        detailedQuestions: TopRankingQuestion[];
+        acceptedCompetitors: CompetitorData[];
+        lastUpdated?: string;
+      }>('dashboard', selectedCompany.id, cacheFilters);
+
+      if (!isRefresh && cachedDashboardData) {
+        console.log(`[DashboardContext] Global cache HIT for dashboard:${selectedCompany.id}`);
+        
+        setData(cachedDashboardData.data);
+        setDetailedQuestions(cachedDashboardData.detailedQuestions);
+        setAcceptedCompetitors(cachedDashboardData.acceptedCompetitors);
+        if (cachedDashboardData.lastUpdated) {
+          setLastUpdated(cachedDashboardData.lastUpdated);
+        }
+
+        // Update hasReport based on cached data
+        if (cachedDashboardData.data && hasReport !== true) {
+          setHasReport(true);
+        }
+
+        // Don't trigger loading states for cached data
+        setLoading(false);
+        setRefreshing(false);
+        setError(null);
+        return;
+      }
+
+      // Legacy cache fallback (remove after transition period)
+      const legacyCacheKey = `${selectedCompany.id}|${filters.dateRange}|${filters.aiModel}`;
+      if (!isRefresh && cacheRef.current[legacyCacheKey]) {
+        const cached = cacheRef.current[legacyCacheKey];
         setData(cached.data);
         setDetailedQuestions(cached.detailedQuestions);
         setAcceptedCompetitors(cached.acceptedCompetitors);
@@ -237,12 +278,20 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
           setAcceptedCompetitors([]);
           setHasReport(false);
 
-          // Clear cache
-          cacheRef.current[cacheKey] = {
+          // Cache null result to avoid repeated API calls for companies with no data
+          const nullCacheData = {
             data: null,
             detailedQuestions: [],
             acceptedCompetitors: [],
+            lastUpdated: undefined
           };
+
+          // Store in global cache with shorter expiry for null results (2 minutes)
+          setCachedData('dashboard', selectedCompany.id, nullCacheData, cacheFilters);
+          
+          // Legacy cache
+          const legacyCacheKey = `${selectedCompany.id}|${filters.dateRange}|${filters.aiModel}`;
+          cacheRef.current[legacyCacheKey] = nullCacheData;
 
           setLoading(false);
           setRefreshing(false);
@@ -421,12 +470,20 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
           setActiveModelPreferences(null);
         }
 
-        // Persist to cache
-        cacheRef.current[cacheKey] = {
+        // Enhanced caching: persist to both global cache and legacy cache
+        const cacheData = {
           data: mergedData,
           detailedQuestions: detailedQuestionsData,
           acceptedCompetitors: acceptedCompetitorsData,
+          lastUpdated: dashboardData?.lastUpdated
         };
+
+        // Store in new global cache system
+        setCachedData('dashboard', selectedCompany.id, cacheData, cacheFilters);
+        
+        // Legacy cache (maintain during transition)
+        const legacyCacheKey = `${selectedCompany.id}|${filters.dateRange}|${filters.aiModel}`;
+        cacheRef.current[legacyCacheKey] = cacheData;
       } catch (err) {
         const apiErr = err as ApiError;
         console.error("Failed to fetch dashboard data:", apiErr);
@@ -462,8 +519,9 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
           companyId
         );
 
-        // Clear cache to force fresh data fetch
+        // Clear both cache systems to force fresh data fetch
         cacheRef.current = {};
+        invalidateCache('dashboard', companyId);
 
         // Update hasReport immediately
         setHasReport(true);

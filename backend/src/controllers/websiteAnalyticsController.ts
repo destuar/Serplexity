@@ -11,6 +11,7 @@ import { z } from "zod";
 import { googleAnalyticsService } from "../services/googleAnalyticsService";
 import { googleOAuthTokenService } from "../services/googleOAuthTokenService";
 import { googleSearchConsoleService } from "../services/googleSearchConsoleService";
+import { gscAnalyticsService } from "../services/gscAnalyticsService";
 import { syncSchedulerService } from "../services/syncSchedulerService";
 import { websiteAnalyticsService } from "../services/websiteAnalyticsService";
 import logger from "../utils/logger";
@@ -51,7 +52,16 @@ export const createIntegration = async (
     // Get companyId from URL params (new pattern) or fall back to user context (legacy)
     const companyId = req.params.companyId || req.user?.companyId;
     if (!companyId) {
-      res.status(400).json({ error: "Company ID is required" });
+      logger.error("[Create Integration] No company ID found", {
+        paramsCompanyId: req.params.companyId,
+        userCompanyId: req.user?.companyId,
+        userCompaniesCount: req.user?.companies?.length || 0,
+        firstCompanyId: req.user?.companies?.[0]?.id
+      });
+      res.status(400).json({ 
+        error: "Company ID is required",
+        message: "Please create a company first or ensure you're associated with a company"
+      });
       return;
     }
 
@@ -158,7 +168,8 @@ export const handleOAuthCallback = async (
         scopes,
         tokens.access_token,
         tokens.refresh_token,
-        tokens.expiry_date
+        tokens.expiry_date,
+        "ga4" // Use GA4-specific provider to avoid collision with GSC tokens
       );
       await prisma.analyticsIntegration.update({
         where: { id: integrationId },
@@ -182,11 +193,18 @@ export const handleOAuthCallback = async (
       }
     }
 
-    // Redirect to property selection page for GA4 integrations
+    // Redirect based on integration type
     const env = (await import("../config/env")).default;
-    const redirectUrl = integration.integrationName === "google_analytics_4" 
-      ? `${env.FRONTEND_URL}/analytics/ga4-setup?integrationId=${integrationId}`
-      : `${env.FRONTEND_URL}/web-analytics`;
+    let redirectUrl: string;
+    
+    if (integration.integrationName === "google_analytics_4") {
+      redirectUrl = `${env.FRONTEND_URL}/analytics/ga4-setup?integrationId=${integrationId}`;
+    } else if (integration.integrationName === "google_search_console") {
+      redirectUrl = `${env.FRONTEND_URL}/seo-rankings`;
+    } else {
+      redirectUrl = `${env.FRONTEND_URL}/web-analytics`;
+    }
+    
     res.redirect(redirectUrl);
   } catch (error) {
     logger.error("Error handling OAuth callback:", error);
@@ -380,7 +398,7 @@ export const getGa4Metrics = async (
       return;
     }
 
-    const stored = await googleOAuthTokenService.getDecryptedToken(companyId);
+    const stored = await googleOAuthTokenService.getDecryptedToken(companyId, "ga4");
     if (!stored?.accessToken) {
       res.status(400).json({ error: "No Google OAuth token. Reconnect GA4." });
       return;
@@ -524,7 +542,7 @@ export const getGa4ActiveUsers = async (
       return;
     }
 
-    const stored = await googleOAuthTokenService.getDecryptedToken(companyId);
+    const stored = await googleOAuthTokenService.getDecryptedToken(companyId, "ga4");
     if (!stored?.accessToken) {
       res.status(400).json({ error: "No Google OAuth token. Reconnect GA4." });
       return;
@@ -647,17 +665,44 @@ export const getGSCProperties = async (
 ): Promise<void> => {
   try {
     const { integrationId } = req.params;
+    const companyId = req.user?.companyId;
 
     if (!integrationId) {
       res.status(400).json({ error: "Integration ID is required" });
       return;
     }
 
-    // This would be called after OAuth to get available properties
-    // For now, we'll return a placeholder - this would need the user's access token
+    if (!companyId) {
+      res.status(400).json({ error: "Company ID is required" });
+      return;
+    }
+
+    // Get the integration to verify it exists and belongs to the company
+    const prisma = await (await import("../config/dbCache")).dbCache.getPrimaryClient();
+    const integration = await prisma.analyticsIntegration.findFirst({
+      where: { id: integrationId, companyId }
+    });
+
+    if (!integration) {
+      res.status(404).json({ error: "Integration not found" });
+      return;
+    }
+
+    // Get GSC token for this company
+    const stored = await googleOAuthTokenService.getDecryptedToken(companyId, "gsc");
+    if (!stored?.accessToken) {
+      res.status(400).json({ error: "No Google Search Console OAuth token. Complete OAuth first." });
+      return;
+    }
+
+    // Fetch available properties from GSC
+    const properties = await googleSearchConsoleService.getProperties(stored.accessToken);
+    
     res.json({
-      properties: [],
-      message: "Properties will be available after OAuth completion",
+      properties: properties.map(prop => ({
+        siteUrl: prop.siteUrl,
+        permissionLevel: prop.permissionLevel
+      }))
     });
   } catch (error) {
     logger.error("Error getting GSC properties:", error);
@@ -796,7 +841,7 @@ export const getGA4Properties = async (
       return;
     }
 
-    const stored = await googleOAuthTokenService.getDecryptedToken(companyId);
+    const stored = await googleOAuthTokenService.getDecryptedToken(companyId, "ga4");
     if (!stored?.accessToken) {
       res.status(400).json({ error: "No Google OAuth token. Complete GA4 OAuth first." });
       return;
@@ -814,8 +859,236 @@ export const getGA4Properties = async (
 };
 
 /**
+ * Get GSC (Search Console) analytics metrics
+ * Requires: active GSC OAuth integration for the company
+ */
+export const getGscMetrics = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    // Get companyId from URL params (new pattern) or fall back to user context (legacy)
+    const companyId = req.params.companyId || req.user?.companyId;
+    if (!companyId) {
+      res.status(400).json({ error: "Company ID is required" });
+      return;
+    }
+
+    // Verify user has access to this company
+    if (req.params.companyId) {
+      const userCompanyIds = req.user?.companies?.map(c => c.id) || [];
+      if (!userCompanyIds.includes(companyId)) {
+        res.status(403).json({ error: "Access denied to this company" });
+        return;
+      }
+    }
+
+    const startDateParam = req.query["startDate"] as string;
+    const endDateParam = req.query["endDate"] as string;
+
+    if (!startDateParam || !endDateParam) {
+      res
+        .status(400)
+        .json({ error: "startDate and endDate are required (YYYY-MM-DD)" });
+      return;
+    }
+
+    // Validate GSC integration exists and is active  
+    const validation = await gscAnalyticsService.validateGscIntegration(companyId);
+    if (!validation.isValid) {
+      res.status(404).json({
+        error: validation.error || "No active GSC integration found",
+      });
+      return;
+    }
+
+    // Get GSC integration details
+    const integration = validation.integration;
+    if (!integration.gscPropertyUrl) {
+      res.status(400).json({
+        error: "GSC property URL not configured for this integration",
+      });
+      return;
+    }
+
+    // Get GSC token for real-time API calls (like GA4)
+    const stored = await googleOAuthTokenService.getDecryptedToken(companyId, "gsc");
+    if (!stored?.accessToken) {
+      res.status(400).json({ error: "No Google Search Console OAuth token. Reconnect GSC." });
+      return;
+    }
+
+    let accessToken = stored.accessToken;
+    
+    // Try to refresh token if it's expired or close to expiring
+    if (stored.expiry && stored.expiry <= new Date(Date.now() + 5 * 60 * 1000)) { // 5 minutes buffer
+      try {
+        if (!stored.refreshToken) {
+          res.status(400).json({ error: "Access token expired and no refresh token available. Please reconnect GSC." });
+          return;
+        }
+        
+        const refreshedTokens = await googleSearchConsoleService.refreshAccessToken(stored.refreshToken);
+        
+        // Update stored tokens
+        await googleOAuthTokenService.upsertToken(
+          companyId,
+          stored.scopes,
+          refreshedTokens.access_token,
+          refreshedTokens.refresh_token,
+          refreshedTokens.expiry_date,
+          "gsc"
+        );
+        
+        accessToken = refreshedTokens.access_token;
+        logger.info(`[GSC] Refreshed access token for company ${companyId}`);
+      } catch (refreshError) {
+        logger.error(`[GSC] Failed to refresh token for company ${companyId}:`, refreshError);
+        res.status(400).json({ error: "Failed to refresh access token. Please reconnect GSC." });
+        return;
+      }
+    }
+
+    try {
+      // Fetch GSC metrics from real-time API (like GA4)
+      const metrics = await googleSearchConsoleService.getSummaryMetrics(
+        accessToken,
+        integration.gscPropertyUrl,
+        startDateParam,
+        endDateParam
+      );
+      res.json({ metrics });
+    } catch (apiError: any) {
+      // If we get a 401 unauthorized error, try to refresh the token once
+      if (apiError.code === 401 || apiError.message?.includes('unauthorized') || apiError.message?.includes('invalid_grant')) {
+        try {
+          if (!stored.refreshToken) {
+            res.status(400).json({ error: "Access token unauthorized and no refresh token available. Please reconnect GSC." });
+            return;
+          }
+          
+          logger.info(`[GSC] API call failed with 401, attempting token refresh for company ${companyId}`);
+          const refreshedTokens = await googleSearchConsoleService.refreshAccessToken(stored.refreshToken);
+          
+          // Update stored tokens
+          await googleOAuthTokenService.upsertToken(
+            companyId,
+            stored.scopes,
+            refreshedTokens.access_token,
+            refreshedTokens.refresh_token,
+            refreshedTokens.expiry_date,
+            "gsc"
+          );
+          
+          // Retry the API call with new token
+          const metrics = await googleSearchConsoleService.getSummaryMetrics(
+            refreshedTokens.access_token,
+            integration.gscPropertyUrl,
+            startDateParam,
+            endDateParam
+          );
+          res.json({ metrics });
+          logger.info(`[GSC] Successfully refreshed token and retried API call for company ${companyId}`);
+        } catch (retryError) {
+          logger.error(`[GSC] Failed to refresh token after API 401 for company ${companyId}:`, retryError);
+          res.status(400).json({ error: "Token refresh failed after API unauthorized error. Please reconnect GSC." });
+        }
+      } else {
+        // Re-throw non-auth errors
+        throw apiError;
+      }
+    }
+  } catch (error) {
+    logger.error("Error getting GSC metrics:", error);
+    res.status(500).json({
+      error: "Failed to get GSC metrics",
+      message: (error as Error).message,
+    });
+  }
+};
+
+/**
  * Set selected GA4 property for an integration
  */
+export const setGSCProperty = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { integrationId } = req.params;
+    const { siteUrl } = req.body;
+    const companyId = req.user?.companyId;
+
+    if (!integrationId || !siteUrl) {
+      res.status(400).json({ error: "Integration ID and site URL are required" });
+      return;
+    }
+
+    if (!companyId) {
+      res.status(400).json({ error: "Company ID is required" });
+      return;
+    }
+
+    // Get the integration to verify it exists and belongs to the company
+    const prisma = await (await import("../config/dbCache")).dbCache.getPrimaryClient();
+    const integration = await prisma.analyticsIntegration.findFirst({
+      where: { id: integrationId, companyId, integrationName: "google_search_console" }
+    });
+
+    if (!integration) {
+      res.status(404).json({ error: "GSC integration not found" });
+      return;
+    }
+
+    // Get GSC token and validate property access
+    const stored = await googleOAuthTokenService.getDecryptedToken(companyId, "gsc");
+    if (!stored?.accessToken) {
+      res.status(400).json({ error: "No Google Search Console OAuth token. Complete OAuth first." });
+      return;
+    }
+
+    // Validate that user has access to this property
+    const hasAccess = await googleSearchConsoleService.validatePropertyAccess(
+      stored.accessToken,
+      siteUrl
+    );
+
+    if (!hasAccess) {
+      res.status(403).json({ error: "No access to the specified Search Console property" });
+      return;
+    }
+
+    // Update integration with selected property
+    await prisma.analyticsIntegration.update({
+      where: { id: integrationId },
+      data: {
+        gscPropertyUrl: siteUrl,
+        status: "active",
+        verificationMethod: "oauth"
+      }
+    });
+
+    // Trigger initial data sync
+    try {
+      await googleSearchConsoleService.syncIntegrationData(integrationId);
+    } catch (syncError) {
+      logger.warn("Initial GSC data sync failed, will retry later:", syncError);
+    }
+
+    res.json({ 
+      success: true,
+      message: "GSC property selected successfully",
+      siteUrl 
+    });
+  } catch (error) {
+    logger.error("Error setting GSC property:", error);
+    res.status(500).json({ 
+      error: "Failed to set GSC property",
+      message: (error as Error).message 
+    });
+  }
+};
+
 export const setGA4Property = async (
   req: Request,
   res: Response

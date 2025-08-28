@@ -22,7 +22,7 @@ const worker = new Worker<GscSyncJobData>(
     const { companyId, siteUrl, startDate, endDate, dimensions } = job.data;
     const prisma = await dbCache.getPrimaryClient();
     try {
-      const token = await googleOAuthTokenService.getDecryptedToken(companyId);
+      const token = await googleOAuthTokenService.getDecryptedToken(companyId, "gsc");
       if (!token?.accessToken) throw new Error("Missing Google OAuth token");
       const oauth2 = new (google as any).auth.OAuth2();
       oauth2.setCredentials({ access_token: token.accessToken });

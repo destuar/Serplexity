@@ -1028,212 +1028,110 @@ async function processReport(
 
             let result;
             if (model.id === "ai-overview") {
-              // Integrate Google AI Overview via SerpApi
+              // 🚀 UNIFIED AI OVERVIEW PROCESSING PIPELINE
+              // Fetch raw content from Google AI Overview via SerpAPI
               const { fetchGoogleAiOverview } = await import(
                 "../services/serpApiService"
               );
 
               const aiOverview = await fetchGoogleAiOverview(question.query);
-              const content = (aiOverview.content || "").trim();
+              const rawContent = (aiOverview.content || "").trim();
 
-              if (content) {
-                const responseRecord = await prisma.response.create({
-                  data: {
-                    questionId: question.id,
-                    content,
-                    model: model.id,
-                    engine: model.id,
-                    runId,
-                    metadata: {
-                      source: "google-serp",
-                      has_web_search: true,
-                    } as Prisma.JsonObject,
-                  },
-                });
-                // responseRecord.id used below for mentions and citations
-
-                // Save structured citations if present
-                if (Array.isArray(aiOverview.citations)) {
-                  let position = 1;
-                  for (const cite of aiOverview.citations as Array<{
-                    url?: string;
-                    title?: string;
-                    domain?: string;
-                  }>) {
-                    if (!cite?.url) continue;
-                    try {
-                      const cleanUrl = String(cite.url);
-                      const urlObj = new URL(cleanUrl);
-                      const domain = cite.domain || urlObj.hostname;
-                      await prisma.citation.create({
-                        data: {
-                          responseId: responseRecord.id,
-                          url: cleanUrl,
-                          title: cite.title || domain,
-                          domain,
-                          position,
-                          accessedAt: new Date(),
-                        },
-                      });
-                      position++;
-                    } catch {
-                      // ignore invalid URL
-                    }
-                  }
-                }
-
-                // Run Mention Agent on AI Overview content
-                try {
-                  const existingCompetitors = await prisma.competitor.findMany({
-                    where: { companyId: fullCompany.id },
-                    select: { id: true, name: true },
-                  });
-                  const competitorNames = existingCompetitors.map(
-                    (c) => c.name
-                  );
-
-                  const mentionResult = await pydanticLlmService.executeAgent<{
-                    mentions?: Array<{
-                      name: string;
-                      type: string;
-                      confidence: number;
-                      position: number;
-                    }>;
-                    total_count?: number;
-                  }>(
-                    "mention_agent.py",
-                    {
-                      text: content,
-                      company_name: fullCompany.name,
-                      competitors: competitorNames,
-                    },
-                    null,
-                    { timeout: LLM_CONFIG.TIMEOUTS.MODEL_RESPONSE }
-                  );
-
-                  const mentions = (mentionResult.data as any)?.mentions || [];
-                  const mentionsCount = Array.isArray(mentions)
-                    ? mentions.length
-                    : 0;
-
-                  for (const m of mentions as Array<{
-                    name: string;
-                    type: string;
-                    confidence: number;
-                    position: number;
-                  }>) {
-                    const brandName = (m?.name || "").trim();
-                    if (!brandName) continue;
-
-                    // Determine if mention is the main company
-                    const companyNameLower = fullCompany.name.toLowerCase();
-                    const brandNameLower = brandName.toLowerCase();
-                    const isCompanyMention =
-                      brandNameLower === companyNameLower ||
-                      brandNameLower.includes(companyNameLower) ||
-                      companyNameLower.includes(brandNameLower) ||
-                      brandNameLower === companyNameLower.replace(/\s+/g, "") ||
-                      companyNameLower.replace(/\s+/g, "") === brandNameLower ||
-                      brandNameLower.replace(/[^a-z0-9]/g, "") ===
-                        companyNameLower.replace(/[^a-z0-9]/g, "");
-
-                    if (isCompanyMention) {
-                      await prisma.mention.create({
-                        data: {
-                          responseId: responseRecord.id,
-                          position:
-                            typeof m.position === "number" ? m.position : 0,
-                          companyId: fullCompany.id,
-                        },
-                      });
-                      continue;
-                    }
-
-                    // Try to match existing competitor
-                    let competitor: { id: string; name: string } | undefined =
-                      existingCompetitors.find(
-                        (c) => c.name.toLowerCase() === brandNameLower
-                      );
-                    if (!competitor) {
-                      // Create competitor if not found
-                      try {
-                        const created = await prisma.competitor.create({
-                          data: {
-                            name: brandName,
-                            companyId: fullCompany.id,
-                            website: `https://${brandNameLower.replace(/\s+/g, "")}.com`,
-                            isGenerated: true,
-                          },
-                        });
-                        competitor = { id: created.id, name: created.name };
-                      } catch {
-                        const found = await prisma.competitor.findFirst({
-                          where: {
-                            companyId: fullCompany.id,
-                            name: { equals: brandName, mode: "insensitive" },
-                          },
-                          select: { id: true, name: true },
-                        });
-                        if (found) competitor = found;
-                      }
-                    }
-
-                    if (competitor?.id) {
-                      await prisma.mention.create({
-                        data: {
-                          responseId: responseRecord.id,
-                          position:
-                            typeof m.position === "number" ? m.position : 0,
-                          competitorId: competitor.id,
-                        },
-                      });
-                      // Seed competitor enrichment pipeline
-                      await competitorPipeline.addBrand(brandName);
-                    }
-                  }
-
-                  // Update response metadata with mention count
-                  try {
-                    await prisma.response.update({
-                      where: { id: responseRecord.id },
-                      data: {
-                        metadata: {
-                          ...(responseRecord.metadata as object),
-                          brand_mentions_count: mentionsCount,
-                        } as Prisma.JsonObject,
-                      },
-                    });
-                  } catch {}
-                } catch (e) {
-                  console.warn("[AI Overview] Mention agent failed", e);
-                }
-
-                // Billing usage (count as one unit like other models)
-                try {
-                  await import("../services/usageService").then(
-                    ({ recordResponseUsage }) =>
-                      recordResponseUsage(
-                        fullCompany.userId,
-                        fullCompany.id,
-                        runId,
-                        1
-                      )
-                  );
-                } catch (e) {
-                  console.warn("[Billing] Failed to record response usage", e);
-                }
+              if (!rawContent) {
+                console.warn(`[AI Overview] No content returned for question: ${question.query}`);
+                return;
               }
 
-              // Account near-zero tokens and at least one web search
-              const promptTokens = 0;
-              const completionTokens = 0;
-              const thinkingTokens = 0;
-              const cachedTokens = 0;
-              const searchCount = 1;
+              console.log(`[AI Overview] Processing content through Answer Agent for brand tagging`);
 
-              totalTokens += 0;
+              try {
+                // 🎯 CRITICAL FIX: Process AI Overview content through Answer Agent for brand tagging
+                // This ensures AI Overview gets the same <brand> tag processing as other models
+                result = await pydanticLlmService.executeAgent(
+                  "answer_agent.py",
+                  {
+                    question: question.query,
+                    company_name: fullCompany.name,
+                    raw_content: rawContent, // Pass AI Overview content for brand tagging
+                    enable_web_search: false, // Already have the content from AI Overview
+                    is_ai_overview: true, // Flag to indicate this is AI Overview processing
+                  },
+                  null,
+                  {
+                    modelId: "gpt-4.1-mini", // Use reliable model for brand tagging
+                    timeout: LLM_CONFIG.TIMEOUTS.MODEL_RESPONSE,
+                  }
+                );
+
+                if (!result.metadata?.success || !result.data) {
+                  throw new Error(`AI Overview brand tagging failed: ${JSON.stringify(result)}`);
+                }
+
+                // Override the answer content with original AI Overview content but keep brand tags
+                const taggedResponse = result.data as PydanticResponse;
+                console.log(`[AI Overview] Brand tagging successful, found tags in response`);
+
+                // Store citations from AI Overview
+                const aiOverviewCitations = Array.isArray(aiOverview.citations) 
+                  ? aiOverview.citations.map((cite: any) => ({
+                      url: cite.url,
+                      title: cite.title || new URL(cite.url).hostname,
+                      domain: cite.domain || new URL(cite.url).hostname,
+                    }))
+                  : [];
+
+                // Merge AI Overview citations with any found by the Answer Agent
+                const mergedCitations = [
+                  ...aiOverviewCitations,
+                  ...(taggedResponse.citations || [])
+                ];
+
+                // Create a hybrid response that preserves AI Overview structure but adds brand tags
+                result = {
+                  ...result,
+                  data: {
+                    ...taggedResponse,
+                    answer: taggedResponse.answer, // This now contains <brand> tags
+                    citations: mergedCitations,
+                    has_web_search: true,
+                    source: "ai-overview-processed",
+                    original_content: rawContent, // Preserve original for debugging
+                  }
+                };
+
+                console.log(`[AI Overview] Unified processing complete - now using standard mention detection`);
+
+              } catch (error) {
+                console.error(`[AI Overview] CRITICAL: Answer Agent brand tagging failed for question: "${question.query}"`, {
+                  error: error instanceof Error ? error.message : String(error),
+                  stack: error instanceof Error ? error.stack : undefined,
+                  companyId: fullCompany.id,
+                  questionId: question.id,
+                  timestamp: new Date().toISOString(),
+                });
+                
+                // 🔄 FAIL FAST: If Answer Agent fails, skip this response to avoid incorrect metrics
+                // This ensures Share of Voice calculations remain accurate
+                tracker.failed++;
+                console.error(`[AI Overview] Skipping response due to brand tagging failure - maintaining metric accuracy`);
+                return {
+                  success: false,
+                  error: `AI Overview brand tagging failed: ${error instanceof Error ? error.message : String(error)}`,
+                  questionId: question.id,
+                  modelId: model.id,
+                };
+              }
+
+              // Set tokens and cost for AI Overview (minimal since we're using Answer Agent for tagging)
+              const promptTokens = (result.metadata as any)?.usage?.prompt_tokens || 100; // Estimate for tagging
+              const completionTokens = (result.metadata as any)?.usage?.completion_tokens || 50;
+              const thinkingTokens = (result.metadata as any)?.usage?.thinking_tokens || 0;
+              const cachedTokens = 0;
+              const searchCount = 1; // AI Overview always includes web search
+
+              totalTokens += promptTokens + completionTokens;
               totalCost += calculateCost(
-                model.id,
+                "gpt-4.1-mini", // Cost for tagging agent, not AI Overview itself
                 promptTokens,
                 completionTokens,
                 searchCount,
@@ -1242,7 +1140,7 @@ async function processReport(
                 undefined
               );
 
-              return; // Skip generic LLM flow
+              console.log(`[AI Overview] Processing complete, continuing to unified mention detection`);
             } else {
               result = await pydanticLlmService.executeAgent(
                 "answer_agent.py",
@@ -1357,7 +1255,7 @@ async function processReport(
             }
 
             console.log(
-              `📊 [PERPLEXITY DEBUG] Saved response with model: "${model.id}" for question: "${question.query.substring(0, 50)}..."`
+              `📊 [SERPLEXITY DEBUG] Saved response with model: "${model.id}" for question: "${question.query.substring(0, 50)}..."`
             );
 
             // Extract and save citations - handle both markdown links and natural URLs
@@ -1413,7 +1311,7 @@ async function processReport(
             }
 
             console.log(
-              `📊 [PERPLEXITY DEBUG] Found ${citations.size} citations from ${model.id} response`
+              `📊 [SERPLEXITY DEBUG] Found ${citations.size} citations from ${model.id} response`
             );
 
             // 4. Save all unique citations to database
@@ -1454,7 +1352,7 @@ async function processReport(
             let fallbackPosition = 1;
 
             console.log(
-              `🔍 [PERPLEXITY DEBUG] Processing brand mentions for ${model.id} response to: "${question.query.substring(0, 50)}..."`
+              `🔍 [SERPLEXITY DEBUG] Processing brand mentions for ${model.id} response to: "${question.query.substring(0, 50)}..."`
             );
 
             const mentionsFound: Array<{
@@ -1474,7 +1372,7 @@ async function processReport(
               const brandName = (mentionMatch[2] ?? "").trim();
 
               console.log(
-                `🏢 [PERPLEXITY DEBUG] Found brand mention: "${brandName}" at position ${position} in ${model.id} response`
+                `🏢 [SERPLEXITY DEBUG] Found brand mention: "${brandName}" at position ${position} in ${model.id} response`
               );
 
               // Intelligent brand matching - check various forms of the company name
@@ -1504,7 +1402,7 @@ async function processReport(
                 });
                 mentionsFound.push({ brandName, position, isCompany: true });
                 console.log(
-                  `✅ [PERPLEXITY DEBUG] Saved company mention: ${brandName} for ${model.id}`
+                  `✅ [SERPLEXITY DEBUG] Saved company mention: ${brandName} for ${model.id}`
                 );
               } else {
                 // First check if it's a known competitor with fuzzy matching
@@ -1535,7 +1433,7 @@ async function processReport(
                       },
                     });
                     console.log(
-                      `🆕 [PERPLEXITY DEBUG] Created new competitor: ${brandName} for ${model.id}`
+                      `🆕 [SERPLEXITY DEBUG] Created new competitor: ${brandName} for ${model.id}`
                     );
                   } catch {
                     // Handle duplicate creation race condition
@@ -1548,7 +1446,7 @@ async function processReport(
                   }
                 } else if (isCompanyMention) {
                   console.log(
-                    `🚫 [PERPLEXITY DEBUG] Skipping competitor creation for company brand: ${brandName}`
+                    `🚫 [SERPLEXITY DEBUG] Skipping competitor creation for company brand: ${brandName}`
                   );
                 }
 
@@ -1563,14 +1461,14 @@ async function processReport(
                   });
                   mentionsFound.push({ brandName, position, isCompany: false });
                   console.log(
-                    `✅ [PERPLEXITY DEBUG] Saved competitor mention: ${brandName} for ${model.id}`
+                    `✅ [SERPLEXITY DEBUG] Saved competitor mention: ${brandName} for ${model.id}`
                   );
                 }
               }
             }
 
             console.log(
-              `📊 [PERPLEXITY DEBUG] ${model.id} mention summary - Total: ${mentionsFound.length}, Company: ${mentionsFound.filter((m) => m.isCompany).length}, Competitors: ${mentionsFound.filter((m) => !m.isCompany).length}`
+              `📊 [DEBUG] ${model.id} mention summary - Total: ${mentionsFound.length}, Company: ${mentionsFound.filter((m) => m.isCompany).length}, Competitors: ${mentionsFound.filter((m) => !m.isCompany).length}`
             );
 
             tracker.successful++;
