@@ -97,29 +97,100 @@ export function generateCacheKey(
 }
 
 /**
- * Compresses data using JSON stringification and basic compression
+ * Converts string to base64 with proper UTF-8 encoding
  */
-function compressData<T>(data: T): string {
+function stringToBase64(str: string): string {
   try {
-    const jsonString = JSON.stringify(data);
-    // Simple compression - in production you might want to use a real compression library
-    return btoa(jsonString);
+    // Use TextEncoder for proper UTF-8 encoding
+    const encoder = new TextEncoder();
+    const data = encoder.encode(str);
+    
+    // Convert Uint8Array to base64
+    let binary = '';
+    const bytes = new Uint8Array(data);
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    
+    return btoa(binary);
   } catch (error) {
-    console.error('[PageCache] Failed to compress data:', error);
-    throw new Error('Failed to compress cache data');
+    console.error('[PageCache] Failed to encode to base64:', error);
+    // Fallback: try direct btoa for Latin1-only strings
+    try {
+      return btoa(str);
+    } catch (fallbackError) {
+      console.error('[PageCache] Fallback encoding also failed:', fallbackError);
+      throw new Error('Failed to encode data to base64');
+    }
   }
 }
 
 /**
- * Decompresses data from storage
+ * Converts base64 back to string with proper UTF-8 decoding
+ */
+function base64ToString(base64: string): string {
+  try {
+    const binary = atob(base64);
+    
+    // Convert binary string back to Uint8Array
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    
+    // Use TextDecoder for proper UTF-8 decoding
+    const decoder = new TextDecoder();
+    return decoder.decode(bytes);
+  } catch (error) {
+    console.error('[PageCache] Failed to decode from base64:', error);
+    // Fallback: try direct atob for simple cases
+    try {
+      return atob(base64);
+    } catch (fallbackError) {
+      console.error('[PageCache] Fallback decoding also failed:', fallbackError);
+      throw new Error('Failed to decode data from base64');
+    }
+  }
+}
+
+/**
+ * Compresses data using JSON stringification and UTF-8 safe base64 encoding
+ */
+function compressData<T>(data: T): string {
+  try {
+    const jsonString = JSON.stringify(data);
+    return stringToBase64(jsonString);
+  } catch (error) {
+    console.error('[PageCache] Failed to compress data:', error);
+    // Try without compression as fallback
+    try {
+      const jsonString = JSON.stringify(data);
+      console.warn('[PageCache] Using uncompressed fallback for data storage');
+      return jsonString;
+    } catch (fallbackError) {
+      console.error('[PageCache] Even uncompressed fallback failed:', fallbackError);
+      throw new Error('Failed to compress cache data');
+    }
+  }
+}
+
+/**
+ * Decompresses data from storage with fallback support
  */
 function decompressData<T>(compressedData: string): T {
   try {
-    const jsonString = atob(compressedData);
+    // Try base64 decoding first
+    const jsonString = base64ToString(compressedData);
     return JSON.parse(jsonString) as T;
   } catch (error) {
-    console.error('[PageCache] Failed to decompress data:', error);
-    throw new Error('Failed to decompress cache data');
+    console.warn('[PageCache] Base64 decompression failed, trying uncompressed fallback:', error);
+    // Fallback: try parsing directly as JSON (for uncompressed data)
+    try {
+      return JSON.parse(compressedData) as T;
+    } catch (fallbackError) {
+      console.error('[PageCache] Failed to decompress data:', fallbackError);
+      throw new Error('Failed to decompress cache data');
+    }
   }
 }
 
@@ -495,7 +566,12 @@ export function getCachedData<T>(
   filters?: Record<string, any>
 ): T | null {
   const key = generateCacheKey(pageType, companyId, filters);
-  return pageCache.get<T>(key);
+  const result = pageCache.get<T>(key);
+  // Only log cache misses and hits, not every call
+  if (result === null) {
+    console.log(`[PageCache] MISS: ${key}`);
+  }
+  return result;
 }
 
 export function setCachedData<T>(

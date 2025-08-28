@@ -3,7 +3,7 @@
  * @description Competitor management page for viewing and managing competitors.
  * Displays companies in a list format with logos, allows accepting/declining suggested competitors.
  */
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Check, X, Plus, ExternalLink, Users, Edit2, Loader as _Loader } from 'lucide-react';
 import { InlineSpinner as _InlineSpinner } from '../components/ui/InlineSpinner';
 import { useCompany } from '../contexts/CompanyContext';
@@ -25,7 +25,6 @@ import {
 import { useReportGeneration } from '../hooks/useReportGeneration';
 import WelcomePrompt from '../components/ui/WelcomePrompt';
 import BlankLoadingState from '../components/ui/BlankLoadingState';
-import CacheStatusIndicator from '../components/ui/CacheStatusIndicator';
 
 interface CompetitorItem extends CompetitorData {
   status: 'accepted' | 'suggested' | 'user-company';
@@ -421,9 +420,11 @@ const CompetitorCard: React.FC<{
 };
 
 const CompetitorsPage = () => {
+  
   const { selectedCompany } = useCompany();
   const { setBreadcrumbs } = useNavigation();
   const { data: _dashboardData, loading: dashboardLoading, hasReport } = useDashboard();
+  
   
   // Local UI state
   const [newCompetitorName, setNewCompetitorName] = useState('');
@@ -436,10 +437,13 @@ const CompetitorsPage = () => {
 
   // Cache-aware data fetching with 15 minute expiry
   const competitorsCache = usePageCache<CompetitorItem[]>({
-    fetcher: async () => {
-      if (!selectedCompany?.id) return [];
+    fetcher: useCallback(async (): Promise<CompetitorItem[]> => {
+      if (!selectedCompany?.id) {
+        console.log('[CompetitorsPage] No company selected, returning empty array');
+        return [];
+      }
       
-      console.log('[CompetitorsPage] Fetching competitors data...');
+      console.log('[CompetitorsPage] Fetching competitors data for company:', selectedCompany.id);
       
       // Always add user's company first
       const allCompetitors: CompetitorItem[] = [{
@@ -478,20 +482,21 @@ const CompetitorsPage = () => {
         // Return just user's company on error
         return allCompetitors;
       }
-    },
+    }, [selectedCompany]),
     pageType: 'competitors',
     companyId: selectedCompany?.id || '',
     enabled: !!selectedCompany?.id,
-    onDataLoaded: (data, isFromCache) => {
+    onDataLoaded: useCallback((data, isFromCache) => {
       console.log(`[CompetitorsPage] Data loaded ${isFromCache ? 'from cache' : 'fresh'}: ${data.length} competitors`);
-    },
-    onError: (error) => {
+    }, []),
+    onError: useCallback((error) => {
       console.error('[CompetitorsPage] Cache fetch error:', error);
-    }
+    }, [])
   });
 
   const competitors = competitorsCache.data || [];
   const isLoading = competitorsCache.loading;
+  
 
   // Report generation logic
   const { 
@@ -513,19 +518,21 @@ const CompetitorsPage = () => {
 
 
 
-  const handleAcceptCompetitor = async (competitorId: string) => {
+  const handleAcceptCompetitor = useCallback(async (competitorId: string) => {
     if (!selectedCompany?.id) return;
     
     setAcceptingDeclineingId(competitorId);
     try {
       await acceptCompetitor(selectedCompany.id, competitorId);
       
-      // Update cached data optimistically
-      const updatedCompetitors = competitors.map(comp => 
+      // Get fresh current data from cache to avoid stale closures
+      const currentCompetitors = competitorsCache.data || [];
+      const updatedCompetitors = currentCompetitors.map(comp => 
         comp.id === competitorId 
-          ? { ...comp, status: 'accepted' as const, isAccepted: true }
+          ? { ...comp, status: 'accepted' as const }
           : comp
       );
+      
       competitorsCache.setData(updatedCompetitors);
       
     } catch (error) {
@@ -535,17 +542,18 @@ const CompetitorsPage = () => {
     } finally {
       setAcceptingDeclineingId(null);
     }
-  };
+  }, [selectedCompany?.id, competitorsCache]);
 
-  const handleDeclineCompetitor = async (competitorId: string) => {
+  const handleDeclineCompetitor = useCallback(async (competitorId: string) => {
     if (!selectedCompany?.id) return;
     
     setAcceptingDeclineingId(competitorId);
     try {
       await declineCompetitor(selectedCompany.id, competitorId);
       
-      // Update cached data optimistically
-      const updatedCompetitors = competitors.filter(comp => comp.id !== competitorId);
+      // Get fresh current data from cache to avoid stale closures
+      const currentCompetitors = competitorsCache.data || [];
+      const updatedCompetitors = currentCompetitors.filter(comp => comp.id !== competitorId);
       competitorsCache.setData(updatedCompetitors);
       
     } catch (error) {
@@ -555,9 +563,9 @@ const CompetitorsPage = () => {
     } finally {
       setAcceptingDeclineingId(null);
     }
-  };
+  }, [selectedCompany?.id, competitorsCache]);
 
-  const handleAddCompetitor = async () => {
+  const handleAddCompetitor = useCallback(async () => {
     if (!newCompetitorName.trim() || !newCompetitorWebsite.trim() || !selectedCompany?.id) return;
     
     setIsAddingCompetitor(true);
@@ -567,8 +575,9 @@ const CompetitorsPage = () => {
         website: newCompetitorWebsite.trim(),
       });
       
-      // Update cached data optimistically
-      const updatedCompetitors = [...competitors, { ...newCompetitor, status: 'accepted' as const }];
+      // Get fresh current data from cache to avoid stale closures
+      const currentCompetitors = competitorsCache.data || [];
+      const updatedCompetitors = [...currentCompetitors, { ...newCompetitor, status: 'accepted' as const }];
       competitorsCache.setData(updatedCompetitors);
       
       setNewCompetitorName('');
@@ -581,13 +590,13 @@ const CompetitorsPage = () => {
     } finally {
       setIsAddingCompetitor(false);
     }
-  };
+  }, [selectedCompany?.id, newCompetitorName, newCompetitorWebsite, competitorsCache]);
 
   const handleEditCompetitor = (competitor: CompetitorItem) => {
     setEditingCompetitorId(competitor.id);
   };
 
-  const handleSaveEdit = async (competitorId: string, name: string, website: string) => {
+  const handleSaveEdit = useCallback(async (competitorId: string, name: string, website: string) => {
     if (!name.trim() || !website.trim() || !selectedCompany?.id) return;
     
     setIsUpdatingCompetitor(true);
@@ -597,8 +606,9 @@ const CompetitorsPage = () => {
         website: website.trim(),
       });
       
-      // Update cached data optimistically
-      const updatedCompetitors = competitors.map(comp => 
+      // Get fresh current data from cache to avoid stale closures
+      const currentCompetitors = competitorsCache.data || [];
+      const updatedCompetitors = currentCompetitors.map(comp => 
         comp.id === competitorId 
           ? { ...comp, name: name.trim(), website: website.trim() }
           : comp
@@ -614,28 +624,32 @@ const CompetitorsPage = () => {
     } finally {
       setIsUpdatingCompetitor(false);
     }
-  };
+  }, [selectedCompany?.id, competitorsCache]);
 
   const handleCancelEdit = () => {
     setEditingCompetitorId(null);
   };
 
-  const handleRemoveCompetitor = async (competitorId: string) => {
+  const handleRemoveCompetitor = useCallback(async (competitorId: string) => {
     if (!selectedCompany?.id) return;
     
     try {
       await deleteCompetitor(selectedCompany.id, competitorId);
       
-      // Remove from local state
-      setCompetitors(prev => prev.filter(comp => comp.id !== competitorId));
+      // Get fresh current data from cache to avoid stale closures
+      const currentCompetitors = competitorsCache.data || [];
+      const updatedCompetitors = currentCompetitors.filter(comp => comp.id !== competitorId);
+      competitorsCache.setData(updatedCompetitors);
     } catch (error) {
       console.error('Failed to remove competitor:', error);
       alert('Failed to remove competitor. Please try again.');
+      // Invalidate cache to reload fresh data on error
+      competitorsCache.invalidate();
     }
-  };
+  }, [selectedCompany?.id, competitorsCache]);
 
-  // Separate competitors by status for display
-  const { userCompany, acceptedCompetitors, suggestedCompetitors, displayedSuggested } = useMemo(() => {
+  // Separate competitors by status for display - memoized to prevent unnecessary recalculations
+  const categorizedCompetitors = useMemo(() => {
     const userCompany = competitors.filter(c => c.status === 'user-company');
     const accepted = competitors.filter(c => c.status === 'accepted');
     const suggested = competitors.filter(c => c.status === 'suggested');
@@ -650,180 +664,204 @@ const CompetitorsPage = () => {
       displayedSuggested
     };
   }, [competitors]);
+  
+  const { userCompany, acceptedCompetitors, suggestedCompetitors, displayedSuggested } = categorizedCompetitors;
+
+  // Debug condition state (only log when conditions change)
+  useEffect(() => {
+    console.log('[CompetitorsPage] Render condition check:', {
+      dashboardLoading,
+      hasReport,
+      condition1: hasReport === null,
+      condition2: !hasReport,
+      shouldShowDashboardLoading: hasReport === null,
+      shouldShowWelcome: !hasReport && hasReport !== null
+    });
+  }, [dashboardLoading, hasReport]);
 
   return (
     <div className="h-full flex flex-col">
-      {dashboardLoading || hasReport === null ? (
+      {/* Show dashboard loading only if we can't determine report status */}
+      {hasReport === null ? (
         <BlankLoadingState message="Loading dashboard data..." />
-      ) : !hasReport ? (
-        <WelcomePrompt
-          onGenerateReport={generateReport}
-          isGenerating={isGenerating}
-          generationStatus={generationStatus}
-          progress={progress}
-          isButtonDisabled={isButtonDisabled}
-          generationState={generationState}
-        />
       ) : (
-        <>
+        <div className="h-full relative">
+          {/* Welcome prompt overlay - shown over competitors if no report */}
+          {!hasReport && (
+            <div className="absolute inset-0 z-10 bg-white/95 backdrop-blur-sm flex items-center justify-center">
+              <div className="w-full max-w-2xl">
+                <WelcomePrompt
+                  onGenerateReport={generateReport}
+                  isGenerating={isGenerating}
+                  generationStatus={generationStatus}
+                  progress={progress}
+                  isButtonDisabled={isButtonDisabled}
+                  generationState={generationState}
+                />
+              </div>
+            </div>
+          )}
 
+          {/* Competitors content - always rendered to ensure stable mounting */}
+          <div className="h-full flex flex-col">
 
-          {/* Content */}
-          {isLoading ? (
-            <BlankLoadingState message="Loading competitors..." />
-          ) : (
-            <div className="flex-1 min-h-0 p-1">
-              <div className="h-full w-full flex flex-col">
-                {/* Suggested Competitors Section - At top */}
-                {displayedSuggested.length > 0 && (
-                                                                           <div className="flex-shrink-0 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md overflow-hidden w-full mb-6">
-                    <div className="px-4 py-2">
-                      <h2 className="text-sm font-medium text-gray-900">
-                        Suggested
-                        <span className="text-sm font-normal text-gray-500 ml-2">
-                          ({suggestedCompetitors.length})
-                        </span>
-                      </h2>
-                    </div>
-                    <div className="px-4 pt-1 pb-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {displayedSuggested.map((competitor, index) => (
-                          <CompetitorCard
-                            key={competitor.id}
-                            competitor={competitor}
-                            index={index}
-                            onAccept={handleAcceptCompetitor}
-                            onDecline={handleDeclineCompetitor}
-                            onEdit={handleEditCompetitor}
-                            isEditing={editingCompetitorId === competitor.id}
-                            onSaveEdit={handleSaveEdit}
-                            onCancelEdit={handleCancelEdit}
-                            isUpdating={isUpdatingCompetitor && editingCompetitorId === competitor.id}
-                            isAcceptingOrDeclining={acceptingDeclineingId === competitor.id}
-                          />
-                        ))}
+            {/* Content */}
+            {isLoading ? (
+              <BlankLoadingState message="Loading competitors..." />
+            ) : (
+              <div className="flex-1 min-h-0 p-1">
+                <div className="h-full w-full flex flex-col">
+                  {/* Suggested Competitors Section - At top */}
+                  {displayedSuggested.length > 0 && (
+                    <div className="flex-shrink-0 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md overflow-hidden w-full mb-6">
+                      <div className="px-4 py-2">
+                        <h2 className="text-sm font-medium text-gray-900">
+                          Suggested
+                          <span className="text-sm font-normal text-gray-500 ml-2">
+                            ({suggestedCompetitors.length})
+                          </span>
+                        </h2>
                       </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Your Competitors Section - Scrollable */}
-                <div className="flex-1 min-h-0">
-                                                                           <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md overflow-hidden h-full flex flex-col">
-                    <div className="px-4 py-2 flex-shrink-0 flex items-center justify-between">
-                      <h2 className="text-sm font-medium text-gray-900">
-                        Your Competitors
-                        <span className="text-sm font-normal text-gray-500 ml-2">
-                          ({userCompany.length + acceptedCompetitors.length})
-                        </span>
-                      </h2>
-                      <button
-                        onClick={() => setShowAddForm(!showAddForm)}
-                        className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 transition-colors"
-                      >
-                        <Plus size={12} />
-                        Add Competitor
-                      </button>
-                    </div>
-                    
-                    {/* Add Competitor Form */}
-                    {showAddForm && (
-                      <div className="flex-shrink-0 bg-white border-b border-gray-100 px-4 py-3">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">Company Name</label>
-                            <input
-                              type="text"
-                              value={newCompetitorName}
-                              onChange={(e) => setNewCompetitorName(e.target.value)}
-                              placeholder="Enter company name"
-                              className="w-full px-2 py-1.5 border border-gray-200 rounded shadow-sm focus:ring-1 focus:ring-blue-600 focus:border-transparent text-xs"
-                            />
-                          </div>
-                          <div className="flex gap-3 items-end">
-                            <div className="flex-1">
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Website URL</label>
-                              <input
-                                type="text"
-                                value={newCompetitorWebsite}
-                                onChange={(e) => setNewCompetitorWebsite(e.target.value)}
-                                placeholder="company.com"
-                                className="w-full px-2 py-1.5 border border-gray-200 rounded shadow-sm focus:ring-1 focus:ring-blue-600 focus:border-transparent text-xs"
-                              />
-                            </div>
-                            <button
-                              onClick={handleAddCompetitor}
-                              disabled={!newCompetitorName.trim() || !newCompetitorWebsite.trim() || isAddingCompetitor}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-800 hover:text-gray-900 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Add competitor"
-                              style={{ 
-                                WebkitTapHighlightColor: 'transparent',
-                                WebkitUserSelect: 'none',
-                                userSelect: 'none'
-                              }}
-                            >
-                              {isAddingCompetitor ? (
-                                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                              ) : (
-                                <Check size={16} />
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-1 pb-4">
-                      {userCompany.length === 0 && acceptedCompetitors.length === 0 ? (
-                        <div className="flex items-center justify-center h-32">
-                          <div className="text-center">
-                            <Users size={32} className="mx-auto text-gray-300 mb-2" />
-                            <p className="text-gray-500">No competitors added yet</p>
-                            <p className="text-gray-400 text-sm mt-1">
-                              Add competitors manually or accept suggestions above
-                            </p>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          {/* User Company */}
-                          {userCompany.map((competitor, index) => (
-                            <CompetitorListItem
+                      <div className="px-4 pt-1 pb-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                          {displayedSuggested.map((competitor, index) => (
+                            <CompetitorCard
                               key={competitor.id}
                               competitor={competitor}
                               index={index}
+                              onAccept={handleAcceptCompetitor}
+                              onDecline={handleDeclineCompetitor}
                               onEdit={handleEditCompetitor}
-                              onRemove={handleRemoveCompetitor}
                               isEditing={editingCompetitorId === competitor.id}
                               onSaveEdit={handleSaveEdit}
                               onCancelEdit={handleCancelEdit}
                               isUpdating={isUpdatingCompetitor && editingCompetitorId === competitor.id}
+                              isAcceptingOrDeclining={acceptingDeclineingId === competitor.id}
                             />
                           ))}
-                          
-                          {/* Accepted Competitors */}
-                          {acceptedCompetitors.map((competitor, index) => (
-                            <CompetitorListItem
-                              key={competitor.id}
-                              competitor={competitor}
-                              index={userCompany.length + index}
-                              onEdit={handleEditCompetitor}
-                              onRemove={handleRemoveCompetitor}
-                              isEditing={editingCompetitorId === competitor.id}
-                              onSaveEdit={handleSaveEdit}
-                              onCancelEdit={handleCancelEdit}
-                              isUpdating={isUpdatingCompetitor && editingCompetitorId === competitor.id}
-                            />
-                          ))}
-                        </>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Your Competitors Section - Scrollable */}
+                  <div className="flex-1 min-h-0">
+                    <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md overflow-hidden h-full flex flex-col">
+                      <div className="px-4 py-2 flex-shrink-0 flex items-center justify-between">
+                        <h2 className="text-sm font-medium text-gray-900">
+                          Your Competitors
+                          <span className="text-sm font-normal text-gray-500 ml-2">
+                            ({userCompany.length + acceptedCompetitors.length})
+                          </span>
+                        </h2>
+                        <button
+                          onClick={() => setShowAddForm(!showAddForm)}
+                          className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 transition-colors"
+                        >
+                          <Plus size={12} />
+                          Add Competitor
+                        </button>
+                      </div>
+                      
+                      {/* Add Competitor Form */}
+                      {showAddForm && (
+                        <div className="flex-shrink-0 bg-white border-b border-gray-100 px-4 py-3">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Company Name</label>
+                              <input
+                                type="text"
+                                value={newCompetitorName}
+                                onChange={(e) => setNewCompetitorName(e.target.value)}
+                                placeholder="Enter company name"
+                                className="w-full px-2 py-1.5 border border-gray-200 rounded shadow-sm focus:ring-1 focus:ring-blue-600 focus:border-transparent text-xs"
+                              />
+                            </div>
+                            <div className="flex gap-3 items-end">
+                              <div className="flex-1">
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Website URL</label>
+                                <input
+                                  type="text"
+                                  value={newCompetitorWebsite}
+                                  onChange={(e) => setNewCompetitorWebsite(e.target.value)}
+                                  placeholder="company.com"
+                                  className="w-full px-2 py-1.5 border border-gray-200 rounded shadow-sm focus:ring-1 focus:ring-blue-600 focus:border-transparent text-xs"
+                                />
+                              </div>
+                              <button
+                                onClick={handleAddCompetitor}
+                                disabled={!newCompetitorName.trim() || !newCompetitorWebsite.trim() || isAddingCompetitor}
+                                className="w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors focus:outline-none select-none touch-manipulation bg-white/80 backdrop-blur-sm border border-white/20 text-gray-800 hover:text-gray-900 hover:bg-white/85 hover:shadow-md active:bg-white/60 active:shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Add competitor"
+                                style={{ 
+                                  WebkitTapHighlightColor: 'transparent',
+                                  WebkitUserSelect: 'none',
+                                  userSelect: 'none'
+                                }}
+                              >
+                                {isAddingCompetitor ? (
+                                  <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                                ) : (
+                                  <Check size={16} />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       )}
+                      
+                      <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-1 pb-4">
+                        {userCompany.length === 0 && acceptedCompetitors.length === 0 ? (
+                          <div className="flex items-center justify-center h-32">
+                            <div className="text-center">
+                              <Users size={32} className="mx-auto text-gray-300 mb-2" />
+                              <p className="text-gray-500">No competitors added yet</p>
+                              <p className="text-gray-400 text-sm mt-1">
+                                Add competitors manually or accept suggestions above
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            {/* User Company */}
+                            {userCompany.map((competitor, index) => (
+                              <CompetitorListItem
+                                key={competitor.id}
+                                competitor={competitor}
+                                index={index}
+                                onEdit={handleEditCompetitor}
+                                onRemove={handleRemoveCompetitor}
+                                isEditing={editingCompetitorId === competitor.id}
+                                onSaveEdit={handleSaveEdit}
+                                onCancelEdit={handleCancelEdit}
+                                isUpdating={isUpdatingCompetitor && editingCompetitorId === competitor.id}
+                              />
+                            ))}
+                            
+                            {/* Accepted Competitors */}
+                            {acceptedCompetitors.map((competitor, index) => (
+                              <CompetitorListItem
+                                key={competitor.id}
+                                competitor={competitor}
+                                index={userCompany.length + index}
+                                onEdit={handleEditCompetitor}
+                                onRemove={handleRemoveCompetitor}
+                                isEditing={editingCompetitorId === competitor.id}
+                                onSaveEdit={handleSaveEdit}
+                                onCancelEdit={handleCancelEdit}
+                                isUpdating={isUpdatingCompetitor && editingCompetitorId === competitor.id}
+                              />
+                            ))}
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-        </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

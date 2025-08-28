@@ -191,34 +191,36 @@ export function usePageCache<T>(options: UseCacheOptions<T>): UseCacheResult<T> 
       
       const result = await fetchPromise;
       
-      if (!mountedRef.current) {
-        return result;
+      // Always update cache even if component unmounted - this helps future mounts
+      setCachedData(pageType, companyId, result, filters);
+      console.log(`[usePageCache] Data cached for future use: ${pageType}:${companyId}`);
+      
+      // Update state only if still mounted
+      if (mountedRef.current) {
+        setData(result);
+        setError(null);
+        updateCacheStatus(false);
+        
+        // Call onDataLoaded callback
+        optionsRef.current.onDataLoaded?.(result, false);
+        
+        console.log(`[usePageCache] Fresh data loaded and state updated for ${pageType}:${companyId}`);
+      } else {
+        console.log(`[usePageCache] Component unmounted, data cached but state not updated for ${pageType}:${companyId}`);
       }
       
-      // Update cache with fresh data
-      setCachedData(pageType, companyId, result, filters);
-      
-      // Update state
-      setData(result);
-      setError(null);
-      updateCacheStatus(false);
-      
-      // Call onDataLoaded callback
-      optionsRef.current.onDataLoaded?.(result, false);
-      
-      console.log(`[usePageCache] Fresh data loaded for ${pageType}:${companyId}`);
       return result;
       
     } catch (err) {
-      if (!mountedRef.current) {
-        throw err;
-      }
-      
       const error = err instanceof Error ? err : new Error('Fetch failed');
       console.error(`[usePageCache] Fetch failed for ${pageType}:${companyId}:`, error);
       
-      setError(error);
-      optionsRef.current.onError?.(error);
+      // Update error state only if still mounted
+      if (mountedRef.current) {
+        setError(error);
+        optionsRef.current.onError?.(error);
+      }
+      
       throw error;
     }
   }, [pageType, companyId, filters, updateCacheStatus]);
@@ -227,8 +229,32 @@ export function usePageCache<T>(options: UseCacheOptions<T>): UseCacheResult<T> 
    * Tries to load data from cache first, then fetches if needed
    */
   const loadData = useCallback(async (forceRefresh = false) => {
+    console.log(`[usePageCache] loadData called:`, { 
+      pageType, 
+      companyId, 
+      enabled, 
+      forceRefresh,
+      currentLoading: loading,
+      isMounted: mountedRef.current 
+    });
+    
+    // Early return if disabled or no company
     if (!enabled || !companyId) {
-      setLoading(false);
+      console.log(`[usePageCache] Early return: enabled=${enabled}, companyId="${companyId}"`);
+      if (mountedRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+        // Clear data if no company selected
+        if (!companyId && data !== null) {
+          setData(null);
+        }
+      }
+      return;
+    }
+    
+    // Don't proceed if component is unmounted
+    if (!mountedRef.current) {
+      console.log(`[usePageCache] Component unmounted, skipping loadData`);
       return;
     }
     
@@ -237,7 +263,7 @@ export function usePageCache<T>(options: UseCacheOptions<T>): UseCacheResult<T> 
       if (!forceRefresh) {
         const cachedData = getCachedData<T>(pageType, companyId, filters);
         if (cachedData !== null) {
-          console.log(`[usePageCache] Cache HIT for ${pageType}:${companyId}`);
+          console.log(`[usePageCache] Cache HIT for ${pageType}:${companyId}, setting data and clearing loading`);
           
           if (mountedRef.current) {
             setData(cachedData);
@@ -251,7 +277,7 @@ export function usePageCache<T>(options: UseCacheOptions<T>): UseCacheResult<T> 
           }
           
           // If stale-while-revalidate, fetch fresh data in background
-          if (staleWhileRevalidate) {
+          if (staleWhileRevalidate && mountedRef.current) {
             console.log(`[usePageCache] Background refresh for ${pageType}:${companyId}`);
             fetchFreshData(true).catch(err => {
               console.warn(`[usePageCache] Background refresh failed for ${pageType}:${companyId}:`, err);
@@ -263,6 +289,12 @@ export function usePageCache<T>(options: UseCacheOptions<T>): UseCacheResult<T> 
       }
       
       console.log(`[usePageCache] Cache MISS for ${pageType}:${companyId}, fetching fresh data`);
+      
+      // Only proceed with fetch if component is still mounted
+      if (!mountedRef.current) {
+        console.log(`[usePageCache] Component unmounted during cache check, aborting fetch`);
+        return;
+      }
       
       // Set appropriate loading state
       if (forceRefresh && data !== null) {
@@ -279,6 +311,7 @@ export function usePageCache<T>(options: UseCacheOptions<T>): UseCacheResult<T> 
       // Error is already handled in fetchFreshData
     } finally {
       if (mountedRef.current) {
+        console.log(`[usePageCache] Setting loading states to false for ${pageType}:${companyId}`);
         setLoading(false);
         setRefreshing(false);
       }
@@ -304,14 +337,14 @@ export function usePageCache<T>(options: UseCacheOptions<T>): UseCacheResult<T> 
    * Manually set data in cache
    */
   const setDataAndCache = useCallback((newData: T) => {
-    if (!mountedRef.current) return;
-    
+    // Always update the cache regardless of mount status for consistency
     setCachedData(pageType, companyId, newData, filters);
+    
+    // Update component state regardless of mount status for optimistic updates
+    // This ensures UI updates immediately even if component briefly unmounts during async operations
     setData(newData);
     setError(null);
     updateCacheStatus(false);
-    
-    console.log(`[usePageCache] Data manually set for ${pageType}:${companyId}`);
   }, [pageType, companyId, filters, updateCacheStatus]);
   
   // Load data on mount and when dependencies change

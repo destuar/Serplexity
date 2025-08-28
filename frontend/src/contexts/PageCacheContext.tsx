@@ -102,6 +102,8 @@ export const PageCacheProvider: React.FC<PageCacheProviderProps> = ({ children }
     const currentCompanyId = selectedCompany?.id || null;
     const lastCompanyId = lastCompanyRef.current;
     
+    console.log(`[PageCacheContext] Company change check: last=${lastCompanyId}, current=${currentCompanyId}, willClear=${lastCompanyId && lastCompanyId !== currentCompanyId}`);
+    
     if (lastCompanyId && lastCompanyId !== currentCompanyId) {
       console.log(`[PageCacheContext] Company changed from ${lastCompanyId} to ${currentCompanyId}, clearing old cache`);
       pageCache.clearCompany(lastCompanyId);
