@@ -43,3 +43,6 @@ private.key
 **/id_rsa
 **/id_ecdsa
 **/id_ed25519
+
+# Track env example
+!.env.example

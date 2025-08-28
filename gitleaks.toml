@@ -1,0 +1,16 @@
+[allowlist]
+paths = [
+  "\\.cursor/.*",
+  "backend/venv/.*",
+  "backend/dist/.*",
+  "frontend/dist/.*",
+  "backend/coverage/.*",
+  "frontend/coverage/.*",
+  "coverage/.*"
+]
+regexes = [
+  "(?i)whsec_test_fake_webhook_secret",
+  "(?i)YOUR_SECRET",
+  "(?i)your-api-key",
+  "(?i)changeme"
+]
