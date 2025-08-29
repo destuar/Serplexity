@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Essential Development Commands
 
+> **⚠️ CRITICAL**: Always use `./start.sh` for backend development to ensure Python environment setup for PydanticAI agents
+
 ### Backend Development
 
 ```bash
@@ -28,7 +30,6 @@ npm run python:check           # mypy + ruff + bandit checks for Python code
 npm run python:lint            # Ruff linting with auto-fix
 npm run python:format          # Ruff code formatting
 npm run lint:all               # Both TypeScript and Python linting
-npm run check:power-of-ten     # Full Power of Ten compliance check
 ```
 
 ### Frontend Development
@@ -180,7 +181,6 @@ npm test  # Runs both backend and frontend test suites
 # Backend (TypeScript + Python)
 cd backend
 npm run lint:all && npm run typecheck     # Comprehensive linting for both TS and Python
-npm run check:power-of-ten                # Full Power of Ten compliance check
 
 # Frontend
 cd frontend
@@ -472,7 +472,7 @@ This project follows the modernized "Power of Ten" principles for TypeScript/Pyt
 - **TypeScript Backend**: `npm run typecheck && npm run lint`
 - **Python Backend**: `npm run python:check` (includes mypy --strict, ruff check --select ALL, bandit -r)
 - **React Frontend**: `npm run build && npm run lint`
-- **Full Compliance Check**: `npm run check:power-of-ten`
+- **Full TypeScript + Python Lint**: `npm run lint:all`
 - **Pipeline**: GitHub Actions with secrets-scanning & Dependabot
 
 ## Development Best Practices from Cursor Rules

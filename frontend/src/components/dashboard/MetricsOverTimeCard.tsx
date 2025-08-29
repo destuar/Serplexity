@@ -151,6 +151,14 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({
     setGranularity(newOptimalGranularity);
   }, [filters?.dateRange]);
 
+  // Stabilize filters object to prevent infinite re-renders
+  const stableFilters = useMemo(() => ({
+    dateRange: filters?.dateRange || "30d",
+    aiModel:
+      selectedModel !== "all" ? selectedModel : filters?.aiModel || "all",
+    granularity,
+  }), [filters?.dateRange, filters?.aiModel, selectedModel, granularity]);
+
   // Cache-aware history fetch (SWR + dedupe) keyed by company/dateRange/aiModel/granularity
   const historyCache = usePageCache<{
     sov: ShareOfVoiceHistoryItem[];
@@ -235,12 +243,7 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({
     ]),
     pageType: "dashboard",
     companyId: selectedCompany?.id || "",
-    filters: {
-      dateRange: filters?.dateRange || "30d",
-      aiModel:
-        selectedModel !== "all" ? selectedModel : filters?.aiModel || "all",
-      granularity,
-    },
+    filters: stableFilters,
     enabled: !!selectedCompany?.id,
     staleWhileRevalidate: true,
   });
