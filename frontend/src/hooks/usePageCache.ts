@@ -10,6 +10,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  CacheEntry,
   PageType,
   generateCacheKey,
   getCachedData,
@@ -139,6 +140,7 @@ export function usePageCache<T>(
 
   // State management
   const [data, setData] = useState<T | null>(null);
+  const dataRef = useRef<T | null>(null);
   const [loading, setLoading] = useState(enabled);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -152,6 +154,7 @@ export function usePageCache<T>(
 
   // Track if component is mounted to prevent state updates after unmount
   const mountedRef = useRef(true);
+  const backgroundRefreshInFlightRef = useRef(false);
   const lastFetchRef = useRef<Promise<T> | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const optionsRef = useRef(options);
@@ -238,6 +241,7 @@ export function usePageCache<T>(
 
         // Update state only if still mounted
         if (mountedRef.current) {
+          dataRef.current = result;
           setData(result);
           setError(null);
           updateCacheStatus(false);
@@ -318,7 +322,6 @@ export function usePageCache<T>(
         companyId,
         enabled,
         forceRefresh,
-        currentLoading: loading,
         isMounted: mountedRef.current,
       });
 
@@ -331,7 +334,8 @@ export function usePageCache<T>(
           setLoading(false);
           setRefreshing(false);
           // Clear data if no company selected
-          if (!companyId && data !== null) {
+          if (!companyId && dataRef.current !== null) {
+            dataRef.current = null;
             setData(null);
           }
         }
@@ -354,6 +358,7 @@ export function usePageCache<T>(
             );
 
             if (mountedRef.current) {
+              dataRef.current = cachedData;
               setData(cachedData);
               setError(null);
               setLoading(false);
@@ -361,20 +366,29 @@ export function usePageCache<T>(
               updateCacheStatus(true);
 
               // Call onDataLoaded callback
-              options.onDataLoaded?.(cachedData, true);
+              optionsRef.current.onDataLoaded?.(cachedData, true);
             }
 
             // If stale-while-revalidate, fetch fresh data in background
-            if (staleWhileRevalidate && mountedRef.current) {
+            if (
+              staleWhileRevalidate &&
+              mountedRef.current &&
+              !backgroundRefreshInFlightRef.current
+            ) {
+              backgroundRefreshInFlightRef.current = true;
               console.log(
                 `[usePageCache] Background refresh for ${pageType}:${companyId}`
               );
-              fetchFreshData(true).catch((err) => {
-                console.warn(
-                  `[usePageCache] Background refresh failed for ${pageType}:${companyId}:`,
-                  err
-                );
-              });
+              fetchFreshData(true)
+                .catch((err) => {
+                  console.warn(
+                    `[usePageCache] Background refresh failed for ${pageType}:${companyId}:`,
+                    err
+                  );
+                })
+                .finally(() => {
+                  backgroundRefreshInFlightRef.current = false;
+                });
             }
 
             return;
@@ -394,7 +408,7 @@ export function usePageCache<T>(
         }
 
         // Set appropriate loading state
-        if (forceRefresh && data !== null) {
+        if (forceRefresh && dataRef.current !== null) {
           setRefreshing(true);
         } else {
           setLoading(true);
@@ -445,9 +459,6 @@ export function usePageCache<T>(
       staleWhileRevalidate,
       fetchFreshData,
       updateCacheStatus,
-      data,
-      loading,
-      options,
     ]
   );
 
@@ -478,6 +489,7 @@ export function usePageCache<T>(
 
       // Update component state only if still mounted
       if (mountedRef.current) {
+        dataRef.current = newData;
         setData(newData);
         setError(null);
         updateCacheStatus(false);
