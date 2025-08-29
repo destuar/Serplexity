@@ -30,8 +30,8 @@ import { useAuth } from "../contexts/AuthContext";
 import { useCompany } from "../contexts/CompanyContext";
 import { useDashboard } from "../hooks/useDashboard";
 import { useEmbeddedPage } from "../hooks/useEmbeddedPage";
-import { usePageCache } from "../hooks/usePageCache";
 import { useNavigation } from "../hooks/useNavigation";
+import { usePageCache } from "../hooks/usePageCache";
 import { useReportGeneration } from "../hooks/useReportGeneration";
 import { getCompanyLogo } from "../lib/logoService";
 import {
@@ -505,37 +505,56 @@ const PromptsPage: React.FC = () => {
 
   // Cache-aware data fetching for prompts (60 minute cache - relatively static content)
   const promptsCache = usePageCache<PromptQuestion[]>({
-    fetcher: useCallback(async (): Promise<PromptQuestion[]> => {
-      if (!selectedCompany?.id) {
-        return [];
-      }
-      const data = await getPromptsWithResponses(selectedCompany.id);
-      return data.questions || [];
-    }, [selectedCompany]),
-    pageType: 'prompts',
-    companyId: selectedCompany?.id || '',
-    enabled: !!selectedCompany?.id
+    fetcher: useCallback(
+      async (ctx?: { signal?: AbortSignal }): Promise<PromptQuestion[]> => {
+        if (!selectedCompany?.id) {
+          return [];
+        }
+        const data = await getPromptsWithResponses(selectedCompany.id, {
+          signal: ctx?.signal,
+        });
+        return data.questions || [];
+      },
+      [selectedCompany]
+    ),
+    pageType: "prompts",
+    companyId: selectedCompany?.id || "",
+    enabled: !!selectedCompany?.id,
+    staleWhileRevalidate: true,
   });
 
   // Cache-aware data fetching for accepted competitors (30 minute cache - shared across pages)
   const competitorsCache = usePageCache<CompetitorData[]>({
-    fetcher: useCallback(async (): Promise<CompetitorData[]> => {
-      if (!selectedCompany?.id) {
-        return [];
-      }
-      const result = await getAcceptedCompetitors(selectedCompany.id);
-      return result.competitors || [];
-    }, [selectedCompany]),
-    pageType: 'accepted-competitors',
-    companyId: selectedCompany?.id || '',
-    enabled: !!selectedCompany?.id
+    fetcher: useCallback(
+      async (ctx?: { signal?: AbortSignal }): Promise<CompetitorData[]> => {
+        if (!selectedCompany?.id) {
+          return [];
+        }
+        const result = await getAcceptedCompetitors(selectedCompany.id, {
+          signal: ctx?.signal,
+        });
+        return result.competitors || [];
+      },
+      [selectedCompany]
+    ),
+    pageType: "accepted-competitors",
+    companyId: selectedCompany?.id || "",
+    enabled: !!selectedCompany?.id,
+    staleWhileRevalidate: true,
   });
 
   // Derived data from caches - memoized to prevent exhaustive deps warnings
-  const promptQuestions = useMemo(() => promptsCache.data || [], [promptsCache.data]);
-  const acceptedCompetitors = useMemo(() => competitorsCache.data || [], [competitorsCache.data]);
+  const promptQuestions = useMemo(
+    () => promptsCache.data || [],
+    [promptsCache.data]
+  );
+  const acceptedCompetitors = useMemo(
+    () => competitorsCache.data || [],
+    [competitorsCache.data]
+  );
   const isLoading = promptsCache.loading || competitorsCache.loading;
-  const error = promptsCache.error?.message || competitorsCache.error?.message || null;
+  const error =
+    promptsCache.error?.message || competitorsCache.error?.message || null;
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPrompt, setSelectedPrompt] = useState<PromptItem | null>(null);
   const [showAddPrompt, setShowAddPrompt] = useState(false);
@@ -716,107 +735,116 @@ const PromptsPage: React.FC = () => {
     competitorsCache.invalidate();
   }, [promptsCache, competitorsCache]);
 
-  const handleAddPrompt = useCallback(async (promptData: { question: string }) => {
-    if (!selectedCompany) return;
+  const handleAddPrompt = useCallback(
+    async (promptData: { question: string }) => {
+      if (!selectedCompany) return;
 
-    try {
-      // Call API to create the question as active (no type needed)
-      await addQuestion(selectedCompany.id, promptData.question, true);
+      try {
+        // Call API to create the question as active (no type needed)
+        await addQuestion(selectedCompany.id, promptData.question, true);
 
-      // Invalidate cache to refresh the prompts data
-      promptsCache.invalidate();
-    } catch (error: unknown) {
-      console.error("Failed to add question:", error);
+        // Invalidate cache to refresh the prompts data
+        promptsCache.invalidate();
+      } catch (error: unknown) {
+        console.error("Failed to add question:", error);
 
-      // Handle subscription-related errors gracefully
-      if (
-        error &&
-        typeof error === "object" &&
-        "response" in error &&
-        error.response &&
-        typeof error.response === "object" &&
-        "status" in error.response &&
-        error.response.status === 403
-      ) {
-        if (isAdmin) {
-          alert("Access denied. Please check your admin permissions.");
+        // Handle subscription-related errors gracefully
+        if (
+          error &&
+          typeof error === "object" &&
+          "response" in error &&
+          error.response &&
+          typeof error.response === "object" &&
+          "status" in error.response &&
+          error.response.status === 403
+        ) {
+          if (isAdmin) {
+            alert("Access denied. Please check your admin permissions.");
+          } else {
+            alert(
+              "Adding custom prompts requires a subscription. Please upgrade your plan to add custom prompts."
+            );
+          }
         } else {
-          alert(
-            "Adding custom prompts requires a subscription. Please upgrade your plan to add custom prompts."
-          );
+          alert("Failed to add prompt. Please try again.");
         }
-      } else {
-        alert("Failed to add prompt. Please try again.");
-      }
 
-      throw error; // Re-throw to handle in the inline component
-    }
-  }, [selectedCompany, promptsCache, isAdmin]);
+        throw error; // Re-throw to handle in the inline component
+      }
+    },
+    [selectedCompany, promptsCache, isAdmin]
+  );
 
   const handleEditPrompt = (prompt: PromptItem) => {
     // Edit functionality pending UX design approval
     console.log("Edit prompt:", prompt);
   };
 
-  const handleDeletePrompt = useCallback(async (prompt: PromptItem) => {
-    if (!selectedCompany) return;
+  const handleDeletePrompt = useCallback(
+    async (prompt: PromptItem) => {
+      if (!selectedCompany) return;
 
-    // Get fresh current data from cache to avoid stale closures
-    const currentPrompts = promptsCache.data || [];
-    
-    // Optimistic update - remove from cache immediately
-    const updatedPrompts = currentPrompts.filter((q) => q.id !== prompt.id);
-    promptsCache.setData(updatedPrompts);
+      // Get fresh current data from cache to avoid stale closures
+      const currentPrompts = promptsCache.data || [];
 
-    try {
-      // Call API to delete the question
-      await deleteQuestion(selectedCompany.id, prompt.id);
-      
-      // Success - the item is already removed from UI
-    } catch (error) {
-      console.error("Failed to delete question:", error);
+      // Optimistic update - remove from cache immediately
+      const updatedPrompts = currentPrompts.filter((q) => q.id !== prompt.id);
+      promptsCache.setData(updatedPrompts);
 
-      // On error, invalidate cache to reload fresh data
-      promptsCache.invalidate();
+      try {
+        // Call API to delete the question
+        await deleteQuestion(selectedCompany.id, prompt.id);
 
-      alert("Failed to delete prompt. Please try again.");
-    }
-  }, [selectedCompany, promptsCache]);
+        // Success - the item is already removed from UI
+      } catch (error) {
+        console.error("Failed to delete question:", error);
 
-  const handleStatusChange = useCallback(async (
-    prompt: PromptItem,
-    newStatus: "active" | "inactive" | "suggested"
-  ) => {
-    if (!selectedCompany) return;
+        // On error, invalidate cache to reload fresh data
+        promptsCache.invalidate();
 
-    // Immediate UI feedback - update status override first
-    setPromptStatusOverrides((prev) => ({
-      ...prev,
-      [prompt.id]: newStatus,
-    }));
+        alert("Failed to delete prompt. Please try again.");
+      }
+    },
+    [selectedCompany, promptsCache]
+  );
 
-    try {
-      // Convert status to isActive boolean
-      const isActive = newStatus === "active";
+  const handleStatusChange = useCallback(
+    async (
+      prompt: PromptItem,
+      newStatus: "active" | "inactive" | "suggested"
+    ) => {
+      if (!selectedCompany) return;
 
-      // Call API to persist the change
-      await updateQuestionStatus(selectedCompany.id, prompt.id, isActive);
+      // Immediate UI feedback - update status override first
+      setPromptStatusOverrides((prev) => ({
+        ...prev,
+        [prompt.id]: newStatus,
+      }));
 
-      // On success, we can optionally refresh to sync with backend
-      // but the UI is already updated via the override above
-    } catch (error) {
-      console.error("Failed to update question status:", error);
+      try {
+        // Convert status to isActive boolean
+        const isActive = newStatus === "active";
 
-      // On error, revert the optimistic update
-      setPromptStatusOverrides((prev) => {
-        const newOverrides = { ...prev };
-        delete newOverrides[prompt.id];
-        return newOverrides;
-      });
+        // Call API to persist the change
+        await updateQuestionStatus(selectedCompany.id, prompt.id, isActive);
 
-      alert("Failed to update question status. Please try again.");
-    }
-  }, [selectedCompany]);
+        // On success, we can optionally refresh to sync with backend
+        // but the UI is already updated via the override above
+      } catch (error) {
+        console.error("Failed to update question status:", error);
+
+        // On error, revert the optimistic update
+        setPromptStatusOverrides((prev) => {
+          const newOverrides = { ...prev };
+          delete newOverrides[prompt.id];
+          return newOverrides;
+        });
+
+        alert("Failed to update question status. Please try again.");
+      }
+    },
+    [selectedCompany]
+  );
 
   const handlePromptClick = (prompt: PromptItem) => {
     setSelectedPrompt(prompt);

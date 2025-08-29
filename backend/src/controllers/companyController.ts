@@ -1224,17 +1224,25 @@ export const acceptCompetitor = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Company not found" });
     }
 
-    // Update competitor to accepted
-    const updatedCompetitor = await prisma.competitor.update({
+    // Ensure competitor belongs to this company and is eligible for acceptance
+    const existing = await prisma.competitor.findFirst({
       where: {
         id: competitorId,
         companyId,
         isGenerated: true,
         isAccepted: null,
       },
-      data: {
-        isAccepted: true,
-      },
+    });
+    if (!existing) {
+      return res
+        .status(404)
+        .json({ error: "Competitor not found or already processed" });
+    }
+
+    // Update competitor to accepted (where requires unique selector)
+    const updatedCompetitor = await prisma.competitor.update({
+      where: { id: competitorId },
+      data: { isAccepted: true },
     });
 
     res.json({ competitor: updatedCompetitor });
@@ -1266,17 +1274,25 @@ export const declineCompetitor = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Company not found" });
     }
 
-    // Update competitor to declined
-    const updatedCompetitor = await prisma.competitor.update({
+    // Ensure competitor belongs to this company and is eligible for decline
+    const existing = await prisma.competitor.findFirst({
       where: {
         id: competitorId,
         companyId,
         isGenerated: true,
         isAccepted: null,
       },
-      data: {
-        isAccepted: false,
-      },
+    });
+    if (!existing) {
+      return res
+        .status(404)
+        .json({ error: "Competitor not found or already processed" });
+    }
+
+    // Update competitor to declined
+    const updatedCompetitor = await prisma.competitor.update({
+      where: { id: competitorId },
+      data: { isAccepted: false },
     });
 
     res.json({ competitor: updatedCompetitor });
@@ -1380,16 +1396,18 @@ export const updateCompetitor = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Company not found" });
     }
 
-    // Update competitor
+    // Ensure competitor belongs to this company
+    const existing = await prisma.competitor.findFirst({
+      where: { id: competitorId, companyId },
+    });
+    if (!existing) {
+      return res.status(404).json({ error: "Competitor not found" });
+    }
+
+    // Update competitor (unique selector by id)
     const updatedCompetitor = await prisma.competitor.update({
-      where: {
-        id: competitorId,
-        companyId,
-      },
-      data: {
-        name: validatedData.name,
-        website: validatedData.website,
-      },
+      where: { id: competitorId },
+      data: { name: validatedData.name, website: validatedData.website },
     });
 
     res.json(updatedCompetitor);
@@ -1441,13 +1459,17 @@ export const deleteCompetitor = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Company not found" });
     }
 
-    // Delete competitor
-    await prisma.competitor.delete({
-      where: {
-        id: competitorId,
-        companyId,
-      },
+    // Ensure competitor belongs to this company
+    const existing = await prisma.competitor.findFirst({
+      where: { id: competitorId, companyId },
+      select: { id: true },
     });
+    if (!existing) {
+      return res.status(404).json({ error: "Competitor not found" });
+    }
+
+    // Delete competitor (unique selector by id)
+    await prisma.competitor.delete({ where: { id: competitorId } });
 
     res.json({ message: "Competitor deleted successfully" });
   } catch (error) {
@@ -1496,7 +1518,7 @@ export const addQuestion = async (req: Request, res: Response) => {
 
       // Admins have unlimited access
       const isAdmin = req.user?.role === "ADMIN";
-      
+
       if (!isAdmin && activeQuestions >= planLimits.promptsPerReportMax) {
         return res.status(403).json({
           error: `Your plan allows up to ${planLimits.promptsPerReportMax} active questions`,
@@ -1587,12 +1609,14 @@ export const updateQuestion = async (req: Request, res: Response) => {
         });
 
         // Get plan limits for the user
-        const { getPlanLimitsForUser } = await import("../services/planService");
+        const { getPlanLimitsForUser } = await import(
+          "../services/planService"
+        );
         const planLimits = await getPlanLimitsForUser(userId);
 
         // Admins have unlimited access
         const isAdmin = req.user?.role === "ADMIN";
-        
+
         if (!isAdmin && activeQuestions >= planLimits.promptsPerReportMax) {
           return res.status(403).json({
             error: `Your plan allows up to ${planLimits.promptsPerReportMax} active questions`,

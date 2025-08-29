@@ -89,8 +89,6 @@ const DashboardRoutes: React.FC = () => (
               element={<ExperimentalSearchPage />}
             />
             <Route path="/analytics/ga4-setup" element={<GA4SetupPage />} />
-            {/* Backward-compat route for older redirects */}
-            <Route path="/seo-rankings" element={<SeoAnalyticsPage />} />
           </Routes>
         </DashboardLayout>
       </div>

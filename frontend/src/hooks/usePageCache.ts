@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   PageType,
+  generateCacheKey,
   getCachedData,
   invalidateCache,
   pageCache,
@@ -29,7 +30,7 @@ export interface UseCacheOptions<T> {
   /**
    * Function to fetch fresh data when cache miss occurs
    */
-  fetcher: () => Promise<T>;
+  fetcher: (ctx?: { signal?: AbortSignal }) => Promise<T>;
 
   /**
    * Page type for cache configuration
@@ -160,11 +161,7 @@ export function usePageCache<T>(
   useEffect(() => {
     return () => {
       mountedRef.current = false;
-      // Abort any ongoing fetch operations
-      if (abortControllerRef.current) {
-        console.log("[usePageCache] Component unmounting, aborting fetch");
-        abortControllerRef.current.abort();
-      }
+      // Do not abort in-flight GETs on unmount; allow completion to warm cache
     };
   }, []);
 
@@ -194,8 +191,9 @@ export function usePageCache<T>(
   const fetchFreshData = useCallback(
     async (isRefresh = false): Promise<T> => {
       try {
+        const { pageType: pt, companyId: cid, filters: f } = optionsRef.current;
         console.log(
-          `[usePageCache] Fetching ${isRefresh ? "refresh" : "fresh"} data for ${pageType}:${companyId}`
+          `[usePageCache] Fetching ${isRefresh ? "refresh" : "fresh"} data for ${pt}:${cid}`
         );
 
         // Create abort controller for this fetch
@@ -206,11 +204,18 @@ export function usePageCache<T>(
           throw new Error("Component unmounted before fetch");
         }
 
-        const fetchPromise = optionsRef.current.fetcher();
+        const dedupeKey = generateCacheKey(pt, cid, f);
+        const fetchPromise = (
+          await import("../utils/pageCache")
+        ).runDedupedRequest(dedupeKey, () =>
+          optionsRef.current.fetcher({
+            signal: abortControllerRef.current.signal,
+          })
+        ) as Promise<T>;
         lastFetchRef.current = fetchPromise;
 
         // Add timeout handling
-        const timeout = optionsRef.current.timeout || 30000; // Default 30 seconds
+        const timeout = optionsRef.current.timeout || 15000; // Default 15 seconds to bound worst-case spinner
         let result: T;
 
         if (timeout > 0) {
@@ -228,10 +233,8 @@ export function usePageCache<T>(
         }
 
         // Always update cache even if component unmounted - this helps future mounts
-        setCachedData(pageType, companyId, result, filters);
-        console.log(
-          `[usePageCache] Data cached for future use: ${pageType}:${companyId}`
-        );
+        setCachedData(pt, cid, result, f);
+        console.log(`[usePageCache] Data cached for future use: ${pt}:${cid}`);
 
         // Update state only if still mounted
         if (mountedRef.current) {
@@ -243,38 +246,39 @@ export function usePageCache<T>(
           optionsRef.current.onDataLoaded?.(result, false);
 
           console.log(
-            `[usePageCache] Fresh data loaded and state updated for ${pageType}:${companyId}`
+            `[usePageCache] Fresh data loaded and state updated for ${pt}:${cid}`
           );
         } else {
           console.log(
-            `[usePageCache] Component unmounted, data cached but state not updated for ${pageType}:${companyId}`
+            `[usePageCache] Component unmounted, data cached but state not updated for ${pt}:${cid}`
           );
         }
 
         return result;
       } catch (err: unknown) {
+        const { pageType: pt, companyId: cid, filters: f } = optionsRef.current;
         const errorObj = err as Error;
         // Handle abort/unmount errors gracefully (don't treat as real errors)
         const isUnmountCancellation =
           errorObj.name === "AbortError" ||
+          errorObj.name === "CanceledError" ||
+          (errorObj as unknown as { code?: string }).code === "ERR_CANCELED" ||
           errorObj.message === "Component unmounted before fetch" ||
           errorObj.message ===
             "Component unmounted during response processing" ||
           (typeof errorObj.message === "string" &&
-            errorObj.message.toLowerCase().includes("component unmounted"));
+            (errorObj.message.toLowerCase().includes("component unmounted") ||
+              errorObj.message.toLowerCase().includes("canceled")));
         if (isUnmountCancellation) {
           console.log(
-            `[usePageCache] Fetch cancelled for ${pageType}:${companyId}:`,
+            `[usePageCache] Fetch cancelled for ${pt}:${cid}:`,
             errorObj.message
           );
           throw err; // Re-throw to prevent state updates
         }
 
         const error = err instanceof Error ? err : new Error("Fetch failed");
-        console.error(
-          `[usePageCache] Fetch failed for ${pageType}:${companyId}:`,
-          error
-        );
+        console.error(`[usePageCache] Fetch failed for ${pt}:${cid}:`, error);
 
         // Enhanced error context
         const enhancedError = new Error(error.message);
@@ -285,9 +289,9 @@ export function usePageCache<T>(
         (
           enhancedError as Error & { context: Record<string, unknown> }
         ).context = {
-          pageType,
-          companyId,
-          filters,
+          pageType: pt,
+          companyId: cid,
+          filters: f,
           isRefresh,
           timestamp: new Date().toISOString(),
         };
@@ -301,7 +305,7 @@ export function usePageCache<T>(
         throw enhancedError;
       }
     },
-    [pageType, companyId, filters, updateCacheStatus]
+    [updateCacheStatus]
   );
 
   /**
@@ -403,11 +407,14 @@ export function usePageCache<T>(
         // Don't log abort/unmount errors as failures
         const isUnmountCancellationLoad =
           errorObj.name === "AbortError" ||
+          errorObj.name === "CanceledError" ||
+          (errorObj as unknown as { code?: string }).code === "ERR_CANCELED" ||
           errorObj.message === "Component unmounted before fetch" ||
           errorObj.message ===
             "Component unmounted during response processing" ||
           (typeof errorObj.message === "string" &&
-            errorObj.message.toLowerCase().includes("component unmounted"));
+            (errorObj.message.toLowerCase().includes("component unmounted") ||
+              errorObj.message.toLowerCase().includes("canceled")));
         if (isUnmountCancellationLoad) {
           console.log(
             `[usePageCache] Load cancelled for ${pageType}:${companyId}:`,

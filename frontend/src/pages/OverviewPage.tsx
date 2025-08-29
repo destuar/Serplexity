@@ -223,10 +223,7 @@ const OverviewPage = () => {
               <div className="h-full w-full">
                 <div className="lg:hidden h-full overflow-y-auto space-y-4">
                   <div className="min-h-[400px]">
-                    <MetricsOverTimeCard
-                      key={`${cardKey}-metrics`}
-                      selectedModel={filters.aiModel}
-                    />
+                    <MetricsOverTimeCard selectedModel={filters.aiModel} />
                   </div>
                   <div className="min-h-[300px]">
                     <SentimentScoreDisplayCard
@@ -284,10 +281,7 @@ const OverviewPage = () => {
                   }}
                 >
                   <div style={{ gridArea: "metrics" }}>
-                    <MetricsOverTimeCard
-                      key={`${cardKey}-metrics-desk`}
-                      selectedModel={filters.aiModel}
-                    />
+                    <MetricsOverTimeCard selectedModel={filters.aiModel} />
                   </div>
                   <div style={{ gridArea: "s1" }}>
                     <SentimentScoreDisplayCard

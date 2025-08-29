@@ -221,34 +221,39 @@ const WebAuditPage: React.FC = () => {
   const auditHistoryCache = usePageCache<AuditHistoryItem[]>({
     fetcher: async () => {
       if (!selectedCompany?.id) return [];
-      
-      console.log('[WebAuditPage] Fetching audit history...');
-      
+
+      console.log("[WebAuditPage] Fetching audit history...");
+
       try {
         const response = await apiClient.get(
           `/web-audit/companies/${selectedCompany.id}/history`
         );
         const audits = response.data.data.audits || [];
-        console.log(`[WebAuditPage] Loaded ${audits.length} audit history items`);
+        console.log(
+          `[WebAuditPage] Loaded ${audits.length} audit history items`
+        );
         return audits;
       } catch (error) {
-        console.error('[WebAuditPage] Failed to fetch audit history:', error);
+        console.error("[WebAuditPage] Failed to fetch audit history:", error);
         return [];
       }
     },
-    pageType: 'web-audit',
-    companyId: selectedCompany?.id || '',
+    pageType: "web-audit",
+    companyId: selectedCompany?.id || "",
     enabled: !!selectedCompany?.id,
+    staleWhileRevalidate: true,
     onDataLoaded: (data, isFromCache) => {
-      console.log(`[WebAuditPage] History loaded ${isFromCache ? 'from cache' : 'fresh'}: ${data.length} items`);
+      console.log(
+        `[WebAuditPage] History loaded ${isFromCache ? "from cache" : "fresh"}: ${data.length} items`
+      );
     },
     onError: (error) => {
-      console.error('[WebAuditPage] History cache error:', error);
-    }
+      console.error("[WebAuditPage] History cache error:", error);
+    },
   });
 
   const history = auditHistoryCache.data || [];
-  const historyLoading = auditHistoryCache.loading;
+  const historyLoading = auditHistoryCache.loading && history.length === 0;
   // Settings removed; all analyses active by default
   const [_elapsedTime, setElapsedTime] = useState(0);
   const [dateRange, setDateRange] = useState<
@@ -270,7 +275,6 @@ const WebAuditPage: React.FC = () => {
       setBreadcrumbs([{ label: "Action Center" }, { label: "Web Audit" }]);
     }
   }, [setBreadcrumbs, isEmbedded]);
-
 
   // Track elapsed time for running audits
   useEffect(() => {
@@ -505,7 +509,9 @@ const WebAuditPage: React.FC = () => {
               onComplete={(result) => {
                 setAuditResult(result as unknown as AuditResult);
                 setCurrentAudit(null);
-                fetchHistory();
+                // Invalidate and refresh audit history so Recent Audits updates immediately
+                auditHistoryCache.invalidate();
+                void auditHistoryCache.refresh();
               }}
               onError={() => setCurrentAudit(null)}
             />
@@ -636,7 +642,8 @@ const WebAuditPage: React.FC = () => {
               onComplete={(result) => {
                 setAuditResult(result as unknown as AuditResult);
                 setCurrentAudit(null);
-                fetchHistory();
+                auditHistoryCache.invalidate();
+                void auditHistoryCache.refresh();
               }}
               onError={() => setCurrentAudit(null)}
             />
@@ -742,7 +749,7 @@ const WebAuditPage: React.FC = () => {
                   </div>
                   {historyLoading ? (
                     <div className="p-10 text-center">
-                      <InlineSpinner size={24} />
+                      <InlineSpinner size={16} />
                     </div>
                   ) : companyOnlyHistory.length === 0 ? (
                     <div className="h-[calc(100%-40px)] flex items-center justify-center px-2 py-6 text-center">

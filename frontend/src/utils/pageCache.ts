@@ -699,6 +699,20 @@ class PageCacheManager {
 // Export singleton instance
 export const pageCache = new PageCacheManager();
 
+// Inflight request registry to dedupe concurrent fetches per cache key
+const inflightRequests = new Map<string, Promise<unknown>>();
+
+export function runDedupedRequest<T>(
+  key: string,
+  create: () => Promise<T>
+): Promise<T> {
+  const existing = inflightRequests.get(key) as Promise<T> | undefined;
+  if (existing) return existing;
+  const p = create().finally(() => inflightRequests.delete(key));
+  inflightRequests.set(key, p as unknown as Promise<unknown>);
+  return p;
+}
+
 // Export convenience functions
 export function getCachedData<T>(
   pageType: PageType,

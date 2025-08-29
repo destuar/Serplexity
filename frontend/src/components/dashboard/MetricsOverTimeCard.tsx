@@ -41,18 +41,7 @@ import {
   MessageSquare,
   Sparkles,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-
-// Suppress Recharts dimension warnings during development
-if (process.env.NODE_ENV === 'development') {
-  const originalWarn = console.warn;
-  console.warn = (...args: unknown[]) => {
-    if (typeof args[0] === 'string' && args[0].includes('width(0) and height(0) of chart should be greater than 0')) {
-      return; // Suppress this specific warning
-    }
-    originalWarn(...args);
-  };
-}
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -64,6 +53,7 @@ import {
 } from "recharts";
 import { useCompany } from "../../hooks/useCompany";
 import { useDashboard } from "../../hooks/useDashboard";
+import { usePageCache } from "../../hooks/usePageCache";
 import {
   getInclusionRateHistory,
   getShareOfVoiceHistory,
@@ -92,6 +82,22 @@ import {
 import LiquidGlassCard from "../ui/LiquidGlassCard";
 import { LiquidGlassSpinner } from "../ui/LiquidGlassSpinner";
 import UiTooltip from "../ui/Tooltip";
+
+// Suppress Recharts dimension warnings during development
+if (process.env.NODE_ENV === "development") {
+  const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    if (
+      typeof args[0] === "string" &&
+      args[0].includes(
+        "width(0) and height(0) of chart should be greater than 0"
+      )
+    ) {
+      return; // Suppress this specific warning
+    }
+    originalWarn(...args);
+  };
+}
 // Model filtering handled within processTimeSeriesData
 
 interface MetricsOverTimeCardProps {
@@ -145,45 +151,49 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({
     setGranularity(newOptimalGranularity);
   }, [filters?.dateRange]);
 
-  // Fetch granularity-specific data when granularity changes
-  useEffect(() => {
-    if (!selectedCompany) {
-      setGranularityData({
-        shareOfVoiceHistory: [],
-        inclusionRateHistory: [],
-        loading: false,
+  // Cache-aware history fetch (SWR + dedupe) keyed by company/dateRange/aiModel/granularity
+  const historyCache = usePageCache<{
+    sov: ShareOfVoiceHistoryItem[];
+    inc: InclusionRateHistoryItem[];
+  }>({
+    fetcher: useCallback(async (): Promise<{
+      sov: ShareOfVoiceHistoryItem[];
+      inc: InclusionRateHistoryItem[];
+    }> => {
+      if (!selectedCompany?.id) {
+        return { sov: [], inc: [] };
+      }
+
+      const currentFilters = {
+        dateRange: filters?.dateRange,
+        aiModel: selectedModel !== "all" ? selectedModel : filters?.aiModel,
+        granularity,
+      };
+
+      const [sov, inc] = await Promise.all([
+        getShareOfVoiceHistory(selectedCompany.id, currentFilters),
+        getInclusionRateHistory(selectedCompany.id, currentFilters),
+      ]);
+
+      // Optional: light validation without blocking UI
+      validateDataPipeline(sov, {
+        component: "MetricsOverTimeCard",
+        operation: "shareOfVoiceValidation",
+        filters: currentFilters,
+        companyId: selectedCompany.id,
       });
-      return;
-    }
+      validateDataPipeline(inc, {
+        component: "MetricsOverTimeCard",
+        operation: "inclusionRateValidation",
+        filters: currentFilters,
+        companyId: selectedCompany.id,
+      });
 
-    // Fetch granularity-specific data with enterprise-grade monitoring
-    const fetchGranularityData = async () => {
-      setGranularityData((prev) => ({ ...prev, loading: true }));
-
-      try {
-        // Fetch aggregated data based on granularity
-        const currentFilters = {
-          dateRange: filters?.dateRange,
-          aiModel: selectedModel !== "all" ? selectedModel : filters?.aiModel,
-          granularity,
-        };
-
-        console.group(`🔄 [MetricsOverTimeCard] Fetching granularity data`);
-        console.log("🎯 Filters:", currentFilters);
-        console.log("🏢 Company:", selectedCompany.name);
-        console.log(
-          "🔧 MetricsOverTimeCard fetches data WITH granularity parameter"
-        );
-
-        const [sovHistory, inclusionHistory] = await Promise.all([
-          getShareOfVoiceHistory(selectedCompany.id, currentFilters),
-          getInclusionRateHistory(selectedCompany.id, currentFilters),
-        ]);
-
-        // Enterprise-grade data consistency monitoring
+      // Optional comparison with context data when compatible
+      if (data?.shareOfVoiceHistory && data.shareOfVoiceHistory.length > 0) {
         const sovReport = DataPipelineMonitor.recordData(
           `${selectedCompany.id}-sov-${granularity}-${filters?.dateRange}`,
-          sovHistory,
+          sov,
           {
             component: "MetricsOverTimeCard",
             operation: "fetchShareOfVoiceHistory",
@@ -191,112 +201,58 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({
             companyId: selectedCompany.id,
           }
         );
-
-        DataPipelineMonitor.recordData(
-          `${selectedCompany.id}-inclusion-${granularity}-${filters?.dateRange}`,
-          inclusionHistory,
+        const contextReport = DataPipelineMonitor.recordData(
+          `${selectedCompany.id}-sov-context-${filters?.dateRange}`,
+          data.shareOfVoiceHistory,
           {
-            component: "MetricsOverTimeCard",
-            operation: "fetchInclusionRateHistory",
-            filters: currentFilters,
+            component: "DashboardContext",
+            operation: "shareOfVoiceHistory_RAW",
+            filters: {
+              dateRange: filters?.dateRange,
+              aiModel: filters?.aiModel,
+              granularity: "RAW",
+            },
             companyId: selectedCompany.id,
           }
         );
-
-        // Validate data pipeline integrity
-        const sovValid = validateDataPipeline(sovHistory, {
-          component: "MetricsOverTimeCard",
-          operation: "shareOfVoiceValidation",
-          filters: currentFilters,
-          companyId: selectedCompany.id,
-        });
-
-        const inclusionValid = validateDataPipeline(inclusionHistory, {
-          component: "MetricsOverTimeCard",
-          operation: "inclusionRateValidation",
-          filters: currentFilters,
-          companyId: selectedCompany.id,
-        });
-
-        // Compare with dashboard context data ONLY when dateRange and granularity align
-        if (data?.shareOfVoiceHistory && data.shareOfVoiceHistory.length > 0) {
-          const contextReport = DataPipelineMonitor.recordData(
-            `${selectedCompany.id}-sov-context-${filters?.dateRange}`,
-            data.shareOfVoiceHistory,
-            {
-              component: "DashboardContext",
-              operation: "shareOfVoiceHistory_RAW",
-              filters: {
-                dateRange: filters?.dateRange,
-                aiModel: filters?.aiModel,
-                granularity: "RAW",
-              },
-              companyId: selectedCompany.id,
-            }
-          );
-
-          const sameGranularity =
-            (contextReport.granularity || "RAW") ===
-            (sovReport.granularity || "RAW");
-          const sameDateRange = contextReport.dateRange === sovReport.dateRange;
-          if (sameGranularity && sameDateRange) {
-            compareDataSources(sovReport, contextReport);
-          } else {
-            console.log(
-              "[MetricsOverTimeCard] Skipping data comparison due to granularity/dateRange mismatch",
-              {
-                sovGranularity: sovReport.granularity || "RAW",
-                contextGranularity: contextReport.granularity || "RAW",
-                sovDateRange: sovReport.dateRange,
-                contextDateRange: contextReport.dateRange,
-              }
-            );
-          }
+        const sameGranularity =
+          (contextReport.granularity || "RAW") ===
+          (sovReport.granularity || "RAW");
+        const sameDateRange = contextReport.dateRange === sovReport.dateRange;
+        if (sameGranularity && sameDateRange) {
+          compareDataSources(sovReport, contextReport);
         }
-
-        if (!sovValid || !inclusionValid) {
-          console.error(
-            "🚨 [MetricsOverTimeCard] Data pipeline validation failed"
-          );
-        }
-
-        console.groupEnd();
-
-        console.log(
-          `[MetricsOverTimeCard] Received SOV history: ${sovHistory.length} points`
-        );
-        console.log(
-          `[MetricsOverTimeCard] Received inclusion history: ${inclusionHistory.length} points`
-        );
-        console.log(
-          "[MetricsOverTimeCard] SOV History sample:",
-          sovHistory.slice(0, 3)
-        );
-
-        setGranularityData({
-          shareOfVoiceHistory: sovHistory,
-          inclusionRateHistory: inclusionHistory,
-          loading: false,
-        });
-      } catch (error) {
-        console.error(
-          "🚨 [MetricsOverTimeCard] Failed to fetch granularity data:",
-          error
-        );
-        setGranularityData((prev) => ({ ...prev, loading: false }));
       }
-    };
 
-    fetchGranularityData();
-  }, [
-    granularity,
-    selectedModel,
-    filters?.dateRange,
-    filters?.aiModel,
-    selectedCompany,
-    data?.shareOfVoiceHistory,
-    data?.inclusionRateHistory,
-  ]);
+      return { sov, inc };
+    }, [
+      selectedCompany,
+      filters?.dateRange,
+      filters?.aiModel,
+      selectedModel,
+      granularity,
+      data?.shareOfVoiceHistory,
+    ]),
+    pageType: "other",
+    companyId: selectedCompany?.id || "",
+    filters: {
+      dateRange: filters?.dateRange || "30d",
+      aiModel:
+        selectedModel !== "all" ? selectedModel : filters?.aiModel || "all",
+      granularity,
+    },
+    enabled: !!selectedCompany?.id,
+    staleWhileRevalidate: true,
+  });
+
+  // Sync cache data into local state used by the chart
+  useEffect(() => {
+    setGranularityData({
+      shareOfVoiceHistory: historyCache.data?.sov || [],
+      inclusionRateHistory: historyCache.data?.inc || [],
+      loading: historyCache.loading,
+    });
+  }, [historyCache.data, historyCache.loading]);
 
   const handleToggleBreakdown = () => {
     setShowModelBreakdown(!showModelBreakdown);
@@ -587,9 +543,9 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({
 
     return (
       <div className="flex-1 min-h-0 relative" style={{ minHeight: "240px" }}>
-        <ResponsiveContainer 
-          width="100%" 
-          height="100%" 
+        <ResponsiveContainer
+          width="100%"
+          height="100%"
           minHeight={200}
           debounce={50}
         >

@@ -9,9 +9,9 @@
  * @exports
  * - Various functions for company management operations.
  */
-import apiClient from '../lib/apiClient';
-import { Company } from '../types/schemas';
-import { SentimentScores } from '../types/dashboard';
+import apiClient from "../lib/apiClient";
+import { SentimentScores } from "../types/dashboard";
+import { Company } from "../types/schemas";
 
 export interface ShareOfVoiceResponse {
   shareOfVoice: number | null;
@@ -30,52 +30,84 @@ export type InclusionRateHistoryResponse = Array<{
   aiModel: string;
 }>;
 
-export const updateCompany = async (companyId: string, updates: Partial<Company>): Promise<{ company: Company }> => {
+export const updateCompany = async (
+  companyId: string,
+  updates: Partial<Company>
+): Promise<{ company: Company }> => {
   const { data } = await apiClient.put(`/companies/${companyId}`, updates);
   return data;
 };
 
-export const getShareOfVoice = async (companyId: string, filters?: { dateRange?: string; aiModel?: string }): Promise<ShareOfVoiceResponse> => {
+export const getShareOfVoice = async (
+  companyId: string,
+  filters?: { dateRange?: string; aiModel?: string }
+): Promise<ShareOfVoiceResponse> => {
   const params = new URLSearchParams();
-  if (filters?.dateRange) params.append('dateRange', filters.dateRange);
-  if (filters?.aiModel) params.append('aiModel', filters.aiModel);
-  
-  const { data } = await apiClient.get(`/companies/${companyId}/metrics/share-of-voice?${params.toString()}`);
+  if (filters?.dateRange) params.append("dateRange", filters.dateRange);
+  if (filters?.aiModel) params.append("aiModel", filters.aiModel);
+
+  const { data } = await apiClient.get(
+    `/companies/${companyId}/metrics/share-of-voice?${params.toString()}`
+  );
   return data;
 };
 
-export const getShareOfVoiceHistory = async (companyId: string, filters?: { dateRange?: string; aiModel?: string; granularity?: 'hour' | 'day' | 'week' }): Promise<ShareOfVoiceHistoryResponse> => {
+export const getShareOfVoiceHistory = async (
+  companyId: string,
+  filters?: {
+    dateRange?: string;
+    aiModel?: string;
+    granularity?: "hour" | "day" | "week";
+  }
+): Promise<ShareOfVoiceHistoryResponse> => {
   const params = new URLSearchParams();
-  if (filters?.dateRange) params.append('dateRange', filters.dateRange);
-  if (filters?.aiModel) params.append('aiModel', filters.aiModel);
-  if (filters?.granularity) params.append('granularity', filters.granularity);
-  
+  if (filters?.dateRange) params.append("dateRange", filters.dateRange);
+  if (filters?.aiModel) params.append("aiModel", filters.aiModel);
+  if (filters?.granularity) params.append("granularity", filters.granularity);
+
   // Add user's timezone
   const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  params.append('timezone', userTimezone);
-  
-  const { data } = await apiClient.get(`/companies/${companyId}/share-of-voice-history?${params.toString()}`);
+  params.append("timezone", userTimezone);
+
+  const { data } = await apiClient.get(
+    `/companies/${companyId}/share-of-voice-history?${params.toString()}`
+  );
   return data;
 };
 
-export const getInclusionRateHistory = async (companyId: string, filters?: { dateRange?: string; aiModel?: string; granularity?: 'hour' | 'day' | 'week' }): Promise<InclusionRateHistoryResponse> => {
+export const getInclusionRateHistory = async (
+  companyId: string,
+  filters?: {
+    dateRange?: string;
+    aiModel?: string;
+    granularity?: "hour" | "day" | "week";
+  }
+): Promise<InclusionRateHistoryResponse> => {
   const params = new URLSearchParams();
-  if (filters?.dateRange) params.append('dateRange', filters.dateRange);
-  if (filters?.aiModel) params.append('aiModel', filters.aiModel);
-  if (filters?.granularity) params.append('granularity', filters.granularity);
-  
+  if (filters?.dateRange) params.append("dateRange", filters.dateRange);
+  if (filters?.aiModel) params.append("aiModel", filters.aiModel);
+  if (filters?.granularity) params.append("granularity", filters.granularity);
+
   // Add user's timezone
   const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  params.append('timezone', userTimezone);
-  
-  const { data } = await apiClient.get(`/companies/${companyId}/inclusion-rate-history?${params.toString()}`);
+  params.append("timezone", userTimezone);
+
+  const { data } = await apiClient.get(
+    `/companies/${companyId}/inclusion-rate-history?${params.toString()}`
+  );
   return data;
 };
 
-export const getSentimentData = async (companyId: string, filters: { dateRange?: string; aiModel?: string } = {}): Promise<{ sentimentData: SentimentScores | null }> => {
-  const { data } = await apiClient.get(`/companies/${companyId}/metrics/sentiment`, {
-    params: filters,
-  });
+export const getSentimentData = async (
+  companyId: string,
+  filters: { dateRange?: string; aiModel?: string } = {}
+): Promise<{ sentimentData: SentimentScores | null }> => {
+  const { data } = await apiClient.get(
+    `/companies/${companyId}/metrics/sentiment`,
+    {
+      params: filters,
+    }
+  );
   return data;
 };
 
@@ -83,9 +115,21 @@ export interface TopRankingQuestion {
   id: string;
   question: string;
   // Supports legacy types as well as new fan-out keys.  Fallback to string keeps TS happy on future additions.
-  type: 'visibility' | 'benchmark' | 'personal' |
-        'paraphrase' | 'comparison' | 'temporal' | 'topical' | 'entity_broader' | 'entity_narrower' |
-        'session_context' | 'user_profile' | 'vertical' | 'safety_probe' | string;
+  type:
+    | "visibility"
+    | "benchmark"
+    | "personal"
+    | "paraphrase"
+    | "comparison"
+    | "temporal"
+    | "topical"
+    | "entity_broader"
+    | "entity_narrower"
+    | "session_context"
+    | "user_profile"
+    | "vertical"
+    | "safety_probe"
+    | string;
   productName?: string;
   bestPosition: number | null; // Allow null when company not mentioned
   totalMentions: number;
@@ -112,7 +156,7 @@ export interface CompetitorRanking {
   website?: string;
   shareOfVoice: number;
   change: number;
-  changeType: 'increase' | 'decrease' | 'stable';
+  changeType: "increase" | "decrease" | "stable";
   isUserCompany: boolean;
 }
 
@@ -123,13 +167,19 @@ export interface CompetitorRankingsResponse {
   userCompany: CompetitorRanking | null;
 }
 
-export const getTopRankingQuestions = async (companyId: string, filters?: { aiModel?: string; limit?: number; questionType?: string }): Promise<TopRankingQuestionsResponse> => {
+export const getTopRankingQuestions = async (
+  companyId: string,
+  filters?: { aiModel?: string; limit?: number; questionType?: string }
+): Promise<TopRankingQuestionsResponse> => {
   const params = new URLSearchParams();
-  if (filters?.aiModel) params.append('aiModel', filters.aiModel);
-  if (filters?.questionType) params.append('questionType', filters.questionType);
+  if (filters?.aiModel) params.append("aiModel", filters.aiModel);
+  if (filters?.questionType)
+    params.append("questionType", filters.questionType);
   // Note: We don't send limit parameter anymore - fetch all questions and filter on frontend
-  
-  const { data } = await apiClient.get(`/companies/${companyId}/top-ranking-questions?${params.toString()}`);
+
+  const { data } = await apiClient.get(
+    `/companies/${companyId}/top-ranking-questions?${params.toString()}`
+  );
   return data;
 };
 
@@ -156,18 +206,24 @@ export interface PromptsWithResponsesResponse {
   questions: PromptQuestion[];
 }
 
-export const getPromptsWithResponses = async (companyId: string): Promise<PromptsWithResponsesResponse> => {
-  const { data } = await apiClient.get(`/companies/${companyId}/prompts-with-responses`);
+export const getPromptsWithResponses = async (
+  companyId: string,
+  opts?: { signal?: AbortSignal }
+): Promise<PromptsWithResponsesResponse> => {
+  const { data } = await apiClient.get(
+    `/companies/${companyId}/prompts-with-responses`,
+    { signal: opts?.signal }
+  );
   return data;
 };
 
 export const updateQuestionStatus = async (
-  companyId: string, 
-  questionId: string, 
+  companyId: string,
+  questionId: string,
   isActive: boolean
 ): Promise<void> => {
   await apiClient.put(`/companies/${companyId}/questions/${questionId}`, {
-    isActive
+    isActive,
   });
 };
 
@@ -178,7 +234,7 @@ export const addQuestion = async (
 ): Promise<void> => {
   await apiClient.post(`/companies/${companyId}/questions`, {
     query: question,
-    isActive
+    isActive,
   });
 };
 
@@ -189,31 +245,50 @@ export const deleteQuestion = async (
   await apiClient.delete(`/companies/${companyId}/questions/${questionId}`);
 };
 
-export const getCompetitorRankings = async (companyId: string, filters?: { dateRange?: string; aiModel?: string }): Promise<CompetitorRankingsResponse> => {
+export const getCompetitorRankings = async (
+  companyId: string,
+  filters?: { dateRange?: string; aiModel?: string }
+): Promise<CompetitorRankingsResponse> => {
   const params = new URLSearchParams();
-  if (filters?.dateRange) params.append('dateRange', filters.dateRange);
-  if (filters?.aiModel) params.append('aiModel', filters.aiModel);
-  
-  const { data } = await apiClient.get(`/companies/${companyId}/metrics/competitor-rankings?${params.toString()}`);
+  if (filters?.dateRange) params.append("dateRange", filters.dateRange);
+  if (filters?.aiModel) params.append("aiModel", filters.aiModel);
+
+  const { data } = await apiClient.get(
+    `/companies/${companyId}/metrics/competitor-rankings?${params.toString()}`
+  );
   return data;
 };
 
-export const getAveragePosition = async (companyId: string, filters?: { dateRange?: string; aiModel?: string }): Promise<{ averagePosition: number | null; change: number | null; }> => {
+export const getAveragePosition = async (
+  companyId: string,
+  filters?: { dateRange?: string; aiModel?: string }
+): Promise<{ averagePosition: number | null; change: number | null }> => {
   const params = new URLSearchParams();
-  if (filters?.dateRange) params.append('dateRange', filters.dateRange);
-  if (filters?.aiModel) params.append('aiModel', filters.aiModel);
-  
-  const { data } = await apiClient.get(`/companies/${companyId}/metrics/position?${params.toString()}`);
+  if (filters?.dateRange) params.append("dateRange", filters.dateRange);
+  if (filters?.aiModel) params.append("aiModel", filters.aiModel);
+
+  const { data } = await apiClient.get(
+    `/companies/${companyId}/metrics/position?${params.toString()}`
+  );
   return data;
 };
 
-export const getSentimentOverTime = async (companyId: string, filters?: { dateRange?: string; aiModel?: string; granularity?: 'hour' | 'day' | 'week' }): Promise<{ history: { date: string; score: number }[] }> => {
+export const getSentimentOverTime = async (
+  companyId: string,
+  filters?: {
+    dateRange?: string;
+    aiModel?: string;
+    granularity?: "hour" | "day" | "week";
+  }
+): Promise<{ history: { date: string; score: number }[] }> => {
   const params = new URLSearchParams();
-  if (filters?.dateRange) params.append('dateRange', filters.dateRange);
-  if (filters?.aiModel) params.append('aiModel', filters.aiModel);
-  if (filters?.granularity) params.append('granularity', filters.granularity);
+  if (filters?.dateRange) params.append("dateRange", filters.dateRange);
+  if (filters?.aiModel) params.append("aiModel", filters.aiModel);
+  if (filters?.granularity) params.append("granularity", filters.granularity);
 
-  const { data } = await apiClient.get(`/companies/${companyId}/metrics/sentiment-over-time?${params.toString()}`);
+  const { data } = await apiClient.get(
+    `/companies/${companyId}/metrics/sentiment-over-time?${params.toString()}`
+  );
   return data;
 };
 
@@ -245,42 +320,84 @@ export interface CitationsResponse {
   citations: CitationData[];
 }
 
-export const getCitations = async (companyId: string): Promise<CitationsResponse> => {
+export const getCitations = async (
+  companyId: string
+): Promise<CitationsResponse> => {
   const { data } = await apiClient.get(`/companies/${companyId}/citations`);
   return data;
 };
 
-export const getAcceptedCompetitors = async (companyId: string): Promise<CompetitorsResponse> => {
-  const { data } = await apiClient.get(`/companies/${companyId}/competitors/accepted`);
+export const getAcceptedCompetitors = async (
+  companyId: string,
+  opts?: { signal?: AbortSignal }
+): Promise<CompetitorsResponse> => {
+  const { data } = await apiClient.get(
+    `/companies/${companyId}/competitors/accepted`,
+    { signal: opts?.signal }
+  );
   return data;
 };
 
-export const getSuggestedCompetitors = async (companyId: string): Promise<CompetitorsResponse> => {
-  const { data } = await apiClient.get(`/companies/${companyId}/competitors/suggested`);
+export const getSuggestedCompetitors = async (
+  companyId: string,
+  opts?: { signal?: AbortSignal }
+): Promise<CompetitorsResponse> => {
+  const { data } = await apiClient.get(
+    `/companies/${companyId}/competitors/suggested`,
+    { signal: opts?.signal }
+  );
   return data;
 };
 
-export const acceptCompetitor = async (companyId: string, competitorId: string): Promise<{ competitor: CompetitorData }> => {
-  const { data } = await apiClient.post(`/companies/${companyId}/competitors/${competitorId}/accept`);
+export const acceptCompetitor = async (
+  companyId: string,
+  competitorId: string
+): Promise<{ competitor: CompetitorData }> => {
+  const { data } = await apiClient.post(
+    `/companies/${companyId}/competitors/${competitorId}/accept`
+  );
   return data;
 };
 
-export const declineCompetitor = async (companyId: string, competitorId: string): Promise<{ competitor: CompetitorData }> => {
-  const { data } = await apiClient.post(`/companies/${companyId}/competitors/${competitorId}/decline`);
+export const declineCompetitor = async (
+  companyId: string,
+  competitorId: string
+): Promise<{ competitor: CompetitorData }> => {
+  const { data } = await apiClient.post(
+    `/companies/${companyId}/competitors/${competitorId}/decline`
+  );
   return data;
 };
 
-export const addCompetitor = async (companyId: string, competitor: { name: string; website: string }): Promise<CompetitorData> => {
-  const { data } = await apiClient.post(`/companies/${companyId}/competitors`, competitor);
+export const addCompetitor = async (
+  companyId: string,
+  competitor: { name: string; website: string }
+): Promise<CompetitorData> => {
+  const { data } = await apiClient.post(
+    `/companies/${companyId}/competitors`,
+    competitor
+  );
   return data;
 };
 
-export const updateCompetitor = async (companyId: string, competitorId: string, updates: { name: string; website: string }): Promise<CompetitorData> => {
-  const { data } = await apiClient.put(`/companies/${companyId}/competitors/${competitorId}`, updates);
+export const updateCompetitor = async (
+  companyId: string,
+  competitorId: string,
+  updates: { name: string; website: string }
+): Promise<CompetitorData> => {
+  const { data } = await apiClient.put(
+    `/companies/${companyId}/competitors/${competitorId}`,
+    updates
+  );
   return data;
 };
 
-export const deleteCompetitor = async (companyId: string, competitorId: string): Promise<{ message: string }> => {
-  const { data } = await apiClient.delete(`/companies/${companyId}/competitors/${competitorId}`);
+export const deleteCompetitor = async (
+  companyId: string,
+  competitorId: string
+): Promise<{ message: string }> => {
+  const { data } = await apiClient.delete(
+    `/companies/${companyId}/competitors/${competitorId}`
+  );
   return data;
-}; 
+};

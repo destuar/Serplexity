@@ -339,7 +339,7 @@ const WebAuditScoreOverTimeCard: React.FC<WebAuditScoreOverTimeCardProps> = ({
 
       {loading ? (
         <div className="h-64 flex items-center justify-center">
-          <InlineSpinner size={24} />
+          <InlineSpinner size={16} />
         </div>
       ) : !hasData ? (
         <div className="h-64 flex items-center justify-center text-gray-500 text-sm">

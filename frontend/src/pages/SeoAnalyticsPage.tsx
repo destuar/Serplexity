@@ -48,7 +48,7 @@ const SeoAnalyticsPage: React.FC = () => {
 
   // Cache-aware integration status checking (30 minute cache - integrations don't change often)
   const integrationCache = usePageCache<IntegrationStatus>({
-    fetcher: async (): Promise<IntegrationStatus> => {
+    fetcher: async (ctx): Promise<IntegrationStatus> => {
       if (!selectedCompany?.id) {
         throw new Error("No company selected");
       }
@@ -57,19 +57,14 @@ const SeoAnalyticsPage: React.FC = () => {
 
       // Proceed without throwing on transient unmounts; hook handles cancellations
 
-      // Add timeout to prevent hanging requests
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        console.log("[SeoAnalyticsPage] Request timeout, aborting...");
-        controller.abort();
-      }, 10000); // 10 second timeout
+      // Removed manual timeout abort: let the request complete to avoid spinner locks
 
       try {
         const response = await apiClient.get(
           `/website-analytics/companies/${selectedCompany.id}/integrations`,
-          { signal: controller.signal }
+          { signal: ctx?.signal }
         );
-        clearTimeout(timeoutId);
+        // no-op
 
         // Don't throw on transient unmounts; allow caching for next mount
 
@@ -131,7 +126,7 @@ const SeoAnalyticsPage: React.FC = () => {
           pendingIntegrationId: null,
         };
       } catch (error: unknown) {
-        clearTimeout(timeoutId);
+        // no-op
         const err = error as Error;
         if (err.name === "AbortError") {
           console.error("[SeoAnalyticsPage] Integration check aborted");
@@ -158,6 +153,7 @@ const SeoAnalyticsPage: React.FC = () => {
     pageType: "seo-analytics",
     companyId: selectedCompany?.id || "",
     enabled: !!selectedCompany?.id,
+    staleWhileRevalidate: true,
   });
 
   // Derived data from cache
@@ -266,7 +262,7 @@ const SeoAnalyticsPage: React.FC = () => {
     );
   }
 
-  if (isLoading) {
+  if (isLoading && !integrationStatus) {
     return (
       <div className="h-full flex items-center justify-center">
         <InlineSpinner size={20} />

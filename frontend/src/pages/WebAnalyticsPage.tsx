@@ -6,17 +6,13 @@
  */
 
 import { ArrowRight, Calendar, RefreshCw, Settings } from "lucide-react";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Bar,
-  CartesianGrid,
-  ComposedChart,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import React, {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import IntegrationSetupWizard from "../components/analytics/IntegrationSetupWizard";
 import FilterDropdown from "../components/dashboard/FilterDropdown";
 import { InlineSpinner } from "../components/ui/InlineSpinner";
@@ -57,54 +53,15 @@ interface WebAnalyticsMetrics {
   }>;
 }
 
-interface MetricOption {
-  key: string;
-  label: string;
-  color: string;
-  type: "line" | "bar";
-}
-
-const METRIC_OPTIONS: MetricOption[] = [
-  { key: "visitors", label: "Visitors", color: "#2563eb", type: "line" }, // Blue-600
-  { key: "revenue", label: "Revenue", color: "#60a5fa", type: "bar" }, // Blue-400 (lighter)
-  { key: "sessions", label: "Sessions", color: "#3b82f6", type: "line" }, // Blue-500
-  {
-    key: "bounceRate",
-    label: "Bounce Rate (%)",
-    color: "#1e40af",
-    type: "line",
-  }, // Blue-800
-  {
-    key: "conversionRate",
-    label: "Conversion Rate (%)",
-    color: "#1e3a8a",
-    type: "line",
-  }, // Blue-900
-  {
-    key: "avgSessionDuration",
-    label: "Avg Session Duration (s)",
-    color: "#93c5fd",
-    type: "line",
-  }, // Blue-300 (lighter)
-  {
-    key: "revenuePerVisitor",
-    label: "Revenue/Visitor",
-    color: "#bfdbfe",
-    type: "line",
-  }, // Blue-200 (lightest)
-  {
-    key: "screenPageViews",
-    label: "Page Views",
-    color: "#0ea5e9",
-    type: "bar",
-  }, // Sky-500
-];
+// Chart is lazy-loaded to reduce initial bundle size
+const WebAnalyticsChart = React.lazy(
+  () => import("../components/charts/WebAnalyticsChartImpl")
+);
 
 const WebAnalyticsPage: React.FC = () => {
   const { setBreadcrumbs } = useNavigation();
   const { selectedCompany } = useCompany();
   const [showSetupWizard, setShowSetupWizard] = useState(false);
-  const [hasIntegrations, setHasIntegrations] = useState(false);
 
   const [filters, setFilters] = useState({
     dateRange: "30d",
@@ -127,161 +84,166 @@ const WebAnalyticsPage: React.FC = () => {
   // Cache-aware data fetching for web analytics (10 minute cache - filter aware)
   // Let the fetcher handle integration checking to avoid race conditions
   const analyticsCache = usePageCache<WebAnalyticsMetrics>({
-    fetcher: useCallback(async (): Promise<WebAnalyticsMetrics> => {
-      if (!selectedCompany?.id) {
-        throw new Error("No company selected");
-      }
+    fetcher: useCallback(
+      async (ctx?: { signal?: AbortSignal }): Promise<WebAnalyticsMetrics> => {
+        if (!selectedCompany?.id) {
+          throw new Error("No company selected");
+        }
 
-      // Check GA4 integration exists first (don't rely on external state)
-      console.log("[WebAnalytics] Fetcher checking GA4 integration status...");
-      const integrationRes = await apiClient.get(
-        "/website-analytics/integrations"
-      );
-      const integrationData = integrationRes.data;
-      const integrationList =
-        (integrationData as { integrations?: unknown })?.integrations ??
-        integrationData;
-
-      const hasGa4Integration = Array.isArray(integrationList)
-        ? integrationList.some(
-            (i: { integrationName?: string; status?: string }) =>
-              i.integrationName === "google_analytics_4" &&
-              i.status === "active"
-          )
-        : false;
-
-      if (!hasGa4Integration) {
-        throw new Error("GA4 integration not active");
-      }
-
-      const now = new Date();
-      const daysMap: { [key: string]: number } = {
-        "7d": 7,
-        "30d": 30,
-        "90d": 90,
-        "1y": 365,
-      };
-      const days = daysMap[filters.dateRange] || 30;
-      const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-
-      const params = new URLSearchParams({
-        startDate: startDate.toISOString().slice(0, 10),
-        endDate: now.toISOString().slice(0, 10),
-      });
-
-      // Try to fetch GA4 metrics from real API
-      const res = await apiClient.get(
-        `/website-analytics/ga4/metrics?${params.toString()}`
-      );
-      const ga4Data = res.data.metrics;
-
-      // Fetch real-time active users
-      let currentActiveUsers = 0;
-      try {
-        const activeUsersRes = await apiClient.get(
-          "/website-analytics/ga4/active-users"
-        );
-        currentActiveUsers = activeUsersRes.data.activeUsers || 0;
-      } catch (activeUsersError) {
-        console.warn(
-          "[WebAnalytics] Failed to fetch active users:",
-          activeUsersError
-        );
-      }
-
-      // Debug: Log the raw GA4 response
-      console.log("[WebAnalytics] Raw GA4 response:", {
-        hasData: !!ga4Data,
-        timeSeriesLength: ga4Data?.timeSeriesData?.length || 0,
-        summaryMetrics: {
-          sessions: ga4Data?.sessions,
-          totalUsers: ga4Data?.totalUsers,
-          screenPageViews: ga4Data?.screenPageViews,
-        },
-      });
-
-      // Debug: Log first few time series entries
-      if (ga4Data?.timeSeriesData?.length > 0) {
+        // Check GA4 integration exists first (don't rely on external state)
         console.log(
-          "[WebAnalytics] First 3 time series entries:",
-          ga4Data.timeSeriesData.slice(0, 3)
+          "[WebAnalytics] Fetcher checking GA4 integration status..."
         );
-      }
+        const integrationRes = await apiClient.get(
+          "/website-analytics/integrations",
+          { signal: ctx?.signal }
+        );
+        const integrationData = integrationRes.data;
+        const integrationList =
+          (integrationData as { integrations?: unknown })?.integrations ??
+          integrationData;
 
-      // Convert real GA4 data to chart format - use real data only with date validation
-      const timeSeriesData = (ga4Data?.timeSeriesData || [])
-        .filter((dayData) => {
-          // Validate date format and that it's a valid date
-          if (!dayData.date) {
-            console.warn(
-              "[WebAnalytics] Filtering out entry with no date:",
-              dayData
-            );
-            return false;
-          }
-          const testDate = new Date(dayData.date);
-          const isValid = !isNaN(testDate.getTime());
-          if (!isValid) {
-            console.warn(
-              "[WebAnalytics] Filtering out entry with invalid date:",
-              dayData.date
-            );
-          }
-          return isValid;
-        })
-        .map((dayData) => ({
-          date: dayData.date,
-          visitors: dayData.totalUsers,
-          revenue: 0, // No revenue data without e-commerce tracking
-          sessions: dayData.sessions,
-          bounceRate: dayData.bounceRate,
-          conversionRate: 0, // No conversion data without conversion goals
-          avgSessionDuration: Math.round(dayData.averageSessionDuration),
-          revenuePerVisitor: 0, // No revenue data without e-commerce tracking
-          screenPageViews: dayData.screenPageViews,
-          avgVisitorsPerDay: dayData.totalUsers, // Same as visitors for daily data
-        }));
+        const hasGa4Integration = Array.isArray(integrationList)
+          ? integrationList.some(
+              (i: { integrationName?: string; status?: string }) =>
+                i.integrationName === "google_analytics_4" &&
+                i.status === "active"
+            )
+          : false;
 
-      // Debug: Log processed time series data
-      console.log("[WebAnalytics] Processed timeSeriesData:", {
-        length: timeSeriesData.length,
-        firstEntry: timeSeriesData[0],
-        lastEntry: timeSeriesData[timeSeriesData.length - 1],
-      });
+        if (!hasGa4Integration) {
+          throw new Error("GA4 integration not active");
+        }
 
-      const enhancedMetrics: WebAnalyticsMetrics = {
-        sessions: ga4Data?.sessions || 0,
-        totalUsers: ga4Data?.totalUsers || 0,
-        screenPageViews: ga4Data?.screenPageViews || 0,
-        averageSessionDuration: Math.round(
-          ga4Data?.averageSessionDuration || 0
-        ),
-        bounceRate: ga4Data?.bounceRate || 0,
-        topPages: ga4Data?.topPages || [],
-        topReferrers: ga4Data?.topReferrers || [],
-        // Revenue metrics - would come from GA4 e-commerce events, show 0 if not available
-        revenue: 0, // GA4 e-commerce revenue - not available without enhanced e-commerce setup
-        revenuePerVisitor: 0, // Calculated from revenue/users - not available without e-commerce
-        conversionRate: 0, // GA4 conversion goals - not available without conversion setup
-        currentVisitors: currentActiveUsers, // Real-time active users from GA4 API
-        timeSeriesData: timeSeriesData,
-      };
+        const now = new Date();
+        const daysMap: { [key: string]: number } = {
+          "7d": 7,
+          "30d": 30,
+          "90d": 90,
+          "1y": 365,
+        };
+        const days = daysMap[filters.dateRange] || 30;
+        const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
 
-      return enhancedMetrics;
-    }, [selectedCompany, filters.dateRange]),
+        const params = new URLSearchParams({
+          startDate: startDate.toISOString().slice(0, 10),
+          endDate: now.toISOString().slice(0, 10),
+        });
+
+        // Try to fetch GA4 metrics from real API
+        const res = await apiClient.get(
+          `/website-analytics/ga4/metrics?${params.toString()}`,
+          { signal: ctx?.signal }
+        );
+        const ga4Data = res.data.metrics;
+
+        // Fetch real-time active users
+        let currentActiveUsers = 0;
+        try {
+          const activeUsersRes = await apiClient.get(
+            "/website-analytics/ga4/active-users",
+            { signal: ctx?.signal }
+          );
+          currentActiveUsers = activeUsersRes.data.activeUsers || 0;
+        } catch (activeUsersError) {
+          console.warn(
+            "[WebAnalytics] Failed to fetch active users:",
+            activeUsersError
+          );
+        }
+
+        // Debug: Log the raw GA4 response
+        console.log("[WebAnalytics] Raw GA4 response:", {
+          hasData: !!ga4Data,
+          timeSeriesLength: ga4Data?.timeSeriesData?.length || 0,
+          summaryMetrics: {
+            sessions: ga4Data?.sessions,
+            totalUsers: ga4Data?.totalUsers,
+            screenPageViews: ga4Data?.screenPageViews,
+          },
+        });
+
+        // Debug: Log first few time series entries
+        if (ga4Data?.timeSeriesData?.length > 0) {
+          console.log(
+            "[WebAnalytics] First 3 time series entries:",
+            ga4Data.timeSeriesData.slice(0, 3)
+          );
+        }
+
+        // Convert real GA4 data to chart format - use real data only with date validation
+        const timeSeriesData = (ga4Data?.timeSeriesData || [])
+          .filter((dayData) => {
+            // Validate date format and that it's a valid date
+            if (!dayData.date) {
+              console.warn(
+                "[WebAnalytics] Filtering out entry with no date:",
+                dayData
+              );
+              return false;
+            }
+            const testDate = new Date(dayData.date);
+            const isValid = !isNaN(testDate.getTime());
+            if (!isValid) {
+              console.warn(
+                "[WebAnalytics] Filtering out entry with invalid date:",
+                dayData.date
+              );
+            }
+            return isValid;
+          })
+          .map((dayData) => ({
+            date: dayData.date,
+            visitors: dayData.totalUsers,
+            revenue: 0, // No revenue data without e-commerce tracking
+            sessions: dayData.sessions,
+            bounceRate: dayData.bounceRate,
+            conversionRate: 0, // No conversion data without conversion goals
+            avgSessionDuration: Math.round(dayData.averageSessionDuration),
+            revenuePerVisitor: 0, // No revenue data without e-commerce tracking
+            screenPageViews: dayData.screenPageViews,
+            avgVisitorsPerDay: dayData.totalUsers, // Same as visitors for daily data
+          }));
+
+        // Debug: Log processed time series data
+        console.log("[WebAnalytics] Processed timeSeriesData:", {
+          length: timeSeriesData.length,
+          firstEntry: timeSeriesData[0],
+          lastEntry: timeSeriesData[timeSeriesData.length - 1],
+        });
+
+        const enhancedMetrics: WebAnalyticsMetrics = {
+          sessions: ga4Data?.sessions || 0,
+          totalUsers: ga4Data?.totalUsers || 0,
+          screenPageViews: ga4Data?.screenPageViews || 0,
+          averageSessionDuration: Math.round(
+            ga4Data?.averageSessionDuration || 0
+          ),
+          bounceRate: ga4Data?.bounceRate || 0,
+          topPages: ga4Data?.topPages || [],
+          topReferrers: ga4Data?.topReferrers || [],
+          // Revenue metrics - would come from GA4 e-commerce events, show 0 if not available
+          revenue: 0, // GA4 e-commerce revenue - not available without enhanced e-commerce setup
+          revenuePerVisitor: 0, // Calculated from revenue/users - not available without e-commerce
+          conversionRate: 0, // GA4 conversion goals - not available without conversion setup
+          currentVisitors: currentActiveUsers, // Real-time active users from GA4 API
+          timeSeriesData: timeSeriesData,
+        };
+
+        return enhancedMetrics;
+      },
+      [selectedCompany, filters.dateRange]
+    ),
     pageType: "web-analytics",
     companyId: selectedCompany?.id || "",
     filters: cacheFilters,
-    enabled: !!selectedCompany?.id, // Remove hasIntegrations dependency to avoid race condition
+    enabled: !!selectedCompany?.id,
+    staleWhileRevalidate: true,
   });
-
-  // Integration loading state - separate from data loading
-  const [integrationLoading, setIntegrationLoading] = useState(true);
 
   // Derived data from cache
   const metrics = useMemo(() => analyticsCache.data, [analyticsCache.data]);
-  const dataLoading = analyticsCache.loading;
-  const isLoading = integrationLoading || (hasIntegrations && dataLoading);
+  const isLoading = analyticsCache.loading;
   const refreshing = analyticsCache.refreshing;
   const error = analyticsCache.error?.message || null;
 
@@ -302,35 +264,7 @@ const WebAnalyticsPage: React.FC = () => {
 
   // Data is now handled by cache above - no manual fetching needed
 
-  useEffect(() => {
-    const checkIntegrations = async () => {
-      if (!selectedCompany) {
-        setIntegrationLoading(false);
-        return;
-      }
-
-      try {
-        setIntegrationLoading(true);
-        const res = await apiClient.get("/website-analytics/integrations");
-        const data = res.data;
-        const list = (data as { integrations?: unknown })?.integrations ?? data;
-        const hasGa4 = Array.isArray(list)
-          ? list.some(
-              (i: { integrationName?: string; status?: string }) =>
-                i.integrationName === "google_analytics_4" &&
-                i.status === "active"
-            )
-          : false;
-        setHasIntegrations(hasGa4);
-      } catch (error) {
-        console.error("Failed to check integrations:", error);
-        setHasIntegrations(false);
-      } finally {
-        setIntegrationLoading(false);
-      }
-    };
-    checkIntegrations();
-  }, [selectedCompany]);
+  // Removed separate integrations pre-check to avoid duplicate requests
 
   const handleFilterChange = useCallback(
     (filterUpdates: { [key: string]: string }) => {
@@ -346,7 +280,6 @@ const WebAnalyticsPage: React.FC = () => {
 
   const handleSetupComplete = useCallback(() => {
     setShowSetupWizard(false);
-    setHasIntegrations(true);
     // Invalidate cache to refresh with new integration
     analyticsCache.invalidate();
     // Force refresh analytics data
@@ -365,18 +298,7 @@ const WebAnalyticsPage: React.FC = () => {
     }
   };
 
-  const formatValue = (value: number, metricKey: string) => {
-    if (metricKey === "bounceRate") return `${value.toFixed(2)}%`;
-    if (metricKey === "conversionRate") return `${value.toFixed(2)}%`;
-    if (metricKey === "avgSessionDuration") {
-      const minutes = Math.floor(value / 60);
-      const seconds = Math.round(value % 60);
-      return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
-    }
-    if (metricKey === "revenue") return `$${value.toLocaleString()}`;
-    if (metricKey === "revenuePerVisitor") return `$${value.toFixed(2)}`;
-    return value.toLocaleString();
-  };
+  // value formatting moved into chart impl
 
   const formatMetricDisplay = (value: number, metricKey: string) => {
     // Show '-' for metrics that have no data
@@ -411,7 +333,7 @@ const WebAnalyticsPage: React.FC = () => {
   }
 
   // Avoid flashing the setup wizard while integration status is still loading
-  if (isLoading) {
+  if (isLoading && !metrics) {
     return (
       <div className="h-full flex items-center justify-center">
         <InlineSpinner size={20} />
@@ -419,7 +341,7 @@ const WebAnalyticsPage: React.FC = () => {
     );
   }
 
-  if (showSetupWizard || !hasIntegrations || isGa4MissingError) {
+  if (showSetupWizard || isGa4MissingError) {
     return (
       <div className="h-full flex flex-col">
         <IntegrationSetupWizard
@@ -588,174 +510,18 @@ const WebAnalyticsPage: React.FC = () => {
                   debugging info
                 </div>
               ) : (
-                <ResponsiveContainer
-                  width="100%"
-                  height="100%"
-                  minHeight={300}
-                  debounce={50}
+                <Suspense
+                  fallback={
+                    <div className="h-full flex items-center justify-center text-gray-500 text-sm">
+                      Loading chart…
+                    </div>
+                  }
                 >
-                  <ComposedChart
-                    data={metrics.timeSeriesData}
-                    margin={{
-                      top: 5,
-                      right: 35,
-                      bottom: 15,
-                      left: 20,
-                    }}
-                    onMouseEnter={() => {
-                      // Debug: Log chart data on hover
-                      console.log("[WebAnalytics] Chart data:", {
-                        dataLength: metrics.timeSeriesData.length,
-                        selectedMetrics,
-                        sampleData: metrics.timeSeriesData.slice(0, 2),
-                      });
-                    }}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="#e2e8f0"
-                      strokeWidth={1}
-                      horizontalPoints={[0]}
-                    />
-                    <XAxis
-                      dataKey="date"
-                      axisLine={{ stroke: "#e2e8f0", strokeWidth: 1 }}
-                      tickLine={false}
-                      tick={{
-                        fontSize: 11,
-                        fill: "#64748b",
-                        textAnchor: "middle",
-                      }}
-                      tickMargin={0}
-                      angle={0}
-                      height={20}
-                      interval={
-                        metrics.timeSeriesData.length > 15
-                          ? Math.floor(metrics.timeSeriesData.length / 8)
-                          : 0
-                      }
-                      tickFormatter={(date) => {
-                        const d = new Date(date);
-                        if (isNaN(d.getTime())) {
-                          return ""; // Return empty string for invalid dates
-                        }
-                        return `${d.getMonth() + 1}/${d.getDate()}`;
-                      }}
-                    />
-                    <YAxis
-                      yAxisId="left"
-                      axisLine={{ stroke: "#e2e8f0", strokeWidth: 1 }}
-                      tickLine={false}
-                      tick={{ fontSize: 11, fill: "#64748b" }}
-                      width={20}
-                    />
-                    <YAxis
-                      yAxisId="right"
-                      orientation="right"
-                      axisLine={{ stroke: "#e2e8f0", strokeWidth: 1 }}
-                      tickLine={false}
-                      tick={{ fontSize: 11, fill: "#64748b" }}
-                      width={20}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#ffffff",
-                        border: "1px solid #e2e8f0",
-                        borderRadius: "8px",
-                        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                        fontSize: "12px",
-                      }}
-                      formatter={(value: number, name: string) => [
-                        formatValue(value, name),
-                        METRIC_OPTIONS.find((opt) => opt.key === name)?.label ||
-                          name,
-                      ]}
-                      labelFormatter={(date) => {
-                        const d = new Date(date);
-                        return isNaN(d.getTime())
-                          ? "Invalid Date"
-                          : d.toLocaleDateString();
-                      }}
-                      cursor={false}
-                      allowEscapeViewBox={{ x: false, y: false }}
-                      isAnimationActive={false}
-                      wrapperStyle={{ outline: "none" }}
-                    />
-
-                    {/* Render bars first (underneath) */}
-                    {selectedMetrics.map((metricKey, index) => {
-                      const option = METRIC_OPTIONS.find(
-                        (opt) => opt.key === metricKey
-                      );
-                      if (!option) return null;
-
-                      const yAxisId = index === 0 ? "left" : "right";
-
-                      // Second metric is always bar
-                      if (index === 1) {
-                        return (
-                          <Bar
-                            key={metricKey}
-                            dataKey={metricKey}
-                            fill="#93c5fd"
-                            fillOpacity={0.8}
-                            yAxisId={yAxisId}
-                            name={option.label}
-                            radius={[2, 2, 0, 0]}
-                          />
-                        );
-                      }
-                      return null;
-                    })}
-
-                    {/* Render lines second (on top) */}
-                    {selectedMetrics.map((metricKey, index) => {
-                      const option = METRIC_OPTIONS.find(
-                        (opt) => opt.key === metricKey
-                      );
-                      if (!option) return null;
-
-                      const yAxisId = index === 0 ? "left" : "right";
-
-                      // First metric is always line
-                      if (index === 0) {
-                        return (
-                          <Line
-                            key={metricKey}
-                            type="monotone"
-                            dataKey={metricKey}
-                            stroke="#1e40af"
-                            strokeWidth={
-                              metrics.timeSeriesData.length > 1 ? 2 : 0
-                            }
-                            dot={false}
-                            activeDot={(props: {
-                              cx?: number;
-                              cy?: number;
-                            }) => {
-                              return (
-                                <circle
-                                  cx={props.cx}
-                                  cy={props.cy}
-                                  r={5}
-                                  fill="#1e40af"
-                                  strokeWidth={1}
-                                  stroke="#ffffff"
-                                />
-                              );
-                            }}
-                            yAxisId={yAxisId}
-                            name={option.label}
-                            connectNulls={false}
-                            isAnimationActive={true}
-                            animationDuration={600}
-                          />
-                        );
-                      }
-                      return null;
-                    })}
-                  </ComposedChart>
-                </ResponsiveContainer>
+                  <WebAnalyticsChart
+                    timeSeriesData={metrics.timeSeriesData}
+                    selectedMetrics={selectedMetrics}
+                  />
+                </Suspense>
               )}
             </div>
           </div>
