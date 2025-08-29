@@ -10,9 +10,8 @@
  * @exports
  * - Header: The main header component.
  */
-import { Bell, Menu, RefreshCw, Settings, User } from "lucide-react";
+import { Bell, Menu, Settings, User } from "lucide-react";
 import React, { useState } from "react";
-import { usePageCacheContext } from "../../contexts/PageCacheContext";
 import Breadcrumb from "../ui/Breadcrumb";
 import EmailNotificationsModal from "./EmailNotificationsModal";
 import ProfileModal from "./ProfileModal";
@@ -28,23 +27,6 @@ const Header: React.FC<HeaderProps> = ({ toggleMobileSidebar }) => {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  
-  const { clearCompany } = usePageCacheContext();
-  
-  const handleRefreshCache = async () => {
-    setIsRefreshing(true);
-    try {
-      // Clear current company cache to force fresh data on next page visits
-      clearCompany();
-      console.log('[Header] Cache refreshed for current company');
-      
-      // Force page refresh to immediately reload current page data
-      window.location.reload();
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
 
   return (
     <>
@@ -60,18 +42,6 @@ const Header: React.FC<HeaderProps> = ({ toggleMobileSidebar }) => {
           <Breadcrumb />
         </div>
         <div className="flex items-center">
-          {/* Cache refresh button - only show in development or when cache exists */}
-          {process.env.NODE_ENV === 'development' && (
-            <button
-              onClick={handleRefreshCache}
-              disabled={isRefreshing}
-              className="p-1.5 ml-3 rounded-lg hover:bg-gray-100 disabled:opacity-50"
-              title="Clear cache and refresh data"
-            >
-              <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
-            </button>
-          )}
-          
           <button
             onClick={() => setShowSettingsModal(true)}
             className="p-1.5 ml-3 rounded-lg hover:bg-gray-100"

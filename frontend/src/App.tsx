@@ -46,6 +46,8 @@ import BlogEditorPage from "./pages/BlogEditorPage";
 import BlogPostPage from "./pages/BlogPostPage";
 import CompanyOnboardingPage from "./pages/CompanyOnboardingPage";
 import ExperimentalSearchPage from "./pages/ExperimentalSearchPage";
+import GA4SetupPage from "./pages/GA4SetupPage";
+import IntegrationErrorPage from "./pages/IntegrationErrorPage";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import OAuthCallbackPage from "./pages/OAuthCallbackPage";
@@ -54,8 +56,6 @@ import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import RegisterPage from "./pages/RegisterPage";
 import ResearchPage from "./pages/ResearchPage";
 import TermsOfServicePage from "./pages/TermsOfServicePage";
-import IntegrationErrorPage from "./pages/IntegrationErrorPage";
-import GA4SetupPage from "./pages/GA4SetupPage";
 
 const DashboardRoutes: React.FC = () => (
   <NavigationProvider>
@@ -72,10 +72,10 @@ const DashboardRoutes: React.FC = () => (
               element={<VisibilityReportPage />}
             />
             <Route path="/web-audit" element={<WebAuditPage />} />
-            <Route
-              path="/web-analytics"
-              element={<WebAnalyticsPage />}
-            />
+            <Route path="/web-analytics" element={<WebAnalyticsPage />} />
+            {/* Canonical SEO Rankings route */}
+            <Route path="/seo-rankings" element={<SeoAnalyticsPage />} />
+            {/* Backward-compat alias for older links */}
             <Route
               path="/visibility-analytics"
               element={<SeoAnalyticsPage />}
@@ -89,6 +89,8 @@ const DashboardRoutes: React.FC = () => (
               element={<ExperimentalSearchPage />}
             />
             <Route path="/analytics/ga4-setup" element={<GA4SetupPage />} />
+            {/* Backward-compat route for older redirects */}
+            <Route path="/seo-rankings" element={<SeoAnalyticsPage />} />
           </Routes>
         </DashboardLayout>
       </div>
@@ -139,7 +141,10 @@ function App() {
           <Route path="/research/edit/:id" element={<BlogEditorPage />} />
           <Route path="/research/:slug" element={<BlogPostPage />} />
           <Route path="/oauth-callback" element={<OAuthCallbackPage />} />
-          <Route path="/analytics/integration/error" element={<IntegrationErrorPage />} />
+          <Route
+            path="/analytics/integration/error"
+            element={<IntegrationErrorPage />}
+          />
           <Route element={<ProtectedRoute />}>
             <Route path="/*" element={<ProtectedArea />} />
           </Route>

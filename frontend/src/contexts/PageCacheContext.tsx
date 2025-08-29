@@ -8,7 +8,7 @@
  * @version 1.0.0 - Smart Navigation Caching Implementation
  */
 
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useEffect, useRef, useState } from 'react';
 import { useCompany } from './CompanyContext';
 import { 
   pageCache, 
@@ -240,7 +240,7 @@ export const PageCacheProvider: React.FC<PageCacheProviderProps> = ({ children }
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
       // Add cache context to window for debugging
-      (window as any).__SERPLEXITY_CACHE_CONTEXT__ = {
+      (window as Record<string, unknown>).__SERPLEXITY_CACHE_CONTEXT__ = {
         stats: () => stats,
         health: () => getCacheHealth(),
         clearAll,
@@ -271,57 +271,3 @@ export const PageCacheProvider: React.FC<PageCacheProviderProps> = ({ children }
   );
 };
 
-/**
- * Hook to access page cache context
- */
-export const usePageCacheContext = (): CacheContextValue => {
-  const context = useContext(PageCacheContext);
-  if (!context) {
-    throw new Error('usePageCacheContext must be used within a PageCacheProvider');
-  }
-  return context;
-};
-
-/**
- * Higher-order component to wrap components with cache management
- */
-export function withCacheManagement<P extends object>(
-  Component: React.ComponentType<P>
-): React.ComponentType<P> {
-  const WrappedComponent = (props: P) => {
-    return (
-      <PageCacheProvider>
-        <Component {...props} />
-      </PageCacheProvider>
-    );
-  };
-  
-  WrappedComponent.displayName = `withCacheManagement(${Component.displayName || Component.name})`;
-  return WrappedComponent;
-}
-
-/**
- * Hook for automatic cache invalidation on data mutations
- */
-export function useAutoInvalidate() {
-  const { invalidate } = usePageCacheContext();
-  const { selectedCompany } = useCompany();
-  
-  const invalidateOnMutation = useCallback((
-    pageTypes: PageType[] = [],
-    companyId?: string
-  ) => {
-    const targetCompanyId = companyId || selectedCompany?.id;
-    
-    pageTypes.forEach(pageType => {
-      invalidate(pageType, targetCompanyId);
-    });
-    
-    if (pageTypes.length === 0) {
-      // Invalidate all if no specific page types provided
-      invalidate(undefined, targetCompanyId);
-    }
-  }, [invalidate, selectedCompany?.id]);
-  
-  return { invalidateOnMutation };
-}

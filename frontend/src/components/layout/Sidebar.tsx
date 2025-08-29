@@ -413,17 +413,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                   >
                     <Eye className="text-gray-600" size={16} />
                     {!isDesktopCollapsed && (
-                      <span className="text-sm font-medium">
-                        Web Analytics
-                      </span>
+                      <span className="text-sm font-medium">Web Analytics</span>
                     )}
                   </Link>
                   <Link
-                    to="/visibility-analytics"
-                    className={getLinkClass("/visibility-analytics")}
+                    to="/seo-rankings"
+                    className={getLinkClass("/seo-rankings")}
                     onClick={(e) => {
                       if (isDesktopCollapsed) e.stopPropagation();
-                      closeEmbeddedPageForRoute("/visibility-analytics");
+                      closeEmbeddedPageForRoute("/seo-rankings");
                     }}
                   >
                     <TrendingUp className="text-gray-600" size={16} />

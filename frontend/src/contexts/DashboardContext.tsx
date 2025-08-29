@@ -64,8 +64,7 @@ import {
 import { 
   getCachedData, 
   setCachedData, 
-  invalidateCache,
-  PageType 
+  invalidateCache
 } from "../utils/pageCache";
 // Error handling simplified for production readiness
 

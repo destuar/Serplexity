@@ -18,7 +18,11 @@ import logger from "../utils/logger";
 
 // Validation schemas
 const CreateIntegrationSchema = z.object({
-  integrationName: z.enum(["google_search_console", "manual_tracking", "google_analytics_4"]),
+  integrationName: z.enum([
+    "google_search_console",
+    "manual_tracking",
+    "google_analytics_4",
+  ]),
   verificationMethod: z
     .enum(["meta_tag", "dns_record", "file_upload", "oauth"])
     .optional(),
@@ -56,18 +60,19 @@ export const createIntegration = async (
         paramsCompanyId: req.params.companyId,
         userCompanyId: req.user?.companyId,
         userCompaniesCount: req.user?.companies?.length || 0,
-        firstCompanyId: req.user?.companies?.[0]?.id
+        firstCompanyId: req.user?.companies?.[0]?.id,
       });
-      res.status(400).json({ 
+      res.status(400).json({
         error: "Company ID is required",
-        message: "Please create a company first or ensure you're associated with a company"
+        message:
+          "Please create a company first or ensure you're associated with a company",
       });
       return;
     }
 
     // Verify user has access to this company
     if (req.params.companyId) {
-      const userCompanyIds = req.user?.companies?.map(c => c.id) || [];
+      const userCompanyIds = req.user?.companies?.map((c) => c.id) || [];
       if (!userCompanyIds.includes(companyId)) {
         res.status(403).json({ error: "Access denied to this company" });
         return;
@@ -90,7 +95,10 @@ export const createIntegration = async (
         ...result,
         authUrl,
       });
-    } else if (validatedData.integrationName === "google_analytics_4" && validatedData.verificationMethod === "oauth") {
+    } else if (
+      validatedData.integrationName === "google_analytics_4" &&
+      validatedData.verificationMethod === "oauth"
+    ) {
       // Return OAuth URL for GA4
       const authUrl = googleAnalyticsService.getAuthUrl(result.integration.id);
       res.json({
@@ -196,15 +204,16 @@ export const handleOAuthCallback = async (
     // Redirect based on integration type
     const env = (await import("../config/env")).default;
     let redirectUrl: string;
-    
+
     if (integration.integrationName === "google_analytics_4") {
       redirectUrl = `${env.FRONTEND_URL}/analytics/ga4-setup?integrationId=${integrationId}`;
     } else if (integration.integrationName === "google_search_console") {
-      redirectUrl = `${env.FRONTEND_URL}/seo-rankings`;
+      // Canonical SEO Rankings route with integration context for property selection
+      redirectUrl = `${env.FRONTEND_URL}/seo-rankings?integrationId=${integrationId}`;
     } else {
       redirectUrl = `${env.FRONTEND_URL}/web-analytics`;
     }
-    
+
     res.redirect(redirectUrl);
   } catch (error) {
     logger.error("Error handling OAuth callback:", error);
@@ -260,7 +269,7 @@ export const getIntegrations = async (
 
     // Verify user has access to this company
     if (req.params.companyId) {
-      const userCompanyIds = req.user?.companies?.map(c => c.id) || [];
+      const userCompanyIds = req.user?.companies?.map((c) => c.id) || [];
       if (!userCompanyIds.includes(companyId)) {
         res.status(403).json({ error: "Access denied to this company" });
         return;
@@ -296,7 +305,7 @@ export const getMetrics = async (
 
     // Verify user has access to this company
     if (req.params.companyId) {
-      const userCompanyIds = req.user?.companies?.map(c => c.id) || [];
+      const userCompanyIds = req.user?.companies?.map((c) => c.id) || [];
       if (!userCompanyIds.includes(companyId)) {
         res.status(403).json({ error: "Access denied to this company" });
         return;
@@ -352,7 +361,7 @@ export const getGa4Metrics = async (
 
     // Verify user has access to this company
     if (req.params.companyId) {
-      const userCompanyIds = req.user?.companies?.map(c => c.id) || [];
+      const userCompanyIds = req.user?.companies?.map((c) => c.id) || [];
       if (!userCompanyIds.includes(companyId)) {
         res.status(403).json({ error: "Access denied to this company" });
         return;
@@ -398,24 +407,36 @@ export const getGa4Metrics = async (
       return;
     }
 
-    const stored = await googleOAuthTokenService.getDecryptedToken(companyId, "ga4");
+    const stored = await googleOAuthTokenService.getDecryptedToken(
+      companyId,
+      "ga4"
+    );
     if (!stored?.accessToken) {
       res.status(400).json({ error: "No Google OAuth token. Reconnect GA4." });
       return;
     }
 
     let accessToken = stored.accessToken;
-    
+
     // Try to refresh token if it's expired or close to expiring
-    if (stored.expiry && stored.expiry <= new Date(Date.now() + 5 * 60 * 1000)) { // 5 minutes buffer
+    if (
+      stored.expiry &&
+      stored.expiry <= new Date(Date.now() + 5 * 60 * 1000)
+    ) {
+      // 5 minutes buffer
       try {
         if (!stored.refreshToken) {
-          res.status(400).json({ error: "Access token expired and no refresh token available. Please reconnect GA4." });
+          res.status(400).json({
+            error:
+              "Access token expired and no refresh token available. Please reconnect GA4.",
+          });
           return;
         }
-        
-        const refreshedTokens = await googleAnalyticsService.refreshAccessToken(stored.refreshToken);
-        
+
+        const refreshedTokens = await googleAnalyticsService.refreshAccessToken(
+          stored.refreshToken
+        );
+
         // Update stored tokens
         await googleOAuthTokenService.upsertToken(
           companyId,
@@ -424,12 +445,17 @@ export const getGa4Metrics = async (
           refreshedTokens.refresh_token,
           refreshedTokens.expiry_date
         );
-        
+
         accessToken = refreshedTokens.access_token;
         logger.info(`[GA4] Refreshed access token for company ${companyId}`);
       } catch (refreshError) {
-        logger.error(`[GA4] Failed to refresh token for company ${companyId}:`, refreshError);
-        res.status(400).json({ error: "Failed to refresh access token. Please reconnect GA4." });
+        logger.error(
+          `[GA4] Failed to refresh token for company ${companyId}:`,
+          refreshError
+        );
+        res.status(400).json({
+          error: "Failed to refresh access token. Please reconnect GA4.",
+        });
         return;
       }
     }
@@ -444,16 +470,28 @@ export const getGa4Metrics = async (
       res.json({ metrics });
     } catch (apiError: any) {
       // If we get a 401 unauthorized error, try to refresh the token once
-      if (apiError.code === 401 || apiError.message?.includes('unauthorized') || apiError.message?.includes('invalid_grant')) {
+      if (
+        apiError.code === 401 ||
+        apiError.message?.includes("unauthorized") ||
+        apiError.message?.includes("invalid_grant")
+      ) {
         try {
           if (!stored.refreshToken) {
-            res.status(400).json({ error: "Access token unauthorized and no refresh token available. Please reconnect GA4." });
+            res.status(400).json({
+              error:
+                "Access token unauthorized and no refresh token available. Please reconnect GA4.",
+            });
             return;
           }
-          
-          logger.info(`[GA4] API call failed with 401, attempting token refresh for company ${companyId}`);
-          const refreshedTokens = await googleAnalyticsService.refreshAccessToken(stored.refreshToken);
-          
+
+          logger.info(
+            `[GA4] API call failed with 401, attempting token refresh for company ${companyId}`
+          );
+          const refreshedTokens =
+            await googleAnalyticsService.refreshAccessToken(
+              stored.refreshToken
+            );
+
           // Update stored tokens
           await googleOAuthTokenService.upsertToken(
             companyId,
@@ -462,7 +500,7 @@ export const getGa4Metrics = async (
             refreshedTokens.refresh_token,
             refreshedTokens.expiry_date
           );
-          
+
           // Retry the API call with new token
           const metrics = await googleAnalyticsService.getSummaryMetrics(
             refreshedTokens.access_token,
@@ -471,10 +509,18 @@ export const getGa4Metrics = async (
             endDateParam
           );
           res.json({ metrics });
-          logger.info(`[GA4] Successfully refreshed token and retried API call for company ${companyId}`);
+          logger.info(
+            `[GA4] Successfully refreshed token and retried API call for company ${companyId}`
+          );
         } catch (retryError) {
-          logger.error(`[GA4] Failed to refresh token after API 401 for company ${companyId}:`, retryError);
-          res.status(400).json({ error: "Token refresh failed after API unauthorized error. Please reconnect GA4." });
+          logger.error(
+            `[GA4] Failed to refresh token after API 401 for company ${companyId}:`,
+            retryError
+          );
+          res.status(400).json({
+            error:
+              "Token refresh failed after API unauthorized error. Please reconnect GA4.",
+          });
         }
       } else {
         // Re-throw non-auth errors
@@ -507,7 +553,7 @@ export const getGa4ActiveUsers = async (
 
     // Verify user has access to this company
     if (req.params.companyId) {
-      const userCompanyIds = req.user?.companies?.map(c => c.id) || [];
+      const userCompanyIds = req.user?.companies?.map((c) => c.id) || [];
       if (!userCompanyIds.includes(companyId)) {
         res.status(403).json({ error: "Access denied to this company" });
         return;
@@ -529,7 +575,8 @@ export const getGa4ActiveUsers = async (
 
     if (!ga4Integration && !propertyIdParam) {
       res.status(404).json({
-        error: "No active GA4 integration found. Connect GA4 or provide propertyId.",
+        error:
+          "No active GA4 integration found. Connect GA4 or provide propertyId.",
       });
       return;
     }
@@ -537,29 +584,41 @@ export const getGa4ActiveUsers = async (
     const propertyId = propertyIdParam || ga4Integration?.trackingCode;
     if (!propertyId) {
       res.status(400).json({
-        error: "GA4 propertyId is required. Store it during integration or pass ?propertyId=",
+        error:
+          "GA4 propertyId is required. Store it during integration or pass ?propertyId=",
       });
       return;
     }
 
-    const stored = await googleOAuthTokenService.getDecryptedToken(companyId, "ga4");
+    const stored = await googleOAuthTokenService.getDecryptedToken(
+      companyId,
+      "ga4"
+    );
     if (!stored?.accessToken) {
       res.status(400).json({ error: "No Google OAuth token. Reconnect GA4." });
       return;
     }
 
     let accessToken = stored.accessToken;
-    
+
     // Try to refresh token if it's expired or close to expiring
-    if (stored.expiry && stored.expiry <= new Date(Date.now() + 5 * 60 * 1000)) {
+    if (
+      stored.expiry &&
+      stored.expiry <= new Date(Date.now() + 5 * 60 * 1000)
+    ) {
       try {
         if (!stored.refreshToken) {
-          res.status(400).json({ error: "Access token expired and no refresh token available. Please reconnect GA4." });
+          res.status(400).json({
+            error:
+              "Access token expired and no refresh token available. Please reconnect GA4.",
+          });
           return;
         }
-        
-        const refreshedTokens = await googleAnalyticsService.refreshAccessToken(stored.refreshToken);
-        
+
+        const refreshedTokens = await googleAnalyticsService.refreshAccessToken(
+          stored.refreshToken
+        );
+
         // Update stored tokens
         await googleOAuthTokenService.upsertToken(
           companyId,
@@ -568,12 +627,17 @@ export const getGa4ActiveUsers = async (
           refreshedTokens.refresh_token,
           refreshedTokens.expiry_date
         );
-        
+
         accessToken = refreshedTokens.access_token;
         logger.info(`[GA4] Refreshed access token for company ${companyId}`);
       } catch (refreshError) {
-        logger.error(`[GA4] Failed to refresh token for company ${companyId}:`, refreshError);
-        res.status(400).json({ error: "Failed to refresh access token. Please reconnect GA4." });
+        logger.error(
+          `[GA4] Failed to refresh token for company ${companyId}:`,
+          refreshError
+        );
+        res.status(400).json({
+          error: "Failed to refresh access token. Please reconnect GA4.",
+        });
         return;
       }
     }
@@ -586,16 +650,28 @@ export const getGa4ActiveUsers = async (
       res.json({ activeUsers });
     } catch (apiError: any) {
       // If we get a 401 unauthorized error, try to refresh the token once
-      if (apiError.code === 401 || apiError.message?.includes('unauthorized') || apiError.message?.includes('invalid_grant')) {
+      if (
+        apiError.code === 401 ||
+        apiError.message?.includes("unauthorized") ||
+        apiError.message?.includes("invalid_grant")
+      ) {
         try {
           if (!stored.refreshToken) {
-            res.status(400).json({ error: "Access token unauthorized and no refresh token available. Please reconnect GA4." });
+            res.status(400).json({
+              error:
+                "Access token unauthorized and no refresh token available. Please reconnect GA4.",
+            });
             return;
           }
-          
-          logger.info(`[GA4] Real-time API call failed with 401, attempting token refresh for company ${companyId}`);
-          const refreshedTokens = await googleAnalyticsService.refreshAccessToken(stored.refreshToken);
-          
+
+          logger.info(
+            `[GA4] Real-time API call failed with 401, attempting token refresh for company ${companyId}`
+          );
+          const refreshedTokens =
+            await googleAnalyticsService.refreshAccessToken(
+              stored.refreshToken
+            );
+
           // Update stored tokens
           await googleOAuthTokenService.upsertToken(
             companyId,
@@ -604,17 +680,26 @@ export const getGa4ActiveUsers = async (
             refreshedTokens.refresh_token,
             refreshedTokens.expiry_date
           );
-          
+
           // Retry the API call with new token
-          const activeUsers = await googleAnalyticsService.getCurrentActiveUsers(
-            refreshedTokens.access_token,
-            propertyId
-          );
+          const activeUsers =
+            await googleAnalyticsService.getCurrentActiveUsers(
+              refreshedTokens.access_token,
+              propertyId
+            );
           res.json({ activeUsers });
-          logger.info(`[GA4] Successfully refreshed token and retried real-time API call for company ${companyId}`);
+          logger.info(
+            `[GA4] Successfully refreshed token and retried real-time API call for company ${companyId}`
+          );
         } catch (retryError) {
-          logger.error(`[GA4] Failed to refresh token after real-time API 401 for company ${companyId}:`, retryError);
-          res.status(400).json({ error: "Token refresh failed after API unauthorized error. Please reconnect GA4." });
+          logger.error(
+            `[GA4] Failed to refresh token after real-time API 401 for company ${companyId}:`,
+            retryError
+          );
+          res.status(400).json({
+            error:
+              "Token refresh failed after API unauthorized error. Please reconnect GA4.",
+          });
         }
       } else {
         // Re-throw non-auth errors
@@ -678,9 +763,11 @@ export const getGSCProperties = async (
     }
 
     // Get the integration to verify it exists and belongs to the company
-    const prisma = await (await import("../config/dbCache")).dbCache.getPrimaryClient();
+    const prisma = await (
+      await import("../config/dbCache")
+    ).dbCache.getPrimaryClient();
     const integration = await prisma.analyticsIntegration.findFirst({
-      where: { id: integrationId, companyId }
+      where: { id: integrationId, companyId },
     });
 
     if (!integration) {
@@ -689,20 +776,27 @@ export const getGSCProperties = async (
     }
 
     // Get GSC token for this company
-    const stored = await googleOAuthTokenService.getDecryptedToken(companyId, "gsc");
+    const stored = await googleOAuthTokenService.getDecryptedToken(
+      companyId,
+      "gsc"
+    );
     if (!stored?.accessToken) {
-      res.status(400).json({ error: "No Google Search Console OAuth token. Complete OAuth first." });
+      res.status(400).json({
+        error: "No Google Search Console OAuth token. Complete OAuth first.",
+      });
       return;
     }
 
     // Fetch available properties from GSC
-    const properties = await googleSearchConsoleService.getProperties(stored.accessToken);
-    
+    const properties = await googleSearchConsoleService.getProperties(
+      stored.accessToken
+    );
+
     res.json({
-      properties: properties.map(prop => ({
+      properties: properties.map((prop) => ({
         siteUrl: prop.siteUrl,
-        permissionLevel: prop.permissionLevel
-      }))
+        permissionLevel: prop.permissionLevel,
+      })),
     });
   } catch (error) {
     logger.error("Error getting GSC properties:", error);
@@ -796,7 +890,7 @@ export const getIntegrationHealth = async (
 
     // Verify user has access to this company
     if (req.params.companyId) {
-      const userCompanyIds = req.user?.companies?.map(c => c.id) || [];
+      const userCompanyIds = req.user?.companies?.map((c) => c.id) || [];
       if (!userCompanyIds.includes(companyId)) {
         res.status(403).json({ error: "Access denied to this company" });
         return;
@@ -841,13 +935,20 @@ export const getGA4Properties = async (
       return;
     }
 
-    const stored = await googleOAuthTokenService.getDecryptedToken(companyId, "ga4");
+    const stored = await googleOAuthTokenService.getDecryptedToken(
+      companyId,
+      "ga4"
+    );
     if (!stored?.accessToken) {
-      res.status(400).json({ error: "No Google OAuth token. Complete GA4 OAuth first." });
+      res
+        .status(400)
+        .json({ error: "No Google OAuth token. Complete GA4 OAuth first." });
       return;
     }
 
-    const properties = await googleAnalyticsService.discoverGA4Properties(stored.accessToken);
+    const properties = await googleAnalyticsService.discoverGA4Properties(
+      stored.accessToken
+    );
     res.json({ properties });
   } catch (error) {
     logger.error("Error getting GA4 properties:", error);
@@ -876,7 +977,7 @@ export const getGscMetrics = async (
 
     // Verify user has access to this company
     if (req.params.companyId) {
-      const userCompanyIds = req.user?.companies?.map(c => c.id) || [];
+      const userCompanyIds = req.user?.companies?.map((c) => c.id) || [];
       if (!userCompanyIds.includes(companyId)) {
         res.status(403).json({ error: "Access denied to this company" });
         return;
@@ -893,8 +994,9 @@ export const getGscMetrics = async (
       return;
     }
 
-    // Validate GSC integration exists and is active  
-    const validation = await gscAnalyticsService.validateGscIntegration(companyId);
+    // Validate GSC integration exists and is active
+    const validation =
+      await gscAnalyticsService.validateGscIntegration(companyId);
     if (!validation.isValid) {
       res.status(404).json({
         error: validation.error || "No active GSC integration found",
@@ -912,24 +1014,39 @@ export const getGscMetrics = async (
     }
 
     // Get GSC token for real-time API calls (like GA4)
-    const stored = await googleOAuthTokenService.getDecryptedToken(companyId, "gsc");
+    const stored = await googleOAuthTokenService.getDecryptedToken(
+      companyId,
+      "gsc"
+    );
     if (!stored?.accessToken) {
-      res.status(400).json({ error: "No Google Search Console OAuth token. Reconnect GSC." });
+      res.status(400).json({
+        error: "No Google Search Console OAuth token. Reconnect GSC.",
+      });
       return;
     }
 
     let accessToken = stored.accessToken;
-    
+
     // Try to refresh token if it's expired or close to expiring
-    if (stored.expiry && stored.expiry <= new Date(Date.now() + 5 * 60 * 1000)) { // 5 minutes buffer
+    if (
+      stored.expiry &&
+      stored.expiry <= new Date(Date.now() + 5 * 60 * 1000)
+    ) {
+      // 5 minutes buffer
       try {
         if (!stored.refreshToken) {
-          res.status(400).json({ error: "Access token expired and no refresh token available. Please reconnect GSC." });
+          res.status(400).json({
+            error:
+              "Access token expired and no refresh token available. Please reconnect GSC.",
+          });
           return;
         }
-        
-        const refreshedTokens = await googleSearchConsoleService.refreshAccessToken(stored.refreshToken);
-        
+
+        const refreshedTokens =
+          await googleSearchConsoleService.refreshAccessToken(
+            stored.refreshToken
+          );
+
         // Update stored tokens
         await googleOAuthTokenService.upsertToken(
           companyId,
@@ -939,12 +1056,17 @@ export const getGscMetrics = async (
           refreshedTokens.expiry_date,
           "gsc"
         );
-        
+
         accessToken = refreshedTokens.access_token;
         logger.info(`[GSC] Refreshed access token for company ${companyId}`);
       } catch (refreshError) {
-        logger.error(`[GSC] Failed to refresh token for company ${companyId}:`, refreshError);
-        res.status(400).json({ error: "Failed to refresh access token. Please reconnect GSC." });
+        logger.error(
+          `[GSC] Failed to refresh token for company ${companyId}:`,
+          refreshError
+        );
+        res.status(400).json({
+          error: "Failed to refresh access token. Please reconnect GSC.",
+        });
         return;
       }
     }
@@ -960,16 +1082,28 @@ export const getGscMetrics = async (
       res.json({ metrics });
     } catch (apiError: any) {
       // If we get a 401 unauthorized error, try to refresh the token once
-      if (apiError.code === 401 || apiError.message?.includes('unauthorized') || apiError.message?.includes('invalid_grant')) {
+      if (
+        apiError.code === 401 ||
+        apiError.message?.includes("unauthorized") ||
+        apiError.message?.includes("invalid_grant")
+      ) {
         try {
           if (!stored.refreshToken) {
-            res.status(400).json({ error: "Access token unauthorized and no refresh token available. Please reconnect GSC." });
+            res.status(400).json({
+              error:
+                "Access token unauthorized and no refresh token available. Please reconnect GSC.",
+            });
             return;
           }
-          
-          logger.info(`[GSC] API call failed with 401, attempting token refresh for company ${companyId}`);
-          const refreshedTokens = await googleSearchConsoleService.refreshAccessToken(stored.refreshToken);
-          
+
+          logger.info(
+            `[GSC] API call failed with 401, attempting token refresh for company ${companyId}`
+          );
+          const refreshedTokens =
+            await googleSearchConsoleService.refreshAccessToken(
+              stored.refreshToken
+            );
+
           // Update stored tokens
           await googleOAuthTokenService.upsertToken(
             companyId,
@@ -979,7 +1113,7 @@ export const getGscMetrics = async (
             refreshedTokens.expiry_date,
             "gsc"
           );
-          
+
           // Retry the API call with new token
           const metrics = await googleSearchConsoleService.getSummaryMetrics(
             refreshedTokens.access_token,
@@ -988,10 +1122,18 @@ export const getGscMetrics = async (
             endDateParam
           );
           res.json({ metrics });
-          logger.info(`[GSC] Successfully refreshed token and retried API call for company ${companyId}`);
+          logger.info(
+            `[GSC] Successfully refreshed token and retried API call for company ${companyId}`
+          );
         } catch (retryError) {
-          logger.error(`[GSC] Failed to refresh token after API 401 for company ${companyId}:`, retryError);
-          res.status(400).json({ error: "Token refresh failed after API unauthorized error. Please reconnect GSC." });
+          logger.error(
+            `[GSC] Failed to refresh token after API 401 for company ${companyId}:`,
+            retryError
+          );
+          res.status(400).json({
+            error:
+              "Token refresh failed after API unauthorized error. Please reconnect GSC.",
+          });
         }
       } else {
         // Re-throw non-auth errors
@@ -1020,7 +1162,9 @@ export const setGSCProperty = async (
     const companyId = req.user?.companyId;
 
     if (!integrationId || !siteUrl) {
-      res.status(400).json({ error: "Integration ID and site URL are required" });
+      res
+        .status(400)
+        .json({ error: "Integration ID and site URL are required" });
       return;
     }
 
@@ -1030,9 +1174,15 @@ export const setGSCProperty = async (
     }
 
     // Get the integration to verify it exists and belongs to the company
-    const prisma = await (await import("../config/dbCache")).dbCache.getPrimaryClient();
+    const prisma = await (
+      await import("../config/dbCache")
+    ).dbCache.getPrimaryClient();
     const integration = await prisma.analyticsIntegration.findFirst({
-      where: { id: integrationId, companyId, integrationName: "google_search_console" }
+      where: {
+        id: integrationId,
+        companyId,
+        integrationName: "google_search_console",
+      },
     });
 
     if (!integration) {
@@ -1041,9 +1191,14 @@ export const setGSCProperty = async (
     }
 
     // Get GSC token and validate property access
-    const stored = await googleOAuthTokenService.getDecryptedToken(companyId, "gsc");
+    const stored = await googleOAuthTokenService.getDecryptedToken(
+      companyId,
+      "gsc"
+    );
     if (!stored?.accessToken) {
-      res.status(400).json({ error: "No Google Search Console OAuth token. Complete OAuth first." });
+      res.status(400).json({
+        error: "No Google Search Console OAuth token. Complete OAuth first.",
+      });
       return;
     }
 
@@ -1054,7 +1209,9 @@ export const setGSCProperty = async (
     );
 
     if (!hasAccess) {
-      res.status(403).json({ error: "No access to the specified Search Console property" });
+      res
+        .status(403)
+        .json({ error: "No access to the specified Search Console property" });
       return;
     }
 
@@ -1064,8 +1221,8 @@ export const setGSCProperty = async (
       data: {
         gscPropertyUrl: siteUrl,
         status: "active",
-        verificationMethod: "oauth"
-      }
+        verificationMethod: "oauth",
+      },
     });
 
     // Trigger initial data sync
@@ -1075,16 +1232,16 @@ export const setGSCProperty = async (
       logger.warn("Initial GSC data sync failed, will retry later:", syncError);
     }
 
-    res.json({ 
+    res.json({
       success: true,
       message: "GSC property selected successfully",
-      siteUrl 
+      siteUrl,
     });
   } catch (error) {
     logger.error("Error setting GSC property:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Failed to set GSC property",
-      message: (error as Error).message 
+      message: (error as Error).message,
     });
   }
 };
@@ -1120,7 +1277,9 @@ export const setGA4Property = async (
       },
     });
 
-    logger.info(`[GA4] Set property ${propertyId} for integration ${integrationId}`);
+    logger.info(
+      `[GA4] Set property ${propertyId} for integration ${integrationId}`
+    );
     res.json({ success: true, integration });
   } catch (error) {
     logger.error("Error setting GA4 property:", error);

@@ -3,7 +3,7 @@
  * @description Competitor management page for viewing and managing competitors.
  * Displays companies in a list format with logos, allows accepting/declining suggested competitors.
  */
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Check, X, Plus, ExternalLink, Users, Edit2, Loader as _Loader } from 'lucide-react';
 import { InlineSpinner as _InlineSpinner } from '../components/ui/InlineSpinner';
 import { useCompany } from '../contexts/CompanyContext';
@@ -494,7 +494,8 @@ const CompetitorsPage = () => {
     }, [])
   });
 
-  const competitors = competitorsCache.data || [];
+  // Extract competitors data, computing once to avoid changing references
+  const competitors = useMemo(() => competitorsCache.data || [], [competitorsCache.data]);
   const isLoading = competitorsCache.loading;
   
 

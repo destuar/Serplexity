@@ -30,6 +30,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useCompany } from "../contexts/CompanyContext";
 import { useDashboard } from "../hooks/useDashboard";
 import { useEmbeddedPage } from "../hooks/useEmbeddedPage";
+import { usePageCache } from "../hooks/usePageCache";
 import { useNavigation } from "../hooks/useNavigation";
 import { useReportGeneration } from "../hooks/useReportGeneration";
 import { getCompanyLogo } from "../lib/logoService";
@@ -502,13 +503,39 @@ const PromptsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
 
-  // Local state
-  const [promptQuestions, setPromptQuestions] = useState<PromptQuestion[]>([]);
-  const [acceptedCompetitors, setAcceptedCompetitors] = useState<
-    CompetitorData[]
-  >([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Cache-aware data fetching for prompts (60 minute cache - relatively static content)
+  const promptsCache = usePageCache<PromptQuestion[]>({
+    fetcher: useCallback(async (): Promise<PromptQuestion[]> => {
+      if (!selectedCompany?.id) {
+        return [];
+      }
+      const data = await getPromptsWithResponses(selectedCompany.id);
+      return data.questions || [];
+    }, [selectedCompany]),
+    pageType: 'prompts',
+    companyId: selectedCompany?.id || '',
+    enabled: !!selectedCompany?.id
+  });
+
+  // Cache-aware data fetching for accepted competitors (30 minute cache - shared across pages)
+  const competitorsCache = usePageCache<CompetitorData[]>({
+    fetcher: useCallback(async (): Promise<CompetitorData[]> => {
+      if (!selectedCompany?.id) {
+        return [];
+      }
+      const result = await getAcceptedCompetitors(selectedCompany.id);
+      return result.competitors || [];
+    }, [selectedCompany]),
+    pageType: 'accepted-competitors',
+    companyId: selectedCompany?.id || '',
+    enabled: !!selectedCompany?.id
+  });
+
+  // Derived data from caches - memoized to prevent exhaustive deps warnings
+  const promptQuestions = useMemo(() => promptsCache.data || [], [promptsCache.data]);
+  const acceptedCompetitors = useMemo(() => competitorsCache.data || [], [competitorsCache.data]);
+  const isLoading = promptsCache.loading || competitorsCache.loading;
+  const error = promptsCache.error?.message || competitorsCache.error?.message || null;
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPrompt, setSelectedPrompt] = useState<PromptItem | null>(null);
   const [showAddPrompt, setShowAddPrompt] = useState(false);
@@ -566,41 +593,7 @@ const PromptsPage: React.FC = () => {
     closeEmbeddedPage,
   ]);
 
-  // Fetch accepted competitors
-  useEffect(() => {
-    if (selectedCompany?.id) {
-      const fetchCompetitors = async () => {
-        try {
-          const competitors = await getAcceptedCompetitors(selectedCompany.id);
-          setAcceptedCompetitors(competitors.competitors || []);
-        } catch {
-          // Error handling in place
-        }
-      };
-      fetchCompetitors();
-    }
-  }, [selectedCompany?.id]);
-
-  // Fetch prompts with responses
-  const fetchPrompts = useCallback(async () => {
-    if (!selectedCompany?.id) return;
-
-    try {
-      setIsLoading(true);
-      const data = await getPromptsWithResponses(selectedCompany.id);
-      setPromptQuestions(data.questions || []);
-      setError(null);
-    } catch (err) {
-      console.error("Error fetching prompts:", err);
-      setError("Failed to load prompts data");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedCompany?.id]);
-
-  useEffect(() => {
-    fetchPrompts();
-  }, [fetchPrompts]);
+  // Data is now handled by cache above - no manual fetching needed
 
   // Handle URL parameter to auto-open a specific question's responses
   useEffect(() => {
@@ -717,31 +710,21 @@ const PromptsPage: React.FC = () => {
     return map;
   }, [promptQuestions]);
 
-  const handleRefresh = async () => {
-    if (selectedCompany?.id) {
-      try {
-        setIsLoading(true);
-        const data = await getPromptsWithResponses(selectedCompany.id);
-        setPromptQuestions(data.questions || []);
-        setError(null);
-      } catch (err) {
-        console.error("Error refreshing prompts:", err);
-        setError("Failed to load prompts data");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-  };
+  const handleRefresh = useCallback(async () => {
+    // Refresh data by invalidating both caches
+    promptsCache.invalidate();
+    competitorsCache.invalidate();
+  }, [promptsCache, competitorsCache]);
 
-  const handleAddPrompt = async (promptData: { question: string }) => {
+  const handleAddPrompt = useCallback(async (promptData: { question: string }) => {
     if (!selectedCompany) return;
 
     try {
       // Call API to create the question as active (no type needed)
       await addQuestion(selectedCompany.id, promptData.question, true);
 
-      // Refresh the prompts data to get the new question from backend
-      await fetchPrompts();
+      // Invalidate cache to refresh the prompts data
+      promptsCache.invalidate();
     } catch (error: unknown) {
       console.error("Failed to add question:", error);
 
@@ -768,35 +751,39 @@ const PromptsPage: React.FC = () => {
 
       throw error; // Re-throw to handle in the inline component
     }
-  };
+  }, [selectedCompany, promptsCache, isAdmin]);
 
   const handleEditPrompt = (prompt: PromptItem) => {
     // Edit functionality pending UX design approval
     console.log("Edit prompt:", prompt);
   };
 
-  const handleDeletePrompt = async (prompt: PromptItem) => {
+  const handleDeletePrompt = useCallback(async (prompt: PromptItem) => {
     if (!selectedCompany) return;
 
-    // Immediate UI feedback - remove from local state
-    setPromptQuestions((prev) => prev.filter((q) => q.id !== prompt.id));
+    // Get fresh current data from cache to avoid stale closures
+    const currentPrompts = promptsCache.data || [];
+    
+    // Optimistic update - remove from cache immediately
+    const updatedPrompts = currentPrompts.filter((q) => q.id !== prompt.id);
+    promptsCache.setData(updatedPrompts);
 
     try {
       // Call API to delete the question
       await deleteQuestion(selectedCompany.id, prompt.id);
-
+      
       // Success - the item is already removed from UI
     } catch (error) {
       console.error("Failed to delete question:", error);
 
-      // On error, restore the item by refreshing data
-      await fetchPrompts();
+      // On error, invalidate cache to reload fresh data
+      promptsCache.invalidate();
 
       alert("Failed to delete prompt. Please try again.");
     }
-  };
+  }, [selectedCompany, promptsCache]);
 
-  const handleStatusChange = async (
+  const handleStatusChange = useCallback(async (
     prompt: PromptItem,
     newStatus: "active" | "inactive" | "suggested"
   ) => {
@@ -829,7 +816,7 @@ const PromptsPage: React.FC = () => {
 
       alert("Failed to update question status. Please try again.");
     }
-  };
+  }, [selectedCompany]);
 
   const handlePromptClick = (prompt: PromptItem) => {
     setSelectedPrompt(prompt);
@@ -929,10 +916,7 @@ const PromptsPage: React.FC = () => {
                   Failed to load data. Try refreshing the page.
                 </p>
                 <button
-                  onClick={() => {
-                    setPromptQuestions([]);
-                    handleRefresh();
-                  }}
+                  onClick={handleRefresh}
                   className="mt-4 px-4 py-2 bg-white/80 backdrop-blur-sm border border-white/20 rounded-lg shadow-md hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-black transition-colors flex items-center gap-2 mx-auto"
                 >
                   <RefreshCw size={16} />
