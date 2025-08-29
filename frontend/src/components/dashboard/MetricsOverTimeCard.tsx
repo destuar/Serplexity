@@ -233,7 +233,7 @@ const MetricsOverTimeCard: React.FC<MetricsOverTimeCardProps> = ({
       granularity,
       data?.shareOfVoiceHistory,
     ]),
-    pageType: "other",
+    pageType: "dashboard",
     companyId: selectedCompany?.id || "",
     filters: {
       dateRange: filters?.dateRange || "30d",
