@@ -160,8 +160,9 @@ export function usePageCache<T>(
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
-  // Cleanup on unmount
+  // Track mount/unmount. In dev StrictMode effects run twice: set true on effect body, false in cleanup.
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       // Do not abort in-flight GETs on unmount; allow completion to warm cache
