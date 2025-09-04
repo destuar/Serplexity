@@ -43,6 +43,7 @@ import {
   autoRecoveryMiddleware,
   healthCheckWithRecovery,
 } from "./middleware/autoRecovery";
+import adminRouter from "./routes/admin";
 import authRouter from "./routes/authRoutes";
 import billingRouter from "./routes/billingRoutes";
 import blogRouter from "./routes/blogRoutes";
@@ -150,8 +151,14 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(
   morgan("dev", {
-    skip: (req, res) =>
-      req.originalUrl === "/api/auth/refresh" && res.statusCode === 401,
+    skip: (req, res) => {
+      // Skip noisy health and report status polling logs
+      if (req.originalUrl.startsWith("/api/health")) return true;
+      if (req.originalUrl.startsWith("/healthz")) return true;
+      if (/^\/api\/reports\/[^/]+\/status/.test(req.originalUrl)) return true;
+      // Preserve existing skip for auth refresh 401s
+      return req.originalUrl === "/api/auth/refresh" && res.statusCode === 401;
+    },
   })
 );
 
@@ -304,6 +311,9 @@ app.use("/api/website-analytics", websiteAnalyticsRouter);
 app.use("/api/integrations/google", googleIntegrationRouter);
 app.use("/api/notifications", emailNotificationRouter);
 app.use("/api/feedback", feedbackRouter);
+
+// Admin routes (requires admin role)
+app.use("/api/admin", adminRouter);
 
 // Blog routes (mixed public/admin)
 app.use("/api/blog", blogRouter);

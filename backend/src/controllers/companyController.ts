@@ -109,13 +109,21 @@ export const createCompany = async (req: Request, res: Response) => {
     if (error && typeof error === "object" && "code" in error) {
       if (error.code === "P2002" && "meta" in error && error.meta) {
         const meta = error.meta as { target?: string[] };
+        // Check for company website uniqueness (global constraint - being removed)
+        if (meta.target?.includes("website") && !meta.target?.includes("companyId") && !meta.target?.includes("userId")) {
+          return res.status(400).json({
+            error: "A company profile with this website URL already exists",
+            message: "This website is already being tracked by another user. Multiple users can now track the same company after applying the database migration.",
+          });
+        }
+        // Check for user-specific company website uniqueness (new constraint)
         if (
-          meta.target?.includes("website") &&
-          meta.target?.includes("companyId")
+          meta.target?.includes("userId") &&
+          meta.target?.includes("website")
         ) {
           return res.status(400).json({
-            error:
-              "A competitor with this website already exists for your company. Please use a different website or update the existing competitor.",
+            error: "You already have a company profile for this website",
+            message: "You can only create one company profile per website URL. Please use a different website or update your existing company profile.",
           });
         }
       }

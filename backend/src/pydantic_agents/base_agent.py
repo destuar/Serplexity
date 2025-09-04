@@ -41,7 +41,6 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler(sys.stdout),
         logging.StreamHandler(sys.stderr)
     ]
 )
@@ -109,26 +108,42 @@ class BaseAgent(ABC):
         # Get configuration from environment with centralized fallbacks
         self.provider_id = os.getenv('PYDANTIC_PROVIDER_ID', 'openai')
 
-        # Handle model ID - prefer properly configured models over environment variables
-        if isinstance(default_model, str):
-            # If default_model is already a proper PydanticAI model ID (contains ':' or is custom), use it
-            if ':' in default_model or default_model.startswith('gemini'):
-                self.model_id = default_model
-            else:
-                # Otherwise, try to use environment variable or look up model config
-                env_model_id = os.getenv('PYDANTIC_MODEL_ID')
-                if env_model_id:
+        # Handle model ID - ALWAYS honor environment override when provided
+        env_model_id = os.getenv('PYDANTIC_MODEL_ID')
+
+        if env_model_id and isinstance(env_model_id, str) and env_model_id.strip():
+            # If the env value is a simple model id (e.g., 'gpt-4.1-mini'), map it to a proper provider-prefixed id
+            if ':' not in env_model_id and not env_model_id.startswith('gemini'):
+                try:
                     from .config.models import get_model_by_id
                     model_config = get_model_by_id(env_model_id)
                     if model_config:
                         self.model_id = model_config.get_pydantic_model_id()
                     else:
+                        # Fallback to the raw env value if not found in config
                         self.model_id = env_model_id
-                else:
-                    self.model_id = default_model
+                except Exception:
+                    self.model_id = env_model_id
+            else:
+                # Already provider-qualified or special-case engine id
+                self.model_id = env_model_id
         else:
-            # For custom model objects (like Perplexity), always preserve them
-            self.model_id = default_model
+            # No override provided → use the agent's default model (string or model object)
+            if isinstance(default_model, str):
+                if ':' in default_model or default_model.startswith('gemini'):
+                    self.model_id = default_model
+                else:
+                    try:
+                        from .config.models import get_model_by_id
+                        model_config = get_model_by_id(default_model)
+                        self.model_id = (
+                            model_config.get_pydantic_model_id() if model_config else default_model
+                        )
+                    except Exception:
+                        self.model_id = default_model
+            else:
+                # For custom model objects (like Perplexity OpenAIModel), preserve them
+                self.model_id = default_model
 
         self.env_temperature = float(os.getenv('PYDANTIC_TEMPERATURE', str(self.temperature)))
         self.env_max_tokens = int(os.getenv('PYDANTIC_MAX_TOKENS', str(self.max_tokens)))

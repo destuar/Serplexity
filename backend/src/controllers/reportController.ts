@@ -62,6 +62,12 @@ const controllerLog = (
   message: string,
   level: "INFO" | "WARN" | "ERROR" | "DEBUG" = "INFO"
 ) => {
+  // Respect global LOG_LEVEL for DEBUG noise suppression
+  const configuredLevel = (process.env["LOG_LEVEL"] || "INFO").toUpperCase();
+  if (level === "DEBUG" && configuredLevel !== "DEBUG") {
+    return; // Skip DEBUG logs unless LOG_LEVEL=DEBUG
+  }
+
   const timestamp = new Date().toISOString();
   const {
     endpoint,
@@ -545,16 +551,7 @@ export const getReportStatus = async (req: Request, res: Response) => {
   const userId = req.user?.id;
   const reportId = req.params.id;
 
-  // Only log initial request, not the frequent polling
-  // controllerLog({
-  //   endpoint,
-  //   userId,
-  //   reportId,
-  //   metadata: {
-  //     userAgent: req.headers['user-agent'],
-  //     ip: req.ip
-  //   }
-  // }, 'Report status request received');
+  // Suppress per-poll info logs unless LOG_LEVEL=DEBUG (handled in controllerLog)
 
   try {
     if (!userId) {
@@ -573,9 +570,11 @@ export const getReportStatus = async (req: Request, res: Response) => {
       return res.status(401).json({ error: "User not authenticated" });
     }
 
+    // Reduce log noise for frequent polling: keep at DEBUG level
     controllerLog(
       { endpoint, userId, reportId },
-      "Fetching report status from database"
+      "Fetching report status from database",
+      "DEBUG"
     );
 
     const report = await prismaReadReplica.reportRun.findFirst({

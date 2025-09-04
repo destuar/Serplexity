@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node dist/server.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "workers:dev": "ts-node --transpile-only src/workers/run-workers.ts",
+    "workers:start": "node dist/workers/run-workers.js",
     "build": "tsc --skipLibCheck",
     "lint": "eslint \"src/**/*.ts\" --ignore-pattern \"src/__tests__/**\"",
     "lint:fix": "eslint \"src/**/*.ts\" --ignore-pattern \"src/__tests__/**\" --fix",

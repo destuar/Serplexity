@@ -120,6 +120,7 @@ export const MODELS: Record<string, Model> = {
       ModelTask.OPTIMIZATION_TASKS, // ✅ OptimizationTaskService (default model)
       ModelTask.QUESTION_GENERATION, // ✅ GenQuestionAgent (ONLY gpt-4.1-mini)
       ModelTask.MENTION_DETECTION, // ✅ MentionAgent (default model)
+      ModelTask.COMPANY_RESEARCH, // ✅ CompanyResearchAgent (moved from sonar to avoid CloudFlare)
     ],
   },
   "claude-3-5-haiku-20241022": {
@@ -147,7 +148,6 @@ export const MODELS: Record<string, Model> = {
       ModelTask.SENTIMENT, // ✅ WebSearchSentimentAgent (has built-in web search)
       ModelTask.FANOUT_GENERATION, // ✅ IntelligentFanoutAgent (available alternative)
       ModelTask.QUESTION_ANSWERING, // ✅ QuestionAnsweringAgent (has built-in web search)
-      ModelTask.COMPANY_RESEARCH, // ✅ CompanyResearchAgent (ONLY sonar for web research)
       ModelTask.WEBSITE_ENRICHMENT, // ✅ WebsiteEnrichmentAgent (web search enabled)
     ],
   },

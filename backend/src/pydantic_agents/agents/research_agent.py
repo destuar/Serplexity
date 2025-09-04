@@ -34,12 +34,12 @@ class CompanyInput(BaseModel):
 
 class CompanyResearchAgent(BaseAgent):
 
-    def __init__(self, provider: str = "perplexity"):
-        """Initialize with centralized model configuration for company research"""
-        # Use centralized configuration instead of hardcoding sonar
+    def __init__(self):
+        """Initialize with centralized model configuration for research"""
+        # Use centralized configuration instead of hardcoded model
         default_model_config = get_default_model_for_task(ModelTask.COMPANY_RESEARCH)
-        default_model = default_model_config.get_pydantic_model_id() if default_model_config else "openai:sonar"
-        
+        default_model = default_model_config.get_pydantic_model_id() if default_model_config else "openai:gpt-4.1-mini"
+
         super().__init__(
             agent_id="company_research_agent",
             default_model=default_model,
@@ -50,121 +50,40 @@ class CompanyResearchAgent(BaseAgent):
         )
     
     def _build_system_prompt(self) -> str:
-        """Build system prompt for simple website research"""
+        """Build system prompt for web search research"""
         return (
-            "You are a web research assistant. Your job is to research a company's website "
+            "You are a web research assistant. Your job is to research a company "
             "and provide a clear analysis of what they offer.\n\n"
-            "CRITICAL: Always use the EXACT company name and website URL provided in the user prompt. "
+            "CRITICAL: Always use the EXACT company name provided. "
             "Do not substitute, modify, or confuse them with similar companies.\n\n"
-            "Provide a structured analysis including:\n"
+            "Use web search to find information about the company and provide a structured analysis including:\n"
             "1. What products/services they offer (be specific and detailed)\n"
             "2. Who their target customers are\n"
             "3. What problems they solve for those customers\n"
             "4. What industry category they operate in\n\n"
             "Be thorough and factual. Focus on understanding their business model, "
-            "value proposition, and customer base. Always confirm you are researching "
-            "the correct company by double-checking the company name and URL."
+            "value proposition, and customer base. Use only web search, never attempt "
+            "to access websites directly."
         )
     
-    def _build_perplexity_prompt(self) -> str:
-        """Build system prompt specifically for Perplexity with manual parsing"""
-        return (
-            "You are a web research assistant. Research the given company's website "
-            "and provide a clear analysis in the following format:\n\n"
-            "CRITICAL: Always use the EXACT company name and website URL provided in the user prompt. "
-            "Do not substitute, modify, or confuse them with similar companies.\n\n"
-            "COMPANY: [use the exact company name provided]\n"
-            "WEBSITE: [use the exact website URL provided]\n"
-            "OFFERINGS: [detailed description of products/services]\n"
-            "CUSTOMERS: [target customer description]\n"
-            "PROBLEMS: [problems they solve]\n"
-            "INDUSTRY: [industry category]\n\n"
-            "Be thorough and factual. Use the exact format above for easy parsing. "
-            "Always confirm you are researching the correct company by using the exact "
-            "company name and URL provided in the prompt."
-        )
-
-    def _create_perplexity_model(self):
-        """Create Perplexity model with custom OpenAI provider"""
-        from pydantic_ai.models.openai import OpenAIModel
-        from pydantic_ai.providers.openai import OpenAIProvider
-        import os
-        
-        api_key = os.getenv('PERPLEXITY_API_KEY')
-        logger.info(f"🔍 Perplexity API key available: {bool(api_key)}")
-        
-        return OpenAIModel(
-            'sonar',
-            provider=OpenAIProvider(
-                base_url='https://api.perplexity.ai',
-                api_key=api_key,
-            ),
-        )
-
     def _create_agent(self) -> Agent:
         """Create the PydanticAI agent with configured model"""
-        # If the configured model is sonar, create custom Perplexity provider without structured output
-        if isinstance(self.model_id, str) and 'sonar' in self.model_id:
-            return Agent(
-                model=self._create_perplexity_model(),
-                system_prompt=self.env_system_prompt or self.system_prompt,
-                deps_type=None,
-                # Remove structured output for Perplexity as it doesn't support it
-            )
-        else:
-            # Use standard agent creation for other models
-            return super()._create_agent()
+        return super()._create_agent()
 
     def get_output_type(self):
         return CompanyResearch
 
-    def _parse_perplexity_response(self, raw_output: str, input_data: dict) -> CompanyResearch:
-        """Parse unstructured Perplexity response into CompanyResearch model"""
-        import re
-        
-        # Extract structured information using regex
-        def extract_field(pattern: str, default: str = "Information not available") -> str:
-            match = re.search(pattern, raw_output, re.IGNORECASE | re.MULTILINE)
-            return match.group(1).strip() if match else default
-        
-        # Parse the structured response - always use the original input data as fallback
-        company_name = extract_field(r"COMPANY:\s*(.+)", input_data.get('company_name', ''))
-        website_url = extract_field(r"WEBSITE:\s*(.+)", input_data.get('website_url', ''))
-        
-        # Ensure we always use the exact company name and URL from input
-        if not company_name or company_name == "Information not available":
-            company_name = input_data.get('company_name', '')
-        if not website_url or website_url == "Information not available":
-            website_url = input_data.get('website_url', '')
-        what_they_offer = extract_field(r"OFFERINGS:\s*(.+)", "Business offerings not clearly specified")
-        target_customers = extract_field(r"CUSTOMERS:\s*(.+)", "Target customers not specified") 
-        problems_solved = extract_field(r"PROBLEMS:\s*(.+)", "Problems solved not specified")
-        industry_category = extract_field(r"INDUSTRY:\s*(.+)", input_data.get('industry', 'General'))
-        
-        # If structured parsing fails, try to extract from free-form text
-        if what_they_offer == "Business offerings not clearly specified":
-            # Fallback: use the first few sentences as offerings description
-            sentences = raw_output.split('.')[:3]
-            what_they_offer = '. '.join(sentences).strip() + '.'
-        
-        return CompanyResearch(
-            company_name=company_name,
-            website_url=website_url,
-            what_they_offer=what_they_offer,
-            target_customers=target_customers,
-            problems_solved=problems_solved,
-            industry_category=industry_category
-        )
-
     async def process_input(self, input_data: dict) -> str:
-        """Create simple research prompt"""
+        """Create simple research prompt using only web search"""
         company_name = input_data.get('company_name', '')
-        website_url = input_data.get('website_url', '')
+        industry = input_data.get('industry', 'General')
 
-        return (f"Research the company '{company_name}' at website '{website_url}'. "
-                f"IMPORTANT: Focus specifically on {company_name} at {website_url} - "
-                f"do not confuse this with any other similar company names or websites. "
-                f"What does {company_name} offer based on their website {website_url}?")
+        return (f"Research the company '{company_name}' in the {industry} industry. "
+                f"Use web search to find information about {company_name}. "
+                f"IMPORTANT: Focus specifically on {company_name} - "
+                f"do not confuse this with any other similar company names. "
+                f"What products and services does {company_name} offer? "
+                f"Use only web search, do not attempt to access any websites directly.")
 
     async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Execute simple website research"""
@@ -172,17 +91,8 @@ class CompanyResearchAgent(BaseAgent):
         start_time = time.time()
 
         try:
-            # Create agent for company research
-            if isinstance(self.model_id, str) and 'sonar' in self.model_id:
-                # Use unstructured agent for Perplexity
-                agent = Agent(
-                    model=self._create_perplexity_model(),
-                    system_prompt=self._build_perplexity_prompt(),
-                    deps_type=None,
-                    # No output_type for Perplexity - we'll parse manually
-                )
-            else:
-                agent = self.agent
+            # Use standard agent for all research (no more Perplexity custom logic)
+            agent = self.agent
 
             prompt = await self.process_input(input_data)
             
@@ -193,16 +103,11 @@ class CompanyResearchAgent(BaseAgent):
             except asyncio.TimeoutError:
                 raise Exception("Research agent timed out after 45 seconds")
 
-            # Extract and parse data from PydanticAI result
-            if hasattr(result, 'output'):
-                raw_output = str(result.output)
-                # Parse Perplexity unstructured response if using sonar model
-                if isinstance(self.model_id, str) and 'sonar' in self.model_id:
-                    research_data = self._parse_perplexity_response(raw_output, input_data)
-                else:
-                    research_data = result.output
-            elif hasattr(result, 'data'):
+            # Extract and parse data from PydanticAI result (standard structured output)
+            if hasattr(result, 'data'):
                 research_data = result.data
+            elif hasattr(result, 'output'):
+                research_data = result.output
             else:
                 research_data = result
 

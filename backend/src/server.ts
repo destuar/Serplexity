@@ -21,21 +21,22 @@ import app from "./app";
 import { dbCache } from "./config/dbCache";
 import env from "./config/env";
 import "./config/tracing"; // IMPORTANT: Must be the first import to ensure all modules are instrumented
-import "./queues/reportWorker"; // This initializes and starts the worker process
+// Workers are now started via a separate runner to avoid hot-reload stalls
+// import "./queues/reportWorker";
 import SystemValidator from "./startup/systemValidator";
 // import "./queues/archiveWorker"; // PAUSED: This initializes and starts the archive worker process
 import { redis } from "./config/redis";
 import { scheduleBackupDailyReportTrigger } from "./queues/backupScheduler";
-import "./queues/backupSchedulerWorker"; // This initializes the backup scheduler worker
-import "./queues/billingPeriodScheduler"; // initialize worker
+// import "./queues/backupSchedulerWorker"; // Started by worker runner
+// import "./queues/billingPeriodScheduler"; // Started by worker runner
 import { scheduleDailyBillingClose } from "./queues/billingPeriodScheduler";
-import "./queues/emailNotificationWorker"; // This initializes and starts the email notification worker
+// import "./queues/emailNotificationWorker"; // Started by worker runner
 import { initializeHealthCheckScheduler } from "./queues/healthCheckScheduler";
 import { scheduleDailyReportTrigger } from "./queues/masterScheduler";
-import "./queues/masterSchedulerWorker"; // This initializes the daily report scheduler worker
+// import "./queues/masterSchedulerWorker"; // Started by worker runner
 import "./queues/reportEvents"; // Initializes the report event listener
-import "./queues/webAuditWorker"; // This initializes and starts the web audit worker process
-import "./queues/websiteAnalyticsWorker"; // This initializes and starts the website analytics worker process
+// import "./queues/webAuditWorker"; // Started by worker runner
+// import "./queues/websiteAnalyticsWorker"; // Started by worker runner
 
 const PORT = env.PORT;
 

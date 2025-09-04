@@ -169,6 +169,27 @@ Search Strategy:
 - Consider source credibility and recency
 - Cross-reference information across multiple sources"""
 
+        # Source prioritization and strict disambiguation requirements
+        base_prompt += """
+
+SOURCE PRIORITIZATION (use in this order when available):
+1) Google Business Profile reviews (Google Maps/Knowledge Panel)
+2) Trustpilot
+3) Reddit threads (relevant subreddits)
+4) Quora Q&A
+5) Official support/community forums or knowledge base
+6) Major app stores if product is mobile-first (Apple App Store / Google Play)
+7) Reputable news and industry publications
+
+CRITICAL COMPANY DISAMBIGUATION (MUST PASS BEFORE USING A SOURCE):
+- Verify the source refers to the exact company, not a similarly named entity
+- Prefer sources that mention or link the official website domain
+- Cross-check industry/category matches the provided industry context
+- For Google Business Profile: business name + website link must match the official domain; if absent/mismatch, do not use
+- Exclude sources clearly about different companies, geographies, or industries
+- If confidence is low, discard the source rather than risk contamination
+"""
+
         base_prompt += """
 
 RESPONSE FORMAT:
@@ -178,7 +199,7 @@ Your response must follow the exact SentimentScores schema format, including:
 - Clear, evidence-based summaryDescription for each rating
 
 QUALITY BAR FOR SUMMARY:
-- Provide 2-3 concrete examples with source domains (e.g., "Trustpilot", "Reddit", news site).
+- Provide 2-3 concrete examples with source domains (e.g., "Google Business Profile", "Trustpilot", "Reddit", "Quora").
 - Use inline markers [1], [2], [3] corresponding to your sources.
 - Avoid generic phrasing; explain WHY the score is high/low and what to do about it.
 
@@ -229,17 +250,20 @@ Ensure all ratings are integers between 1-10 and include specific examples from 
         return prompt
 
     def _create_web_search_prompt(self, company_name: str, industry: str, context: str) -> str:
-        """Create a web search-enabled sentiment analysis prompt"""
-        search_queries = [
-            f'"{company_name}" reviews 2025',
+        """Create a web search-enabled sentiment analysis prompt with prioritized sources and disambiguation"""
+
+        # Prioritized source queries
+        search_queries: List[str] = [
+            f'"{company_name}" Google reviews site:google.com/maps',
+            f'"{company_name}" "Google reviews" site:google.com',
+            f'"{company_name}" site:trustpilot.com',
+            f'"{company_name}" site:reddit.com',
+            f'"{company_name}" site:quora.com',
             f'"{company_name}" customer complaints',
             f'"{company_name}" customer service experience',
-            f'"{company_name}" quality issues',
             f'"{company_name}" price value worth it',
             f'"{company_name}" brand reputation',
-            f'"{company_name}" site:reddit.com',
-            f'"{company_name}" site:trustpilot.com',
-            f'"{company_name}" vs competitors {industry}' if industry else f'"{company_name}" vs competitors'
+            (f'"{company_name}" vs competitors {industry}' if industry else f'"{company_name}" vs competitors')
         ]
 
         return f"""Perform comprehensive web search sentiment analysis for {company_name}.
@@ -267,6 +291,8 @@ SEARCH REQUIREMENTS:
 - Consider source credibility and diversity
 - Cross-reference information across multiple sources
 - Note patterns and trends in sentiment
+- PRIORITIZE sources: Google Business Profile, Trustpilot, Reddit, Quora, official forums
+- Apply the CRITICAL COMPANY DISAMBIGUATION checklist using the official website/domain
 
 RESPONSE REQUIREMENTS:
 - Provide structured sentiment scores (1-10) for each dimension
@@ -274,6 +300,7 @@ RESPONSE REQUIREMENTS:
 - Create comprehensive summary descriptions with evidence
 - Include web search metadata about your searches
 - Base all ratings on actual search findings, not assumptions
+- Only cite sources that clearly match the company's official domain/industry; omit ambiguous sources
 
 Search for comprehensive coverage and provide evidence-based sentiment analysis."""
 
@@ -581,7 +608,7 @@ Provide structured sentiment scores across all five dimensions with explanations
 
             # Extract token usage from Perplexity response
             tokens_used = 0
-            model_used = "sonar"  # Override for Perplexity
+            model_used = self.model_id.split(':')[-1] if isinstance(self.model_id, str) and ':' in self.model_id else str(self.model_id)
             if hasattr(raw_result, 'usage') and raw_result.usage:
                 tokens_used = raw_result.usage.total_tokens if hasattr(raw_result.usage, 'total_tokens') else 0
 
@@ -1048,7 +1075,7 @@ Please include actual URLs from your web searches in the response text for prope
                 citation_details.append(f"[{i}]")
                 domain = cite.domain.replace('www.', '')
                 domain_counts[domain] = domain_counts.get(domain, 0) + 1
-            
+
             # Create meaningful source description instead of generic "Sources:"
             top_domains = sorted(domain_counts.items(), key=lambda x: x[1], reverse=True)[:2]
             domain_text = " and ".join([domain for domain, _ in top_domains])

@@ -2,8 +2,8 @@
  * @file backupSchedulerWorker.ts
  * @description This file defines the BullMQ worker that processes backup scheduling jobs.
  * It checks for companies that missed their daily reports or had failed reports and queues them for regeneration.
- * It also handles emergency triggers to generate reports for all eligible companies. This worker is crucial for
- * maintaining the integrity and completeness of the report data.
+ * It also handles emergency triggers to generate reports for all eligible companies. This worker uses distributed
+ * locking to coordinate with the master scheduler and prevent duplicate processing.
  *
  * @dependencies
  * - bullmq: The BullMQ library for creating workers.
@@ -12,6 +12,7 @@
  * - ../config/db: The singleton Prisma client instance.
  * - ../services/reportSchedulingService: Service for queuing report generation.
  * - ../services/alertingService: Service for sending system alerts.
+ * - ../services/distributedLockService: Service for preventing scheduler race conditions.
  *
  * @exports
  * - backupWorker: The BullMQ worker instance for backup scheduling jobs.
@@ -23,6 +24,7 @@ import env from "../config/env";
 import { alertingService } from "../services/alertingService";
 import { shouldGenerateToday } from "../services/reportScheduleService";
 import { queueReport } from "../services/reportSchedulingService";
+import { distributedLockService } from "../services/distributedLockService";
 
 let backupWorker: Worker | null = null;
 
@@ -33,8 +35,34 @@ if (env.NODE_ENV !== "test") {
       const startTime = new Date();
 
       if (job.name === "trigger-backup-daily-reports") {
+        const lockKey = "daily-report-scheduler";
+        
+        // Check if the master scheduler is still running or recently completed
+        const lockStatus = await distributedLockService.isLockHeld(lockKey);
+        if (lockStatus.held && lockStatus.remainingTtl && lockStatus.remainingTtl > 600000) { // More than 10 minutes remaining
+          console.log(
+            "[Backup Scheduler] Master scheduler is still active - skipping backup execution"
+          );
+          return;
+        }
+
+        // Try to acquire backup lock to prevent multiple backup schedulers
+        const backupLockKey = "backup-report-scheduler";
+        const lockResult = await distributedLockService.acquireLock(backupLockKey, {
+          ttl: 1000 * 60 * 20, // 20 minutes - longer than expected processing time
+          maxRetries: 2,
+          retryDelay: 1000,
+        });
+
+        if (!lockResult.acquired) {
+          console.log(
+            "[Backup Scheduler] Could not acquire backup lock - another backup scheduler is running. Skipping execution."
+          );
+          return;
+        }
+
         console.log(
-          "[Backup Scheduler Worker] Starting backup daily report check..."
+          `[Backup Scheduler] Lock acquired (${lockResult.lockId}) - starting backup daily report check...`
         );
 
         try {
@@ -209,7 +237,7 @@ if (env.NODE_ENV !== "test") {
           }
         } catch (error) {
           console.error(
-            "[Backup Scheduler Worker] Critical error during backup scheduling:",
+            "[Backup Scheduler] Critical error during backup scheduling:",
             error
           );
 
@@ -225,18 +253,45 @@ if (env.NODE_ENV !== "test") {
             })
             .catch((alertError) => {
               console.error(
-                "[Backup Scheduler Worker] Failed to send critical error alert:",
+                "[Backup Scheduler] Failed to send critical error alert:",
                 alertError
               );
             });
 
           throw error; // Re-throw to mark job as failed
+        } finally {
+          // Always release the backup lock, even if there was an error
+          if (lockResult.lockId) {
+            const released = await distributedLockService.releaseLock(backupLockKey, lockResult.lockId);
+            console.log(
+              `[Backup Scheduler] Lock ${released ? 'released' : 'release failed'} (${lockResult.lockId})`
+            );
+          }
         }
       } else if (job.name === "trigger-emergency-reports") {
         console.log(
-          "[Backup Scheduler Worker] Processing emergency report trigger..."
+          "[Backup Scheduler] Processing emergency report trigger..."
         );
         const { reason, triggeredAt } = job.data;
+
+        // Acquire emergency lock to prevent multiple emergency triggers
+        const emergencyLockKey = "emergency-report-scheduler";
+        const emergencyLockResult = await distributedLockService.acquireLock(emergencyLockKey, {
+          ttl: 1000 * 60 * 30, // 30 minutes - emergency operations can take longer
+          maxRetries: 1,
+          retryDelay: 5000,
+        });
+
+        if (!emergencyLockResult.acquired) {
+          console.log(
+            "[Backup Scheduler] Could not acquire emergency lock - another emergency trigger is running. Skipping execution."
+          );
+          return;
+        }
+
+        console.log(
+          `[Backup Scheduler] Emergency lock acquired (${emergencyLockResult.lockId}) - processing emergency trigger...`
+        );
 
         try {
           const prisma = await getDbClient();
@@ -311,10 +366,18 @@ if (env.NODE_ENV !== "test") {
             });
         } catch (error) {
           console.error(
-            "[Backup Scheduler Worker] Critical error during emergency trigger:",
+            "[Backup Scheduler] Critical error during emergency trigger:",
             error
           );
           throw error;
+        } finally {
+          // Always release the emergency lock, even if there was an error
+          if (emergencyLockResult.lockId) {
+            const released = await distributedLockService.releaseLock(emergencyLockKey, emergencyLockResult.lockId);
+            console.log(
+              `[Backup Scheduler] Emergency lock ${released ? 'released' : 'release failed'} (${emergencyLockResult.lockId})`
+            );
+          }
         }
       }
     },

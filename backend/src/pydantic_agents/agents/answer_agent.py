@@ -340,6 +340,7 @@ class QuestionAnsweringAgent(BaseAgent):
             if hasattr(raw_result, 'usage') and raw_result.usage:
                 tokens_used = raw_result.usage.total_tokens if hasattr(raw_result.usage, 'total_tokens') else 0
 
+            model_name = self.model_id.split(':')[-1] if isinstance(self.model_id, str) and ':' in self.model_id else str(self.model_id)
             return {
                 "result": processed_result,
                 "execution_time": execution_time,
@@ -347,8 +348,8 @@ class QuestionAnsweringAgent(BaseAgent):
                 "agent_id": self.agent_id,
                 "tokens_used": tokens_used,
                 "tokensUsed": tokens_used,
-                "model_used": "sonar",  # CONSISTENT MODEL NAME
-                "modelUsed": "sonar",   # CONSISTENT MODEL NAME
+                "model_used": model_name,
+                "modelUsed": model_name,
                 "usage": {"total_tokens": tokens_used},
                 "search_count": len(perplexity_citations) if perplexity_citations else 0
             }

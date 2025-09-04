@@ -579,7 +579,12 @@ describe("🚨 PRODUCTION VALIDATION - ALL CRITICAL COMPONENTS", () => {
               },
             ],
           },
-          metadata: { executionTime: 0, modelUsed: "preset", success: true },
+          metadata: {
+            executionTime: 0,
+            modelUsed: "preset",
+            success: true,
+            tokensUsed: 0,
+          },
         };
 
         expect(pipeline.optimization.data.tasks).toBeDefined();

@@ -3,30 +3,12 @@ import app from "../app";
 import { prisma } from "./setup";
 import { User, Company } from "@prisma/client";
 
-jest.mock("../config/db", () => {
-  const originalModule = jest.requireActual("../config/db");
+jest.mock("../config/dbCache", () => {
+  const originalModule = jest.requireActual("../config/dbCache");
   return {
     __esModule: true,
     ...originalModule,
-    prismaReadReplica: originalModule.default,
-  };
-});
-
-jest.mock("../config/db", () => {
-  const originalModule = jest.requireActual("../config/db");
-  return {
-    __esModule: true,
-    ...originalModule,
-    prismaReadReplica: originalModule.default,
-  };
-});
-
-jest.mock("../config/db", () => {
-  const originalModule = jest.requireActual("../config/db");
-  return {
-    __esModule: true,
-    ...originalModule,
-    prismaReadReplica: originalModule.default,
+    getPrismaClient: jest.fn().mockResolvedValue(require("./setup").prisma),
   };
 });
 
@@ -391,6 +373,66 @@ describe("Company Management System", () => {
         .expect(400);
 
       expect(response.body.error).toBe("Maximum company limit reached");
+    });
+
+    it("should allow multiple users to create companies with the same website", async () => {
+      // Create company with first user
+      const response1 = await request(app)
+        .post("/api/companies")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send(validCompanyData)
+        .expect(201);
+
+      expect(response1.body.company.website).toBe(validCompanyData.website);
+
+      // Create second user
+      const user2Response = await request(app)
+        .post("/api/auth/register")
+        .send({
+          email: "user2@example.com",
+          password: "password123",
+          name: "Second User",
+        })
+        .expect(201);
+
+      const user2Token = user2Response.body.accessToken;
+
+      // Create company with same website using second user - should succeed
+      const response2 = await request(app)
+        .post("/api/companies")
+        .set("Authorization", `Bearer ${user2Token}`)
+        .send({
+          ...validCompanyData,
+          name: "Same Company Different User",
+        })
+        .expect(201);
+
+      expect(response2.body.company.website).toBe(validCompanyData.website);
+      expect(response2.body.company.name).toBe("Same Company Different User");
+      expect(response2.body.company.userId).toBe(user2Response.body.user.id);
+      expect(response2.body.company.userId).not.toBe(testUser.id);
+    });
+
+    it("should prevent same user from creating duplicate company websites", async () => {
+      // Create first company
+      await request(app)
+        .post("/api/companies")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send(validCompanyData)
+        .expect(201);
+
+      // Try to create another company with same website for same user - should fail
+      const response = await request(app)
+        .post("/api/companies")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({
+          ...validCompanyData,
+          name: "Duplicate Website Company",
+        })
+        .expect(400);
+
+      expect(response.body.error).toBe("You already have a company profile for this website");
+      expect(response.body.message).toContain("You can only create one company profile per website URL");
     });
   });
 

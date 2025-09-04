@@ -158,17 +158,31 @@ export async function fetchGoogleAiOverview(
   }
   if (!overview) {
     // Step 2: dedicated engine
-    const data2 = await call("google_ai_overview");
-    overview = pickOverview(data2);
-    if (!overview) {
-      // Fallback: synthesize content from answer_box / knowledge_graph / organic_results
-      const fallback = synthesizeFromSerp(data1) || synthesizeFromSerp(data2);
-      if (fallback) return { present: false, ...fallback, raw: data2 };
-      return { present: false, raw: data2 };
+    try {
+      const data2 = await call("google_ai_overview");
+      overview = pickOverview(data2);
+      if (!overview) {
+        // Fallback: synthesize content from answer_box / knowledge_graph / organic_results
+        const fallback = synthesizeFromSerp(data1) || synthesizeFromSerp(data2);
+        if (fallback) return { present: false, ...fallback, raw: data2 };
+        return { present: false, raw: data2 };
+      }
+      const content = toContent(overview);
+      const citations = toCitations(overview);
+      return { present: Boolean(content), content, citations, raw: data2 };
+    } catch (e: unknown) {
+      // Some SerpAPI accounts require a page_token for google_ai_overview and reject query-based calls.
+      const msg = String((e as { message?: string })?.message || e);
+      if (/page_token/i.test(msg)) {
+        const fallback = synthesizeFromSerp(data1);
+        if (fallback) return { present: false, ...fallback, raw: data1 };
+        return {
+          present: false,
+          raw: { error: msg, source: "google_ai_overview", data: data1 },
+        };
+      }
+      throw e;
     }
-    const content = toContent(overview);
-    const citations = toCitations(overview);
-    return { present: Boolean(content), content, citations, raw: data2 };
   }
   const content = toContent(overview);
   const citations = toCitations(overview);

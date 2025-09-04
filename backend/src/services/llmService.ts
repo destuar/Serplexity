@@ -340,9 +340,53 @@ export async function generateOverallSentimentSummary(
       averages: averages,
     });
 
-    const usage = extractActualTokenUsage(
-      result.metadata as unknown as Record<string, unknown>
-    );
+    // Mirror other agents: use provider-reported usage only; no estimation
+    const meta: any = result.metadata as unknown as Record<string, unknown>;
+    let usage: TokenUsage = {
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+    };
+    if (meta && typeof meta === "object" && meta.usage) {
+      const u = meta.usage as Record<string, unknown>;
+      // Prefer direct prompt/completion counts
+      if (
+        typeof u["prompt_tokens"] === "number" &&
+        typeof u["completion_tokens"] === "number"
+      ) {
+        const p = Number(u["prompt_tokens"]) || 0;
+        const c = Number(u["completion_tokens"]) || 0;
+        const t = Number(u["total_tokens"]) || p + c;
+        usage = { promptTokens: p, completionTokens: c, totalTokens: t };
+      } else if (
+        typeof u["input_tokens"] === "number" &&
+        typeof u["output_tokens"] === "number"
+      ) {
+        const p = Number(u["input_tokens"]) || 0;
+        const c = Number(u["output_tokens"]) || 0;
+        const t = Number(u["total_tokens"]) || p + c;
+        usage = { promptTokens: p, completionTokens: c, totalTokens: t };
+      } else if (typeof u["total_tokens"] === "number") {
+        usage = {
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: Number(u["total_tokens"]) || 0,
+        };
+      }
+    } else if (typeof meta?.tokensUsed === "number") {
+      // Use provider-reported aggregate total only; no synthetic breakdown
+      usage = {
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: Number(meta.tokensUsed) || 0,
+      };
+    } else {
+      // No usage available; keep zeros and log a warning
+      logger.warn(
+        "Sentiment summary: provider did not report token usage; returning 0 tokens"
+      );
+    }
+
     return {
       data: summaryData,
       usage,
@@ -369,20 +413,7 @@ export async function generateOverallSentimentSummary(
 export async function generateQuestionResponse(
   question: QuestionInput,
   model: Model
-): Promise<
-  ChatCompletionResponse<{
-    answer: string;
-    citations?: Array<{
-      url: string;
-      title: string;
-      domain: string;
-      accessedAt: Date;
-      position: number;
-    }>;
-    has_web_search?: boolean;
-    brand_mentions_count?: number;
-  }>
-> {
+): Promise<ChatCompletionResponse<string>> {
   const startTime = Date.now();
 
   try {
@@ -432,50 +463,19 @@ export async function generateQuestionResponse(
     });
 
     // Convert and validate citations format
-    const citations =
-      result.data.citations?.map((citation, index) => ({
-        url: citation.url,
-        title: citation.title,
-        domain: citation.domain,
-        accessedAt: citation.accessedAt
-          ? new Date(citation.accessedAt)
-          : new Date(),
-        position: citation.position || index + 1,
-      })) || [];
+    // We intentionally ignore citations here since the function returns a simple string
 
     const usage = extractActualTokenUsage(
       result.metadata as unknown as Record<string, unknown>
     );
-    const responseData: {
-      answer: string;
-      citations?: Array<{
-        url: string;
-        title: string;
-        domain: string;
-        accessedAt: Date;
-        position: number;
-      }>;
-      has_web_search?: boolean;
-      brand_mentions_count?: number;
-    } = {
-      answer:
-        typeof result.data.answer === "string"
-          ? result.data.answer
-          : (result.data.answer as any)?.answer || "",
-      citations: citations,
-    };
-    if (typeof result.data.has_web_search !== "undefined") {
-      responseData.has_web_search = Boolean(result.data.has_web_search);
-    }
-    if (typeof result.data.brand_mentions_count !== "undefined") {
-      responseData.brand_mentions_count = Number(
-        result.data.brand_mentions_count
-      );
-    }
+    const answerText =
+      typeof result.data.answer === "string"
+        ? result.data.answer
+        : (result.data.answer as any)?.answer || "";
 
     return {
-      data: responseData,
-      usage: usage,
+      data: answerText,
+      usage,
       modelUsed: result.metadata.modelUsed,
     };
   } catch (error) {
@@ -530,8 +530,8 @@ export async function generateWebsiteForCompetitors(
         competitors: z.array(CompetitorSchema),
       }) as z.ZodType<{ competitors: CompetitorInfo[] }>,
       {
-        // Force Perplexity sonar for enrichment to prevent OpenAI 404s on "sonar"
-        modelId: "perplexity:sonar",
+        // Use centralized model id chosen by WebsiteEnrichmentAgent defaults (can be overridden by config)
+        // Leaving modelId undefined lets Python/agent config decide; if you want to force, pass MODELS mapping id
         temperature: 0.2,
         maxTokens: 2000,
         timeout: 45000,

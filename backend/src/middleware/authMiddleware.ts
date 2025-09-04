@@ -74,6 +74,28 @@ export const authenticate = async (
     return res.status(401).json({ error: "Invalid or expired token" });
   }
 };
+export const authenticateAdmin = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  // First authenticate the user
+  await new Promise<void>((resolve, reject) => {
+    authenticate(req, res, (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+
+  // Check if user has admin role
+  if (!req.user || req.user.role !== 'ADMIN') {
+    return res.status(403).json({ 
+      error: "Admin access required" 
+    });
+  }
+
+  next();
+};
 
 export const authorize = (...roles: Role[]) => {
   return (req: Request, res: Response, next: NextFunction) => {

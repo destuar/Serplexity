@@ -36,7 +36,7 @@ class CustomerQuestions(BaseModel):
 
 class GenQuestionAgent(BaseAgent):
 
-    def __init__(self, provider: str = "openai"):
+    def __init__(self):
         """Initialize with centralized model configuration for question generation"""
         # Use centralized configuration instead of hardcoded model
         default_model_config = get_default_model_for_task(ModelTask.QUESTION_GENERATION)
@@ -341,7 +341,10 @@ async def main():
 
         # Convert result to JSON-serializable format
         if 'result' in result and hasattr(result['result'], 'model_dump'):
-            result['result'] = result['result'].model_dump()
+            try:
+                result['result'] = result['result'].model_dump(mode='json')
+            except TypeError:
+                result['result'] = result['result'].model_dump()
 
         # Output result
         print(json.dumps(result, indent=2, default=str))

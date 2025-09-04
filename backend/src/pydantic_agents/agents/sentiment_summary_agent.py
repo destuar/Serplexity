@@ -110,21 +110,90 @@ DO NOT simply list "Quality: X/10, Price: Y/10" - instead create strategic narra
         return context
 
     async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Override to avoid pydantic_ai Union instantiation bug by using simple agent and coercion."""
-        import time, json
+        """Generate a sentiment summary with explicit provider usage extraction where possible."""
+        import time, json, os
         start_time = time.time()
         try:
-            from pydantic_ai import Agent as SimpleAgent
             prompt = await self.process_input(input_data)
-            agent = SimpleAgent(
-                model=self.model_id,
-                system_prompt=self.env_system_prompt or self.system_prompt,
-            )
-            raw = await agent.run(prompt)
-            text = raw.output if hasattr(raw, 'output') else str(raw)
 
-            # Try to coerce minimally structured ratings from free-form text
-            # Fallback to provided aggregated ratings
+            # Determine provider from environment or model prefix
+            provider = os.getenv('PYDANTIC_PROVIDER_ID', 'openai')
+            if isinstance(self.model_id, str) and ':' in self.model_id:
+                provider = self.model_id.split(':', 1)[0]
+
+            summary_text = ""
+            tokens_used = 0
+            model_used = self.model_id if isinstance(self.model_id, str) else str(self.model_id)
+
+            if provider == 'openai':
+                # Use OpenAI Responses API to ensure usage is populated
+                import openai as _openai
+                client = _openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+                model_name = self.model_id.split(':')[-1] if isinstance(self.model_id, str) and ':' in self.model_id else str(self.model_id)
+                try:
+                    response = client.responses.create(
+                        model=model_name,
+                        input=prompt,
+                    )
+                except Exception as oe:
+                    raise RuntimeError(f"OpenAI Responses API error: {oe}")
+
+                if hasattr(response, 'output') and response.output:
+                    if isinstance(response.output, list):
+                        for item in response.output:
+                            if hasattr(item, 'content') and hasattr(item, 'role') and item.role == 'assistant':
+                                if isinstance(item.content, list):
+                                    for content_item in item.content:
+                                        if hasattr(content_item, 'text'):
+                                            summary_text = content_item.text
+                    elif isinstance(response.output, str):
+                        summary_text = response.output
+                    else:
+                        summary_text = str(response.output)
+
+                if hasattr(response, 'usage') and response.usage:
+                    try:
+                        tokens_used = int(response.usage.total_tokens)  # type: ignore[attr-defined]
+                    except Exception:
+                        tokens_used = 0
+
+                model_used = model_name
+
+            elif provider == 'gemini':
+                # Use Google GenAI to extract usage metadata
+                from google import genai as _genai
+                client = _genai.Client(api_key=os.getenv('GEMINI_API_KEY'))
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=prompt,
+                )
+                summary_text = getattr(response, 'text', '') or ''
+                if hasattr(response, 'usage_metadata') and response.usage_metadata:
+                    try:
+                        tokens_used = int((response.usage_metadata.prompt_token_count or 0) + (response.usage_metadata.candidates_token_count or 0))
+                    except Exception:
+                        tokens_used = 0
+                model_used = 'gemini-2.5-flash'
+
+            else:
+                # Fallback to PydanticAI SimpleAgent; attempt to read usage if exposed
+                from pydantic_ai import Agent as SimpleAgent
+                agent = SimpleAgent(
+                    model=self.model_id,
+                    system_prompt=self.env_system_prompt or self.system_prompt,
+                )
+                raw = await agent.run(prompt)
+                summary_text = raw.output if hasattr(raw, 'output') else str(raw)
+                if hasattr(raw, 'usage') and raw.usage:
+                    try:
+                        tokens_used = int(raw.usage.total_tokens)  # type: ignore[attr-defined]
+                    except Exception:
+                        tokens_used = 0
+                # Normalize model_used for provider:model strings
+                if isinstance(self.model_id, str) and ':' in self.model_id:
+                    model_used = self.model_id.split(':', 1)[1]
+
+            # Coerce ratings using aggregated inputs (no extra LLM calls)
             def clamp(n: int) -> int:
                 return max(1, min(10, int(n)))
 
@@ -142,7 +211,7 @@ DO NOT simply list "Quality: X/10, Price: Y/10" - instead create strategic narra
                         brandReputation=clamp(agg.get('brandReputation', 9)),
                         brandTrust=clamp(agg.get('brandTrust', 8)),
                         customerService=clamp(agg.get('customerService', 8)),
-                        summaryDescription=text[:900] if text else "Generated summary"
+                        summaryDescription=summary_text[:900] if summary_text else "Generated summary",
                     )
                 ],
                 webSearchMetadata=None,
@@ -154,10 +223,11 @@ DO NOT simply list "Quality: X/10, Price: Y/10" - instead create strategic narra
                 'execution_time': execution_time,
                 'attempt_count': 1,
                 'agent_id': self.agent_id,
-                'model_used': self.model_id,
-                'tokens_used': 0,
-                'modelUsed': self.model_id,
-                'tokensUsed': 0,
+                'model_used': model_used,
+                'tokens_used': tokens_used,
+                'modelUsed': model_used,
+                'tokensUsed': tokens_used,
+                'usage': { 'total_tokens': tokens_used }
             }
         except Exception as e:
             execution_time = (time.time() - start_time) * 1000

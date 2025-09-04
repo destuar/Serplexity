@@ -24,6 +24,8 @@ import env from "../config/env";
 import { CostCalculator } from "../config/llmPricing";
 import { LLM_CONFIG, ModelTask } from "../config/models";
 import { checkRedisHealth } from "../config/redis";
+import { databaseTransactionService } from "../services/databaseTransactionService";
+import { deadLetterQueueService } from "../services/deadLetterQueueService";
 import {
   CompetitorInfo,
   SentimentScores,
@@ -33,6 +35,9 @@ import {
   getModelsByTaskWithUserPreferences,
 } from "../services/llmService";
 import { computeAndPersistMetrics } from "../services/metricsService";
+import { reportStatusService } from "../services/reportStatusService";
+import { resilientPydanticService } from "../services/resilientPydanticService";
+import { resourceMonitoringService } from "../services/resourceMonitoringService";
 import {
   ExtendedCompetitorInfo,
   PydanticProvider,
@@ -148,25 +153,51 @@ validateWorkerDependencies()
       async (job: Job) => {
         try {
           const jobAge = Date.now() - job.timestamp;
-          console.log(`🔥 WORKER ENTRY POINT - Job ${job.id} starting... (Age: ${Math.round(jobAge/1000)}s)`);
+          console.log(
+            `🔥 WORKER ENTRY POINT - Job ${job.id} starting... (Age: ${Math.round(jobAge / 1000)}s)`
+          );
           const { runId, company } = job.data;
           console.log(
             `🎯 Processing job ${job.id} - Report generation for company '${company?.name}' (runId: ${runId})`
           );
-          console.log(`📋 CRITICAL CHECKPOINT: Worker function called for job ${job.id} - This confirms job pickup success`);
-          
-          await processReport(runId, company);
+          console.log(
+            `📋 CRITICAL CHECKPOINT: Worker function called for job ${job.id} - This confirms job pickup success`
+          );
+
+          // Emit initial progress line
+          await job.updateProgress({
+            message: `Stage 0: Initialization for ${company?.name}`,
+          });
+
+          // Start resource monitoring with 2GB memory limit and 30-minute timeout
+          await resourceMonitoringService.monitorAsyncFunction(
+            `job-${job.id}`,
+            () => processReport(runId, company),
+            {
+              maxMemoryMB: 2048, // 2GB limit
+              maxExecutionTimeMs: 1800000, // 30 minutes
+              warningMemoryMB: 1536, // 1.5GB warning
+              warningExecutionTimeMs: 1200000, // 20 minutes warning
+            }
+          );
+
           console.log(`✅ Job ${job.id} completed successfully`);
+          await job.updateProgress({
+            message: `Stage ✅: Completed for ${company?.name}`,
+          });
         } catch (err) {
           console.error(`❌ Job ${job.id} failed:`, err);
+          await job.updateProgress({
+            message: `Stage ❌: Failed - ${(err as Error)?.message || err}`,
+          });
           throw err;
         }
       },
       {
         ...getWorkerOptions(),
-        // Override with worker-specific settings
+        // Override with worker-specific settings for production readiness
         concurrency: LLM_CONFIG.WORKER_CONCURRENCY,
-        lockDuration: 1000 * 60 * 2, // 2 minutes - fail fast on stuck jobs
+        lockDuration: 1000 * 60 * 30, // 30 minutes - allow for long-running reports
         limiter: {
           max: LLM_CONFIG.WORKER_RATE_LIMIT.max,
           duration: LLM_CONFIG.WORKER_RATE_LIMIT.duration,
@@ -174,7 +205,7 @@ validateWorkerDependencies()
         removeOnComplete: { count: 100 },
         removeOnFail: { count: 50 },
 
-        // Enhanced worker configuration
+        // Enhanced worker configuration for resource management
         stalledInterval: 15000, // Check for stalled jobs every 15s
         maxStalledCount: 2, // Retry stalled jobs twice to avoid sticky active state
         drainDelay: 5, // Wait 5ms when queue is empty
@@ -189,34 +220,66 @@ validateWorkerDependencies()
       console.log("🎯 Worker is ready and waiting for jobs...");
     });
 
+    // expose current job globally so we can emit updateProgress within deep calls without threading job
     worker.on("active", (job: Job) => {
       const { runId, company } = job.data;
       const jobAge = Date.now() - job.timestamp;
       console.log(
-        `🚀 Worker started processing job ${job.id} for ${company?.name} (runId: ${runId}) - Job age: ${Math.round(jobAge/1000)}s`
+        `🚀 Worker started processing job ${job.id} for ${company?.name} (runId: ${runId}) - Job age: ${Math.round(jobAge / 1000)}s`
       );
-      
+
       // CRITICAL: Verify we're actually processing the job
-      console.log(`✅ CONFIRMATION: Worker successfully picked up and is processing job ${job.id}`);
+      console.log(
+        `✅ CONFIRMATION: Worker successfully picked up and is processing job ${job.id}`
+      );
+      try {
+        (global as any).currentJob = job;
+      } catch {}
     });
 
     worker.on("progress", (job: Job, progress: unknown) => {
-      console.log(`📈 Job ${job.id} progress:`, progress);
+      if (
+        typeof progress === "object" &&
+        progress &&
+        (progress as any).message
+      ) {
+        console.log(`📈 [${job.id}] ${(progress as any).message}`);
+      } else {
+        console.log(`📈 [${job.id}] Progress:`, progress);
+      }
     });
 
     worker.on("completed", (job: Job) => {
       const { company } = job.data;
-      console.log(
-        `✅ Worker event: Job ${job.id} completed for ${company?.name}`
-      );
+      console.log(`✅ [${job.id}] Completed for ${company?.name}`);
+      try {
+        (global as any).currentJob = undefined;
+      } catch {}
     });
 
     worker.on("failed", async (job, err) => {
       const { company } = job?.data || {};
       console.error(
-        `❌ Worker event: Job ${job?.id} failed for ${company?.name}:`,
-        err
+        `❌ [${job?.id}] Failed for ${company?.name}: ${err?.message}`
       );
+      try {
+        (global as any).currentJob = undefined;
+      } catch {}
+
+      // Add to dead letter queue for recovery
+      if (job && err) {
+        try {
+          await deadLetterQueueService.addFailedJob(job, err);
+          console.log(
+            `📋 Job ${job.id} added to dead letter queue for recovery`
+          );
+        } catch (dlqError) {
+          console.error(
+            `❌ Failed to add job ${job?.id} to dead letter queue:`,
+            dlqError
+          );
+        }
+      }
     });
 
     worker.on("error", (err) => {
@@ -313,7 +376,7 @@ validateWorkerDependencies()
         console.log("🔧 About to call resumeActiveJobs...");
         await resumeActiveJobs(worker);
         console.log("🔧 resumeActiveJobs completed");
-        
+
         // Start worker after cleaning up active jobs
         console.log("🔧 Calling worker.run()...");
         await worker.run();
@@ -349,26 +412,26 @@ validateWorkerDependencies()
  */
 function normalizeModelId(modelId: string): string {
   // Handle provider:model format (e.g., "perplexity:sonar" -> "sonar")
-  if (modelId.includes(':')) {
-    const [provider, model] = modelId.split(':', 2);
-    
+  if (modelId.includes(":")) {
+    const [provider, model] = modelId.split(":", 2);
+
     // Handle known provider mappings
     switch (provider) {
-      case 'perplexity':
+      case "perplexity":
         return model; // "perplexity:sonar" -> "sonar"
-      case 'openai':
-        return model; // "openai:gpt-4.1-mini" -> "gpt-4.1-mini" 
-      case 'anthropic':
+      case "openai":
+        return model; // "openai:gpt-4.1-mini" -> "gpt-4.1-mini"
+      case "anthropic":
         return model; // "anthropic:claude-3-5-haiku-20241022" -> "claude-3-5-haiku-20241022"
-      case 'google':
-      case 'gemini':
+      case "google":
+      case "gemini":
         return model; // "google:gemini-2.5-flash" -> "gemini-2.5-flash"
       default:
         // For unknown providers, try the model part
         return model;
     }
   }
-  
+
   // Return as-is if no provider prefix
   return modelId;
 }
@@ -416,7 +479,7 @@ function calculateCost(
       `⚠️ Cost calculation failed for model ${modelId} (normalized: ${normalizedModelId}), using $0:`,
       errorMessage
     );
-    
+
     // Return 0 cost but continue processing to avoid job failures
     return 0;
   }
@@ -681,6 +744,11 @@ async function processReport(
   console.log(`AWS_REGION: ${awsRegion || "MISSING"}`);
 
   console.log(`📊 Stage 1: Getting direct database client...`);
+  try {
+    await (global as any).currentJob?.updateProgress({
+      message: `Stage 1: Checking existing questions`,
+    });
+  } catch {}
 
   // Use direct database connection instead of cache
   const prisma = await getDbClient();
@@ -694,10 +762,26 @@ async function processReport(
   try {
     console.log(`🚀 Starting report generation for ${company.name}`);
 
-    // Update report status
-    await prisma.reportRun.update({
-      where: { id: runId },
-      data: { status: "RUNNING", stepStatus: "Starting report generation" },
+    // Initialize progress tracking
+    await reportStatusService.initializeReport(
+      runId,
+      company.id,
+      company.name,
+      0, // Will update after we know question count
+      0 // Will update after we know model count
+    );
+
+    // Update report status with transaction retry logic
+    await databaseTransactionService.updateReportStatusTransaction(runId, {
+      status: "RUNNING",
+      stepStatus: "Starting report generation",
+    });
+
+    await reportStatusService.updateProgress({
+      runId,
+      step: "initialization",
+      progress: 10,
+      message: "Report generation started",
     });
 
     // Get full company data
@@ -712,6 +796,11 @@ async function processReport(
 
     // === STAGE 1: Check for Questions or Generate Them ===
     console.log(`📊 Stage 1: Checking if questions exist for company`);
+    try {
+      await (global as any).currentJob?.updateProgress({
+        message: `Stage 1: Checking existing questions`,
+      });
+    } catch {}
 
     await prisma.reportRun.update({
       where: { id: runId },
@@ -730,6 +819,11 @@ async function processReport(
       console.log(
         `🔍 First report run for ${fullCompany.name} - generating questions`
       );
+      try {
+        await (global as any).currentJob?.updateProgress({
+          message: `Stage 1: Generating questions`,
+        });
+      } catch {}
 
       await prisma.reportRun.update({
         where: { id: runId },
@@ -738,26 +832,46 @@ async function processReport(
         },
       });
 
-      // Step 1: Research company website with Sonar
-      const { pydanticLlmService } = await import(
-        "../services/pydanticLlmService"
+      // Step 1: Research company with centralized model configuration
+      console.log(`📝 Step 1: Researching website for ${fullCompany.name}`);
+      try {
+        await (global as any).currentJob?.updateProgress({
+          message: `Stage 1.1: Researching ${fullCompany.name}`,
+        });
+      } catch {}
+
+      const researchModels = await getModelsByTaskWithUserPreferences(
+        ModelTask.COMPANY_RESEARCH,
+        fullCompany.userId,
+        (fullCompany as any).modelPreferences || null
       );
 
-      console.log(`📝 Step 1: Researching website for ${fullCompany.name}`);
-      const researchResult = await pydanticLlmService.executeAgent(
-        "research_agent.py",
-        {
-          company_name: fullCompany.name,
-          website_url: fullCompany.website,
-          industry: fullCompany.industry || "General",
-        },
-        null,
-        {
-          temperature: 0.3,
-          maxTokens: 1500,
-          timeout: 60000,
-        }
-      );
+      if (researchModels.length === 0) {
+        throw new Error("No models available for company research");
+      }
+
+      const researchModel = researchModels[0];
+      const researchResult =
+        await resilientPydanticService.executeResearchAgent(
+          {
+            company_name: fullCompany.name,
+            website_url: fullCompany.website,
+            industry: fullCompany.industry || "General",
+          },
+          null,
+          {
+            modelId: researchModel.id, // Use centralized model configuration
+            temperature: 0.3,
+            maxTokens: 1500,
+            timeout: 60000,
+            fallbackEnabled: true,
+            circuitBreakerConfig: {
+              failureThreshold: 2,
+              recoveryTimeout: 30000,
+              timeout: 60000,
+            },
+          }
+        );
 
       if (!researchResult.data) {
         throw new Error("Company research failed - no data returned");
@@ -767,20 +881,46 @@ async function processReport(
         `🤖 Step 2: Generating questions based on research for ${fullCompany.name}`
       );
 
-      // Step 2: Generate questions using GPT-4.1-mini
-      const questionResult = await pydanticLlmService.executeAgent(
-        "question_agent.py",
-        {
-          company_name: fullCompany.name,
-          research_context: researchResult.data,
-        },
-        null,
-        {
-          temperature: 0.7,
-          maxTokens: 2000,
-          timeout: 30000,
-        }
+      // Step 2: Generate questions using centralized model configuration
+      const questionGenerationModels = await getModelsByTaskWithUserPreferences(
+        ModelTask.QUESTION_GENERATION,
+        fullCompany.userId,
+        (fullCompany as any).modelPreferences || null
       );
+
+      if (questionGenerationModels.length === 0) {
+        throw new Error("No models available for question generation");
+      }
+
+      // Use first available model for question generation
+      const questionModel = questionGenerationModels[0];
+      console.log(`🤖 Using ${questionModel.id} for question generation`);
+      try {
+        await (global as any).currentJob?.updateProgress({
+          message: `Stage 1.2: Generating questions with ${questionModel.id}`,
+        });
+      } catch {}
+
+      const questionResult =
+        await resilientPydanticService.executeQuestionAgent(
+          {
+            company_name: fullCompany.name,
+            research_context: researchResult.data,
+          },
+          null,
+          {
+            modelId: questionModel.id, // Explicitly pass the model ID
+            temperature: 0.7,
+            maxTokens: 2000,
+            timeout: 30000,
+            fallbackEnabled: true,
+            circuitBreakerConfig: {
+              failureThreshold: 2,
+              recoveryTimeout: 30000,
+              timeout: 30000,
+            },
+          }
+        );
 
       // Handle both the Python response format and the expected format
       const resultData = (questionResult as PydanticQuestionResult).data;
@@ -851,28 +991,23 @@ async function processReport(
           ),
         ];
 
-        await prisma.question.createMany({
-          data: questionsToCreate,
-        });
+        // Use transaction to ensure atomicity of question creation and company update
+        const { questions } =
+          await databaseTransactionService.createQuestionsTransaction(
+            fullCompany.id,
+            questionsToCreate
+          );
 
-        // Mark questions as ready
-        await prisma.company.update({
-          where: { id: fullCompany.id },
-          data: { questionsReady: true },
-        });
-
-        // Fetch the newly created active questions
-        activeQuestions = await prisma.question.findMany({
-          where: {
-            companyId: fullCompany.id,
-            isActive: true,
-          },
-          orderBy: { createdAt: "asc" },
-        });
+        activeQuestions = questions;
 
         console.log(
           `✅ Generated and stored ${questionsToCreate.length} questions for ${fullCompany.name}`
         );
+        try {
+          await (global as any).currentJob?.updateProgress({
+            message: `Stage 1 ✅: ${questionsToCreate.length} questions created`,
+          });
+        } catch {}
       } else {
         console.log(`❌ Question generation failed - no valid questions found`);
         console.log(`🔍 Active questions count: ${generatedActive.length}`);
@@ -891,6 +1026,11 @@ async function processReport(
     } else {
       // Subsequent reports - use existing active questions
       console.log(`📋 Using existing questions for ${fullCompany.name}`);
+      try {
+        await (global as any).currentJob?.updateProgress({
+          message: `Stage 1: Using existing active questions`,
+        });
+      } catch {}
 
       activeQuestions = await prisma.question.findMany({
         where: {
@@ -913,17 +1053,23 @@ async function processReport(
       const { getPlanLimitsForUser } = await import("../services/planService");
       const limits = await getPlanLimitsForUser(fullCompany.userId);
       const planLimitsPrompts = limits.promptsPerReportMax;
-      
+
       // Safety net: Limit active questions if somehow more than plan allows got through
       if (
         Array.isArray(activeQuestions) &&
         activeQuestions.length > planLimitsPrompts
       ) {
         effectiveActiveQuestions = activeQuestions.slice(0, planLimitsPrompts);
-        console.log(`⚠️ SAFETY NET: Limiting questions to ${effectiveActiveQuestions.length}/${activeQuestions.length} (plan limit: ${planLimitsPrompts})`);
-        console.log(`⚠️ This indicates a bug in the activation layer - questions should be limited before reaching here`);
+        console.log(
+          `⚠️ SAFETY NET: Limiting questions to ${effectiveActiveQuestions.length}/${activeQuestions.length} (plan limit: ${planLimitsPrompts})`
+        );
+        console.log(
+          `⚠️ This indicates a bug in the activation layer - questions should be limited before reaching here`
+        );
       } else {
-        console.log(`📊 Processing ${activeQuestions.length} active questions (within plan limit of ${planLimitsPrompts})`);
+        console.log(
+          `📊 Processing ${activeQuestions.length} active questions (within plan limit of ${planLimitsPrompts})`
+        );
       }
     } catch (error) {
       console.error("❌ Error applying plan limits:", error);
@@ -941,38 +1087,39 @@ async function processReport(
     console.log(
       `✅ Ready to process ${effectiveActiveQuestions.length} active questions`
     );
+    try {
+      await (global as any).currentJob?.updateProgress({
+        message: `Stage 1 ✅: ${effectiveActiveQuestions.length} active questions ready`,
+      });
+    } catch {}
 
-    // === STAGE 2: Answer Questions with Enabled Models ===
-    console.log(`🤖 Stage 2: Answering questions with enabled models`);
-
-    await prisma.reportRun.update({
-      where: { id: runId },
-      data: { stepStatus: "Generating answers to target market questions" },
-    });
-
-    // Get enabled models for question answering
+    // Get enabled models for question answering and apply plan limits
     const questionModels = await getModelsByTaskWithUserPreferences(
       ModelTask.QUESTION_ANSWERING,
       fullCompany.userId,
       (fullCompany as any).modelPreferences || null
     );
 
-    // Apply plan limits for question models right away
+    // Apply plan limits for question models
     let effectiveQuestionModels = questionModels;
     try {
       const { getPlanLimitsForUser } = await import("../services/planService");
       const limits = await getPlanLimitsForUser(fullCompany.userId);
       const planLimitsModels = limits.modelsPerReportMax;
-      
+
       // Limit question models by plan limits
       if (
         Array.isArray(questionModels) &&
         questionModels.length > planLimitsModels
       ) {
         effectiveQuestionModels = questionModels.slice(0, planLimitsModels);
-        console.log(`📊 Plan limits: Using ${effectiveQuestionModels.length}/${questionModels.length} models (limit: ${planLimitsModels})`);
+        console.log(
+          `📊 Plan limits: Using ${effectiveQuestionModels.length}/${questionModels.length} models (limit: ${planLimitsModels})`
+        );
       } else {
-        console.log(`📊 Using all ${questionModels.length} available models (within plan limit of ${planLimitsModels})`);
+        console.log(
+          `📊 Using all ${questionModels.length} available models (within plan limit of ${planLimitsModels})`
+        );
       }
     } catch (error) {
       console.error("❌ Error applying model plan limits:", error);
@@ -980,10 +1127,33 @@ async function processReport(
       effectiveQuestionModels = questionModels;
     }
 
+    // Update progress tracking with question and model counts
+    await reportStatusService.updateProgress({
+      runId,
+      step: "question_generation",
+      progress: 100,
+      message: `Ready to process ${effectiveActiveQuestions.length} questions`,
+      metadata: {
+        questionsTotal: effectiveActiveQuestions.length,
+        modelsTotal: effectiveQuestionModels.length,
+      },
+    });
+
+    // === STAGE 2: Answer Questions with Enabled Models ===
+    console.log(`🤖 Stage 2: Answering questions with enabled models`);
+    try {
+      await (global as any).currentJob?.updateProgress({
+        message: `Stage 2: Answering questions`,
+      });
+    } catch {}
+
+    await prisma.reportRun.update({
+      where: { id: runId },
+      data: { stepStatus: "Generating answers to target market questions" },
+    });
+
     // Import pydantic service for question answering
-    const { pydanticLlmService } = await import(
-      "../services/pydanticLlmService"
-    );
+    await import("../services/pydanticLlmService");
 
     // Initialize competitor pipeline for parallel processing
     const competitorPipeline = new CompetitorPipeline(runId);
@@ -1038,17 +1208,20 @@ async function processReport(
               const rawContent = (aiOverview.content || "").trim();
 
               if (!rawContent) {
-                console.warn(`[AI Overview] No content returned for question: ${question.query}`);
+                console.warn(
+                  `[AI Overview] No content returned for question: ${question.query}`
+                );
                 return;
               }
 
-              console.log(`[AI Overview] Processing content through Answer Agent for brand tagging`);
+              console.log(
+                `[AI Overview] Processing content through Answer Agent for brand tagging`
+              );
 
               try {
                 // 🎯 CRITICAL FIX: Process AI Overview content through Answer Agent for brand tagging
                 // This ensures AI Overview gets the same <brand> tag processing as other models
-                result = await pydanticLlmService.executeAgent(
-                  "answer_agent.py",
+                result = await resilientPydanticService.executeAnswerAgent(
                   {
                     question: question.query,
                     company_name: fullCompany.name,
@@ -1060,19 +1233,29 @@ async function processReport(
                   {
                     modelId: "gpt-4.1-mini", // Use reliable model for brand tagging
                     timeout: LLM_CONFIG.TIMEOUTS.MODEL_RESPONSE,
+                    fallbackEnabled: true,
+                    circuitBreakerConfig: {
+                      failureThreshold: 2,
+                      recoveryTimeout: 45000,
+                      timeout: LLM_CONFIG.TIMEOUTS.MODEL_RESPONSE,
+                    },
                   }
                 );
 
                 if (!result.metadata?.success || !result.data) {
-                  throw new Error(`AI Overview brand tagging failed: ${JSON.stringify(result)}`);
+                  throw new Error(
+                    `AI Overview brand tagging failed: ${JSON.stringify(result)}`
+                  );
                 }
 
                 // Override the answer content with original AI Overview content but keep brand tags
                 const taggedResponse = result.data as PydanticResponse;
-                console.log(`[AI Overview] Brand tagging successful, found tags in response`);
+                console.log(
+                  `[AI Overview] Brand tagging successful, found tags in response`
+                );
 
                 // Store citations from AI Overview
-                const aiOverviewCitations = Array.isArray(aiOverview.citations) 
+                const aiOverviewCitations = Array.isArray(aiOverview.citations)
                   ? aiOverview.citations.map((cite: any) => ({
                       url: cite.url,
                       title: cite.title || new URL(cite.url).hostname,
@@ -1083,7 +1266,7 @@ async function processReport(
                 // Merge AI Overview citations with any found by the Answer Agent
                 const mergedCitations = [
                   ...aiOverviewCitations,
-                  ...(taggedResponse.citations || [])
+                  ...(taggedResponse.citations || []),
                 ];
 
                 // Create a hybrid response that preserves AI Overview structure but adds brand tags
@@ -1096,24 +1279,31 @@ async function processReport(
                     has_web_search: true,
                     source: "ai-overview-processed",
                     original_content: rawContent, // Preserve original for debugging
-                  }
+                  },
                 };
 
-                console.log(`[AI Overview] Unified processing complete - now using standard mention detection`);
-
+                console.log(
+                  `[AI Overview] Unified processing complete - now using standard mention detection`
+                );
               } catch (error) {
-                console.error(`[AI Overview] CRITICAL: Answer Agent brand tagging failed for question: "${question.query}"`, {
-                  error: error instanceof Error ? error.message : String(error),
-                  stack: error instanceof Error ? error.stack : undefined,
-                  companyId: fullCompany.id,
-                  questionId: question.id,
-                  timestamp: new Date().toISOString(),
-                });
-                
+                console.error(
+                  `[AI Overview] CRITICAL: Answer Agent brand tagging failed for question: "${question.query}"`,
+                  {
+                    error:
+                      error instanceof Error ? error.message : String(error),
+                    stack: error instanceof Error ? error.stack : undefined,
+                    companyId: fullCompany.id,
+                    questionId: question.id,
+                    timestamp: new Date().toISOString(),
+                  }
+                );
+
                 // 🔄 FAIL FAST: If Answer Agent fails, skip this response to avoid incorrect metrics
                 // This ensures Share of Voice calculations remain accurate
                 tracker.failed++;
-                console.error(`[AI Overview] Skipping response due to brand tagging failure - maintaining metric accuracy`);
+                console.error(
+                  `[AI Overview] Skipping response due to brand tagging failure - maintaining metric accuracy`
+                );
                 return {
                   success: false,
                   error: `AI Overview brand tagging failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -1123,9 +1313,12 @@ async function processReport(
               }
 
               // Set tokens and cost for AI Overview (minimal since we're using Answer Agent for tagging)
-              const promptTokens = (result.metadata as any)?.usage?.prompt_tokens || 100; // Estimate for tagging
-              const completionTokens = (result.metadata as any)?.usage?.completion_tokens || 50;
-              const thinkingTokens = (result.metadata as any)?.usage?.thinking_tokens || 0;
+              const promptTokens =
+                (result.metadata as any)?.usage?.prompt_tokens || 100; // Estimate for tagging
+              const completionTokens =
+                (result.metadata as any)?.usage?.completion_tokens || 50;
+              const thinkingTokens =
+                (result.metadata as any)?.usage?.thinking_tokens || 0;
               const cachedTokens = 0;
               const searchCount = 1; // AI Overview always includes web search
 
@@ -1140,15 +1333,22 @@ async function processReport(
                 undefined
               );
 
-              console.log(`[AI Overview] Processing complete, continuing to unified mention detection`);
+              console.log(
+                `[AI Overview] Processing complete, continuing to unified mention detection`
+              );
             } else {
-              result = await pydanticLlmService.executeAgent(
-                "answer_agent.py",
+              result = await resilientPydanticService.executeAnswerAgent(
                 questionInput,
                 null,
                 {
                   modelId: model.id,
                   timeout: LLM_CONFIG.TIMEOUTS.MODEL_RESPONSE,
+                  fallbackEnabled: true,
+                  circuitBreakerConfig: {
+                    failureThreshold: 3,
+                    recoveryTimeout: 60000,
+                    timeout: LLM_CONFIG.TIMEOUTS.MODEL_RESPONSE,
+                  },
                 }
               );
             }
@@ -1524,6 +1724,14 @@ async function processReport(
             },
           });
 
+          // Update progress tracking
+          await reportStatusService.updateProgress({
+            runId,
+            step: "answer_generation",
+            progress: Math.round((progressPercent / 100) * 60), // Answer generation is ~60% of total
+            message: `${completedQuestions}/${totalQuestionPromises} question-model combinations processed`,
+          });
+
           console.log(
             `📊 Question progress: ${completedQuestions}/${totalQuestionPromises} (${progressPercent}%)`
           );
@@ -1708,6 +1916,11 @@ async function processReport(
       `😊 Sentiment analysis complete: ${successfulSentiments.length} successful analyses`
     );
 
+    // Update progress tracking for sentiment completion
+    await reportStatusService.completeStep(runId, "sentiment_analysis", {
+      sentimentAnalysesCompleted: successfulSentiments.length,
+    });
+
     // === STAGE 4: Finalize Competitor Enrichment (Parallel) ===
     console.log(`🌐 Stage 4: Finalizing competitor website enrichment`);
 
@@ -1787,15 +2000,28 @@ async function processReport(
       );
     }
 
-    await prisma.reportRun.update({
-      where: { id: runId },
-      data: {
+    // Complete progress tracking
+    await reportStatusService.completeReport(runId, {
+      tokensUsed: totalTokens,
+      usdCost: totalCost,
+      competitorsFound: deduplicatedCompetitors.length,
+      duration,
+    });
+
+    // Use transaction for final report completion to ensure atomicity
+    await databaseTransactionService.completeReportTransaction(
+      runId,
+      {
         status: "COMPLETED",
         stepStatus: "Report completed successfully",
         tokensUsed: totalTokens,
         usdCost: totalCost,
       },
-    });
+      {
+        companyId: fullCompany.id,
+        metrics: {}, // Metrics will be computed separately for better performance
+      }
+    );
 
     // Billing: finalize report and apply budget hold
     try {
@@ -1830,7 +2056,9 @@ async function processReport(
 
     // Evaluate email notification rules (non-blocking)
     try {
-      const { emailNotificationService } = await import("../services/emailNotificationService");
+      const { emailNotificationService } = await import(
+        "../services/emailNotificationService"
+      );
       await emailNotificationService.evaluateReport({
         ownerUserId: fullCompany.userId,
         companyId: fullCompany.id,
@@ -1860,8 +2088,16 @@ async function processReport(
   } catch (error) {
     console.error(`💥 Report generation failed:`, error);
 
-    // Enhanced error handling with database connection resilience
-    await safeUpdateReportStatus(prisma, runId, {
+    // Update progress tracking for failure
+    await reportStatusService.updateProgress({
+      runId,
+      step: "failed",
+      progress: 0,
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+
+    // Enhanced error handling with transaction retry logic
+    await databaseTransactionService.updateReportStatusTransaction(runId, {
       status: "FAILED",
       stepStatus: `Failed: ${error instanceof Error ? error.message : "Unknown error"}`,
       tokensUsed: totalTokens,
@@ -1876,7 +2112,7 @@ async function processReport(
  * Safely update report status with database connection resilience
  * Prevents cascade failures when database connections fail during error handling
  */
-async function safeUpdateReportStatus(
+async function _safeUpdateReportStatus(
   prisma: PrismaClient,
   runId: string,
   updateData: {
@@ -2047,46 +2283,63 @@ async function resumeActiveJobs(_worker: Worker): Promise<void> {
   try {
     const { Queue } = await import("bullmq");
     const queue = new Queue("report-generation", getBullMQOptions());
-    
+
     // Get all active jobs
     const activeJobs = await queue.getActive();
-    
+
     if (activeJobs.length > 0) {
       console.log(`🔄 Found ${activeJobs.length} active jobs to resume:`);
-      
+
       for (const job of activeJobs) {
-        console.log(`   - Job ${job.id}: ${job.name} (runId: ${job.data?.runId}) - Age: ${Date.now() - job.timestamp}ms`);
-        
+        console.log(
+          `   - Job ${job.id}: ${job.name} (runId: ${job.data?.runId}) - Age: ${Date.now() - job.timestamp}ms`
+        );
+
         // Check if job is truly stalled (older than lock duration)
         const jobAge = Date.now() - job.timestamp;
-        const lockDuration = 1000 * 60 * 2; // 2 minutes (matching worker config)
-        
+        // Match the worker's 30m lockDuration to avoid misclassifying active jobs as stalled
+        const lockDuration = 1000 * 60 * 30; // 30 minutes
+
         if (jobAge > lockDuration) {
-          console.log(`⚠️  Job ${job.id} appears stalled (age: ${Math.round(jobAge/1000)}s), attempting recovery...`);
-          
+          console.log(
+            `⚠️  Job ${job.id} appears stalled (age: ${Math.round(jobAge / 1000)}s), attempting recovery...`
+          );
+
           try {
             // Move job back to waiting state for retry
             await job.retry();
-            console.log(`✅ Job ${job.id} moved back to waiting queue for retry`);
+            console.log(
+              `✅ Job ${job.id} moved back to waiting queue for retry`
+            );
           } catch (retryError) {
             console.error(`❌ Failed to retry job ${job.id}:`, retryError);
-            
+
             // As a last resort, mark as failed and let it retry through normal mechanism
             try {
-              await job.moveToFailed(new Error("Job stalled during worker restart"), "0");
-              console.log(`🔄 Job ${job.id} marked as failed for normal retry process`);
+              await job.moveToFailed(
+                new Error("Job stalled during worker restart"),
+                "0"
+              );
+              console.log(
+                `🔄 Job ${job.id} marked as failed for normal retry process`
+              );
             } catch (failError) {
-              console.error(`❌ Failed to mark job ${job.id} as failed:`, failError);
+              console.error(
+                `❌ Failed to mark job ${job.id} as failed:`,
+                failError
+              );
             }
           }
         } else {
-          console.log(`✅ Job ${job.id} is recent (age: ${Math.round(jobAge/1000)}s), worker should pick it up automatically`);
+          console.log(
+            `✅ Job ${job.id} is recent (age: ${Math.round(jobAge / 1000)}s), worker should pick it up automatically`
+          );
         }
       }
     } else {
       console.log("✅ No active jobs found - worker ready for new jobs");
     }
-    
+
     await queue.close();
   } catch (error) {
     console.error("❌ Failed to resume active jobs:", error);

@@ -42,7 +42,7 @@ model User {
 model Company {
   id                   String                       @id @default(cuid())
   name                 String
-  website              String                       @unique
+  website              String
   industry             String?
   userId               String
   createdAt            DateTime                     @default(now())
@@ -76,6 +76,7 @@ model Company {
   usageEvents          UsageEvent[]
 
   @@index([userId])
+  @@unique([userId, website])
 }
 
 model Competitor {

@@ -35,7 +35,7 @@ class Model:
     id: str
     engine: ModelEngine
     tasks: List[ModelTask]
-    
+
     def get_pydantic_model_id(self) -> str:
         """Get the full model ID for PydanticAI"""
         # Special handling for models that don't need provider prefix
@@ -45,7 +45,7 @@ class Model:
             return f"openai:{self.id}"  # openai:sonar (Perplexity uses OpenAI format)
         else:
             return f"{self.engine.value}:{self.id}"
-    
+
     def can_perform_task(self, task: ModelTask) -> bool:
         """Check if this model can perform a specific task"""
         return task in self.tasks
@@ -110,14 +110,17 @@ def get_default_model_for_task(task: ModelTask) -> Optional[Model]:
     models = get_models_by_task(task)
     if not models:
         return None
-    
+
     # Task-specific defaults based on actual agent implementations
     if task == ModelTask.SENTIMENT_SUMMARY:
         return get_model_by_id("gpt-4.1-mini")  # Only gpt-4.1-mini
     elif task == ModelTask.WEBSITE_ENRICHMENT:
-        return get_model_by_id("sonar")  # Sonar with web search
+        # Default to gpt-4.1-mini to avoid Perplexity-specific failures; agents may still construct
+        # a Perplexity model object explicitly when desired (WebsiteEnrichmentAgent handles this)
+        return get_model_by_id("gpt-4.1-mini")
     elif task == ModelTask.COMPANY_RESEARCH:
-        return get_model_by_id("sonar")  # Only sonar for web research
+        # Align with TS defaults and allow override; previously forced Sonar caused 404s
+        return get_model_by_id("gpt-4.1-mini")
     elif task == ModelTask.QUESTION_GENERATION:
         return get_model_by_id("gpt-4.1-mini")  # Only gpt-4.1-mini
     elif task == ModelTask.MENTION_DETECTION:
@@ -144,8 +147,8 @@ def get_agent_models() -> Dict[str, str]:
         "sentiment_summary": "gpt-4.1-mini",  # Only gpt-4.1-mini
         "fanout": "gpt-4.1-mini",  # Primary default
         "question_answering": "gpt-4.1-mini",  # Multi-provider but defaults to gpt-4.1-mini
-        "website_enrichment": "sonar",  # Sonar with web search
-        "company_research": "sonar",  # Only sonar
+        "website_enrichment": "gpt-4.1-mini",
+        "company_research": "gpt-4.1-mini",
         "question_generation": "gpt-4.1-mini",  # Only gpt-4.1-mini
         "mention_detection": "gpt-4.1-mini",  # Default to gpt-4.1-mini
         "optimization": "gpt-4.1-mini"  # Default to gpt-4.1-mini
