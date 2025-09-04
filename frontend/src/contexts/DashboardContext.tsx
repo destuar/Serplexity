@@ -146,17 +146,6 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
   const prevCompanyIdRef = useRef<string | null>(null);
 
   // Enhanced caching using global page cache system
-  // Legacy cache ref maintained for compatibility during transition
-  const cacheRef = useRef<
-    Record<
-      string,
-      {
-        data: DashboardData | null;
-        detailedQuestions: TopRankingQuestion[];
-        acceptedCompetitors: CompetitorData[];
-      }
-    >
-  >({});
 
   // Fetch dashboard data and detailed questions in parallel
   const fetchData = useCallback(
@@ -190,49 +179,33 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
       }>('dashboard', selectedCompany.id, cacheFilters);
 
       if (!isRefresh && cachedDashboardData) {
-        console.log(`[DashboardContext] Global cache HIT for dashboard:${selectedCompany.id}`);
         
-        setData(cachedDashboardData.data);
-        setDetailedQuestions(cachedDashboardData.detailedQuestions);
-        setAcceptedCompetitors(cachedDashboardData.acceptedCompetitors);
-        if (cachedDashboardData.lastUpdated) {
-          setLastUpdated(cachedDashboardData.lastUpdated);
-        }
+        // Only use cache if it contains actual data
+        if (cachedDashboardData.data && Object.keys(cachedDashboardData.data).length > 0) {
+          
+          setData(cachedDashboardData.data);
+          setDetailedQuestions(cachedDashboardData.detailedQuestions);
+          setAcceptedCompetitors(cachedDashboardData.acceptedCompetitors);
+          if (cachedDashboardData.lastUpdated) {
+            setLastUpdated(cachedDashboardData.lastUpdated);
+          }
 
-        // Update hasReport based on cached data
-        if (cachedDashboardData.data && hasReport !== true) {
           setHasReport(true);
+          setLoading(false);
+          setRefreshing(false);
+          setError(null);
+          
+          return;
+        } else {
+          // Clear the invalid cache entry
+          try {
+            invalidateCache('dashboard', selectedCompany.id);
+          } catch (cacheErr) {
+            console.warn('[DashboardContext] Failed to clear invalid cache:', cacheErr);
+          }
         }
-
-        // Don't trigger loading states for cached data
-        setLoading(false);
-        setRefreshing(false);
-        setError(null);
-        return;
       }
 
-      // Legacy cache fallback (remove after transition period)
-      const legacyCacheKey = `${selectedCompany.id}|${filters.dateRange}|${filters.aiModel}`;
-      if (!isRefresh && cacheRef.current[legacyCacheKey]) {
-        const cached = cacheRef.current[legacyCacheKey];
-        setData(cached.data);
-        setDetailedQuestions(cached.detailedQuestions);
-        setAcceptedCompetitors(cached.acceptedCompetitors);
-        if (cached.data?.lastUpdated) {
-          setLastUpdated(cached.data.lastUpdated);
-        }
-
-        // Update hasReport based on cached data
-        if (cached.data && hasReport !== true) {
-          setHasReport(true);
-        }
-
-        // Don't trigger loading states for cached data
-        setLoading(false);
-        setRefreshing(false);
-        setError(null);
-        return;
-      }
 
       try {
         // Only set loading states if we actually need to fetch data
@@ -261,11 +234,19 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
             ? filters.aiModel
             : undefined;
 
+        // Add timeout for API requests to prevent infinite loading
+        const API_TIMEOUT = 30000; // 30 seconds
+        const createTimeoutPromise = (ms: number) => 
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error(`API request timeout after ${ms}ms`)), ms)
+          );
+
         // Fetch dashboard data first to determine if reports exist
-        const dashboardData = await getDashboardData(
-          selectedCompany.id,
-          currentFilters
-        );
+        console.log(`[DashboardContext] Fetching dashboard data for company ${selectedCompany.id}`);
+        const dashboardData = await Promise.race([
+          getDashboardData(selectedCompany.id, currentFilters),
+          createTimeoutPromise(API_TIMEOUT)
+        ]) as DashboardData | null;
 
         // If no dashboard data exists, immediately set hasReport to false and skip other calls
         if (!dashboardData) {
@@ -288,9 +269,6 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
           // Store in global cache with shorter expiry for null results (2 minutes)
           setCachedData('dashboard', selectedCompany.id, nullCacheData, cacheFilters);
           
-          // Legacy cache
-          const legacyCacheKey = `${selectedCompany.id}|${filters.dateRange}|${filters.aiModel}`;
-          cacheRef.current[legacyCacheKey] = nullCacheData;
 
           setLoading(false);
           setRefreshing(false);
@@ -308,36 +286,45 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
           "🔍 DashboardContext fetches data without granularity parameter"
         );
 
+        // Enhanced parallel API calls with timeout protection and detailed error logging
         const [sovHistory, detailedQuestionsData, acceptedCompetitorsData] =
-          await Promise.all([
-            getShareOfVoiceHistory(selectedCompany.id, currentFilters).catch(
-              (err) => {
-                console.warn(
+          await Promise.race([
+            Promise.all([
+              Promise.race([
+                getShareOfVoiceHistory(selectedCompany.id, currentFilters),
+                createTimeoutPromise(API_TIMEOUT)
+              ]).catch((err) => {
+                console.error(
                   "[DashboardContext] Failed to fetch share of voice history:",
                   err
                 );
                 return []; // Return empty array on error
-              }
-            ),
-            getTopRankingQuestions(selectedCompany.id, { aiModel: modelParam })
-              .then((result) => result.questions)
-              .catch((err) => {
-                console.warn(
+              }),
+              Promise.race([
+                getTopRankingQuestions(selectedCompany.id, { aiModel: modelParam })
+                  .then((result) => result.questions),
+                createTimeoutPromise(API_TIMEOUT)
+              ]).catch((err) => {
+                console.error(
                   "[DashboardContext] Failed to fetch detailed questions:",
                   err
                 );
                 return []; // Don't fail the whole request if detailed questions fail
               }),
-            getAcceptedCompetitors(selectedCompany.id)
-              .then((result) => result.competitors || [])
-              .catch((err) => {
-                console.warn(
+              Promise.race([
+                getAcceptedCompetitors(selectedCompany.id)
+                  .then((result) => result.competitors || []),
+                createTimeoutPromise(API_TIMEOUT)
+              ]).catch((err) => {
+                console.error(
                   "[DashboardContext] Failed to fetch accepted competitors:",
                   err
                 );
                 return []; // Don't fail the whole request if competitors fail
               }),
-          ]);
+            ]),
+            createTimeoutPromise(API_TIMEOUT * 1.5) // Overall timeout slightly longer than individual timeouts
+          ]) as [unknown[], TopRankingQuestion[], CompetitorData[]];
 
         // Enterprise-grade data monitoring for DashboardContext
         DataPipelineMonitor.recordData(
@@ -480,13 +467,18 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
         // Store in new global cache system
         setCachedData('dashboard', selectedCompany.id, cacheData, cacheFilters);
         
-        // Legacy cache (maintain during transition)
-        const legacyCacheKey = `${selectedCompany.id}|${filters.dateRange}|${filters.aiModel}`;
-        cacheRef.current[legacyCacheKey] = cacheData;
       } catch (err) {
         const apiErr = err as ApiError;
-        console.error("Failed to fetch dashboard data:", apiErr);
-        setError(apiErr.message || "Failed to fetch dashboard data");
+        console.error("[DashboardContext] Failed to fetch dashboard data:", apiErr);
+        
+        // Enhanced error logging with timeout detection
+        if (apiErr.message?.includes('timeout')) {
+          console.error("[DashboardContext] ⏰ TIMEOUT ERROR - API request exceeded 30s limit");
+          setError("Request timed out. Please try again or check your connection.");
+        } else {
+          console.error("[DashboardContext] ❌ API ERROR:", apiErr.message || apiErr);
+          setError(apiErr.message || "Failed to fetch dashboard data");
+        }
 
         // Always set hasReport to false when there's an error and we don't have existing data
         // This ensures the WelcomePrompt shows up for new companies
@@ -497,9 +489,18 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
           setHasReport(false);
         }
       } finally {
+        // Guaranteed loading state cleanup with safety timeout
+        console.log("[DashboardContext] 🔄 Cleaning up loading states");
         setLoading(false);
         setRefreshing(false);
         setFilterLoading(false);
+        
+        // Additional safety: Force clear loading after a small delay to handle any race conditions
+        setTimeout(() => {
+          setLoading(false);
+          setRefreshing(false);
+          setFilterLoading(false);
+        }, 100);
       }
     },
     [selectedCompany, filters, location.pathname, hasReport, data]
@@ -518,8 +519,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
           companyId
         );
 
-        // Clear both cache systems to force fresh data fetch
-        cacheRef.current = {};
+        // Clear cache to force fresh data fetch
         invalidateCache('dashboard', companyId);
 
         // Update hasReport immediately

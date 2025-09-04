@@ -12,8 +12,9 @@
  * @exports
  * - PaymentGuard: React functional component that guards routes based on authentication loading status.
  */
-import React from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import React from "react";
+import { useAuth } from "../../contexts/AuthContext";
+import { InlineSpinner } from "../ui/InlineSpinner";
 
 interface PaymentGuardProps {
   children: React.ReactNode;
@@ -25,12 +26,12 @@ const PaymentGuard: React.FC<PaymentGuardProps> = ({ children }) => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <InlineSpinner size={24} className="text-gray-700" />
       </div>
     );
   }
-  
+
   return <>{children}</>;
 };
 
-export default PaymentGuard; 
+export default PaymentGuard;

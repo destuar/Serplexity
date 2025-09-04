@@ -10,16 +10,15 @@
  * @exports
  * - BlankLoadingState: The main loading state component.
  */
-import React from 'react';
-import { LiquidGlassSpinner } from './LiquidGlassSpinner';
+import React from "react";
+import { LiquidGlassSpinner } from "./LiquidGlassSpinner";
 
 interface BlankLoadingStateProps {
   message?: string;
 }
 
-
-const BlankLoadingState: React.FC<BlankLoadingStateProps> = ({ 
-  message: _message = "Loading dashboard data..." 
+const BlankLoadingState: React.FC<BlankLoadingStateProps> = ({
+  message: _message = "Loading dashboard data...",
 }) => {
   return (
     <div className="flex-1 flex items-center justify-center min-h-0 h-full">

@@ -22,6 +22,7 @@ import RankingsCard from "../components/dashboard/RankingsCard";
 import SentimentScoreDisplayCard from "../components/dashboard/SentimentScoreDisplayCard";
 import TopRankingQuestionsCard from "../components/dashboard/TopRankingQuestionsCard";
 import BlankLoadingState from "../components/ui/BlankLoadingState";
+import ErrorBoundary from "../components/ui/ErrorBoundary";
 import LiquidGlassSpinner from "../components/ui/LiquidGlassSpinner";
 import WelcomePrompt from "../components/ui/WelcomePrompt";
 import { useCompany } from "../contexts/CompanyContext";
@@ -138,6 +139,7 @@ const OverviewPage = () => {
     data.topQuestions !== undefined &&
     data.shareOfVoiceHistory !== undefined;
 
+
   return (
     <div className="h-full flex flex-col relative">
       {/* Loading State - Show glass spinner until everything is ready */}
@@ -223,20 +225,28 @@ const OverviewPage = () => {
               <div className="h-full w-full">
                 <div className="lg:hidden h-full overflow-y-auto space-y-4">
                   <div className="min-h-[400px]">
-                    <MetricsOverTimeCard selectedModel={filters.aiModel} />
+                    <ErrorBoundary fallbackTitle="Metrics Chart Error" fallbackMessage="The metrics chart failed to load. Please try refreshing the page.">
+                      <MetricsOverTimeCard selectedModel={filters.aiModel} />
+                    </ErrorBoundary>
                   </div>
                   <div className="min-h-[300px]">
-                    <SentimentScoreDisplayCard
-                      key={`${cardKey}-ss`}
-                      selectedModel={filters.aiModel}
-                      onSeeMore={handleSentimentSeeMore}
-                    />
+                    <ErrorBoundary fallbackTitle="Sentiment Data Error" fallbackMessage="The sentiment analysis data failed to load.">
+                      <SentimentScoreDisplayCard
+                        key={`${cardKey}-ss`}
+                        selectedModel={filters.aiModel}
+                        onSeeMore={handleSentimentSeeMore}
+                      />
+                    </ErrorBoundary>
                   </div>
                   <div className="min-h-[300px]">
-                    <TopRankingQuestionsCard key={`${cardKey}-trq`} />
+                    <ErrorBoundary fallbackTitle="Questions Data Error" fallbackMessage="The top questions data failed to load.">
+                      <TopRankingQuestionsCard key={`${cardKey}-trq`} />
+                    </ErrorBoundary>
                   </div>
                   <div className="min-h-[200px]">
-                    <RankingsCard key={`${cardKey}-rank`} />
+                    <ErrorBoundary fallbackTitle="Rankings Data Error" fallbackMessage="The competitor rankings data failed to load.">
+                      <RankingsCard key={`${cardKey}-rank`} />
+                    </ErrorBoundary>
                   </div>
                 </div>
 
@@ -281,20 +291,28 @@ const OverviewPage = () => {
                   }}
                 >
                   <div style={{ gridArea: "metrics" }}>
-                    <MetricsOverTimeCard selectedModel={filters.aiModel} />
+                    <ErrorBoundary fallbackTitle="Metrics Chart Error" fallbackMessage="The metrics chart failed to load. Please try refreshing the page.">
+                      <MetricsOverTimeCard selectedModel={filters.aiModel} />
+                    </ErrorBoundary>
                   </div>
                   <div style={{ gridArea: "s1" }}>
-                    <SentimentScoreDisplayCard
-                      key={`${cardKey}-ss-desk`}
-                      selectedModel={filters.aiModel}
-                      onSeeMore={handleSentimentSeeMore}
-                    />
+                    <ErrorBoundary fallbackTitle="Sentiment Data Error" fallbackMessage="The sentiment analysis data failed to load.">
+                      <SentimentScoreDisplayCard
+                        key={`${cardKey}-ss-desk`}
+                        selectedModel={filters.aiModel}
+                        onSeeMore={handleSentimentSeeMore}
+                      />
+                    </ErrorBoundary>
                   </div>
                   <div style={{ gridArea: "q1" }}>
-                    <TopRankingQuestionsCard key={`${cardKey}-trq-desk`} />
+                    <ErrorBoundary fallbackTitle="Questions Data Error" fallbackMessage="The top questions data failed to load.">
+                      <TopRankingQuestionsCard key={`${cardKey}-trq-desk`} />
+                    </ErrorBoundary>
                   </div>
                   <div style={{ gridArea: "r1" }}>
-                    <RankingsCard key={`${cardKey}-rank-desk`} />
+                    <ErrorBoundary fallbackTitle="Rankings Data Error" fallbackMessage="The competitor rankings data failed to load.">
+                      <RankingsCard key={`${cardKey}-rank-desk`} />
+                    </ErrorBoundary>
                   </div>
                 </div>
               </div>

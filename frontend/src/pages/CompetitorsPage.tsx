@@ -12,6 +12,7 @@ import { usePageCache } from "../hooks/usePageCache";
 import { getCompanyLogo } from "../lib/logoService";
 // import { cn } from '../lib/utils';
 import BlankLoadingState from "../components/ui/BlankLoadingState";
+// import ErrorBoundary from "../components/ui/ErrorBoundary";
 import WelcomePrompt from "../components/ui/WelcomePrompt";
 import { useReportGeneration } from "../hooks/useReportGeneration";
 import {

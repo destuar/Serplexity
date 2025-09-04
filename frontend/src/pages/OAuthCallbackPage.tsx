@@ -11,9 +11,10 @@
  * @exports
  * - OAuthCallbackPage: The main OAuth callback page component.
  */
-import React, { useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import React, { useEffect, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { InlineSpinner } from "../components/ui/InlineSpinner";
+import { useAuth } from "../hooks/useAuth";
 
 const OAuthCallbackPage: React.FC = () => {
   const { search } = useLocation();
@@ -26,31 +27,29 @@ const OAuthCallbackPage: React.FC = () => {
     if (tokenHandled.current) return;
 
     const params = new URLSearchParams(search);
-    const token = params.get('token');
+    const token = params.get("token");
 
     if (token) {
       tokenHandled.current = true;
       handleOAuthToken(token);
     } else {
       // If there's no token, something went wrong.
-      navigate('/login?error=oauth-failed', { replace: true });
+      navigate("/login?error=oauth-failed", { replace: true });
     }
   }, [search, navigate, handleOAuthToken]);
 
   useEffect(() => {
     // This effect triggers once the user object is populated by handleOAuthToken.
     if (user) {
-      navigate('/overview', { replace: true });
+      navigate("/overview", { replace: true });
     }
   }, [user, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="flex items-center space-x-3">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
+      <InlineSpinner size={24} className="text-gray-700" />
     </div>
   );
 };
 
-export default OAuthCallbackPage; 
+export default OAuthCallbackPage;

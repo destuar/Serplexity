@@ -25,6 +25,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import FilterDropdown from "../components/dashboard/FilterDropdown";
 import BlankLoadingState from "../components/ui/BlankLoadingState";
+// import ErrorBoundary from "../components/ui/ErrorBoundary";
 import WelcomePrompt from "../components/ui/WelcomePrompt";
 import { useAuth } from "../contexts/AuthContext";
 import { useCompany } from "../contexts/CompanyContext";

@@ -206,15 +206,37 @@ npm run lint && npm run build
 ### LLM Integration
 
 - Multi-provider setup: OpenAI, Anthropic, Gemini, Perplexity
-- Fanout system queries multiple models simultaneously
+- Fanout system queries multiple models simultaneously  
 - Prompt templates centralized in `backend/src/prompts/`
 - Resilient service with failover and retry logic
-- **Python PydanticAI Agents**: Specialized AI agents for different tasks
-  - Answer Agent: Generates comprehensive responses with citations
-  - Search Agent: Performs web searches and content extraction
-  - Sentiment Agent: Analyzes sentiment in mentions and content
-  - Mention Agent: Detects and classifies brand mentions
-  - Research Agent: Conducts research across multiple sources
+
+#### Python PydanticAI Agents (9 Specialized Agents)
+
+The system uses 9 specialized AI agents for different processing tasks:
+
+1. **Answer Agent** (`answer_agent.py`): Generates comprehensive responses with source citations
+2. **Search Agent** (`search_agent.py`): Performs intelligent web searches and content extraction  
+3. **Sentiment Agent** (`sentiment_agent.py`): Analyzes sentiment in brand mentions and content
+4. **Sentiment Summary Agent** (`sentiment_summary_agent.py`): Aggregates sentiment data across sources
+5. **Mention Agent** (`mention_agent.py`): Detects and classifies brand mentions in content
+6. **Research Agent** (`research_agent.py`): Conducts comprehensive research across multiple sources
+7. **Website Agent** (`website_agent.py`): Enriches website data with metadata and analysis
+8. **Question Agent** (`question_agent.py`): Generates research questions and processes responses
+9. **Fanout Agent** (`fanout_agent.py`): Coordinates parallel processing across multiple AI models
+
+**Agent Health Monitoring**:
+```bash
+cd backend
+npm run ops:health        # Check all agent status and availability
+npm run test:agents       # Validate agent functionality with test suite
+```
+
+**Agent Integration Architecture**:
+- **Framework**: PydanticAI 0.4.6 with multi-provider support
+- **Validation**: Structured output using Pydantic schemas (`schemas.py`)
+- **Observability**: Logfire integration for debugging and monitoring
+- **Communication**: FastAPI service wrapper for Node.js integration
+- **Models**: OpenAI, Anthropic, Gemini, Groq provider support
 
 ### Queue System
 
@@ -260,9 +282,20 @@ PORT=8001
 DATABASE_URL=postgresql://...          # Optional if using AWS Secrets Manager
 
 # AWS Secrets Manager Configuration
+# Primary method for credential management (recommended)
 SECRETS_PROVIDER=aws                   # or "environment" for local dev
 DATABASE_SECRET_NAME=your-db-secret    # Name of AWS secret containing DB credentials
 USE_AWS_SECRETS=true                   # Legacy flag for backward compatibility
+
+# Secret Structure Example (JSON in AWS Secrets Manager):
+# {
+#   "username": "postgres",
+#   "password": "your_db_password",
+#   "engine": "postgres",
+#   "host": "your-db-host.rds.amazonaws.com",
+#   "port": 5432,
+#   "dbname": "serplexity"
+# }
 
 # AWS Configuration
 AWS_ACCESS_KEY_ID=your_access_key
@@ -398,16 +431,42 @@ ts-node src/scripts/script-name.ts
 
 ### Common Issues
 
+#### Environment & Connectivity
 - **Port conflicts**: Backend uses 8001, frontend uses 3000
+- **CORS errors**: Ensure `CORS_ORIGIN=http://localhost:3000` in backend/.env
+- **Proxy issues**: Frontend Vite config proxies `/api` to `http://localhost:8001`
+
+#### Database & Migrations  
 - **Database changes**: Live/shared DBs → apply SQL patch via secrets wrapper; Local-only → `migrate:dev`. Always run `npm run generate` after schema edits.
 - **Prisma client**: Run `npm run generate` after schema updates
+- **Connection failures**: Check `DATABASE_URL` or AWS Secrets Manager configuration
+- **Migration conflicts**: Use idempotent SQL for live databases, never destructive operations
+
+#### AWS & Secrets Management
 - **AWS Secrets**: Ensure `DATABASE_SECRET_NAME` and AWS credentials are set
+- **Secret access denied**: Verify IAM permissions for `secretsmanager:GetSecretValue`
+- **Region mismatch**: Confirm `AWS_REGION` matches your secrets location
+- **Fallback behavior**: System falls back to `DATABASE_URL` if AWS secrets fail
+
+#### Python Environment & Agents
 - **Python environment**: Use `./start.sh` to ensure PydanticAI dependencies are available
   - Python virtual env located at `backend/venv/`
   - Requirements file: `backend/requirements.txt`
-- **Queue issues**: Check Redis connection and BULLMQ_QUEUE_PREFIX
+- **Agent failures**: Run `npm run ops:health` to check all 9 agent status
+- **Missing dependencies**: Rebuild venv with `python -m venv backend/venv && source backend/venv/bin/activate && pip install -r backend/requirements.txt`
+- **FastAPI service**: Check if Python agent service is running on expected port
+
+#### Queue System & Background Jobs
+- **Queue issues**: Check Redis connection and `BULLMQ_QUEUE_PREFIX`
+- **Worker registration**: Workers auto-register on server start, check console logs
+- **Queue monitoring**: Use `npm run ops:monitor` for queue status
+- **Failed jobs**: Use `npm run ops:repair` to retry failed report generations
+
+#### Build & Type Issues
 - **Build failures**: Run `npm run typecheck` to catch TypeScript errors
-- **PydanticAI agent failures**: Run `npm run ops:health` to check agent status
+- **Import errors**: Check path aliases (`@/` → `backend/src/` or `frontend/src/`)
+- **Lint failures**: Run `npm run lint:fix` for auto-fixable issues
+- **Python lint**: Use `npm run python:check` for comprehensive Python validation
 
 ### Debug Commands
 
@@ -420,6 +479,44 @@ cd backend && npm run ops:monitor
 
 # Check recent logs
 docker-compose logs backend
+```
+
+## Quick Reference Commands
+
+### Essential Daily Commands
+```bash
+# Start development (run in separate terminals)
+cd backend && ./start.sh              # Terminal 1: Backend with Python agents
+cd frontend && npm run dev             # Terminal 2: Frontend dev server
+
+# Quality checks before committing
+npm test                               # Full test suite (backend + frontend) 
+cd backend && npm run lint:all         # TypeScript + Python linting
+cd frontend && npm run lint && npm run build   # Frontend validation
+
+# Database operations
+cd backend && npm run generate         # After schema changes
+cd backend && npm run studio:dev       # Database GUI
+
+# Agent & queue operations  
+cd backend && npm run ops:health       # Check all 9 agents
+cd backend && npm run ops:monitor      # Queue status
+```
+
+### Emergency Recovery Commands
+```bash
+# Service health check
+curl http://localhost:8001/api/health
+
+# Reset development environment
+docker-compose restart postgres redis
+cd backend && npm run generate
+
+# Clear Python environment issues
+rm -rf backend/venv
+python -m venv backend/venv
+source backend/venv/bin/activate
+pip install -r backend/requirements.txt
 ```
 
 ## Single Test Commands
@@ -585,12 +682,27 @@ This is **Serplexity**, a Generative Engine Optimization (GEO) platform that hel
 - **Multi-tenant SaaS** with company-level data isolation
 - **Stripe billing** with freemium model
 
-# Important Instruction Reminders
+# Critical Behavior Guidelines
 
-Do what has been asked; nothing more, nothing less.
-NEVER create files unless they're absolutely necessary for achieving your goal.
-ALWAYS prefer editing an existing file to creating a new one.
-NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
+These are non-negotiable rules for working in this codebase:
+
+## Task Execution Rules
+- **Scope Discipline**: Do exactly what has been asked; nothing more, nothing less
+- **File Creation**: NEVER create files unless absolutely necessary for your goal
+- **File Preference**: ALWAYS prefer editing existing files over creating new ones
+- **Documentation**: NEVER proactively create documentation files (*.md) or README files unless explicitly requested
+
+## Safety-Critical Database Rules
+- **NEVER run migrations** on shared/live databases - use SQL patches via AWS Secrets wrapper
+- **ALWAYS validate** database changes with idempotent SQL statements
+- **ALWAYS run** `npm run generate` after schema changes
+- **Local development exception**: You MAY use `migrate:dev` only on disposable local databases
+
+## Code Quality Requirements  
+- **Always run tests** before considering work complete (`npm test` for full suite)
+- **Always check linting** with `npm run lint:all` (covers TypeScript + Python)
+- **Always use Python environment** via `./start.sh` for backend development
+- **Always validate Docker builds** after major changes using BuildKit no-cache builds
 
 # Working Style Guidelines
 

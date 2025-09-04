@@ -171,6 +171,7 @@ const RankingsCard = () => {
         ...rankingsData,
         competitors: [],
         chartCompetitors: [],
+        industryRanking: 0, // No ranking when no competitors
       };
     }
 
@@ -186,10 +187,21 @@ const RankingsCard = () => {
         acceptedNames.has(competitor.name.toLowerCase().trim())
     );
 
+    // Sort filtered competitors by share of voice (descending)
+    const sortedFilteredCompetitors = [...filteredCompetitors].sort(
+      (a, b) => b.shareOfVoice - a.shareOfVoice
+    );
+
+    // Calculate industry ranking based on filtered competitors only
+    const filteredIndustryRanking = sortedFilteredCompetitors.findIndex(
+      (competitor) => competitor.isUserCompany
+    ) + 1;
+
     return {
       ...rankingsData,
-      competitors: filteredCompetitors,
-      chartCompetitors: filteredCompetitors,
+      competitors: sortedFilteredCompetitors.filter((r) => !r.isUserCompany),
+      chartCompetitors: sortedFilteredCompetitors,
+      industryRanking: filteredIndustryRanking > 0 ? filteredIndustryRanking : rankingsData.industryRanking,
     };
   }, [
     rankingsData,
