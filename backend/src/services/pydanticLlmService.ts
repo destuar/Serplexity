@@ -597,11 +597,30 @@ export class PydanticLlmService {
             (options.modelId ? options.modelId.split(":")[0] : undefined) ||
             "unknown";
 
+          // Normalize Perplexity model naming for pricing/log consistency
+          const normalizedModelUsed = (() => {
+            const raw = String(
+              result.modelUsed || options.modelId || providerIdForMetadata || ""
+            );
+            if (!raw) return raw;
+            // If provider is perplexity, map ambiguous/python-object names to 'sonar'
+            if ((result.providerId || providerIdForMetadata) === "perplexity") {
+              if (
+                raw === "OpenAIModel()" ||
+                raw === "OpenAIChatModel()" ||
+                /OpenAIModel|OpenAIChatModel/.test(raw) ||
+                /Perplexity|api\.perplexity\.ai/i.test(raw)
+              ) {
+                return "sonar";
+              }
+            }
+            return raw;
+          })();
+
           const response: PydanticResponse<T> = {
             data: resultData as T,
             metadata: {
-              modelUsed:
-                result.modelUsed || options.modelId || providerIdForMetadata,
+              modelUsed: normalizedModelUsed,
               tokensUsed: result.tokensUsed || 0,
               executionTime: result.executionTime || 0,
               providerId: providerIdForMetadata,
@@ -617,7 +636,7 @@ export class PydanticLlmService {
           // Track successful execution
           trackLLMUsage({
             providerId: result.providerId || "unknown",
-            modelId: result.modelUsed || "unknown",
+            modelId: normalizedModelUsed || "unknown",
             operation: scriptToRun,
             tokensUsed: result.tokensUsed || 0,
             durationMs: result.executionTime,
@@ -714,8 +733,25 @@ export class PydanticLlmService {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const providers = providerManager.getAvailableProviders();
-        const providerId = this.selectProvider(providers, options);
+        // Provider wait loop: if required provider is unavailable, wait briefly and retry selection
+        let providers = providerManager.getAvailableProviders();
+        let providerId: string;
+        const waitStart = Date.now();
+        const maxWaitMs = Math.min(15000, (options.timeout ?? 30000) / 2); // up to 15s or half timeout
+        // Try to resolve provider; if unavailable for the requested model, wait and re-check
+        // We don't skip; we patiently wait for transient recoveries
+        while (true) {
+          try {
+            providerId = this.selectProvider(providers, options);
+            break;
+          } catch (e) {
+            const errMsg = e instanceof Error ? e.message : String(e);
+            if (!errMsg.startsWith("ProviderUnavailable")) throw e;
+            if (Date.now() - waitStart >= maxWaitMs) throw e;
+            await new Promise((r) => setTimeout(r, 500));
+            providers = providerManager.getAvailableProviders();
+          }
+        }
 
         const result = await this.spawnPythonProcess(
           scriptPath,
@@ -789,7 +825,11 @@ export class PydanticLlmService {
           ...process.env,
           PYTHONPATH: pythonPath,
           PYDANTIC_PROVIDER_ID: providerId,
-          PYDANTIC_MODEL_ID: options.modelId ?? "",
+          // CRITICAL: Do not override Python-side model when using Perplexity.
+          // Agents construct a ChatModel with OpenAIProvider(base_url=https://api.perplexity.ai).
+          // Passing a string like "sonar" or "openai:sonar" causes 404s at api.openai.com.
+          PYDANTIC_MODEL_ID:
+            providerId === "perplexity" ? "" : (options.modelId ?? ""),
           PYDANTIC_TEMPERATURE: options.temperature?.toString(),
           PYDANTIC_MAX_TOKENS: options.maxTokens?.toString(),
           PYDANTIC_SYSTEM_PROMPT: options.systemPrompt,
@@ -996,21 +1036,26 @@ export class PydanticLlmService {
     providers: ReadonlyArray<PydanticProviderConfig>,
     options: PydanticAgentOptions
   ): string {
-    // If a modelId is specified, map it deterministically to the correct provider
+    // If a modelId is specified, map it deterministically to the correct provider.
+    // If the required provider is not available, do NOT silently fall back to another provider.
+    // Instead, signal unavailability so the caller can skip this model cleanly.
     if (options.modelId) {
       const raw = String(options.modelId).trim();
       const parts = raw.split(":");
       const lhs = parts[0];
       const rhs = parts.length > 1 ? parts[1] : "";
 
-      // Explicit provider prefix wins
+      // 1) Explicit provider prefix wins (normalize sonar → perplexity)
       if (parts.length > 1) {
         const hinted = lhs === "sonar" ? "perplexity" : lhs;
         const provider = providers.find((p) => p.id === hinted);
         if (provider) return provider.id;
+        throw new Error(
+          `ProviderUnavailable: required provider '${hinted}' for model '${raw}' is not available`
+        );
       }
 
-      // Infer by model name when no provider prefix is present
+      // 2) Infer by model name when no provider prefix is present
       const modelName = parts.length > 1 ? rhs : lhs;
       const inferred = modelName.startsWith("gpt-")
         ? "openai"
@@ -1025,10 +1070,18 @@ export class PydanticLlmService {
       if (inferred) {
         const provider = providers.find((p) => p.id === inferred);
         if (provider) return provider.id;
+        throw new Error(
+          `ProviderUnavailable: required provider '${inferred}' for model '${raw}' is not available`
+        );
       }
+
+      // 3) If we cannot infer, we still do not want to force a mismatch; surface as unavailable
+      throw new Error(
+        `ProviderUnavailable: could not infer provider for model '${raw}'`
+      );
     }
 
-    // Fallback: highest-priority available provider
+    // No modelId specified → fallback: highest-priority available provider
     return providers.length > 0 && providers[0] && providers[0].id
       ? providers[0].id
       : "openai";

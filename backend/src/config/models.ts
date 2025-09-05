@@ -120,7 +120,7 @@ export const MODELS: Record<string, Model> = {
       ModelTask.OPTIMIZATION_TASKS, // ✅ OptimizationTaskService (default model)
       ModelTask.QUESTION_GENERATION, // ✅ GenQuestionAgent (ONLY gpt-4.1-mini)
       ModelTask.MENTION_DETECTION, // ✅ MentionAgent (default model)
-      ModelTask.COMPANY_RESEARCH, // ✅ CompanyResearchAgent (moved from sonar to avoid CloudFlare)
+      ModelTask.COMPANY_RESEARCH, // ✅ CompanyResearchAgent (OpenAI with web search)
     ],
   },
   "claude-3-5-haiku-20241022": {

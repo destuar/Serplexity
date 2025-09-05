@@ -107,19 +107,28 @@ class WebSearchSentimentAgent(BaseAgent):
 
     def _create_perplexity_model(self):
         """Create Perplexity model with custom OpenAI provider"""
-        from pydantic_ai.models.openai import OpenAIModel
+        try:
+            from pydantic_ai.models.openai import OpenAIChatModel as ChatModel
+        except Exception:
+            from pydantic_ai.models.openai import OpenAIModel as ChatModel
         from pydantic_ai.providers.openai import OpenAIProvider
         import os
 
         api_key = os.getenv('PERPLEXITY_API_KEY')
 
-        return OpenAIModel(
+        model = ChatModel(
             'sonar',
             provider=OpenAIProvider(
                 base_url='https://api.perplexity.ai',
                 api_key=api_key,
             ),
         )
+        # Tag for downstream logging/pricing normalization
+        try:
+            setattr(model, '_serplexity_model_id', 'sonar')
+        except Exception:
+            pass
+        return model
 
     def _build_system_prompt(self) -> str:
         """Build system prompt with web search capabilities"""

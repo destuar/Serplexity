@@ -44,6 +44,7 @@ class TaskType(Enum):
     QUESTION_ANSWERING = "question_answering"
     WEBSITE_ENRICHMENT = "website_enrichment"
     OPTIMIZATION_TASKS = "optimization_tasks"
+    COMPANY_RESEARCH = "company_research"
 
 @dataclass
 class WebSearchToolConfig:
@@ -71,6 +72,7 @@ class WebSearchConfig:
         TaskType.QUESTION_ANSWERING: True,  # Enable for Q&A
         TaskType.WEBSITE_ENRICHMENT: True,  # Enable for website enrichment
         TaskType.OPTIMIZATION_TASKS: False, # Disable for optimization tasks
+        TaskType.COMPANY_RESEARCH: True,   # Enable for company research
     }
 
     # Provider-specific web search tool configurations
@@ -240,6 +242,14 @@ Website Enrichment Search Strategy:
 - Look for verified business information
 - Find social media profiles and contact details
 - Check for recent company news and updates
+"""
+        elif self.task_type == TaskType.COMPANY_RESEARCH:
+            base_enhancement += """
+Company Research Search Strategy:
+- Search for detailed information about the company, including its history, mission, and key figures.
+- Look for recent news and updates about the company.
+- Find official company websites and social media profiles.
+- Cross-reference information across multiple sources.
 """
 
         return base_enhancement
@@ -438,7 +448,8 @@ TASK_TYPE_MAPPING = {
     "fanout_generation": TaskType.FANOUT_GENERATION,
     "question_answering": TaskType.QUESTION_ANSWERING,
     "website_enrichment": TaskType.WEBSITE_ENRICHMENT,
-    "optimization_tasks": TaskType.OPTIMIZATION_TASKS
+    "optimization_tasks": TaskType.OPTIMIZATION_TASKS,
+    "company_research": TaskType.COMPANY_RESEARCH
 }
 
 if __name__ == "__main__":

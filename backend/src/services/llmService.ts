@@ -831,6 +831,8 @@ export async function getModelsByTaskWithUserPreferences(
     }
   }
 
+  // Do not hard-filter by provider health or gate models here.
+  // Selection and provider waiting are handled at execution time.
   return allModels.filter((model: Model) => merged[model.id] === true);
 }
 

@@ -24,6 +24,7 @@ echo "🎯 Starting server and workers..."
 
 # Default log level (set LOG_LEVEL=DEBUG for verbose polling logs)
 export LOG_LEVEL=${LOG_LEVEL:-INFO}
+STOP_REQUESTED=0
 
 # Clean shutdown for both processes
 cleanup() {
@@ -38,31 +39,46 @@ cleanup() {
   echo "✅ Backend processes stopped."
 }
 
-trap cleanup SIGINT SIGTERM EXIT
+# Honor Ctrl+C: on SIGINT/SIGTERM run cleanup and exit; also run cleanup on normal EXIT
+trap 'STOP_REQUESTED=1; cleanup; exit 0' SIGINT SIGTERM
+trap cleanup EXIT
 
-# Start workers (non–hot-reload)
-echo "🧵 Starting workers (workers:dev)..."
-npm run workers:dev &
-WORKER_PID=$!
-echo "✅ Workers started (pid: $WORKER_PID)"
+# Helper to (re)start API
+start_api() {
+  echo "🌐 Starting API (dev)..."
+  npm run dev &
+  SERVER_PID=$!
+  echo "✅ API started (pid: $SERVER_PID)"
+}
 
-# Start API (hot-reload)
-echo "🌐 Starting API (dev)..."
-npm run dev &
-SERVER_PID=$!
-echo "✅ API started (pid: $SERVER_PID)"
+# Helper to (re)start workers
+start_workers() {
+  echo "🧵 Starting workers (workers:dev)..."
+  npm run workers:dev &
+  WORKER_PID=$!
+  echo "✅ Workers started (pid: $WORKER_PID)"
+}
 
-echo "🚦 Waiting for processes (press Ctrl+C to stop)"
+# Initial start
+start_workers
+start_api
 
-# Portable wait loop (macOS bash/zsh compatible; no 'wait -n')
+echo "🚦 Supervising API and Workers (press Ctrl+C to stop)"
+
+# Supervision loop: if one exits, respawn it; keep the other running
 while true; do
-  if ! ps -p $SERVER_PID > /dev/null 2>&1; then
-    echo "⚠️  API process exited (pid: $SERVER_PID)"
+  if [ "$STOP_REQUESTED" = "1" ]; then
     break
   fi
+  if ! ps -p $SERVER_PID > /dev/null 2>&1; then
+    if [ "$STOP_REQUESTED" = "1" ]; then break; fi
+    echo "♻️  API exited (old pid: $SERVER_PID); respawning..."
+    start_api
+  fi
   if ! ps -p $WORKER_PID > /dev/null 2>&1; then
-    echo "⚠️  Workers process exited (pid: $WORKER_PID)"
-    break
+    if [ "$STOP_REQUESTED" = "1" ]; then break; fi
+    echo "♻️  Workers exited (old pid: $WORKER_PID); respawning..."
+    start_workers
   fi
   sleep 1
 done

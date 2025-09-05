@@ -12,8 +12,10 @@ export async function fetchGoogleAiOverview(
   query: string,
   opts?: { hl?: string; gl?: string; location?: string }
 ): Promise<SerpAiOverviewResult> {
-  const apiKey = process.env.SERP_API_KEY || env.SERP_API_KEY;
-  if (!apiKey) throw new Error("SERP_API_KEY is not configured");
+  const apiKey =
+    process.env.SERP_API_KEY || process.env.SERPAPI_API_KEY || env.SERP_API_KEY;
+  if (!apiKey)
+    throw new Error("SERP_API_KEY (or SERPAPI_API_KEY) is not configured");
 
   const baseParams = {
     q: query,

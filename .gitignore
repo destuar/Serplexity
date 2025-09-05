@@ -113,7 +113,7 @@ dist
 
 # Temporary folders
 tmp/
-temp/ 
+temp/
 # Secret files (added by cleanup)
 frontend/.env
 *.pem
@@ -128,3 +128,4 @@ config/*.pem
 venv/
 backend/venv/
 **/__pycache__/
+backend/local-scripts/**

@@ -346,11 +346,55 @@ class BaseAgent(ABC):
         }
 
     def _extract_model_used(self, result: Any) -> str:
-        """Extract model name from result"""
-        # Return the actual configured model ID (e.g., 'openai:gpt-4.1-mini' -> 'gpt-4.1-mini')
-        if ':' in self.model_id:
-            return self.model_id.split(':')[1]
-        return self.model_id
+        """Extract model name from configured model or ChatModel object.
+
+        - If model_id is a provider-qualified string like 'openai:gpt-4.1-mini', return 'gpt-4.1-mini'.
+        - If model_id is a ChatModel object (e.g., Perplexity via OpenAIProvider), prefer a tag '_serplexity_model_id'.
+        - Fallback to common attributes (model, name) or the string representation.
+        """
+        try:
+            # String case: provider-qualified
+            if isinstance(self.model_id, str):
+                return self.model_id.split(':', 1)[1] if ':' in self.model_id else self.model_id
+
+            # Object case (e.g., PydanticAI ChatModel)
+            obj = self.model_id
+            # Prefer explicit tag we add when constructing Perplexity ChatModel
+            tagged = getattr(obj, '_serplexity_model_id', None)
+            if isinstance(tagged, str) and tagged:
+                return tagged
+
+            # Inspect provider details to identify Perplexity
+            provider_obj = getattr(obj, 'provider', None)
+            if provider_obj is not None:
+                # Direct base_url attribute
+                base_url = getattr(provider_obj, 'base_url', None)
+                if isinstance(base_url, str) and 'api.perplexity.ai' in base_url:
+                    return 'sonar'
+                # Nested client with base_url
+                client = getattr(provider_obj, 'client', None)
+                nested_base_url = getattr(client, 'base_url', None)
+                if isinstance(nested_base_url, str) and 'api.perplexity.ai' in nested_base_url:
+                    return 'sonar'
+                # As a last resort, check repr
+                prov_repr = repr(provider_obj)
+                if 'api.perplexity.ai' in prov_repr or 'Perplexity' in prov_repr:
+                    return 'sonar'
+
+            # Try common attributes on ChatModel
+            for attr in ('model', 'name', 'id'):
+                val = getattr(obj, attr, None)
+                if isinstance(val, str) and val:
+                    return val
+
+            # Fallback: clean repr
+            obj_repr = repr(obj)
+            if 'api.perplexity.ai' in obj_repr or 'Perplexity' in obj_repr or 'OpenAIProvider' in obj_repr:
+                return 'sonar'
+            return str(obj)
+        except Exception:
+            # Final fallback
+            return str(self.model_id)
 
     def _extract_tokens_used(self, result: Any) -> int:
         """Extract token usage from PydanticAI result"""

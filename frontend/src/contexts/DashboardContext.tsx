@@ -61,10 +61,10 @@ import {
   transformDashboardData,
   validateNormalizedData,
 } from "../utils/dataTransformationLayer";
-import { 
-  getCachedData, 
-  setCachedData, 
-  invalidateCache
+import {
+  getCachedData,
+  invalidateCache,
+  setCachedData,
 } from "../utils/pageCache";
 // Error handling simplified for production readiness
 
@@ -103,7 +103,10 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
   >({});
 
   // Active model preferences loaded from backend (company-level)
-  const [activeModelPreferences, setActiveModelPreferences] = useState<Record<string, boolean> | null>(null);
+  const [activeModelPreferences, setActiveModelPreferences] = useState<Record<
+    string,
+    boolean
+  > | null>(null);
 
   /**
    * Helper to derive the effective filters for the current page.
@@ -167,7 +170,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
       // Enhanced cache system with global page cache
       const cacheFilters = {
         dateRange: filters.dateRange,
-        aiModel: filters.aiModel
+        aiModel: filters.aiModel,
       };
 
       // Check new global cache system first
@@ -176,13 +179,14 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
         detailedQuestions: TopRankingQuestion[];
         acceptedCompetitors: CompetitorData[];
         lastUpdated?: string;
-      }>('dashboard', selectedCompany.id, cacheFilters);
+      }>("dashboard", selectedCompany.id, cacheFilters);
 
       if (!isRefresh && cachedDashboardData) {
-        
         // Only use cache if it contains actual data
-        if (cachedDashboardData.data && Object.keys(cachedDashboardData.data).length > 0) {
-          
+        if (
+          cachedDashboardData.data &&
+          Object.keys(cachedDashboardData.data).length > 0
+        ) {
           setData(cachedDashboardData.data);
           setDetailedQuestions(cachedDashboardData.detailedQuestions);
           setAcceptedCompetitors(cachedDashboardData.acceptedCompetitors);
@@ -194,18 +198,20 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
           setLoading(false);
           setRefreshing(false);
           setError(null);
-          
+
           return;
         } else {
           // Clear the invalid cache entry
           try {
-            invalidateCache('dashboard', selectedCompany.id);
+            invalidateCache("dashboard", selectedCompany.id);
           } catch (cacheErr) {
-            console.warn('[DashboardContext] Failed to clear invalid cache:', cacheErr);
+            console.warn(
+              "[DashboardContext] Failed to clear invalid cache:",
+              cacheErr
+            );
           }
         }
       }
-
 
       try {
         // Only set loading states if we actually need to fetch data
@@ -236,17 +242,22 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 
         // Add timeout for API requests to prevent infinite loading
         const API_TIMEOUT = 30000; // 30 seconds
-        const createTimeoutPromise = (ms: number) => 
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error(`API request timeout after ${ms}ms`)), ms)
+        const createTimeoutPromise = (ms: number) =>
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error(`API request timeout after ${ms}ms`)),
+              ms
+            )
           );
 
         // Fetch dashboard data first to determine if reports exist
-        console.log(`[DashboardContext] Fetching dashboard data for company ${selectedCompany.id}`);
-        const dashboardData = await Promise.race([
+        console.log(
+          `[DashboardContext] Fetching dashboard data for company ${selectedCompany.id}`
+        );
+        const dashboardData = (await Promise.race([
           getDashboardData(selectedCompany.id, currentFilters),
-          createTimeoutPromise(API_TIMEOUT)
-        ]) as DashboardData | null;
+          createTimeoutPromise(API_TIMEOUT),
+        ])) as DashboardData | null;
 
         // If no dashboard data exists, immediately set hasReport to false and skip other calls
         if (!dashboardData) {
@@ -263,12 +274,16 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
             data: null,
             detailedQuestions: [],
             acceptedCompetitors: [],
-            lastUpdated: undefined
+            lastUpdated: undefined,
           };
 
           // Store in global cache with shorter expiry for null results (2 minutes)
-          setCachedData('dashboard', selectedCompany.id, nullCacheData, cacheFilters);
-          
+          setCachedData(
+            "dashboard",
+            selectedCompany.id,
+            nullCacheData,
+            cacheFilters
+          );
 
           setLoading(false);
           setRefreshing(false);
@@ -288,11 +303,11 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 
         // Enhanced parallel API calls with timeout protection and detailed error logging
         const [sovHistory, detailedQuestionsData, acceptedCompetitorsData] =
-          await Promise.race([
+          (await Promise.race([
             Promise.all([
               Promise.race([
                 getShareOfVoiceHistory(selectedCompany.id, currentFilters),
-                createTimeoutPromise(API_TIMEOUT)
+                createTimeoutPromise(API_TIMEOUT),
               ]).catch((err) => {
                 console.error(
                   "[DashboardContext] Failed to fetch share of voice history:",
@@ -301,9 +316,10 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
                 return []; // Return empty array on error
               }),
               Promise.race([
-                getTopRankingQuestions(selectedCompany.id, { aiModel: modelParam })
-                  .then((result) => result.questions),
-                createTimeoutPromise(API_TIMEOUT)
+                getTopRankingQuestions(selectedCompany.id, {
+                  aiModel: modelParam,
+                }).then((result) => result.questions),
+                createTimeoutPromise(API_TIMEOUT),
               ]).catch((err) => {
                 console.error(
                   "[DashboardContext] Failed to fetch detailed questions:",
@@ -312,9 +328,10 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
                 return []; // Don't fail the whole request if detailed questions fail
               }),
               Promise.race([
-                getAcceptedCompetitors(selectedCompany.id)
-                  .then((result) => result.competitors || []),
-                createTimeoutPromise(API_TIMEOUT)
+                getAcceptedCompetitors(selectedCompany.id).then(
+                  (result) => result.competitors || []
+                ),
+                createTimeoutPromise(API_TIMEOUT),
               ]).catch((err) => {
                 console.error(
                   "[DashboardContext] Failed to fetch accepted competitors:",
@@ -323,8 +340,8 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
                 return []; // Don't fail the whole request if competitors fail
               }),
             ]),
-            createTimeoutPromise(API_TIMEOUT * 1.5) // Overall timeout slightly longer than individual timeouts
-          ]) as [unknown[], TopRankingQuestion[], CompetitorData[]];
+            createTimeoutPromise(API_TIMEOUT * 1.5), // Overall timeout slightly longer than individual timeouts
+          ])) as [unknown[], TopRankingQuestion[], CompetitorData[]];
 
         // Enterprise-grade data monitoring for DashboardContext
         DataPipelineMonitor.recordData(
@@ -444,15 +461,20 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 
         // Always refresh active model preferences (company-level) for filters
         try {
-          const prefsRes = await import("../lib/apiClient").then(({ default: api }) =>
-            api.get(`/companies/${selectedCompany.id}/model-preferences`)
+          const prefsRes = await import("../lib/apiClient").then(
+            ({ default: api }) =>
+              api.get(`/companies/${selectedCompany.id}/model-preferences`)
           );
-          const prefs = (prefsRes?.data?.modelPreferences ?? null) as
-            | Record<string, boolean>
-            | null;
+          const prefs = (prefsRes?.data?.modelPreferences ?? null) as Record<
+            string,
+            boolean
+          > | null;
           setActiveModelPreferences(prefs);
         } catch (e) {
-          console.warn("[DashboardContext] Failed to load model preferences", e);
+          console.warn(
+            "[DashboardContext] Failed to load model preferences",
+            e
+          );
           setActiveModelPreferences(null);
         }
 
@@ -461,22 +483,31 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
           data: mergedData,
           detailedQuestions: detailedQuestionsData,
           acceptedCompetitors: acceptedCompetitorsData,
-          lastUpdated: dashboardData?.lastUpdated
+          lastUpdated: dashboardData?.lastUpdated,
         };
 
         // Store in new global cache system
-        setCachedData('dashboard', selectedCompany.id, cacheData, cacheFilters);
-        
+        setCachedData("dashboard", selectedCompany.id, cacheData, cacheFilters);
       } catch (err) {
         const apiErr = err as ApiError;
-        console.error("[DashboardContext] Failed to fetch dashboard data:", apiErr);
-        
+        console.error(
+          "[DashboardContext] Failed to fetch dashboard data:",
+          apiErr
+        );
+
         // Enhanced error logging with timeout detection
-        if (apiErr.message?.includes('timeout')) {
-          console.error("[DashboardContext] ⏰ TIMEOUT ERROR - API request exceeded 30s limit");
-          setError("Request timed out. Please try again or check your connection.");
+        if (apiErr.message?.includes("timeout")) {
+          console.error(
+            "[DashboardContext] ⏰ TIMEOUT ERROR - API request exceeded 30s limit"
+          );
+          setError(
+            "Request timed out. Please try again or check your connection."
+          );
         } else {
-          console.error("[DashboardContext] ❌ API ERROR:", apiErr.message || apiErr);
+          console.error(
+            "[DashboardContext] ❌ API ERROR:",
+            apiErr.message || apiErr
+          );
           setError(apiErr.message || "Failed to fetch dashboard data");
         }
 
@@ -494,7 +525,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
         setLoading(false);
         setRefreshing(false);
         setFilterLoading(false);
-        
+
         // Additional safety: Force clear loading after a small delay to handle any race conditions
         setTimeout(() => {
           setLoading(false);
@@ -510,7 +541,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
   useEffect(() => {
     if (!selectedCompany) return;
 
-    const handleReportCompletion = (e: CustomEvent) => {
+    const handleReportCompletion = async (e: CustomEvent) => {
       const { companyId } = e.detail;
 
       if (companyId === selectedCompany.id) {
@@ -520,31 +551,105 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
         );
 
         // Clear cache to force fresh data fetch
-        invalidateCache('dashboard', companyId);
+        invalidateCache("dashboard", companyId);
 
         // Update hasReport immediately
         setHasReport(true);
 
-        // Trigger data refresh to load the new report
-        setTimeout(() => {
-          fetchData(true).then(() => {
-            // Mark dashboard as refreshed in completion state
-            const completionKey = `serplexity_completion_state_${companyId}`;
-            const storedCompletion = localStorage.getItem(completionKey);
-            if (storedCompletion) {
-              const completion = JSON.parse(storedCompletion);
-              completion.dashboardRefreshed = true;
-              localStorage.setItem(completionKey, JSON.stringify(completion));
+        // Wait for metrics to be computed before refreshing dashboard
+        // The backend computes metrics after marking report as completed
+        console.log(
+          "[DashboardContext] Waiting for metrics computation to complete..."
+        );
 
-              // Dispatch event to notify other components
-              window.dispatchEvent(
-                new CustomEvent("dashboardRefreshed", {
-                  detail: { companyId },
-                })
+        let metricsReady = false;
+        let attempts = 0;
+        const maxAttempts = 15; // Maximum 30 seconds
+        const pollingInterval = 2000; // 2 seconds
+
+        const pollForMetrics = async (): Promise<boolean> => {
+          try {
+            attempts++;
+            console.log(
+              `[DashboardContext] Checking metrics availability (attempt ${attempts}/${maxAttempts})...`
+            );
+
+            // Check if dashboard data with metrics is available
+            const testFilters: Partial<DashboardFilters> = {
+              dateRange: globalFilters.dateRange,
+              aiModel: "all",
+            };
+
+            const dashboardData = await getDashboardData(
+              selectedCompany.id,
+              testFilters
+            );
+
+            // Check if we have the key metrics that indicate completion
+            if (
+              dashboardData &&
+              (dashboardData.shareOfVoice !== null ||
+                dashboardData.averagePosition !== null ||
+                dashboardData.averageInclusionRate !== null)
+            ) {
+              console.log(
+                "[DashboardContext] ✅ Metrics are ready - dashboard data contains computed values"
               );
+              return true;
             }
-          });
-        }, 2000); // Small delay to ensure backend has committed the data
+
+            console.log(
+              `[DashboardContext] ⏳ Metrics not ready yet (attempt ${attempts}/${maxAttempts})`
+            );
+            return false;
+          } catch (error) {
+            console.warn(
+              `[DashboardContext] Error checking metrics availability:`,
+              error
+            );
+            return false;
+          }
+        };
+
+        // Poll until metrics are ready or max attempts reached
+        while (!metricsReady && attempts < maxAttempts) {
+          metricsReady = await pollForMetrics();
+
+          if (!metricsReady) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, pollingInterval)
+            );
+          }
+        }
+
+        if (metricsReady) {
+          console.log(
+            "[DashboardContext] 🎉 Metrics ready! Refreshing dashboard..."
+          );
+        } else {
+          console.warn(
+            `[DashboardContext] ⚠️ Metrics not ready after ${maxAttempts} attempts, refreshing anyway`
+          );
+        }
+
+        // Trigger data refresh to load the new report
+        fetchData(true).then(() => {
+          // Mark dashboard as refreshed in completion state
+          const completionKey = `serplexity_completion_state_${companyId}`;
+          const storedCompletion = localStorage.getItem(completionKey);
+          if (storedCompletion) {
+            const completion = JSON.parse(storedCompletion);
+            completion.dashboardRefreshed = true;
+            localStorage.setItem(completionKey, JSON.stringify(completion));
+
+            // Dispatch event to notify other components
+            window.dispatchEvent(
+              new CustomEvent("dashboardRefreshed", {
+                detail: { companyId },
+              })
+            );
+          }
+        });
       }
     };
 
@@ -559,7 +664,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
         handleReportCompletion as EventListener
       );
     };
-  }, [selectedCompany, fetchData]);
+  }, [selectedCompany, fetchData, globalFilters]);
 
   // Fetch on meaningful filter changes (dateRange/aiModel) or company switch
   useEffect(() => {

@@ -42,7 +42,9 @@ class Model:
         if self.engine == ModelEngine.GOOGLE:
             return self.id  # gemini-2.5-flash
         elif self.engine == ModelEngine.PERPLEXITY:
-            return f"openai:{self.id}"  # openai:sonar (Perplexity uses OpenAI format)
+            # Return raw model id. Python agents build a proper ChatModel with OpenAIProvider(base_url).
+            # Returning an openai: prefix causes the provider to hit api.openai.com and 404.
+            return self.id  # e.g., 'sonar'
         else:
             return f"{self.engine.value}:{self.id}"
 
@@ -91,7 +93,6 @@ MODELS: Dict[str, Model] = {
             ModelTask.SENTIMENT,  # ✅ WebSearchSentimentAgent (has built-in web search)
             ModelTask.FANOUT_GENERATION,  # ✅ IntelligentFanoutAgent (available alternative)
             ModelTask.QUESTION_ANSWERING,  # ✅ QuestionAnsweringAgent (has built-in web search)
-            ModelTask.COMPANY_RESEARCH,  # ✅ CompanyResearchAgent (ONLY sonar for web research)
             ModelTask.WEBSITE_ENRICHMENT,  # ✅ WebsiteEnrichmentAgent (web search enabled)
         ]
     ),

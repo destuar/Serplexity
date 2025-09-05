@@ -137,19 +137,28 @@ class QuestionAnsweringAgent(BaseAgent):
 
     def _create_perplexity_model(self):
         """Create Perplexity model with custom OpenAI provider"""
-        from pydantic_ai.models.openai import OpenAIModel
+        try:
+            from pydantic_ai.models.openai import OpenAIChatModel as ChatModel
+        except Exception:  # Fallback for older pydantic_ai versions
+            from pydantic_ai.models.openai import OpenAIModel as ChatModel
         from pydantic_ai.providers.openai import OpenAIProvider
         import os
 
         api_key = os.getenv('PERPLEXITY_API_KEY')
 
-        return OpenAIModel(
+        model = ChatModel(
             'sonar',
             provider=OpenAIProvider(
                 base_url='https://api.perplexity.ai',
                 api_key=api_key,
             ),
         )
+        # Tag for downstream logging/pricing normalization
+        try:
+            setattr(model, '_serplexity_model_id', 'sonar')
+        except Exception:
+            pass
+        return model
 
     def get_output_type(self):
         return SimpleQuestionResponse
@@ -208,6 +217,15 @@ class QuestionAnsweringAgent(BaseAgent):
 
             # Extract model name
             model_name = self.model_id.split(':')[-1] if ':' in self.model_id else self.model_id
+
+            # Safety routing: if a non-OpenAI model slipped through, route to the correct executor
+            if isinstance(model_name, str):
+                if model_name.startswith('claude-'):
+                    return await self._execute_anthropic_natural(input_data)
+                if model_name.startswith('gemini-'):
+                    return await self._execute_gemini_natural(input_data)
+                if model_name.startswith('sonar'):
+                    return await self._execute_perplexity_natural(input_data)
 
             # Use Responses API with web search - this gives natural ChatGPT-like responses
             try:

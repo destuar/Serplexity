@@ -266,17 +266,26 @@ Quality Control:
 
     def _create_perplexity_model(self):
         """Create a Perplexity model using the OpenAI provider wrapper with Perplexity base URL"""
-        from pydantic_ai.models.openai import OpenAIModel
+        try:
+            from pydantic_ai.models.openai import OpenAIChatModel as ChatModel
+        except Exception:
+            from pydantic_ai.models.openai import OpenAIModel as ChatModel
         from pydantic_ai.providers.openai import OpenAIProvider
 
         api_key = os.getenv('PERPLEXITY_API_KEY')
-        return OpenAIModel(
+        model = ChatModel(
             'sonar',
             provider=OpenAIProvider(
                 base_url='https://api.perplexity.ai',
                 api_key=api_key,
             ),
         )
+        # Tag for downstream logging/pricing normalization
+        try:
+            setattr(model, '_serplexity_model_id', 'sonar')
+        except Exception:
+            pass
+        return model
 
 async def main():
     """Main entry point for the website enrichment agent."""
